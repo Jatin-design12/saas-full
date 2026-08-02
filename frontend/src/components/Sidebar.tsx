@@ -361,9 +361,10 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   const active = activePath || pathname;
 
   const [userName, setUserName] = useState('Akash Verma');
-  const [userRole, setUserRole] = useState('Zone Admin');
+  const [userRole, setUserRole] = useState('Super Admin');
   const [userAvatar, setUserAvatar] = useState('');
-  const [rawRole, setRawRole] = useState('');
+  const [rawRole, setRawRole] = useState('super_admin');
+  const [userRoleCode, setUserRoleCode] = useState('super_admin');
   const [permissions, setPermissions] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -371,17 +372,26 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
     const loadSession = () => {
       const name = localStorage.getItem("evegah_user_name");
       const roleVal = localStorage.getItem("evegah_role");
+      const roleNameVal = localStorage.getItem("evegah_user_role_name");
       const avatar = localStorage.getItem("evegah_user_avatar");
       if (name) setUserName(name);
       if (avatar) setUserAvatar(avatar);
       
       if (roleVal) {
         setRawRole(roleVal);
+        setUserRoleCode(roleVal);
       }
       
-      if (roleVal === 'super_admin') setUserRole('Super Admin');
+      if (roleNameVal) {
+        setUserRole(roleNameVal);
+      } else if (roleVal === 'super_admin') setUserRole('Super Admin');
       else if (roleVal === 'admin') setUserRole('Platform Admin');
-      else if (roleVal === 'zone_manager') setUserRole('Zone Admin');
+      else if (roleVal === 'operation_manager') setUserRole('Operation Manager');
+      else if (roleVal === 'zone_manager') setUserRole('Zone Manager');
+      else if (roleVal === 'zone_employee') setUserRole('Zone Employee');
+      else if (roleVal === 'franchise_admin') setUserRole('Franchise Admin');
+      else if (roleVal === 'franchise_zone_manager') setUserRole('Franchise Zone Manager');
+      else if (roleVal === 'franchise_zone_employee') setUserRole('Franchise Zone Employee');
       else if (roleVal === 'first_time_franchise') setUserRole('Koramangala Hub');
       else if (roleVal === 'employee') setUserRole('Zone Employee');
 
@@ -439,23 +449,52 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
     zone: 'Zone Management',
     franchise: 'Franchise',
     settings: 'Settings',
-    usersrole: 'Settings',
-    announcements: 'Dashboard',
-    co2: 'Dashboard'
+    usersrole: 'Users & Roles',
+    announcements: 'Announcements',
+    co2: 'Co2 Saving',
+    attendance: 'Attendance'
   };
 
-  const activeNav = (rawRole === 'super_admin') ? SUPER_ADMIN_NAV : NAV;
+  const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+    super_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
+    platform_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
+    zone_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance'],
+    zone_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance'],
+    operations_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance'],
+    employee: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance'],
+    franchise_manager: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings'],
+    admin: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings'],
+    battery_technician: ['Dashboard', 'Battery', 'IoT Devices', 'Maintenance', 'Alerts'],
+    technician: ['Dashboard', 'Battery', 'IoT Devices', 'Maintenance', 'Alerts'],
+    support_executive: ['Dashboard', 'Registrations', 'Riders', 'Alerts', 'Announcements'],
+    fleet_manager: ['Dashboard', 'Vehicles', 'Maintenance', 'IoT Devices', 'Reports'],
+    field_technician: ['Dashboard', 'Battery', 'Vehicles', 'Maintenance'],
+    finance_manager: ['Dashboard', 'Payments', 'Franchise', 'Reports', 'Settings'],
+    finance: ['Dashboard', 'Payments', 'Franchise', 'Reports', 'Settings'],
+  };
+
+  const isSuperAdmin = rawRole === 'super_admin' || userRole === 'Super Admin';
+  const activeNav = isSuperAdmin ? SUPER_ADMIN_NAV : NAV;
 
   const filteredNav = activeNav.filter(g => {
-    if (rawRole === 'super_admin') return true;
-    if (!permissions) return true;
+    if (isSuperAdmin) return true;
+    if (g.isHeader) return true;
+    
     const permKey = KEY_MAP[g.key];
     if (!permKey) return true;
-    const permObj = permissions[permKey];
-    if (permObj && permObj.access === false) {
-      return false;
+
+    if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0) {
+      const permObj = permissions[permKey];
+      if (permObj && permObj.access === false) {
+        return false;
+      }
+      return true;
     }
-    return true;
+
+    const allowedModules = DEFAULT_ROLE_PERMISSIONS[userRoleCode.toLowerCase()] || 
+                           DEFAULT_ROLE_PERMISSIONS[rawRole.toLowerCase()] || 
+                           ['Dashboard'];
+    return allowedModules.includes(permKey);
   });
 
   // auto-expand group containing active item
@@ -576,6 +615,8 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
             Contact Support
           </button>
         </div>
+
+
 
         {/* User profile */}
         <div className="ev-sb-user">

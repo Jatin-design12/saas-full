@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import RoleGuard from '@/components/RoleGuard';
 
 const CSS = `
 .role-shell { display: flex; min-height: 100vh; background: #fff; font-family: 'Inter', sans-serif; }
@@ -184,13 +185,22 @@ export default function AddRolePage() {
     },
     {
       name: 'Dashboard',
-      desc: 'View dashboards and analytics',
+      desc: 'View dashboards and analytics across platform roles',
       icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
-      expanded: false,
+      expanded: true,
       permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false },
       supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
       subPages: [
-        { name: 'Main Dashboard Summary', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } }
+        { name: 'Super Admin Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Zone Admin Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Operations Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Franchise Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'BMS Battery Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'IoT Devices Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Riders & Renters Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Payments & Revenue Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Maintenance & Service Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Attendance & Shift Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
       ]
     },
     {
@@ -308,7 +318,26 @@ export default function AddRolePage() {
         { name: 'Subscription packages', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: false, view: true, edit: false, delete: false, export: false } },
         { name: 'Expense Transactions logs', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: false, view: true, edit: false, delete: false, export: false } }
       ]
-    }
+    },
+    {
+      name: 'Settings',
+      desc: 'System preferences, Theme, Mobile App, and Notifications config',
+      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+      expanded: false,
+      permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false },
+      supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      subPages: [
+        { name: 'General Settings', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Theme Settings', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Mobile App Settings', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Notification Settings', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Payment Settings', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Document Parameters', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Reserved Rides Config', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Audit Logs', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'White Label Config', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } }
+      ]
+    },
   ]);
 
   // Fetch existing role details if in edit mode
@@ -623,7 +652,7 @@ export default function AddRolePage() {
   );
 
   return (
-    <>
+    <RoleGuard moduleName="Users & Roles">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="role-shell">
         <Sidebar activePath="/users" />
@@ -928,6 +957,6 @@ export default function AddRolePage() {
           </div>
         </div>
       </div>
-    </>
+    </RoleGuard>
   );
 }

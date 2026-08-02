@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import RoleGuard from '@/components/RoleGuard';
 
 function AnimatedCount({ value }: { value: string | number }) {
   const [displayValue, setDisplayValue] = useState<string | number>(value);
@@ -50,71 +51,71 @@ function AnimatedCount({ value }: { value: string | number }) {
 }
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-.usr-shell { display: flex; min-height: 100vh; background: #fff; font-family: 'Inter', sans-serif; }
+.usr-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A; }
 .usr-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
-.usr-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
+.usr-body { padding: 20px 24px 60px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
 
 /* Breadcrumb */
-.usr-bc { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #64748B; font-weight: 500; }
-.usr-bc a { color: #8B5CF6; text-decoration: none; font-weight: 600; transition: color .15s; }
-.usr-bc a:hover { color: #6D28D9; }
-.usr-bc-sep { color: #D8B4FE; font-weight: 600; }
+.usr-bc { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748B; font-weight: 500; }
+.usr-bc a { color: #64748B; text-decoration: none; font-weight: 500; }
+.usr-bc a:hover { color: #6366F1; }
+.usr-bc-sep { color: #CBD5E1; }
 .usr-bc-cur { color: #0F172A; font-weight: 700; }
 
 /* Title row */
 .usr-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin-top: -4px; }
-.usr-h1 { font-size: 24px; font-weight: 800; color: #0F172A; margin: 0; }
-.usr-sub { font-size: 13.5px; color: #64748B; margin-top: 4px; font-weight: 500; }
+.usr-h1 { font-size: 22px; font-weight: 800; color: #0F172A; margin: 0; font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; }
+.usr-sub { font-size: 12.5px; color: #64748B; margin-top: 4px; font-weight: 500; }
 
 /* KPI Stats cards */
 .usr-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 4px; }
-.usr-stat-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
-.usr-stat-ic { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ic-purple { background: #8B5CF6; color: #fff; }
-.ic-green { background: #10B981; color: #fff; }
-.ic-orange { background: #F97316; color: #fff; }
-.ic-blue { background: #3B82F6; color: #fff; }
+.usr-stat-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); transition: all .15s; }
+.usr-stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.04); border-color: #CBD5E1; }
+.usr-stat-ic { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; }
+.ic-purple { background: #EEF2FF; color: #6366F1; }
+.ic-green { background: #ECFDF5; color: #10B981; }
+.ic-orange { background: #FFF7ED; color: #F97316; }
+.ic-blue { background: #EFF6FF; color: #2563EB; }
 
 .usr-stat-info { flex: 1; display: flex; flex-direction: column; }
-.usr-stat-lbl { font-size: 11.5px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.usr-stat-val { font-size: 22px; font-weight: 800; color: #0F172A; line-height: 1.2; margin-top: 2px; }
+.usr-stat-lbl { font-size: 10.5px; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.usr-stat-val { font-size: 24px; font-weight: 800; color: #0F172A; line-height: 1.2; margin-top: 2px; font-family: 'Outfit', sans-serif; }
 .usr-growth { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; margin-top: 4px; }
-.usr-growth.up { color: #16A34A; }
+.usr-growth.up { color: #10B981; }
 .usr-growth.down { color: #EF4444; }
 .usr-growth.neutral { color: #64748B; }
 
 /* Tab Switcher Row */
 .usr-tab-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1.5px solid #E2E8F0; margin-top: 10px; margin-bottom: 4px; }
 .usr-tabs { display: flex; gap: 28px; }
-.usr-tab-btn { padding: 12px 8px; font-size: 14px; font-weight: 700; color: #64748B; border: none; background: none; cursor: pointer; transition: all .15s; border-bottom: 3px solid transparent; margin-bottom: -1.5px; }
-.usr-tab-btn:hover { color: #2a195c; }
-.usr-tab-btn.active { color: #2a195c; border-bottom-color: #2a195c; }
+.usr-tab-btn { padding: 12px 8px; font-size: 13.5px; font-weight: 700; color: #64748B; border: none; background: none; cursor: pointer; transition: all .15s; border-bottom: 3px solid transparent; margin-bottom: -1.5px; }
+.usr-tab-btn:hover { color: #6366F1; }
+.usr-tab-btn.active { color: #6366F1; border-bottom-color: #6366F1; font-weight: 800; }
 
 /* Primary Button */
-.usr-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #2a195c; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; }
-.usr-btn-primary:hover { background: #4338CA; }
+.usr-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: #6366F1; color: #fff; border: none; border-radius: 10px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .15s; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
+.usr-btn-primary:hover { background: #4f46e5; }
 
 /* Filters Panel */
-.usr-filter-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
+.usr-filter-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
 .usr-filter-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: center; }
 .usr-search-wrap { position: relative; display: flex; align-items: center; }
-.usr-search-input { width: 100%; padding: 8px 12px 8px 34px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 13px; outline: none; transition: border-color .15s; }
-.usr-search-input:focus { border-color: #2a195c; }
+.usr-search-input { width: 100%; padding: 8px 12px 8px 34px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; outline: none; transition: border-color .15s; font-weight: 500; }
+.usr-search-input:focus { border-color: #6366F1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 .usr-search-icon { position: absolute; left: 12px; color: #94A3B8; display: flex; align-items: center; }
-.usr-select { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 13px; outline: none; background: #fff; color: #374151; cursor: pointer; font-weight: 500; }
-.usr-select:focus { border-color: #2a195c; }
+.usr-select { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; outline: none; background: #fff; color: #334155; cursor: pointer; font-weight: 600; }
+.usr-select:focus { border-color: #6366F1; }
 .usr-reset-btn { font-size: 12.5px; font-weight: 700; color: #EF4444; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .usr-reset-btn:hover { text-decoration: underline; }
 
 /* Table styling */
 .usr-tcard { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; }
 .usr-dt { width: 100%; border-collapse: collapse; }
-.usr-dt th { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; text-align: left; padding: 12px 18px; background: #FAFBFD; border-bottom: 1.5px solid #E2E8F0; }
-.usr-dt td { padding: 12px 18px; font-size: 13px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
+.usr-dt th { font-size: 9.5px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; text-align: left; padding: 12px 18px; background: #F8FAFC; border-bottom: 1.5px solid #F1F5F9; }
+.usr-dt td { padding: 12px 18px; font-size: 12.5px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
 .usr-dt tr:last-child td { border-bottom: none; }
-.usr-dt tr:hover td { background: #FAFBFD; }
+.usr-dt tr:hover td { background: #F8FAFC; }
 
 .usr-profile-cell { display: flex; align-items: center; gap: 10px; }
 .usr-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
@@ -218,6 +219,14 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
   const [selectedRole, setSelectedRole] = useState('All Roles');
   const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [selectedZone, setSelectedZone] = useState('All Zones');
+
+  const [selectedRoleMatrix, setSelectedRoleMatrix] = useState<any | null>(null);
+  const [isRoleMatrixOpen, setIsRoleMatrixOpen] = useState(false);
+
+  const openRoleMatrixModal = (role: any) => {
+    setSelectedRoleMatrix(role);
+    setIsRoleMatrixOpen(true);
+  };
 
   const fetchUsers = async () => {
     try {
@@ -349,7 +358,7 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
   };
 
   return (
-    <>
+    <RoleGuard moduleName="Users & Roles">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="usr-shell">
         <Sidebar activePath="/users" />
@@ -513,10 +522,13 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                     </select>
                     <select className="usr-select" value={selectedZone} onChange={(e) => setSelectedZone(e.target.value)}>
                       <option value="All Zones">All Zones</option>
-                      <option value="Connaught Place Zone">Connaught Place Zone</option>
-                      <option value="Karol Bagh Zone">Karol Bagh Zone</option>
-                      <option value="Janakpuri Zone">Janakpuri Zone</option>
-                      <option value="Dwarka Zone">Dwarka Zone</option>
+                      <option value="Gotri Zone">Gotri Zone</option>
+                      <option value="Lekki Phase 1">Lekki Phase 1</option>
+                      <option value="Vadodara Main Zone">Vadodara Main Zone</option>
+                      <option value="Alkapuri Zone">Alkapuri Zone</option>
+                      <option value="Subhanpura Zone">Subhanpura Zone</option>
+                      <option value="Akota Zone">Akota Zone</option>
+                      <option value="Daman Zone">Daman Zone</option>
                       <option value="Multiple Zones">Multiple Zones</option>
                     </select>
                     <div>
@@ -728,10 +740,10 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                               <td style={{ fontWeight: '500', color: '#334155' }}>{lastUpdatedText}</td>
                               <td>
                                 <div className="usr-act-btn-group">
-                                  <button className="usr-act-btn" title="View details" onClick={() => router.push(`/users/detail?id=USR-002&tab=Permissions`)}>
+                                  <button className="usr-act-btn" title="View & Edit Role Permissions" onClick={() => openRoleMatrixModal(r)}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                   </button>
-                                  <button className="usr-act-btn" title="Edit permissions" onClick={() => router.push(`/roles/add?edit=${r.id}`)}>
+                                  <button className="usr-act-btn" title="Edit permissions matrix" onClick={() => openRoleMatrixModal(r)}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   </button>
                                   <button className="usr-act-btn" title="Delete role" onClick={() => handleDeleteRole(r.id, r.name)}>
@@ -765,7 +777,75 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
           </div>
         </div>
 
+      {/* ROLE PERMISSIONS & MODULE ACCESS MATRIX MODAL */}
+      {isRoleMatrixOpen && selectedRoleMatrix && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', backdropFilter: 'blur(2px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', width: '100%', maxWidth: '780px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1.5px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A' }}>🛡️ Role Permissions Matrix — {selectedRoleMatrix.name}</span>
+                <span style={{ marginLeft: '10px', fontSize: '11px', background: '#EEF2FF', color: '#6366F1', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+                  {selectedRoleMatrix.code || 'ROLE'}
+                </span>
+              </div>
+              <button style={{ border: 'none', background: 'none', fontSize: '20px', color: '#94A3B8', cursor: 'pointer' }} onClick={() => { setIsRoleMatrixOpen(false); setSelectedRoleMatrix(null); }}>&times;</button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px 16px', fontSize: '12.5px', color: '#475569' }}>
+                <strong>Role Description:</strong> {selectedRoleMatrix.description || 'Configured access template.'}
+              </div>
+
+              {/* Module Access Matrix Table */}
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                  <thead>
+                    <tr style={{ background: '#FAFBFD', borderBottom: '1px solid #E2E8F0' }}>
+                      <th style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '10px 14px', textAlign: 'left' }}>Module Name</th>
+                      <th style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '10px 14px', textAlign: 'center' }}>View</th>
+                      <th style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '10px 14px', textAlign: 'center' }}>Create</th>
+                      <th style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '10px 14px', textAlign: 'center' }}>Edit</th>
+                      <th style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', color: '#64748B', padding: '10px 14px', textAlign: 'center' }}>Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      'Vehicles Catalog & Active Rides',
+                      'Riders & Reserved Rides',
+                      'Zone Management & Pricing',
+                      'Battery Inventory & BMS',
+                      'Fleet Maintenance & Logs',
+                      'Users & System Roles',
+                      'Financials & Earnings',
+                      'Analytics & Reports',
+                      'System Alerts Telemetry',
+                      'Announcements'
+                    ].map((mod, idx) => {
+                      const isFullAdmin = selectedRoleMatrix.code === 'SUPER_ADMIN' || selectedRoleMatrix.code === 'ADMIN';
+                      return (
+                        <tr key={mod} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '10px 14px', fontWeight: '700', color: '#0F172A' }}>{mod}</td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={true} disabled={isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isFullAdmin || idx % 2 === 0} disabled={isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isFullAdmin || idx < 5} disabled={isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isFullAdmin} disabled={isFullAdmin} /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 20px', borderTop: '1.5px solid #F1F5F9', background: '#FAFBFD', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button className="usr-btn-outline" onClick={() => { setIsRoleMatrixOpen(false); setSelectedRoleMatrix(null); }}>Cancel</button>
+              <button className="usr-btn-primary" onClick={() => { alert(`Permissions updated for role ${selectedRoleMatrix.name}!`); setIsRoleMatrixOpen(false); setSelectedRoleMatrix(null); }}>Save Role Matrix</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
-    </>
+    </RoleGuard>
   );
 }

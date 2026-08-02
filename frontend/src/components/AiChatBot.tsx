@@ -6,9 +6,9 @@ const CSS = `
   from { transform: scale(0.85) translateY(8px); opacity: 0; }
   to { transform: scale(1) translateY(0); opacity: 1; }
 }
-.ai-chat-fab { position: fixed; bottom: 24px; right: 24px; background: linear-gradient(135deg, #2a195c 0%, #6366f1 100%); color: #fff; border: none; border-radius: 30px; padding: 12px 20px; font-size: 12.5px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 25px rgba(99,102,241,0.4); z-index: 9999; display: flex; align-items: center; gap: 8px; transition: all 0.2s cubic-bezier(0.4,0,0.2,1); font-family: 'Inter', sans-serif; }
-.ai-chat-fab:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 15px 30px rgba(99,102,241,0.5); }
-.ai-chat-panel { position: fixed; bottom: 84px; right: 24px; background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.04); z-index: 9999; width: 360px; height: 500px; display: flex; flex-direction: column; overflow: hidden; animation: aiScaleIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards; font-family: 'Inter', sans-serif; }
+.ai-chat-fab { position: fixed; bottom: 28px; right: 28px; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #2a195c 0%, #6366f1 100%); color: #fff; border: none; font-size: 12.5px; font-weight: 800; cursor: pointer; box-shadow: 0 8px 24px rgba(99,102,241,0.45); z-index: 990; display: flex; align-items: center; justify-content: center; transition: all 0.2s cubic-bezier(0.4,0,0.2,1); font-family: 'Inter', sans-serif; }
+.ai-chat-fab:hover { transform: scale(1.08) translateY(-3px); box-shadow: 0 12px 28px rgba(99,102,241,0.55); }
+.ai-chat-panel { position: fixed; bottom: 90px; right: 28px; background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.04); z-index: 990; width: 360px; height: 500px; display: flex; flex-direction: column; overflow: hidden; animation: aiScaleIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards; font-family: 'Inter', sans-serif; }
 .ai-chat-header { background: linear-gradient(135deg, #2a195c 0%, #3b2080 100%); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
 .ai-chat-title { font-size: 13.5px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 6px; }
 .ai-chat-actions { display: flex; align-items: center; gap: 8px; }
@@ -61,41 +61,25 @@ export default function AiChatBot() {
     localStorage.setItem('evegah_gemini_key', val);
   };
 
-  const sendMessage = async (customPrompt?: string) => {
-    const text = customPrompt || chatInput;
-    if (!text.trim() || isSending) return;
-    if (!customPrompt) setChatInput('');
+  const sendMessage = async (preset?: string) => {
+    const textToSend = preset || chatInput;
+    if (!textToSend.trim()) return;
 
-    // Warn if no API key before hitting the network
-    if (!geminiKey) {
-      setMessages(prev => [
-        ...prev,
-        { role: 'user', text },
-        { role: 'bot', text: '⚠️ Please set your Gemini API key first — click the ⚙ gear icon in the header and paste your key from aistudio.google.com', isError: true }
-      ]);
-      return;
-    }
-
-    setMessages(prev => [...prev, { role: 'user', text }]);
+    setMessages(prev => [...prev, { role: 'user', text: textToSend }]);
+    if (!preset) setChatInput('');
     setIsSending(true);
 
     try {
-      // Use raw fetch so we can read the body even on non-2xx responses
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${baseUrl}/ai/automate`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text, geminiKey })
+        body: JSON.stringify({ message: textToSend, apiKey: geminiKey })
       });
 
-      let data: any = {};
-      try { data = await res.json(); } catch (_) {}
-
-      if (res.ok && data.status === 'success') {
-        setMessages(prev => [...prev, { role: 'bot', text: data.reply || data.executionDetail || 'Done!' }]);
-        if (data.intent && data.intent !== 'CHITCHAT') {
-          setTimeout(() => window.location.reload(), 2200);
-        }
+      const data = await res.json();
+      if (res.ok && data.response) {
+        setMessages(prev => [...prev, { role: 'bot', text: data.response }]);
       } else {
         const errText = data.message || data.error || `Error ${res.status}: AI request failed. Check your API key.`;
         setMessages(prev => [...prev, { role: 'bot', text: errText, isError: true }]);
@@ -114,12 +98,11 @@ export default function AiChatBot() {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      {/* Floating Button */}
-      <button className="ai-chat-fab" onClick={() => setShowChat(v => !v)} id="evegah-ai-fab">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      {/* Sleek Round Shape Floating Button */}
+      <button className="ai-chat-fab" onClick={() => setShowChat(v => !v)} id="evegah-ai-fab" title="Ask Evegah AI Automator">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
-        Ask Evegah AI
       </button>
 
       {/* Chat Panel */}

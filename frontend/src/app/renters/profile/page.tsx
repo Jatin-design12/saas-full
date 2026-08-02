@@ -67,7 +67,7 @@ const CSS = `
 .rp-summary-lbl { font-size: 10.5px; color: #64748B; font-weight: 500; }
 .rp-summary-num { font-size: 13.5px; font-weight: 800; color: #0F172A; line-height: 1.1; }
 .rp-summary-pct { font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; margin-top: 2px; }
-.rp-summary-pct.green { background: #10B981; color: #fff; }
+.rp-summary-pct.green {  color: #23cc1e; }
 
 /* Radial progress chart details */
 .rp-radial-box { display: flex; align-items: center; gap: 16px; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 12px 16px; background: #FAFBFD; height: 100%; justify-content: space-between; }
@@ -307,8 +307,15 @@ const INITIAL_INCIDENTS: IncidentItem[] = [
 function RiderProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const riderId = searchParams.get('id') || 'RID-2024-000578';
+  const riderId = searchParams.get('id') || 'RID-2026-001';
   const initialTab = searchParams.get('tab') || 'Overview';
+  const riderName = searchParams.get('name') || 'Rohit Sharma';
+  const riderMobile = searchParams.get('mobile') || '+91 98765 43210';
+  const riderVehicle = searchParams.get('vehicle') || 'EVM1024001';
+  const riderBattery = searchParams.get('battery') || 'BAT-GOTRI-01';
+  const riderStatus = searchParams.get('status') || 'Active Ride';
+  const riderZone = searchParams.get('zone') || 'Aatapi Zone';
+  const riderEmail = `${riderName.toLowerCase().replace(/\s+/g, '.')}@evegah.com`;
 
   // State management
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -600,21 +607,21 @@ function RiderProfileContent() {
               {/* Left Column: Profile Avatar + Core ID info */}
               <div className="rp-profile-left">
                 <div className="rp-avatar-circle">
-                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt="Rahul Kumar" />
+                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt={riderName} />
                 </div>
                 <div className="rp-profile-details">
                   <div className="rp-profile-name-row">
-                    <span className="rp-profile-name">Rahul Kumar</span>
-                    <span className="badge-active">Active</span>
+                    <span className="rp-profile-name">{riderName}</span>
+                    <span className="badge-active">{riderStatus}</span>
                   </div>
-                  <div className="rp-profile-id">RID-2024-000578</div>
+                  <div className="rp-profile-id">{riderId}</div>
                   <div className="rp-profile-meta-line" style={{ marginTop: '2px' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    <span>+91 98765 43210</span>
+                    <span>{riderMobile}</span>
                   </div>
                   <div className="rp-profile-meta-line">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                    <span>rahul.kumar@evegah.com</span>
+                    <span>{riderEmail}</span>
                   </div>
                 </div>
               </div>
@@ -678,7 +685,7 @@ function RiderProfileContent() {
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Address</div>
-                      <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>Near Milan Cinema, Connaught Place, New Delhi - 110001</div>
+                      <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>Station Road, {riderZone}, Vadodara</div>
                     </div>
                   </div>
                 </div>
@@ -933,7 +940,7 @@ function RiderProfileContent() {
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Current Zone</span>
-                      <span className="rp-info-val">Connaught Place</span>
+                      <span className="rp-info-val">{riderZone}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Duty Hours (Today)</span>
@@ -957,11 +964,11 @@ function RiderProfileContent() {
                     <div className="rp-assignment-details">
                       <div>
                         <div className="rp-mid-lbl">Vehicle</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>EV-12KA-1234</div>
+                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{riderVehicle}</div>
                       </div>
                       <div>
                         <div className="rp-mid-lbl">Battery</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>BAT-450X- <span style={{ color: '#16A34A' }}>78%</span></div>
+                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{riderBattery} - <span style={{ color: '#16A34A' }}>78%</span></div>
                       </div>
                     </div>
                   </div>
@@ -972,7 +979,7 @@ function RiderProfileContent() {
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Current Zone</span>
-                      <span className="rp-info-val">Connaught Place</span>
+                      <span className="rp-info-val">{riderZone}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Deliveries Completed</span>

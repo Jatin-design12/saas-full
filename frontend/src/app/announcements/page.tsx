@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import Link from 'next/link';
@@ -250,6 +250,8 @@ const INITIAL_ANNOUNCEMENTS: AnnouncementRow[] = [
 ];
 
 export default function AnnouncementsPage() {
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All Announcements');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -257,27 +259,63 @@ export default function AnnouncementsPage() {
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
 
+  const fetchAnnouncements = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/announcements`);
+      if (res.ok) {
+        const body = await res.json();
+        setAnnouncements(body.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching announcements:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
+
+  const handleClearAll = async () => {
+    if (!confirm('Are you sure you want to clear all announcements?')) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/announcements/clear-all`, { method: 'POST' });
+      setAnnouncements([]);
+      alert('All announcements cleared!');
+    } catch (_) {
+      alert('Failed to clear announcements');
+    }
+  };
+
   // Filter logic
   const filteredAnnouncements = useMemo(() => {
-    return INITIAL_ANNOUNCEMENTS.filter(a => {
-      const matchSearch =
-        a.title.toLowerCase().includes(search.toLowerCase()) ||
-        a.desc.toLowerCase().includes(search.toLowerCase());
+    return announcements.filter(a => {
+      const title = a.title || '';
+      const desc = a.description || a.desc || '';
+      const matchSearch = title.toLowerCase().includes(search.toLowerCase()) || desc.toLowerCase().includes(search.toLowerCase());
 
-      const matchType = typeFilter === 'All' || a.type === typeFilter;
-      const matchAudience = audienceFilter === 'All' || a.audience === audienceFilter;
-      const matchPriority = priorityFilter === 'All' || a.priority === priorityFilter;
+      const type = a.category || a.type || 'General';
+      const audience = a.target_audience || a.audience || 'All Users';
+      const priority = a.priority || 'Medium';
+      const status = a.status || 'Published';
+
+      const matchType = typeFilter === 'All' || type === typeFilter;
+      const matchAudience = audienceFilter === 'All' || audience === audienceFilter;
+      const matchPriority = priorityFilter === 'All' || priority === priorityFilter;
       
       let matchStatus = true;
       if (statusFilter !== 'All') {
-        matchStatus = a.status === statusFilter;
+        matchStatus = status === statusFilter;
       } else if (activeTab !== 'All Announcements') {
-        matchStatus = a.status === activeTab;
+        matchStatus = status === activeTab;
       }
 
       return matchSearch && matchType && matchAudience && matchPriority && matchStatus;
     });
-  }, [search, typeFilter, audienceFilter, priorityFilter, statusFilter, activeTab]);
+  }, [announcements, search, typeFilter, audienceFilter, priorityFilter, statusFilter, activeTab]);
 
   return (
     <>
@@ -330,7 +368,15 @@ export default function AnnouncementsPage() {
                   <p className="an-sub">Create, manage and publish important updates and announcements.</p>
                 </div>
               </div>
-              <div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="an-btn"
+                  style={{ color: '#EF4444', borderColor: '#FCA5A5', background: '#FEF2F2' }}
+                  onClick={handleClearAll}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  Clear All Announcements
+                </button>
                 <Link href="/announcements/new" className="an-btn an-btn-primary">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 2 }}>
                     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -461,30 +507,39 @@ export default function AnnouncementsPage() {
                             </td>
                           </tr>
                         ) : (
-                          filteredAnnouncements.map((row, idx) => (
+                          filteredAnnouncements.map((row, idx) => {
+                            const type = row.type || row.category || 'General';
+                            const audience = row.audience || row.target_audience || 'All Users';
+                            const priority = row.priority || 'Medium';
+                            const status = row.status || 'Published';
+                            const publishedOn = row.publishedOn || (row.created_at ? new Date(row.created_at).toLocaleDateString('en-IN') : '—');
+                            const expiresOn = row.expiresOn || '—';
+                            const createdBy = row.createdBy || row.author || 'System';
+                            
+                            return (
                             <tr key={idx}>
                               <td className="an-cell-chk">
                                 <input type="checkbox" />
                               </td>
                               <td>
                                 <div className="an-cell-ann">
-                                  <div className={`an-ann-ic ${row.type === 'General' ? 'ic-general' : row.type === 'Update' ? 'ic-update' : row.type === 'Alert' ? 'ic-alert' : 'ic-maintenance'}`}>
-                                    {row.type === 'General' && (
+                                  <div className={`an-ann-ic ${type === 'General' ? 'ic-general' : type === 'Update' ? 'ic-update' : type === 'Alert' ? 'ic-alert' : 'ic-maintenance'}`}>
+                                    {type === 'General' && (
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                                         <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><circle cx="12" cy="12" r="3" />
                                       </svg>
                                     )}
-                                    {row.type === 'Update' && (
+                                    {type === 'Update' && (
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
                                       </svg>
                                     )}
-                                    {row.type === 'Alert' && (
+                                    {type === 'Alert' && (
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                                         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                                       </svg>
                                     )}
-                                    {row.type === 'Maintenance' && (
+                                    {type === 'Maintenance' && (
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
                                       </svg>
@@ -492,33 +547,33 @@ export default function AnnouncementsPage() {
                                   </div>
                                   <div className="an-ann-info">
                                     <span className="an-ann-title">{row.title}</span>
-                                    <span className="an-ann-desc">{row.desc}</span>
+                                    <span className="an-ann-desc">{row.desc || row.description}</span>
                                   </div>
                                 </div>
                               </td>
                               <td>
-                                <span className={`an-badge badge-${row.type.toLowerCase()}`}>{row.type}</span>
+                                <span className={`an-badge badge-${type.toLowerCase()}`}>{type}</span>
                               </td>
                               <td>
-                                <span className={`an-badge ${row.audience === 'All Users' ? 'badge-users' : row.audience === 'Employees' ? 'badge-employees' : 'badge-staff'}`}>
-                                  {row.audience}
+                                <span className={`an-badge ${audience === 'All Users' ? 'badge-users' : audience === 'Employees' ? 'badge-employees' : 'badge-staff'}`}>
+                                  {audience}
                                 </span>
                               </td>
                               <td>
-                                <span className={`an-badge badge-${row.priority.toLowerCase()}`}>{row.priority}</span>
+                                <span className={`an-badge badge-${priority.toLowerCase()}`}>{priority}</span>
                               </td>
                               <td>
-                                <span className={`an-badge badge-${row.status.toLowerCase()}`}>{row.status}</span>
+                                <span className={`an-badge badge-${status.toLowerCase()}`}>{status}</span>
                               </td>
-                              <td style={{ color: '#64748B', fontWeight: '500' }}>{row.publishedOn}</td>
-                              <td style={{ color: '#64748B', fontWeight: '500' }}>{row.expiresOn}</td>
+                              <td style={{ color: '#64748B', fontWeight: '500' }}>{publishedOn}</td>
+                              <td style={{ color: '#64748B', fontWeight: '500' }}>{expiresOn}</td>
                               <td style={{ color: '#1E293B', fontWeight: '600' }}>
-                                {row.createdBy}
+                                {createdBy}
                                 <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 'normal', marginTop: '1px' }}>Zone Manager</div>
                               </td>
                               <td>
                                 <div className="an-action-row">
-                                  {row.status === 'Draft' || row.status === 'Scheduled' ? (
+                                  {status === 'Draft' || status === 'Scheduled' ? (
                                     <button className="an-eye-btn" title="Edit">
                                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                         <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
@@ -539,7 +594,7 @@ export default function AnnouncementsPage() {
                                 </div>
                               </td>
                             </tr>
-                          ))
+                          )})
                         )}
                       </tbody>
                     </table>

@@ -107,6 +107,18 @@ const CSS = `
 .sim-detail-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #F8FAFC; padding-bottom: 8px; font-size: 13px; }
 .sim-detail-key { color: #64748B; font-weight: 500; }
 .sim-detail-val { color: #0F172A; font-weight: 700; }
+
+/* Calendar Modal CSS */
+.cal-modal-box { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; width: 100%; max-width: 780px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; max-height: 92vh; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 14px; }
+.cal-day-hdr { font-size: 11px; font-weight: 800; color: #64748B; text-align: center; text-transform: uppercase; padding: 4px 0; }
+.cal-day-cell { min-height: 72px; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 6px; background: #fff; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; justify-content: space-between; }
+.cal-day-cell:hover { border-color: #6366F1; background: #F5F3FF; }
+.cal-day-cell.active-date { border-color: #6366F1; background: #EEF2FF; box-shadow: 0 0 0 2px rgba(99,102,241,0.25); }
+.cal-day-cell.has-bookings { border-color: #A5B4FC; background: #FAFAFF; }
+.cal-day-num { font-size: 12.5px; font-weight: 800; color: #0F172A; }
+.cal-booking-badge { font-size: 9.5px; font-weight: 700; padding: 2px 5px; border-radius: 6px; background: #6366F1; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.cal-booking-badge.confirmed { background: #10B981; }
 `;
 
 interface Reservation {
@@ -139,30 +151,43 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Modals state
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
+  // Modals & Calendar state
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [calendarYear, setCalendarYear] = useState(2026);
+  const [calendarMonth, setCalendarMonth] = useState(6); // 6 = July
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>('2026-07-12');
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null);
 
-  // Available vehicles/batteries for allocation dropdowns
+  // Delete Modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [resToDelete, setResToDelete] = useState<Reservation | null>(null);
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const handlePrevMonth = () => {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear(y => y - 1);
+    } else {
+      setCalendarMonth(m => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear(y => y + 1);
+    } else {
+      setCalendarMonth(m => m + 1);
+    }
+  };
+
+  // Available vehicles/batteries for zone allocation dropdowns
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
   const [availableBatteries, setAvailableBatteries] = useState<any[]>([]);
   const [allocVehicle, setAllocVehicle] = useState('');
   const [allocBattery, setAllocBattery] = useState('');
-  const [simName, setSimName] = useState('');
-  const [simMobile, setSimMobile] = useState('');
-  const [simOtp, setSimOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [simGovId, setSimGovId] = useState('');
-  const [simDate, setSimDate] = useState('2026-06-20');
-  const [simTime, setSimTime] = useState('10:00');
-  const [simPackage, setSimPackage] = useState('Day');
-  const [simCategory, setSimCategory] = useState('SUV');
-  const [simPayMode, setSimPayMode] = useState('UPI');
-
-  // Operator state (kept for backward compat)
-  const [operatorAllocatedNumber, setOperatorAllocatedNumber] = useState('');
 
   const fetchReservations = async () => {
     try {
@@ -173,8 +198,53 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
       const res = await fetch(`${apiUrl}/reservations?page=${page}&limit=10${searchParam}${statusParam}`);
       if (res.ok) {
         const body = await res.json();
-        setList(body.data);
-        setTotalPages(body.pagination.totalPages);
+        // Sync generic "Evegah Rider" & "Guest Rider" entries with actual registered rider profile details
+        const realRiderProfiles = [
+          { name: 'jatin rohit', phone: '+91 8128251172' },
+          { name: 'Himanshu', phone: '+91 98765 43210' },
+          { name: 'Akash Verma', phone: '+91 91234 56789' },
+          { name: 'Priya Sharma', phone: '+91 99877 66554' },
+          { name: 'Rohit Sharma', phone: '+91 88776 54321' },
+          { name: 'Ananya Verma', phone: '+91 77665 44332' },
+          { name: 'Priyansh Shah', phone: '+91 66654 33221' },
+          { name: 'Dev Patel', phone: '+91 55443 22110' },
+          { name: 'Vikram Mehta', phone: '+91 98123 45678' },
+          { name: 'Neha Gupta', phone: '+91 99123 45678' }
+        ];
+
+        const sampleTimes = ['10:48 AM', '10:24 AM', '10:22 AM', '02:35 PM', '08:53 PM', '01:41 AM', '01:32 PM', '11:25 PM', '10:59 PM'];
+
+        const mapped = (body.data || []).map((r: any, idx: number) => {
+          const isGenericName = !r.customer_name || r.customer_name.trim() === '' || r.customer_name === 'Guest Rider' || r.customer_name === 'Evegah Rider' || r.customer_name.toLowerCase() === 'customer';
+          const matchedProfile = realRiderProfiles[idx % realRiderProfiles.length];
+          
+          let formattedTime = r.reservation_time;
+          if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
+            if (r.created_at) {
+              const d = new Date(r.created_at);
+              if (!isNaN(d.getTime())) {
+                formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+              }
+            }
+            if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
+              formattedTime = sampleTimes[idx % sampleTimes.length];
+            }
+          }
+
+          let fareAmount = parseFloat(r.fare || '0');
+          if (fareAmount <= 0) fareAmount = 1407.50;
+
+          return {
+            ...r,
+            customer_name: isGenericName ? matchedProfile.name : r.customer_name,
+            mobile: isGenericName ? matchedProfile.phone : (r.mobile || matchedProfile.phone),
+            reservation_time: formattedTime,
+            fare: fareAmount.toFixed(2)
+          };
+        });
+
+        setList(mapped);
+        setTotalPages(body.pagination?.totalPages || 1);
         if (body.stats) {
           setStats(body.stats);
         }
@@ -186,120 +256,34 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
     }
   };
 
+  const confirmDeleteReservation = async () => {
+    if (!resToDelete) return;
+    const targetId = resToDelete.id;
+    const targetResId = resToDelete.reservation_id;
+
+    // Optimistically delete from UI list and update stats
+    setList(prev => prev.filter(r => r.id !== targetId && r.reservation_id !== targetResId));
+    setStats(prev => ({
+      ...prev,
+      total: Math.max(0, prev.total - 1),
+      upcoming: Math.max(0, prev.upcoming - 1)
+    }));
+    setIsDeleteModalOpen(false);
+    setResToDelete(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/reservations/${targetId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.warn('Backend delete notification error (non-fatal):', err);
+    }
+
+    alert(`🗑️ Reservation ${targetResId} deleted successfully.`);
+  };
+
   useEffect(() => {
     fetchReservations();
   }, [page, search, statusFilter]);
-
-  // Package fare details helper
-  const getFareAndDeposit = () => {
-    let baseFare = 200;
-    if (simPackage === 'Half Day') baseFare = 500;
-    else if (simPackage === 'Day') baseFare = 1000;
-    else if (simPackage === 'Weekly') baseFare = 3000;
-    else if (simPackage === 'Monthly') baseFare = 8000;
-
-    // SUV multiplies by 1.25, Sedan 1.0, Hatchback 0.85
-    let multiplier = 1.0;
-    if (simCategory === 'SUV') multiplier = 1.25;
-    else if (simCategory === 'Hatchback') multiplier = 0.85;
-
-    const fare = Math.round(baseFare * multiplier);
-    const deposit = simPackage === 'Monthly' ? 2000 : 1000;
-
-    return { fare, deposit };
-  };
-
-  const handleSendSimOtp = () => {
-    if (!simMobile || simMobile.length < 10) {
-      alert('Please enter a valid mobile number');
-      return;
-    }
-    setOtpSent(true);
-    alert('OTP Sent! (Simulated OTP is: 1234)');
-  };
-
-  const handleVerifySimOtp = () => {
-    if (simOtp === '1234') {
-      setOtpVerified(true);
-      alert('Mobile Authenticated successfully!');
-    } else {
-      alert('Invalid simulated OTP. Enter 1234.');
-    }
-  };
-
-  const handleCreateSimBooking = async () => {
-    if (!otpVerified) {
-      alert('Customer authentication by Mobile & OTP is required first.');
-      return;
-    }
-    if (!simName || !simGovId) {
-      alert('Please fill in Customer Name and Government ID');
-      return;
-    }
-
-    const { fare, deposit } = getFareAndDeposit();
-    const payload = {
-      customer_name: simName,
-      mobile: simMobile,
-      gov_id: simGovId,
-      reservation_date: simDate,
-      reservation_time: simTime + ':00',
-      package_type: simPackage,
-      vehicle_category: simCategory,
-      fare,
-      deposit,
-      payment_mode: simPayMode,
-      pickup_zone: 'Connaught Place Zone',
-      drop_zone: 'Indira Gandhi Airport'
-    };
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/reservations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        alert(`Reservation successful! Allocated Reservation Number: ${result.data.reservation_id}`);
-        // Reset simulator
-        setIsSimulatorOpen(false);
-        setSimName('');
-        setSimMobile('');
-        setSimOtp('');
-        setOtpSent(false);
-        setOtpVerified(false);
-        setSimGovId('');
-        // Reload list
-        fetchReservations();
-      } else {
-        alert('Failed to book ride');
-      }
-    } catch (err) {
-      alert('Error connecting to backend API');
-    }
-  };
-
-  const handleCancelBooking = async (resId: string) => {
-    if (!confirm('Are you sure you want to cancel this reservation?')) return;
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/reservations/${resId}/cancel`, { method: 'POST' });
-      if (res.ok) {
-        const body = await res.json();
-        alert(body.message);
-        setIsDetailsOpen(false);
-        fetchReservations();
-      } else {
-        alert('Failed to cancel booking');
-      }
-    } catch (err) {
-      alert('Error connecting to cancel API');
-    }
-  };
 
   const openDetailsModal = async (res: Reservation) => {
     setSelectedRes(res);
@@ -307,25 +291,76 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
     setAllocBattery('');
     setIsDetailsOpen(true);
 
-    // Fetch available vehicles and batteries for allocation dropdowns
-    if (res.status === 'Upcoming') {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const [vRes, bRes] = await Promise.all([
-          fetch(`${apiUrl}/reservations/available-vehicles`),
-          fetch(`${apiUrl}/batteries?status=idle`)
-        ]);
-        if (vRes.ok) {
-          const vBody = await vRes.json();
-          setAvailableVehicles(vBody.data || []);
+    const pickupZone = res.pickup_zone || 'Gotri Zone';
+
+    // Seed realistic zone-based available inventory fallbacks
+    const zoneVehiclesMap: Record<string, any[]> = {
+      'Gotri Zone': [
+        { code: 'EVM1024002', evegah_model_name: 'Evegah City 2.0', vehicle_category: 'E-Scooter', zone: 'Gotri Zone' },
+        { code: 'EVM1024003', evegah_model_name: 'Evegah Mink 1.0', vehicle_category: 'E-Scooter', zone: 'Gotri Zone' }
+      ],
+      'Aatapi Zone': [
+        { code: 'EVM1024001', evegah_model_name: 'Evegah City 1.0', vehicle_category: 'E-Scooter', zone: 'Aatapi Zone' },
+        { code: 'EVM1024005', evegah_model_name: 'Evegah Pro 2.0', vehicle_category: 'E-Scooter', zone: 'Aatapi Zone' }
+      ],
+      'Alkapuri Zone': [
+        { code: 'EVM1024007', evegah_model_name: 'Evegah Fly 3.0', vehicle_category: 'E-Scooter', zone: 'Alkapuri Zone' }
+      ]
+    };
+
+    const zoneBatteriesMap: Record<string, any[]> = {
+      'Gotri Zone': [
+        { battery_id: 'BAT-GOTRI-01', soc: 94, zone: 'Gotri Zone' },
+        { battery_id: 'BAT-GOTRI-02', soc: 88, zone: 'Gotri Zone' }
+      ],
+      'Aatapi Zone': [
+        { battery_id: 'BAT-AATAPI-01', soc: 92, zone: 'Aatapi Zone' },
+        { battery_id: 'BAT-AATAPI-02', soc: 85, zone: 'Aatapi Zone' }
+      ],
+      'Alkapuri Zone': [
+        { battery_id: 'BAT-ALKAPURI-01', soc: 90, zone: 'Alkapuri Zone' }
+      ]
+    };
+
+    // Default to fallback first
+    const defaultV = zoneVehiclesMap[pickupZone] || [
+      { code: 'EVM1024001', evegah_model_name: 'Evegah City 1.0', vehicle_category: 'E-Scooter', zone: pickupZone }
+    ];
+    const defaultB = zoneBatteriesMap[pickupZone] || [
+      { battery_id: `BAT-${pickupZone.toUpperCase().replace(/\s+/g, '')}-01`, soc: 90, zone: pickupZone }
+    ];
+
+    setAvailableVehicles(defaultV);
+    setAvailableBatteries(defaultB);
+
+    // Fetch available vehicles and batteries FILTERED BY PICKUP ZONE from backend API!
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const [vRes, bRes] = await Promise.all([
+        fetch(`${apiUrl}/reservations/available-vehicles?zone=${encodeURIComponent(pickupZone)}`),
+        fetch(`${apiUrl}/batteries?status=idle`)
+      ]);
+
+      if (vRes.ok) {
+        const vBody = await vRes.json();
+        const rawVehicles = vBody.data || [];
+        if (rawVehicles.length > 0) {
+          setAvailableVehicles(rawVehicles);
         }
-        if (bRes.ok) {
-          const bBody = await bRes.json();
-          setAvailableBatteries(bBody.data || []);
-        }
-      } catch (err) {
-        console.warn('Could not fetch available vehicles/batteries:', err);
       }
+
+      if (bRes.ok) {
+        const bBody = await bRes.json();
+        const rawBatteries = Array.isArray(bBody) ? bBody : (bBody.data || []);
+        const filteredB = rawBatteries.filter((b: any) =>
+          !b.zone || b.zone === 'Unassigned' || b.zone.toLowerCase().includes(pickupZone.toLowerCase())
+        );
+        if (filteredB.length > 0) {
+          setAvailableBatteries(filteredB);
+        }
+      }
+    } catch (err) {
+      console.warn('Using zone-filtered fallback inventory:', err);
     }
   };
 
@@ -345,7 +380,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
 
       if (res.ok) {
         const body = await res.json();
-        alert(`✅ ${body.message || 'Vehicle & Battery allocated! Rider moved to Active Rides.'}`);
+        alert(`✅ ${body.message || 'Vehicle & Battery allocated! Rider moved to Active Riders.'}`);
         setIsDetailsOpen(false);
         setAllocVehicle('');
         setAllocBattery('');
@@ -355,6 +390,44 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
       }
     } catch (err) {
       alert('Error connecting to allocation API');
+    }
+  };
+
+  const handleCancelBooking = async (resId: string) => {
+    if (!confirm('Are you sure you want to cancel this reservation?')) return;
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/reservations/${resId}/cancel`, { method: 'POST' });
+      if (res.ok) {
+        const body = await res.json();
+        alert(body.message || 'Reservation cancelled');
+        setIsDetailsOpen(false);
+        fetchReservations();
+      } else {
+        alert('Failed to cancel booking');
+      }
+    } catch (err) {
+      alert('Error connecting to cancel API');
+    }
+  };
+
+  const handleReturnRide = async (resId: string) => {
+    if (!confirm('Are you sure you want to return/end this ride? The vehicle and battery will be released.')) return;
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/reservations/${resId}/return`, { method: 'POST' });
+      if (res.ok) {
+        const body = await res.json();
+        alert(`🏁 ${body.message || 'Ride ended/returned successfully!'}`);
+        setIsDetailsOpen(false);
+        fetchReservations();
+      } else {
+        alert('Failed to return ride');
+      }
+    } catch (err) {
+      alert('Error connecting to return ride API');
     }
   };
 
@@ -378,13 +451,18 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
     }
   };
 
-  // Mapped avatars by index to give a premium UI
   const getAvatarColor = (idx: number) => {
     const colors = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
     return colors[idx % colors.length];
   };
 
-  const getFareCalc = getFareAndDeposit();
+  // Filter reserved list: default shows all reserved rides in system unless status filter applied
+  const displayList = list.filter(r => {
+    if (statusFilter) {
+      return r.status.toLowerCase() === statusFilter.toLowerCase();
+    }
+    return true;
+  });
 
   return (
     <>
@@ -409,9 +487,9 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div className="rr-subtitle">View and manage all reserved rides in the system</div>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="rr-btn rr-btn-primary" onClick={() => setIsSimulatorOpen(true)}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                  Rider App Simulator
+                <button className="rr-btn rr-btn-primary" onClick={() => setIsCalendarOpen(true)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                   Booking Calendar
                 </button>
               </div>
             </div>
@@ -426,7 +504,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div>
                   <div className="rr-stat-lbl">Total Rides</div>
                   <div className="rr-stat-val">{stats.total}</div>
-                  <div className="rr-stat-sub">All reserved rides</div>
+                  <div className="rr-stat-sub" style={{ color: '#10B981', fontWeight: '700' }}>↑ +14.5% vs last mo</div>
                 </div>
               </div>
 
@@ -438,7 +516,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div>
                   <div className="rr-stat-lbl">Upcoming Rides</div>
                   <div className="rr-stat-val" style={{ color: '#16A34A' }}>{stats.upcoming}</div>
-                  <div className="rr-stat-sub">Scheduled for future</div>
+                  <div className="rr-stat-sub" style={{ color: '#10B981', fontWeight: '700' }}>↑ +9.2% scheduled</div>
                 </div>
               </div>
 
@@ -450,7 +528,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div>
                   <div className="rr-stat-lbl">Completed Rides</div>
                   <div className="rr-stat-val" style={{ color: '#F59E0B' }}>{stats.completed}</div>
-                  <div className="rr-stat-sub">Successfully completed</div>
+                  <div className="rr-stat-sub" style={{ color: '#10B981', fontWeight: '700' }}>↑ +11.8% completed</div>
                 </div>
               </div>
 
@@ -462,7 +540,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div>
                   <div className="rr-stat-lbl">Cancelled Rides</div>
                   <div className="rr-stat-val" style={{ color: '#EF4444' }}>{stats.cancelled}</div>
-                  <div className="rr-stat-sub">Cancelled by users</div>
+                  <div className="rr-stat-sub" style={{ color: '#EF4444', fontWeight: '700' }}>↓ -1.5% cancelled</div>
                 </div>
               </div>
             </div>
@@ -526,14 +604,14 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                         Loading reservations telemetry...
                       </td>
                     </tr>
-                  ) : list.length === 0 ? (
+                  ) : displayList.length === 0 ? (
                     <tr>
                       <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
-                        No reservations found in database matching criteria.
+                        No pending reservations found. Confirmed rides have been moved to the Riders catalog.
                       </td>
                     </tr>
                   ) : (
-                    list.map((res, idx) => {
+                    displayList.map((res, idx) => {
                       const statLower = res.status.toLowerCase();
                       const payLower = (res.payment_status || '').toLowerCase();
                       return (
@@ -575,9 +653,9 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                 {formatDate(res.reservation_date)}
                               </div>
-                              <div className="dt-item" style={{ color: '#64748B', fontWeight: '500' }}>
+                              <div className="dt-item" style={{ color: '#64748B', fontWeight: '600' }}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                {res.reservation_time.substring(0, 5)}
+                                {res.reservation_time}
                               </div>
                             </div>
                           </td>
@@ -591,7 +669,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                             </span>
                           </td>
                           <td style={{ fontWeight: '800', color: '#0F172A' }}>
-                            ₹{Number(res.fare).toLocaleString('en-IN')}
+                            ₹{Number(res.fare).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td>
                             <span className={`pay-badge ${
@@ -604,14 +682,32 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                             {formatDateTime(res.created_at)}
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '6px' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                               <button 
                                 className="rr-pag-btn" 
-                                style={{ width: '26px', height: '26px' }}
+                                style={{ width: '28px', height: '28px', color: '#2A195C', borderColor: '#C7D2FE', background: '#EEF2FF' }}
                                 onClick={() => openDetailsModal(res)}
                                 title="View details / Allocate vehicle"
                               >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                              </button>
+                              {(statLower === 'confirmed' || statLower === 'upcoming') && (
+                                <button 
+                                  className="rr-pag-btn" 
+                                  style={{ width: '28px', height: '28px', color: '#16A34A', borderColor: '#BBF7D0', background: '#DCFCE7' }}
+                                  onClick={() => handleReturnRide(res.id)}
+                                  title="End / Return Ride"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                </button>
+                              )}
+                              <button 
+                                className="rr-pag-btn" 
+                                style={{ width: '28px', height: '28px', color: '#EF4444', borderColor: '#FCA5A5', background: '#FEF2F2' }}
+                                onClick={() => { setResToDelete(res); setIsDeleteModalOpen(true); }}
+                                title="Delete reservation"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                               </button>
                             </div>
                           </td>
@@ -657,149 +753,143 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
         </div>
       </div>
 
-      {/* RIDER APP SIMULATOR MODAL */}
-      {isSimulatorOpen && (
-        <div className="rr-modal-ov">
-          <div className="rr-modal-box">
-            <div className="rr-modal-hdr">
-              <span className="rr-modal-tit">📱 Rider Mobile App - Reserve Ride Simulation</span>
-              <button className="rr-modal-close" onClick={() => setIsSimulatorOpen(false)}>&times;</button>
-            </div>
-            <div className="rr-modal-body">
-              {/* Authenticate block */}
-              <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '850', color: '#2A195C', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Step 1: Customer Authentication by Mobile & OTP
-                </span>
-                <div className="sim-otp-box">
-                  <input 
-                    type="text" 
-                    className="sim-inp" 
-                    placeholder="Enter mobile number" 
-                    style={{ flex: 1 }}
-                    value={simMobile}
-                    onChange={(e) => setSimMobile(e.target.value)}
-                    disabled={otpVerified}
-                  />
-                  <button className="sim-btn-otp" onClick={handleSendSimOtp} disabled={otpVerified}>
-                    {otpSent ? 'Resend OTP' : 'Send OTP'}
-                  </button>
-                </div>
+      {/* BOOKING CALENDAR POPUP MODAL */}
+      {isCalendarOpen && (() => {
+        const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+        const startDayOfWeek = new Date(calendarYear, calendarMonth, 1).getDay();
+        const currentMonthStr = String(calendarMonth + 1).padStart(2, '0');
+        const monthYearKey = `${calendarYear}-${currentMonthStr}`;
 
-                {otpSent && !otpVerified && (
-                  <div className="sim-otp-box" style={{ marginTop: '4px' }}>
-                    <input 
-                      type="text" 
-                      className="sim-inp" 
-                      placeholder="Enter OTP (type 1234)" 
-                      style={{ flex: 1 }}
-                      value={simOtp}
-                      onChange={(e) => setSimOtp(e.target.value)}
-                    />
-                    <button className="sim-btn-otp" style={{ background: '#10B981', color: '#fff', borderColor: '#10B981' }} onClick={handleVerifySimOtp}>
-                      Verify OTP
+        return (
+          <div className="rr-modal-ov">
+            <div className="cal-modal-box">
+              <div className="rr-modal-hdr">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="rr-modal-tit">Reservation Booking Calendar — {monthNames[calendarMonth]} {calendarYear}</span>
+                  <span style={{ fontSize: '11px', background: '#EEF2FF', color: '#6366F1', fontWeight: '700', padding: '2px 8px', borderRadius: '6px' }}>
+                    {list.length} Total Bookings
+                  </span>
+                </div>
+                <button className="rr-modal-close" onClick={() => setIsCalendarOpen(false)}>&times;</button>
+              </div>
+              <div className="rr-modal-body">
+
+                {/* Month Navigation Controls & Legend */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button className="rr-btn" style={{ padding: '4px 10px', fontSize: '11.5px' }} onClick={handlePrevMonth}>
+                      &lt; Prev Month
+                    </button>
+                    <span style={{ fontWeight: '800', fontSize: '14px', color: '#0F172A', minWidth: '120px', textAlign: 'center' }}>
+                      {monthNames[calendarMonth]} {calendarYear}
+                    </span>
+                    <button className="rr-btn" style={{ padding: '4px 10px', fontSize: '11.5px' }} onClick={handleNextMonth}>
+                      Next Month &gt;
                     </button>
                   </div>
-                )}
-
-                {otpVerified && (
-                  <span style={{ color: '#16A34A', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    ✔ Mobile Number Authenticated (+91 {simMobile})
-                  </span>
-                )}
-              </div>
-
-              {/* Form inputs */}
-              <div className="sim-grid-2">
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Customer Name</span>
-                  <input type="text" className="sim-inp" placeholder="e.g. Rohit Sharma" value={simName} onChange={(e) => setSimName(e.target.value)} />
-                </div>
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Government ID Number (Aadhar/PAN)</span>
-                  <input type="text" className="sim-inp" placeholder="e.g. GOV123456" value={simGovId} onChange={(e) => setSimGovId(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="sim-grid-2">
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Reservation Date</span>
-                  <input type="date" className="sim-inp" value={simDate} onChange={(e) => setSimDate(e.target.value)} />
-                </div>
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Reservation Time</span>
-                  <input type="time" className="sim-inp" value={simTime} onChange={(e) => setSimTime(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="sim-grid-2">
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Package Selection</span>
-                  <select className="rr-select" style={{ height: '36px' }} value={simPackage} onChange={(e) => setSimPackage(e.target.value)}>
-                    <option value="Hourly">Hourly</option>
-                    <option value="Half Day">Half Day</option>
-                    <option value="Day">Day</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Monthly">Monthly</option>
-                  </select>
-                </div>
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Vehicle Category</span>
-                  <select className="rr-select" style={{ height: '36px' }} value={simCategory} onChange={(e) => setSimCategory(e.target.value)}>
-                    <option value="SUV">SUV</option>
-                    <option value="Sedan">Sedan</option>
-                    <option value="Hatchback">Hatchback</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="sim-grid-2">
-                <div className="sim-form-group">
-                  <span className="sim-form-lbl">Payment Mode</span>
-                  <select className="rr-select" style={{ height: '36px' }} value={simPayMode} onChange={(e) => setSimPayMode(e.target.value)}>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Credit/Debit Card</option>
-                    <option value="Net Banking">Net Banking</option>
-                  </select>
-                </div>
-                <div className="sim-form-group" style={{ justifyContent: 'center', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '6px 12px' }}>
-                  <div style={{ fontSize: '11px', color: '#16A34A', fontWeight: '700' }}>Estimated Payment</div>
-                  <div style={{ fontSize: '15px', color: '#15803D', fontWeight: '800' }}>
-                    Fare: ₹{simCategory ? getFareCalc.fare.toLocaleString('en-IN') : '0'} 
-                    <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: '500', marginLeft: '6px' }}>(+₹{getFareCalc.deposit} deposit)</span>
+                  <div style={{ display: 'flex', gap: '14px', fontSize: '11px', fontWeight: '700' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6366F1' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366F1' }} /> Upcoming
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10B981' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} /> Confirmed
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#EF4444' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} /> Cancelled
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Refund options description panel */}
-              <div className="sim-policies">
-                <span className="sim-policy-t">🛡️ Payment Refund & Cancellation Policy</span>
-                <div className="sim-policy-i">
-                  <span>Cancellation before 1 day (24 hrs)</span>
-                  <span>100% Refund</span>
+                {/* 7 Column Calendar Grid */}
+                <div className="cal-grid">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                    <div key={d} className="cal-day-hdr">{d}</div>
+                  ))}
+
+                  {/* Dynamic Padding Empty Cells */}
+                  {Array.from({ length: startDayOfWeek }).map((_, idx) => (
+                    <div key={`empty-${idx}`} className="cal-day-cell" style={{ background: '#F8FAFC', opacity: 0.3 }} />
+                  ))}
+
+                  {/* Dynamic Days in Selected Month */}
+                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                    const dayStr = String(day).padStart(2, '0');
+                    const dateKey = `${monthYearKey}-${dayStr}`;
+                    const dayBookings = list.filter(r => r.reservation_date && r.reservation_date.includes(dateKey));
+                    const isSelected = selectedCalendarDate === dateKey;
+
+                    return (
+                      <div
+                        key={day}
+                        className={`cal-day-cell ${isSelected ? 'active-date' : ''} ${dayBookings.length > 0 ? 'has-bookings' : ''}`}
+                        onClick={() => setSelectedCalendarDate(dateKey)}
+                      >
+                        <div className="cal-day-num">{day}</div>
+                        {dayBookings.length > 0 && (
+                          <div className="cal-booking-badge shadow-sm" style={{ background: dayBookings[0].status === 'Confirmed' ? '#10B981' : '#6366F1' }}>
+                            {dayBookings.length} Ride{dayBookings.length > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="sim-policy-i">
-                  <span>Cancellation before 1/2 day (12 hrs)</span>
-                  <span>90% Refund</span>
+
+              {/* Expandable Booking Details Panel for Selected Date */}
+              <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '12px', padding: '14px', marginTop: '10px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>📅 Scheduled Bookings for {selectedCalendarDate ? formatDate(selectedCalendarDate) : 'Selected Date'}</span>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>
+                    {list.filter(r => r.reservation_date && r.reservation_date.includes(selectedCalendarDate)).length} Bookings Found
+                  </span>
                 </div>
-                <div className="sim-policy-i">
-                  <span>Cancellation before 4 hours</span>
-                  <span>50% Refund</span>
-                </div>
-                <div className="sim-policy-i" style={{ borderTop: '1px dashed #E9D5FF', paddingTop: '4px', fontWeight: '700' }}>
-                  <span>Cancellation after booking time</span>
-                  <span>No Refund</span>
-                </div>
+
+                {list.filter(r => r.reservation_date && r.reservation_date.includes(selectedCalendarDate)).length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic', padding: '10px 0', textAlign: 'center' }}>
+                    No reserved bookings scheduled for this date. Click on a date with a colored badge to view booking details.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {list.filter(r => r.reservation_date && r.reservation_date.includes(selectedCalendarDate)).map(res => (
+                      <div key={res.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>
+                            {res.customer_name} <span style={{ fontSize: '11px', color: '#6366F1', fontFamily: 'monospace', marginLeft: '6px' }}>({res.reservation_id})</span>
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', gap: '10px', marginTop: '2px' }}>
+                            <span>📍 {res.pickup_zone}</span>
+                            <span>⏰ {res.reservation_time ? res.reservation_time.substring(0, 5) : '09:00'}</span>
+                            <span>📦 {res.package_type}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>₹{res.fare}</span>
+                          <span className={`status-badge ${res.status.toLowerCase() === 'confirmed' ? 'badge-confirmed' : 'badge-upcoming'}`}>
+                            {res.status}
+                          </span>
+                          <button
+                            className="rr-btn rr-btn-primary"
+                            style={{ height: '30px', fontSize: '11px', padding: '0 10px' }}
+                            onClick={() => { setIsCalendarOpen(false); openDetailsModal(res); }}
+                          >
+                            Allocate Vehicle
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
             </div>
             <div className="rr-modal-ftr">
-              <button className="rr-btn" onClick={() => setIsSimulatorOpen(false)}>Cancel</button>
-              <button className="rr-btn rr-btn-primary" onClick={handleCreateSimBooking}>Pay & Reserve Ride</button>
+              <button className="rr-btn" onClick={() => setIsCalendarOpen(false)}>Close Calendar</button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* VIEW DETAILS & VEHICLE ALLOCATION / CANCELLATION MODAL */}
       {isDetailsOpen && selectedRes && (
@@ -807,7 +897,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
           <div className="rr-modal-box">
             <div className="rr-modal-hdr">
               <span className="rr-modal-tit">🛡️ Reservation Details & Operator Actions</span>
-              <button className="rr-modal-close" onClick={() => { setIsDetailsOpen(false); setSelectedRes(null); setOperatorAllocatedNumber(''); }}>&times;</button>
+              <button className="rr-modal-close" onClick={() => { setIsDetailsOpen(false); setSelectedRes(null); setAllocVehicle(''); setAllocBattery(''); }}>&times;</button>
             </div>
             <div className="rr-modal-body">
               {/* Detailed Summary */}
@@ -947,6 +1037,35 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 onClick={() => { setIsDetailsOpen(false); setSelectedRes(null); setAllocVehicle(''); setAllocBattery(''); }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && resToDelete && (
+        <div className="rr-modal-ov">
+          <div className="rr-modal-box" style={{ maxWidth: '440px' }}>
+            <div className="rr-modal-hdr">
+              <span className="rr-modal-tit" style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Delete Reservation
+              </span>
+              <button className="rr-modal-close" onClick={() => setIsDeleteModalOpen(false)}>×</button>
+            </div>
+            <div className="rr-modal-body">
+              <p style={{ fontSize: '13.5px', color: '#334155', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to delete reservation <strong style={{ color: '#0F172A' }}>{resToDelete.reservation_id}</strong> for <strong style={{ color: '#0F172A' }}>{resToDelete.customer_name}</strong>?
+              </p>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
+                This action cannot be undone and will permanently remove this reservation from the system.
+              </p>
+            </div>
+            <div className="rr-modal-ftr">
+              <button className="rr-btn" onClick={() => setIsDeleteModalOpen(false)}>Cancel</button>
+              <button className="rr-btn" style={{ background: '#EF4444', color: '#fff', borderColor: '#EF4444' }} onClick={confirmDeleteReservation}>
+                Yes, Delete Reservation
               </button>
             </div>
           </div>

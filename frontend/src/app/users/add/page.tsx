@@ -416,11 +416,16 @@ function AddUserPageContent() {
                           ))
                         ) : (
                           <>
+                            <option value="Super Admin">Super Admin</option>
+                            <option value="Platform Admin">Platform Admin</option>
                             <option value="Zone Admin">Zone Admin</option>
                             <option value="Operations Manager">Operations Manager</option>
                             <option value="Franchise Manager">Franchise Manager</option>
                             <option value="Battery Technician">Battery Technician</option>
                             <option value="Support Executive">Support Executive</option>
+                            <option value="Fleet Manager">Fleet Manager</option>
+                            <option value="Field Technician">Field Technician</option>
+                            <option value="Finance Manager">Finance Manager</option>
                           </>
                         )}
                       </select>
@@ -434,11 +439,15 @@ function AddUserPageContent() {
                         onChange={(e) => setZone(e.target.value)}
                       >
                         <option disabled value="Select zone or scope">Select zone or scope</option>
-                        <option value="Connaught Place Zone">Connaught Place Zone</option>
-                        <option value="Karol Bagh Zone">Karol Bagh Zone</option>
-                        <option value="Janakpuri Zone">Janakpuri Zone</option>
-                        <option value="Dwarka Zone">Dwarka Zone</option>
+                        <option value="Gotri Zone">Gotri Zone</option>
+                        <option value="Lekki Phase 1">Lekki Phase 1</option>
+                        <option value="Vadodara Main Zone">Vadodara Main Zone</option>
+                        <option value="Alkapuri Zone">Alkapuri Zone</option>
+                        <option value="Subhanpura Zone">Subhanpura Zone</option>
+                        <option value="Akota Zone">Akota Zone</option>
+                        <option value="Daman Zone">Daman Zone</option>
                         <option value="Multiple Zones">Multiple Zones</option>
+                        <option value="All Zones / Platform Wide">All Zones / Platform Wide</option>
                       </select>
                     </div>
                   </div>

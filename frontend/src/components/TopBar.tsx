@@ -4,29 +4,33 @@ import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 
 const CSS = `
-.ev-tb{height:68px;background:#fff;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:90;flex-shrink:0;width:100%;box-sizing:border-box}
-.ev-tb-hamburger{width:34px;height:34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4.5px;cursor:pointer;flex-shrink:0}
-.ev-tb-hamburger span{display:block;width:18px;height:2px;background:#6B7280;border-radius:2px}
-.ev-tb-user{display:flex;align-items:center;gap:9px}
-.ev-tb-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2A195C,#6366F1);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;position:relative}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+.ev-tb{height:70px;background:#fff;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:90;flex-shrink:0;width:100%;box-sizing:border-box;font-family:'Plus Jakarta Sans',sans-serif}
+.ev-tb-hamburger{width:36px;height:36px;border:1.5px solid #E2E8F0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;background:#fff;transition:all 0.15s;flex-shrink:0}
+.ev-tb-hamburger:hover{border-color:#6366F1;background:#F8FAFC}
+.ev-tb-hamburger span{display:block;width:14px;height:1.8px;background:#64748B;border-radius:2px}
+.ev-tb-user{display:flex;align-items:center;gap:12px}
+.ev-tb-av{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0F172A,#1E1B4B);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden;position:relative;font-family:'Outfit',sans-serif}
 .ev-tb-av img{width:100%;height:100%;object-fit:cover}
-.ev-tb-hello{font-size:13.5px;font-weight:700;color:#111827}
-.ev-tb-role{font-size:11px;color:#9CA3AF}
+.ev-tb-hello{font-size:16px;font-weight:800;color:#0F172A;font-family:'Outfit',sans-serif;letter-spacing:-0.01em;display:flex;align-items:center;gap:6px}
+.ev-tb-check{width:15px;height:15px;background:#22C55E;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:bold}
+.ev-tb-role{font-size:11.5px;color:#64748B;font-weight:500}
 .ev-tb-spacer{flex:1}
-.ev-tb-zone{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid #E5E7EB;border-radius:8px;cursor:pointer;background:#fff;transition:border-color 0.15s}
-.ev-tb-zone:hover{border-color:#2a195c}
-.ev-tb-zone-t{font-size:12.5px;font-weight:500;color:#374151}
-.ev-tb-bell{position:relative;width:36px;height:36px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer;flex-shrink:0;transition:border-color 0.15s}
-.ev-tb-bell:hover{border-color:#2a195c;color:#2a195c}
-.ev-tb-bell-dot{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#EF4444;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;border:2px solid #fff}
-.ev-tb-search-wrap{display:flex;align-items:center;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px;gap:8px;background:#FFF;width:460px;transition:border-color 0.15s;margin-left:24px}
-.ev-tb-search-wrap:focus-within{border-color:#2a195c;box-shadow:0 0 0 1px #2a195c}
-.ev-tb-search-inp{border:none;outline:none;font-size:12.5px;color:#1E293B;width:100%;font-family:inherit}
+.ev-tb-zone{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1.5px solid #E2E8F0;border-radius:10px;background:#fff;cursor:pointer;font-size:12.5px;font-weight:600;color:#334155;transition:all 0.15s;box-shadow:0 1px 2px rgba(0,0,0,0.02)}
+.ev-tb-zone:hover{border-color:#6366F1}
+.ev-tb-zone-t{font-size:12.5px;font-weight:600;color:#334155}
+.ev-tb-bell{width:38px;height:38px;border:1.5px solid #E2E8F0;border-radius:10px;background:#fff;color:#64748B;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all 0.15s;flex-shrink:0}
+.ev-tb-bell:hover{border-color:#6366F1;color:#6366F1}
+.ev-tb-bell-dot{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:#6366F1;color:#fff;font-size:9px;font-weight:700;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.ev-tb-search-wrap{display:flex;align-items:center;border:1.5px solid #E2E8F0;border-radius:10px;padding:8px 14px;gap:8px;background:#FFF;width:420px;transition:border-color 0.15s;margin-left:16px}
+.ev-tb-search-wrap:focus-within{border-color:#6366F1;box-shadow:0 0 0 3px rgba(99,102,241,0.1)}
+.ev-tb-search-inp{border:none;outline:none;font-size:12.5px;color:#1E293B;width:100%;font-family:inherit;font-weight:500}
 .ev-tb-search-inp::placeholder{color:#94A3B8}
-.ev-tb-search-kb{border:1px solid #E2E8F0;border-radius:4px;padding:2px 4px;font-size:9.5px;color:#64748B;font-weight:700;background:#F8FAFC;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:2px}
-.ev-tb-profile{display:flex;align-items:center;gap:10px;padding:6px 12px;border:1px solid #E5E7EB;border-radius:10px;cursor:pointer;background:#FAFAFA;transition:all 0.15s}
-.ev-tb-profile:hover{border-color:#2a195c;background:#F5F3FF}
-.ev-tb-zone-dd{position:absolute;top:46px;right:0;background:#FFF;border:1.5px solid #E2E8F0;border-radius:10px;padding:6px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);z-index:100;width:220px;display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto}
+.ev-tb-search-kb{border:1px solid #E2E8F0;border-radius:4px;padding:2px 5px;font-size:9.5px;color:#64748B;font-weight:700;background:#F8FAFC;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:2px}
+.ev-tb-profile{display:flex;align-items:center;gap:10px;padding:6px 12px;border:1.5px solid #E2E8F0;border-radius:10px;cursor:pointer;background:#fff;transition:all 0.15s}
+.ev-tb-profile:hover{border-color:#6366F1;background:#F8FAFC}
+.ev-tb-zone-dd{position:absolute;top:48px;right:0;background:#FFF;border:1.5px solid #E2E8F0;border-radius:12px;padding:6px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.15);z-index:100;width:220px;display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto}
 .ev-tb-zone-opt{padding:8px 12px;font-size:12.5px;font-weight:600;border:none;border-radius:6px;text-align:left;cursor:pointer;width:100%;transition:all 0.15s}
 `;
 
@@ -101,6 +105,25 @@ export default function TopBar({
   const [zoneDropdownOpen, setZoneDropdownOpen] = useState(false);
   const [activeZone, setActiveZone] = useState('');
   const [zonesList, setZonesList] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/notifications`);
+      if (res.ok) {
+        const body = await res.json();
+        setNotifications(body.data || []);
+        setUnreadCount(body.unreadCount || 0);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   // Load session from localStorage
   const loadSession = () => {
@@ -290,13 +313,54 @@ export default function TopBar({
           </div>
         )}
 
-        {/* Bell */}
-        <button className="ev-tb-bell">
-          <IBell />
-          {notificationCount > 0 && (
-            <span className="ev-tb-bell-dot">{notificationCount}</span>
+        {/* Bell Notifications */}
+        <div style={{ position: 'relative' }}>
+          <button className="ev-tb-bell" onClick={() => setIsNotifOpen(!isNotifOpen)}>
+            <IBell />
+            {unreadCount > 0 && (
+              <span className="ev-tb-bell-dot">{unreadCount}</span>
+            )}
+          </button>
+
+          {isNotifOpen && (
+            <div className="ev-tb-zone-dd" style={{ width: '320px', padding: '10px', right: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>🔔 Live Telemetry Alerts</span>
+                {unreadCount > 0 && (
+                  <button
+                    style={{ fontSize: '10.5px', color: '#6366F1', fontWeight: '700', border: 'none', background: 'none', cursor: 'pointer' }}
+                    onClick={async () => {
+                      try {
+                        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+                        await fetch(`${apiUrl}/notifications/mark-read`, { method: 'POST' });
+                        setUnreadCount(0);
+                        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                      } catch (_) {}
+                    }}
+                  >
+                    Mark read
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                {notifications.length === 0 ? (
+                  <div style={{ fontSize: '11.5px', color: '#94A3B8', textAlign: 'center', padding: '12px 0' }}>No new notifications</div>
+                ) : (
+                  notifications.map(n => (
+                    <div key={n.id} style={{ background: n.read ? '#FAFBFD' : '#EEF2FF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>{n.title}</span>
+                      <span style={{ fontSize: '11px', color: '#475569' }}>{n.message}</span>
+                      <span style={{ fontSize: '9.5px', color: '#94A3B8', marginTop: '2px' }}>
+                        {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           )}
-        </button>
+        </div>
 
         {/* Right User Profile — always shows logged-in user */}
         <div className="ev-tb-profile" onClick={() => {}}>
