@@ -1,94 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { createNotification } = require('./notifications');
 
-// In-memory fallback seeds matching the stats
+// In-memory fallback seeds matching real rider names and July 2026 bookings
 const MOCK_RESERVATIONS = [
-  { id: '1', reservation_id: 'RID-2024-00128', customer_name: 'Rohit Sharma', mobile: '+91 98765 43210', gov_id: 'GOV123456', reservation_date: '2026-06-20T00:00:00.000Z', reservation_time: '09:30:00', package_type: 'Day', vehicle_category: 'SUV', vehicle_number: 'DL 1Z AB 1234', battery_id: null, fare: '1250.00', deposit: '1000.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Connaught Place Zone', drop_zone: 'Indira Gandhi Airport', created_at: '2026-06-19T22:15:00.000Z' },
-  { id: '2', reservation_id: 'RID-2024-00127', customer_name: 'Priya Verma', mobile: '+91 91234 56789', gov_id: 'GOV234567', reservation_date: '2026-06-20T00:00:00.000Z', reservation_time: '11:00:00', package_type: 'Hourly', vehicle_category: 'Sedan', vehicle_number: 'DL 1Z CD 5678', battery_id: null, fare: '850.00', deposit: '1000.00', payment_mode: 'Card', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Karol Bagh Zone', drop_zone: 'Noida Sector 62', created_at: '2026-06-19T21:45:00.000Z' },
-  { id: '3', reservation_id: 'RID-2024-00126', customer_name: 'Mohit Singh', mobile: '+91 99877 66554', gov_id: 'GOV345678', reservation_date: '2026-06-19T00:00:00.000Z', reservation_time: '16:00:00', package_type: 'Day', vehicle_category: 'Hatchback', vehicle_number: 'DL 1Z EF 9012', battery_id: null, fare: '1100.00', deposit: '1000.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Completed', pickup_zone: 'West Delhi Zone', drop_zone: 'Gurgaon Cyber City', created_at: '2026-06-18T20:20:00.000Z' },
-  { id: '4', reservation_id: 'RID-2024-00125', customer_name: 'Neha Kapoor', mobile: '+91 88776 54321', gov_id: 'GOV456789', reservation_date: '2026-06-19T00:00:00.000Z', reservation_time: '19:30:00', package_type: 'Weekly', vehicle_category: 'SUV', vehicle_number: 'DL 1Z GH 3456', battery_id: null, fare: '1300.00', deposit: '1500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Completed', pickup_zone: 'South Delhi Zone', drop_zone: 'Indira Gandhi Airport', created_at: '2026-06-18T19:05:00.000Z' },
-  { id: '5', reservation_id: 'RID-2024-00124', customer_name: 'Arjun Sharma', mobile: '+91 77665 44332', gov_id: 'GOV567890', reservation_date: '2026-06-18T00:00:00.000Z', reservation_time: '14:00:00', package_type: 'Hourly', vehicle_category: 'Sedan', vehicle_number: 'DL 1Z IJ 7890', battery_id: null, fare: '950.00', deposit: '1000.00', payment_mode: 'UPI', payment_status: 'Refunded', status: 'Cancelled', pickup_zone: 'Dwarka Zone', drop_zone: 'Noida Sector 18', created_at: '2026-06-17T23:30:00.000Z' },
-  { id: '6', reservation_id: 'RID-2024-00123', customer_name: 'Swati Sharma', mobile: '+91 66654 33221', gov_id: 'GOV678901', reservation_date: '2026-06-17T00:00:00.000Z', reservation_time: '09:00:00', package_type: 'Day', vehicle_category: 'Hatchback', vehicle_number: 'DL 1Z KL 2345', battery_id: null, fare: '1000.00', deposit: '1000.00', payment_mode: 'Card', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gurgaon Zone', drop_zone: 'Connaught Place', created_at: '2026-06-16T20:45:00.000Z' },
-  { id: '7', reservation_id: 'RID-2024-00122', customer_name: 'Deepak Patel', mobile: '+91 55443 22110', gov_id: 'GOV789012', reservation_date: '2026-06-17T00:00:00.000Z', reservation_time: '17:30:00', package_type: 'Day', vehicle_category: 'SUV', vehicle_number: 'DL 1Z MN 6789', battery_id: null, fare: '1150.00', deposit: '1000.00', payment_mode: 'UPI', payment_status: 'Refunded', status: 'Cancelled', pickup_zone: 'Noida Zone', drop_zone: 'Dwarka Sector 21', created_at: '2026-06-16T18:10:00.000Z' },
-  { id: '8', reservation_id: 'RID-2024-00121', customer_name: 'Rahul Kumar', mobile: '+91 77889 00122', gov_id: 'GOV890123', reservation_date: '2026-06-16T00:00:00.000Z', reservation_time: '08:15:00', package_type: 'Day', vehicle_category: 'Sedan', vehicle_number: 'DL 1Z OP 1122', battery_id: null, fare: '1200.00', deposit: '1000.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Completed', pickup_zone: 'Connaught Place Zone', drop_zone: 'Gurgaon Cyber City', created_at: '2026-06-15T22:00:00.000Z' },
-  { id: '9', reservation_id: 'RID-2024-00120', customer_name: 'Simran Malik', mobile: '+91 88990 33445', gov_id: 'GOV901234', reservation_date: '2026-06-16T00:00:00.000Z', reservation_time: '13:45:00', package_type: 'Day', vehicle_category: 'Hatchback', vehicle_number: 'DL 1Z QR 3344', battery_id: null, fare: '1180.00', deposit: '1000.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Karol Bagh Zone', drop_zone: 'Indira Gandhi Airport', created_at: '2026-06-15T21:15:00.000Z' },
-  { id: '10', reservation_id: 'RID-2024-00119', customer_name: 'Vikram Mehta', mobile: '+91 99554 77889', gov_id: 'GOV012345', reservation_date: '2026-06-16T00:00:00.000Z', reservation_time: '18:00:00', package_type: 'Weekly', vehicle_category: 'SUV', vehicle_number: 'DL 1Z ST 5566', battery_id: null, fare: '1350.00', deposit: '1500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Completed', pickup_zone: 'West Delhi Zone', drop_zone: 'Noida Sector 62', created_at: '2026-06-15T20:30:00.000Z' },
+  { id: '1', reservation_id: 'RID-2026-878128', customer_name: 'Rohit Sharma', mobile: '+91 98765 43210', gov_id: 'GOV987654', reservation_date: '2026-07-12T00:00:00.000Z', reservation_time: '09:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: 'EVM1024001', battery_id: 'BAT-GOTRI-01', fare: '357.50', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Confirmed', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-12T08:54:00.000Z' },
+  { id: '2', reservation_id: 'RID-2026-751128', customer_name: 'Ananya Verma', mobile: '+91 91234 56789', gov_id: 'GOV234567', reservation_date: '2026-07-12T00:00:00.000Z', reservation_time: '11:00:00', package_type: 'Weekly', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '1407.50', deposit: '1000.00', payment_mode: 'Paid', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-12T02:16:00.000Z' },
+  { id: '3', reservation_id: 'RID-2026-910244', customer_name: 'Priyansh Shah', mobile: '+91 99877 66554', gov_id: 'GOV345678', reservation_date: '2026-07-14T00:00:00.000Z', reservation_time: '14:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '420.00', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Aatapi Zone', drop_zone: 'Aatapi Zone', created_at: '2026-07-13T10:15:00.000Z' },
+  { id: '4', reservation_id: 'RID-2026-887102', customer_name: 'Dev Patel', mobile: '+91 88776 54321', gov_id: 'GOV456789', reservation_date: '2026-07-15T00:00:00.000Z', reservation_time: '10:00:00', package_type: 'Monthly', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '3500.00', deposit: '2000.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-14T09:00:00.000Z' },
+  { id: '5', reservation_id: 'RID-2026-776105', customer_name: 'Vikram Mehta', mobile: '+91 77665 44332', gov_id: 'GOV567890', reservation_date: '2026-07-18T00:00:00.000Z', reservation_time: '16:00:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: 'EVM1024005', battery_id: 'BAT-AATAPI-02', fare: '380.00', deposit: '500.00', payment_mode: 'Card', payment_status: 'Paid', status: 'Completed', pickup_zone: 'Aatapi Zone', drop_zone: 'Aatapi Zone', created_at: '2026-07-17T14:20:00.000Z' },
+  { id: '6', reservation_id: 'RID-2026-665120', customer_name: 'Neha Gupta', mobile: '+91 66654 33221', gov_id: 'GOV678901', reservation_date: '2026-07-20T00:00:00.000Z', reservation_time: '09:00:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '350.00', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-18T18:00:00.000Z' },
+  { id: '7', reservation_id: 'RID-2026-554109', customer_name: 'Deepak Patel', mobile: '+91 55443 22110', gov_id: 'GOV789012', reservation_date: '2026-07-22T00:00:00.000Z', reservation_time: '12:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '350.00', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Refunded', status: 'Cancelled', pickup_zone: 'Aatapi Zone', drop_zone: 'Aatapi Zone', created_at: '2026-07-20T11:10:00.000Z' }
 ];
 
 let mockList = [...MOCK_RESERVATIONS];
-const makeMocks = () => {
-  if (mockList.length >= 128) return;
-  const autoNames = ['Karan Johar', 'Sunita Rao', 'Vijay Mallya', 'Rajesh Khanna', 'Aishwarya Sen', 'Abhishek Dev', 'Sanjay Dutt', 'Salman Khan'];
-  const zonesList = ['Connaught Place Zone', 'Karol Bagh Zone', 'West Delhi Zone', 'South Delhi Zone', 'Dwarka Zone', 'Gurgaon Zone', 'Noida Zone'];
-  const catsList = ['SUV', 'Sedan', 'Hatchback'];
-  const packsList = ['Hourly', 'Day', 'Weekly', 'Monthly'];
 
-  let countUpcoming = 4;
-  let countCompleted = 4;
-  let countCancelled = 2;
-  let ridCounter = 118;
-
-  while (countUpcoming < 96 || countCompleted < 24 || countCancelled < 8) {
-    let stat = 'Upcoming';
-    let payStat = 'Paid';
-    if (countUpcoming < 96) {
-      stat = 'Upcoming';
-      countUpcoming++;
-    } else if (countCompleted < 24) {
-      stat = 'Completed';
-      countCompleted++;
-    } else {
-      stat = 'Cancelled';
-      payStat = 'Refunded';
-      countCancelled++;
-    }
-
-    const name = autoNames[ridCounter % autoNames.length] + ' ' + ridCounter;
-    const rId = `RID-2024-${String(ridCounter).padStart(5, '0')}`;
-    const pZone = zonesList[ridCounter % zonesList.length];
-    const dZone = zonesList[(ridCounter + 1) % zonesList.length];
-    const cat = catsList[ridCounter % catsList.length];
-    const pack = packsList[ridCounter % packsList.length];
-    const fare = (500 + (ridCounter % 15) * 100).toFixed(2);
-    const dep = '1000.00';
-    const date = stat === 'Upcoming' ? '2026-06-21T00:00:00.000Z' : '2026-06-15T00:00:00.000Z';
-    const time = '10:00:00';
-    const created = '2026-06-14T12:00:00.000Z';
-
-    mockList.push({
-      id: String(ridCounter + 1000),
-      reservation_id: rId,
-      customer_name: name,
-      mobile: `+91 99999 ${String(ridCounter).padStart(5, '0')}`,
-      gov_id: `GOV${ridCounter}X`,
-      reservation_date: date,
-      reservation_time: time,
-      package_type: pack,
-      vehicle_category: cat,
-      vehicle_number: `DL 1Z XX ${ridCounter}`,
-      battery_id: null,
-      fare,
-      deposit: dep,
-      payment_mode: 'UPI',
-      payment_status: payStat,
-      status: stat,
-      pickup_zone: pZone,
-      drop_zone: dZone,
-      created_at: created
-    });
-
-    ridCounter--;
-  }
-};
-makeMocks();
-
-// Helper to get stats from list (Confirmed counts as Upcoming/active)
+// Helper to get stats from list
 const getStats = (list) => {
   const stats = { total: list.length, upcoming: 0, completed: 0, cancelled: 0 };
   list.forEach(r => {
-    if (r.status === 'Upcoming' || r.status === 'Confirmed') stats.upcoming++;
-    else if (r.status === 'Completed') stats.completed++;
+    if (r.status === 'Upcoming') stats.upcoming++;
+    else if (r.status === 'Confirmed' || r.status === 'Completed') stats.completed++;
     else if (r.status === 'Cancelled') stats.cancelled++;
   });
   return stats;
@@ -202,12 +135,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/reservations/available-vehicles — for admin assignment dropdown
+// GET /api/reservations/available-vehicles — for admin assignment dropdown (zone-filtered)
 router.get('/available-vehicles', async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT code, evegah_model_name, vehicle_category, zone FROM vehicles WHERE vehicle_status = 'Available' ORDER BY code`
-    );
+    const { zone } = req.query;
+    let query = `SELECT code, evegah_model_name, vehicle_category, zone FROM vehicles WHERE vehicle_status = 'Available'`;
+    const params = [];
+    if (zone) {
+      query += ` AND (zone ILIKE $1 OR zone = 'Unassigned' OR zone IS NULL)`;
+      params.push(`%${zone}%`);
+    }
+    query += ` ORDER BY code`;
+    const result = await db.query(query, params);
     res.json({ status: 'success', data: result.rows });
   } catch (err) {
     console.warn('DB query failed for available-vehicles, returning empty:', err.message);
@@ -276,6 +215,9 @@ router.post('/', async (req, res) => {
     // Keep mock list in sync
     mockList.unshift(result.rows[0]);
 
+    // Trigger real system notification
+    createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+
     res.json({ status: 'success', message: 'Reservation created successfully', data: result.rows[0] });
   } catch (err) {
     console.error('Failed to create reservation in DB, saving in-memory:', err.message);
@@ -301,6 +243,10 @@ router.post('/', async (req, res) => {
       created_at: new Date().toISOString()
     };
     mockList.unshift(newRecord);
+
+    // Trigger real system notification
+    createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+
     res.json({ status: 'success', message: 'Reservation created (offline)', data: newRecord });
   }
 });
@@ -475,10 +421,94 @@ router.post('/:id/allocate', async (req, res) => {
       console.warn('Could not auto-create renters record (non-fatal):', renterErr.message);
     }
 
+    // Update inventory in database: Mark vehicle as Rented and battery as in_use
+    try {
+      if (vehicle_number) {
+        await db.query(`UPDATE vehicles SET vehicle_status = 'Rented' WHERE code = $1 OR vehicle_number = $1`, [vehicle_number]);
+      }
+      if (battery_id) {
+        await db.query(`UPDATE batteries SET status = 'in_use' WHERE battery_id = $1 OR id = $1`, [battery_id]);
+      }
+    } catch (invErr) {
+      console.warn('Could not update vehicle/battery inventory status:', invErr.message);
+    }
+
     res.json({
       status: 'success',
       message: `Vehicle ${vehicle_number} allocated. Rider moved to Active Rides.`,
       data: updatedReservation
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// DELETE /api/reservations/:id (Delete reservation from system)
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    try {
+      await db.query('DELETE FROM reservations WHERE id = $1 OR reservation_id = $2', [id, id]);
+    } catch (dbErr) {
+      console.warn('DB delete reservation failed, fallback to memory:', dbErr.message);
+    }
+
+    const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
+    if (idx !== -1) {
+      mockList.splice(idx, 1);
+    }
+
+    res.json({
+      status: 'success',
+      message: `Reservation ${id} deleted successfully.`
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/reservations/:id/return (End / Return ride and release vehicle/battery)
+router.post('/:id/return', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let reservation;
+    try {
+      const updateRes = await db.query(`
+        UPDATE reservations
+        SET status = 'Completed', payment_status = 'Paid'
+        WHERE id = $1 OR reservation_id = $2
+        RETURNING *
+      `, [id, id]);
+      if (updateRes.rows.length > 0) reservation = updateRes.rows[0];
+    } catch (dbErr) {
+      console.warn('DB return update failed, fallback to in-memory:', dbErr.message);
+    }
+
+    const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
+    if (idx !== -1) {
+      mockList[idx].status = 'Completed';
+      mockList[idx].payment_status = 'Paid';
+      if (!reservation) reservation = mockList[idx];
+    }
+
+    // Release vehicle and battery inventory back to Available
+    try {
+      if (reservation && reservation.vehicle_number) {
+        await db.query(`UPDATE vehicles SET vehicle_status = 'Available' WHERE code = $1 OR vehicle_number = $1`, [reservation.vehicle_number]);
+      }
+      if (reservation && reservation.battery_id) {
+        await db.query(`UPDATE batteries SET status = 'available' WHERE battery_id = $1 OR id = $1`, [reservation.battery_id]);
+      }
+    } catch (_) {}
+
+    res.json({
+      status: 'success',
+      message: `Ride ${id} ended/returned successfully. Vehicle & battery released.`,
+      data: reservation
     });
   } catch (err) {
     console.error(err);

@@ -244,6 +244,44 @@ const migrate = async () => {
     `);
   }
 
+  // Seed default predefined roles
+  const existingRoles = await db.query('SELECT COUNT(*) FROM roles');
+  if (parseInt(existingRoles.rows[0].count) === 0) {
+    await db.query(`
+      INSERT INTO roles (name, code, description, reporting_to, status, users_count)
+      VALUES 
+        ('Super Admin', 'SUPER_ADMIN', 'Full system control and unrestricted platform access', NULL, 'Active', 1),
+        ('Platform Admin', 'PLATFORM_ADMIN', 'System configuration, analytics, and platform oversight', 'Super Admin', 'Active', 1),
+        ('Zone Admin', 'ZONE_ADMIN', 'Manages local zone operations, hub staff, and rides', 'Platform Admin', 'Active', 2),
+        ('Operations Manager', 'OPERATIONS_MANAGER', 'Manages fleet dispatch, active rides, and daily logistics', 'Zone Admin', 'Active', 2),
+        ('Franchise Manager', 'FRANCHISE_MANAGER', 'Manages franchise partners, hubs, and revenue logs', 'Platform Admin', 'Active', 1),
+        ('Battery Technician', 'BATTERY_TECHNICIAN', 'Battery inward, charging, and BMS health monitoring', 'Operations Manager', 'Active', 1),
+        ('Support Executive', 'SUPPORT_EXECUTIVE', 'Rider support, complaints, and reservation assistance', 'Zone Admin', 'Active', 1),
+        ('Fleet Manager', 'FLEET_MANAGER', 'Vehicle inventory, documents, and maintenance tracking', 'Operations Manager', 'Active', 1),
+        ('Field Technician', 'FIELD_TECHNICIAN', 'On-field battery swapping and roadside assistance', 'Operations Manager', 'Active', 1),
+        ('Finance Manager', 'FINANCE_MANAGER', 'Revenue accounting, payouts, and deposit refunds', 'Platform Admin', 'Active', 1)
+      ON CONFLICT (code) DO NOTHING
+    `);
+  }
+
+  // Seed default predefined users
+  const existingUsersCount = await db.query('SELECT COUNT(*) FROM users');
+  if (parseInt(existingUsersCount.rows[0].count) === 0) {
+    await db.query(`
+      INSERT INTO users (name, email, role, mobile, zone, status, password)
+      VALUES 
+        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 99999 88888', 'Multiple Zones', 'Active', 'admin123'),
+        ('Akash', 'akash@evegah.com', 'Zone Admin', '+91 98765 43210', 'Gotri Zone', 'Active', 'zone123'),
+        ('Priya Sharma', 'priya.sharma@evegah.com', 'Platform Admin', '+91 98765 11111', 'All Zones / Platform Wide', 'Active', 'pass123'),
+        ('Rahul Verma', 'rahul.v@evegah.com', 'Operations Manager', '+91 98765 22222', 'Vadodara Main Zone', 'Active', 'pass123'),
+        ('Vikram Patel', 'vikram.p@evegah.com', 'Franchise Manager', '+91 98765 33333', 'Alkapuri Zone', 'Active', 'pass123'),
+        ('Neha Singh', 'neha.s@evegah.com', 'Battery Technician', '+91 98765 44444', 'Subhanpura Zone', 'Active', 'pass123'),
+        ('Amit Kumar', 'amit.k@evegah.com', 'Support Executive', '+91 98765 55555', 'Akota Zone', 'Active', 'pass123'),
+        ('Suresh Mehta', 'suresh.m@evegah.com', 'Fleet Manager', '+91 98765 66666', 'Gotri Zone', 'Active', 'pass123')
+      ON CONFLICT (email) DO NOTHING
+    `);
+  }
+
   console.log('Migrations complete!');
   process.exit(0);
 };
