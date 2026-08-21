@@ -128,12 +128,12 @@ class _MainNavigationState extends State<MainNavigation> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF200F54), // Deep brand purple
+                  color: const Color(0xFFCCF200), // Vibrant Neon Lime Green
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF200F54).withOpacity(0.3),
-                      blurRadius: 8,
+                      color: const Color(0xFFCCF200).withOpacity(0.45),
+                      blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -141,13 +141,13 @@ class _MainNavigationState extends State<MainNavigation> {
                 ),
                 child: const Icon(
                   Icons.qr_code_scanner_rounded,
-                  color: Colors.white,
+                  color: Color(0xFF0F172A),
                   size: 22,
                 ),
               ),
               const SizedBox(height: 2),
               const Text(
-                "Scan to Ride",
+                "Scan",
                 style: TextStyle(
                   color: Color(0xFF475569),
                   fontSize: 10,
@@ -164,7 +164,6 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppSidebarDrawer(),
       body: _getBody(),
       bottomNavigationBar: Container(
         height: 72,

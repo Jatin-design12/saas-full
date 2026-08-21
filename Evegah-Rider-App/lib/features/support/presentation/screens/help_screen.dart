@@ -1,462 +1,425 @@
 import 'package:flutter/material.dart';
-import '../../data/services/support_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class HelpScreen extends StatelessWidget {
+class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
 
-  // =================================================
-  // EVEGAH BRAND COLORS
-  // =================================================
+  @override
+  State<HelpScreen> createState() => _HelpScreenState();
+}
 
-  static const Color primaryPurple = Color(0xFF200F54);
-  static const Color brandPurple = Color(0xFF4313B8);
-  static const Color accentGreen = Color(0xFF8CE600);
+class _HelpScreenState extends State<HelpScreen> {
+  bool _isOffline = false;
+  final bool _isMaintenance = false;
 
-  static const Color backgroundColor = Color(0xFFFAFBFE);
-  static const Color darkText = Color(0xFF0F172A);
-  static const Color secondaryText = Color(0xFF94A3B8);
-  static const Color borderColor = Color(0xFFE2E8F0);
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Calling $phoneNumber...")),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendEmail(String email) async {
+    final Uri launchUri = Uri(scheme: 'mailto', path: email);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Opening mail to $email...")),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final SupportService supportService = SupportService();
+    if (_isOffline) return _buildOfflineState();
+    if (_isMaintenance) return _buildMaintenanceState();
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-
-      body: SafeArea(
-        child: Column(
-          children: [
-
-            // =================================================
-            // MODERN HELP HEADER
-            // =================================================
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                18,
+      // A very soft, airy off-white background
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0, top: 8, bottom: 8),
+          child: InkWell(
+            onTap: () => Navigator.maybePop(context),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
               ),
-
-              child: Row(
+              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: Color(0xFF334155), size: 18),
+            ),
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: const Color(0xFFE2E8F0),
+              child: const Icon(Icons.person_outline_rounded,
+                  color: Color(0xFF475569), size: 20),
+            ),
+          )
+        ],
+      ),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  // Back button
-
-                  Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-
-                      borderRadius: BorderRadius.circular(14),
-
-                      child: Container(
-                        height: 46,
-                        width: 46,
-
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-
-                          borderRadius: BorderRadius.circular(
-                            14,
-                          ),
-
-                          border: Border.all(
-                            color: borderColor,
-                          ),
-
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(
-                                alpha: 0.04,
-                              ),
-
-                              blurRadius: 10,
-
-                              offset: const Offset(
-                                0,
-                                4,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        child: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: primaryPurple,
-                          size: 24,
-                        ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0E7FF),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      "👋 Hi there!",
+                      style: TextStyle(
+                        color: Color(0xFF4338CA),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "How can we help\nyou today?",
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                      height: 1.15,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
 
-                  const SizedBox(width: 15),
-
-                  // Page title and subtitle
-
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-
-                      children: [
-
-                        Text(
-                          "Get Help",
-
-                          style: TextStyle(
-                            color: darkText,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-
-                        SizedBox(height: 4),
-
-                        Text(
-                          "How can we help you today?",
-
-                          style: TextStyle(
-                            color: secondaryText,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                  // Minimalist Search Bar
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF94A3B8).withOpacity(0.05),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        )
                       ],
+                    ),
+                    child: const TextField(
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: "Search for articles...",
+                        hintStyle: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        icon: Icon(Icons.search_rounded,
+                            color: Color(0xFF94A3B8)),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // =================================================
-            // SCROLLABLE CONTENT
-            // =================================================
+            const SizedBox(height: 32),
 
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  20,
-                  4,
-                  20,
-                  30,
-                ),
-
+            // Staggered Bento Box Contacts
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  // =================================================
-                  // SUPPORT HERO CARD
-                  // =================================================
-
-                  Container(
-                    width: double.infinity,
-
-                    padding: const EdgeInsets.fromLTRB(
-                      24,
-                      28,
-                      24,
-                      28,
-                    ),
-
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF200F54),
-                          Color(0xFF4313B8),
-                        ],
-
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-
-                      borderRadius: BorderRadius.circular(
-                        28,
-                      ),
-
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryPurple.withValues(
-                            alpha: 0.20,
-                          ),
-
-                          blurRadius: 24,
-
-                          offset: const Offset(
-                            0,
-                            12,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    child: Column(
-                      children: [
-
-                        // Support icon
-
-                        Container(
-                          height: 76,
-                          width: 76,
-
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(
-                              alpha: 0.12,
-                            ),
-
-                            shape: BoxShape.circle,
-
-                            border: Border.all(
-                              color: Colors.white.withValues(
-                                alpha: 0.15,
-                              ),
-                            ),
-                          ),
-
-                          child: const Icon(
-                            Icons.support_agent_rounded,
-                            color: accentGreen,
-                            size: 42,
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        const Text(
-                          "We're here for you",
-
-                          textAlign: TextAlign.center,
-
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 23,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-
-                        const SizedBox(height: 9),
-
-                        const Text(
-                          "Our support team is ready to help with your rides, payments, and account.",
-
-                          textAlign: TextAlign.center,
-
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            height: 1.55,
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Support availability
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(
-                              alpha: 0.11,
-                            ),
-
-                            borderRadius: BorderRadius.circular(
-                              30,
-                            ),
-                          ),
-
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-
-                            children: [
-
-                              // Online indicator
-
-                              CircleAvatar(
-                                radius: 4,
-                                backgroundColor: accentGreen,
-                              ),
-
-                              SizedBox(width: 8),
-
-                              Text(
-                                "Support team is available",
-
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // =================================================
-                  // CONTACT SECTION TITLE
-                  // =================================================
-
                   const Text(
-                    "Contact Support",
-
+                    "Quick Contact",
                     style: TextStyle(
-                      color: darkText,
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
+                      color: Color(0xFF1E293B),
                     ),
                   ),
-
-                  const SizedBox(height: 5),
-
-                  const Text(
-                    "Choose how you would like to contact us",
-
-                    style: TextStyle(
-                      color: secondaryText,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-
-                  const SizedBox(height: 17),
-
-                  // =================================================
-                  // CALL SUPPORT CARD
-                  // =================================================
-
-                  _buildContactCard(
-                    title: "Call Us",
-
-                    subtitle: supportService.supportPhone,
-
-                    info: supportService.operatingHours,
-
-                    badge: "AVAILABLE",
-
-                    icon: Icons.phone_rounded,
-
-                    iconColor: const Color(
-                      0xFF16A34A,
-                    ),
-
-                    iconBackground: const Color(
-                      0xFFECFDF3,
-                    ),
-
-                    onTap: () {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Launching phone dialer...",
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // =================================================
-                  // EMAIL SUPPORT CARD
-                  // =================================================
-
-                  _buildContactCard(
-                    title: "Email Support",
-
-                    subtitle: supportService.supportEmail,
-
-                    info: "Typical reply within 2 hours",
-
-                    badge: "QUICK REPLY",
-
-                    icon: Icons.mail_outline_rounded,
-
-                    iconColor: const Color(
-                      0xFF2563EB,
-                    ),
-
-                    iconBackground: const Color(
-                      0xFFEFF6FF,
-                    ),
-
-                    onTap: () {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Launching email app...",
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // =================================================
-                  // HELP INFORMATION
-                  // =================================================
-
-                  Container(
-                    padding: const EdgeInsets.all(16),
-
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F3FF),
-
-                      borderRadius: BorderRadius.circular(
-                        18,
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // Tall Live Chat Card
+                      Expanded(
+                        flex: 11,
+                        child: _buildTallLiveChatCard(),
                       ),
-
-                      border: Border.all(
-                        color: const Color(
-                          0xFFE9E3FF,
-                        ),
-                      ),
-                    ),
-
-                    child: const Row(
-                      children: [
-
-                        Icon(
-                          Icons.info_outline_rounded,
-                          color: brandPurple,
-                          size: 21,
-                        ),
-
-                        SizedBox(width: 12),
-
-                        Expanded(
-                          child: Text(
-                            "For faster support, keep your ride or booking details ready.",
-
-                            style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              height: 1.4,
+                      const SizedBox(width: 16),
+                      // Stacked Call and Email Cards
+                      Expanded(
+                        flex: 10,
+                        child: Column(
+                          children: [
+                            _buildSmallContactCard(
+                              title: "Call Us",
+                              subtitle: "+91 98765...",
+                              icon: Icons.phone_rounded,
+                              bgColor: const Color(0xFFECFDF5),
+                              iconColor: const Color(0xFF059669),
+                              onTap: () => _makePhoneCall("+919876543210"),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            _buildSmallContactCard(
+                              title: "Email",
+                              subtitle: "support@...",
+                              icon: Icons.mail_rounded,
+                              bgColor: const Color(0xFFFFF7ED),
+                              iconColor: const Color(0xFFEA580C),
+                              onTap: () => _sendEmail("support@evegah.com"),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 36),
+
+            // Wrap Layout for Topics
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Popular Topics",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _buildTopicPill("Ride Issues", Icons.electric_scooter_rounded),
+                      _buildTopicPill("Payments", Icons.account_balance_wallet_rounded),
+                      _buildTopicPill("My Account", Icons.person_outline_rounded),
+                      _buildTopicPill("Offers & Promos", Icons.local_activity_outlined),
+                      _buildTopicPill("Safety", Icons.security_rounded),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Pill-shaped unique topic layout instead of squares
+  Widget _buildTopicPill(String title, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.015),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFF64748B), size: 18),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tall "Live Chat" Bento Card
+  Widget _buildTallLiveChatCard() {
+    return GestureDetector(
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connecting to Live Chat...")),
+        );
+      },
+      child: Container(
+        height: 220, // Forces the card to be tall to match the right side
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F6FF), // Very soft lavender/blue
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.white, width: 3), // Frost effect
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4338CA).withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4338CA),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.chat_bubble_rounded,
+                  color: Colors.white, size: 28),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4338CA).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Online 24/7",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4338CA),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Live Chat",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "Typical reply: 2 mins",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Small, stacked Bento Contact Cards
+  Widget _buildSmallContactCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color bgColor,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 102, // Exactly half the height of tall card minus spacing
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white, width: 3), // Frost effect
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withOpacity(0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: iconColor.withOpacity(0.8),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -467,199 +430,109 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
-  // =================================================
-  // CONTACT SUPPORT CARD
-  // =================================================
-
-  Widget _buildContactCard({
-    required String title,
-    required String subtitle,
-    required String info,
-    required String badge,
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBackground,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.white,
-
-      borderRadius: BorderRadius.circular(20),
-
-      child: InkWell(
-        onTap: onTap,
-
-        borderRadius: BorderRadius.circular(20),
-
-        child: Container(
-          padding: const EdgeInsets.all(17),
-
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-
-            border: Border.all(
-              color: borderColor,
-            ),
-
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: 0.025,
+  // Refreshed Empty States
+  Widget _buildOfflineState() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    )
+                  ],
                 ),
-
-                blurRadius: 14,
-
-                offset: const Offset(
-                  0,
-                  5,
-                ),
+                child: const Icon(Icons.wifi_off_rounded,
+                    size: 60, color: Color(0xFF94A3B8)),
+              ),
+              const SizedBox(height: 32),
+              const Text("You're Offline",
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A))),
+              const SizedBox(height: 12),
+              const Text(
+                  "We can't seem to connect to the network.\nPlease check your settings and try again.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF64748B),
+                      height: 1.5,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: () => setState(() => _isOffline = false),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4338CA),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 16),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20))),
+                child: const Text("Reconnect",
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
 
-          child: Row(
+  Widget _buildMaintenanceState() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
-              // Contact icon
-
               Container(
-                height: 55,
-                width: 55,
-
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: iconBackground,
-
-                  borderRadius: BorderRadius.circular(
-                    16,
-                  ),
-                ),
-
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 26,
-                ),
-              ),
-
-              const SizedBox(width: 15),
-
-              // Contact details
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-
-                  children: [
-
-                    Row(
-                      children: [
-
-                        Flexible(
-                          child: Text(
-                            title,
-
-                            style: const TextStyle(
-                              color: darkText,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 8),
-
-                        Container(
-                          padding:
-                              const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFF5F3FF,
-                            ),
-
-                            borderRadius:
-                                BorderRadius.circular(
-                              20,
-                            ),
-                          ),
-
-                          child: Text(
-                            badge,
-
-                            style: const TextStyle(
-                              color: brandPurple,
-                              fontSize: 7,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 5),
-
-                    Text(
-                      subtitle,
-
-                      maxLines: 1,
-
-                      overflow: TextOverflow.ellipsis,
-
-                      style: const TextStyle(
-                        color: darkText,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      info,
-
-                      maxLines: 2,
-
-                      overflow: TextOverflow.ellipsis,
-
-                      style: const TextStyle(
-                        color: secondaryText,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                      ),
-                    ),
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    )
                   ],
                 ),
+                child: const Icon(Icons.handyman_rounded,
+                    size: 60, color: Color(0xFFF59E0B)),
               ),
-
-              const SizedBox(width: 8),
-
-              // Navigation arrow
-
-              Container(
-                height: 30,
-                width: 30,
-
-                decoration: BoxDecoration(
-                  color: const Color(
-                    0xFFF8FAFC,
-                  ),
-
-                  borderRadius: BorderRadius.circular(
-                    9,
-                  ),
-                ),
-
-                child: const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: secondaryText,
-                  size: 12,
-                ),
-              ),
+              const SizedBox(height: 32),
+              const Text("Taking a Quick Break",
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A))),
+              const SizedBox(height: 12),
+              const Text(
+                  "Our systems are currently undergoing some\nscheduled polish. We'll be back shortly!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF64748B),
+                      height: 1.5,
+                      fontWeight: FontWeight.w500)),
             ],
           ),
         ),

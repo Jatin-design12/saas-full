@@ -2,6 +2,33 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { Line, Doughnut, Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 function AnimatedCount({ value }: { value: string | number }) {
   const [displayValue, setDisplayValue] = useState<string | number>(value);
@@ -772,7 +799,7 @@ export default function ReportsPage() {
                 <p className="rep-sub">{currentTabConfig.subtitle}</p>
               </div>
               <div className="rep-actions">
-                <button className="rep-btn">
+                <button className="rep-btn" onClick={() => window.location.href = '/reports/custom'}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a195c" strokeWidth="2.5" style={{ marginRight: 2 }}>
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -895,130 +922,138 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            {/* Charts Row */}
+            {/* Charts Row with Real Chart.js Interactive Graphs */}
             <div className="rep-charts-grid">
-              {/* Chart 1: Spline chart */}
+              {/* Chart 1: Interactive Area Spline Chart */}
               <div className="rep-chart-card">
                 <div className="rep-chart-hdr">
                   <span className="rep-chart-tit">{currentTabConfig.charts.lineTitle}</span>
+                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 'bold' }}>• Live Analytics</span>
                 </div>
-                <div className="rep-chart-body">
-                  <svg width="100%" height="180" viewBox="0 0 500 180" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
-                    {/* Grid Lines */}
-                    <line x1="0" y1="160" x2="500" y2="160" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="120" x2="500" y2="120" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="80" x2="500" y2="80" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="40" x2="500" y2="40" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="10" x2="500" y2="10" stroke="#F1F5F9" strokeWidth="1" />
-
-                    {/* Gradient fill */}
-                    <defs>
-                      <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2A195C" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#2A195C" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Path Area */}
-                    <path
-                      d={`${currentTabConfig.charts.linePath} L 490 160 L 10 160 Z`}
-                      fill="url(#purpleGrad)"
-                    />
-
-                    {/* Spline Path Line */}
-                    <path
-                      className="animate-draw-large"
-                      d={currentTabConfig.charts.linePath}
-                      fill="none"
-                      stroke="#2A195C"
-                      strokeWidth="2.5"
-                    />
-
-                    {/* Data Points */}
-                    {currentTabConfig.charts.linePoints.map((pt, index) => (
-                      <circle key={index} cx={pt.cx} cy={pt.cy} r="4.5" fill="#fff" stroke="#2A195C" strokeWidth="2.5" />
-                    ))}
-
-                    {/* Labels */}
-                    {currentTabConfig.charts.lineXLabels.map((lbl, idx) => (
-                      <text key={idx} x={10 + idx * 80} y="178" fontSize="10.5" fill="#64748B" textAnchor="middle">{lbl}</text>
-                    ))}
-
-                    {/* Y values */}
-                    {currentTabConfig.charts.lineYValues.map((val, idx) => (
-                      <text key={idx} x="-8" y={163 - idx * 37.5} fontSize="9.5" fill="#94A3B8" textAnchor="end">{val}</text>
-                    ))}
-                  </svg>
+                <div className="rep-chart-body" style={{ height: '220px', width: '100%' }}>
+                  <Line
+                    data={{
+                      labels: currentTabConfig.charts.lineXLabels,
+                      datasets: [
+                        {
+                          label: currentTabConfig.charts.lineTitle,
+                          data: currentTabConfig.charts.barHeights.map(h => Math.round(h * 32.5)),
+                          borderColor: '#6366F1',
+                          backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                          fill: true,
+                          tension: 0.4,
+                          pointRadius: 4,
+                          pointHoverRadius: 6,
+                          pointBackgroundColor: '#FFFFFF',
+                          pointBorderColor: '#6366F1',
+                          pointBorderWidth: 2,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          backgroundColor: '#0F172A',
+                          titleColor: '#FFF',
+                          bodyColor: '#4ADE80',
+                          padding: 10,
+                          cornerRadius: 8,
+                        }
+                      },
+                      scales: {
+                        x: { grid: { display: false } },
+                        y: { border: { dash: [4, 4] } }
+                      }
+                    }}
+                  />
                 </div>
               </div>
 
-              {/* Chart 2: Donut chart */}
+              {/* Chart 2: Interactive Doughnut Chart */}
               <div className="rep-chart-card">
                 <div className="rep-chart-hdr">
                   <span className="rep-chart-tit">{currentTabConfig.charts.donutTitle}</span>
                 </div>
-                <div className="rep-chart-body">
-                  <div className="rep-donut-layout">
-                    <div className="rep-donut-vis">
-                      <svg className="animate-scale-in" width="120" height="120" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
-                        {currentTabConfig.charts.donutSlices.map((slice, index) => (
-                          <circle
-                            key={index}
-                            cx="18"
-                            cy="18"
-                            r="15.91"
-                            fill="transparent"
-                            stroke={slice.color}
-                            strokeWidth="4.2"
-                            strokeDasharray={slice.dashArray}
-                            strokeDashoffset={slice.dashOffset}
-                          />
-                        ))}
-                      </svg>
-                      <div className="rep-donut-center">
-                        <div className="rep-donut-num">{currentTabConfig.charts.donutTotal}</div>
-                        <div className="rep-donut-lbl">Total</div>
-                      </div>
+                <div className="rep-chart-body" style={{ flexDirection: 'column', height: '220px', justifyContent: 'center' }}>
+                  <div className="rep-donut-vis" style={{ height: '130px', width: '130px' }}>
+                    <Doughnut
+                      data={{
+                        labels: currentTabConfig.charts.donutSlices.map(s => s.name),
+                        datasets: [
+                          {
+                            data: currentTabConfig.charts.donutSlices.map(s => parseFloat(s.pct)),
+                            backgroundColor: currentTabConfig.charts.donutSlices.map(s => s.color),
+                            borderWidth: 2,
+                            borderColor: '#FFFFFF',
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '72%',
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: { cornerRadius: 8 }
+                        }
+                      }}
+                    />
+                    <div className="rep-donut-center">
+                      <div className="rep-donut-num">{currentTabConfig.charts.donutTotal}</div>
+                      <div className="rep-donut-lbl">Total Share</div>
                     </div>
+                  </div>
 
-                    <div className="rep-donut-legend">
-                      {currentTabConfig.charts.donutSlices.map((slice, index) => (
-                        <div key={index} className="rep-leg-item">
-                          <div className="rep-leg-l">
-                            <span className="rep-leg-dot" style={{ background: slice.color }} />
-                            <span className="rep-leg-name">{slice.name}</span>
-                          </div>
-                          <span className="rep-leg-val">{slice.val} <span className="rep-leg-pct">({slice.pct})</span></span>
+                  <div className="rep-donut-legend" style={{ marginTop: '12px' }}>
+                    {currentTabConfig.charts.donutSlices.slice(0, 3).map((slice, index) => (
+                      <div key={index} className="rep-leg-item">
+                        <div className="rep-leg-l">
+                          <span className="rep-leg-dot" style={{ background: slice.color }} />
+                          <span className="rep-leg-name">{slice.name}</span>
                         </div>
-                      ))}
-                    </div>
+                        <span className="rep-leg-val">{slice.val} <span className="rep-leg-pct">({slice.pct})</span></span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Chart 3: Bar chart */}
+              {/* Chart 3: Interactive Bar Chart */}
               <div className="rep-chart-card">
                 <div className="rep-chart-hdr">
                   <span className="rep-chart-tit">{currentTabConfig.charts.barTitle}</span>
-                  <select className="rep-limit-select" style={{ border: 'none', background: 'transparent', paddingRight: '18px', padding: '0', fontSize: '11px', fontWeight: 'bold', color: '#64748B' }}>
-                    <option>Last 7 Days</option>
-                  </select>
                 </div>
-                <div className="rep-chart-body">
-                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '130px', borderBottom: '1px solid #E2E8F0', paddingBottom: '4px', width: '100%' }}>
-                      {currentTabConfig.charts.barHeights.map((h, index) => (
-                        <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1' }}>
-                          <div className="animate-grow-bar" style={{ height: `${h}px`, width: '14px', background: 'linear-gradient(180deg, #2A195C 0%, #2a195c 100%)', borderRadius: '4px 4px 0 0' }} />
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#94A3B8' }}>
-                      {currentTabConfig.charts.barXLabels.map((lbl, idx) => (
-                        <span key={idx} style={{ flex: '1', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={lbl}>{lbl}</span>
-                      ))}
-                    </div>
-                  </div>
+                <div className="rep-chart-body" style={{ height: '220px', width: '100%' }}>
+                  <Bar
+                    data={{
+                      labels: currentTabConfig.charts.barXLabels,
+                      datasets: [
+                        {
+                          label: currentTabConfig.charts.barTitle,
+                          data: currentTabConfig.charts.barHeights,
+                          backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                          hoverBackgroundColor: '#4F46E5',
+                          borderRadius: 6,
+                          barThickness: 16,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: { cornerRadius: 8 }
+                      },
+                      scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { color: '#F1F5F9' }, border: { dash: [4, 4] } }
+                      }
+                    }}
+                  />
                 </div>
               </div>
             </div>

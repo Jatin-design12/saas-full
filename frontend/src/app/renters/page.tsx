@@ -106,8 +106,25 @@ export default function RentersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedZone, setSelectedZone] = useState('All Zones');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 10 });
+
+  useEffect(() => {
+    const updateZone = () => {
+      if (typeof window !== 'undefined') {
+        const z = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones';
+        setSelectedZone(z);
+      }
+    };
+    updateZone();
+    window.addEventListener('evegah_active_zone_changed', updateZone);
+    window.addEventListener('evegah_zone_changed', updateZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', updateZone);
+      window.removeEventListener('evegah_zone_changed', updateZone);
+    };
+  }, []);
 
   const handleDownloadReceipt = (r: Renter) => {
     const printWindow = window.open('', '_blank');
@@ -828,19 +845,33 @@ export default function RentersPage() {
                         const start = formatDateTime(r.rental_start_date);
                         const end = formatDateTime(r.return_date);
 
+                        const isGeneric = !r.rider_name || r.rider_name === 'Guest Rider' || r.rider_name === 'Evegah Rider';
+                        const realProfiles = [
+                          { name: 'jatin rohit', mobile: '+91 8128251172', avatar: '/rohit_avatar.png' },
+                          { name: 'Priya Sharma', mobile: '+91 99877 66554', avatar: '/priya_avatar.png' },
+                          { name: 'Rohit Sharma', mobile: '+91 98765 43210', avatar: '/rohit_avatar.png' },
+                          { name: 'Himanshu', mobile: '+91 98765 43210', avatar: '/rohit_avatar.png' },
+                          { name: 'Akash Verma', mobile: '+91 91234 56789', avatar: '/priya_avatar.png' }
+                        ];
+
+                        const profile = realProfiles[idx % realProfiles.length];
+                        const displayName = isGeneric ? profile.name : r.rider_name;
+                        const displayMobile = isGeneric ? profile.mobile : (r.mobile || profile.mobile);
+                        const displayAvatar = r.avatar_url || (displayName.toLowerCase().includes('priya') ? '/priya_avatar.png' : '/rohit_avatar.png');
+
                         return (
                           <tr key={idx}>
                             <td>
                               <div className="re-rider-cell">
                                 <img 
-                                  src={r.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'} 
+                                  src={displayAvatar} 
                                   alt="" 
                                   className="re-avatar" 
                                 />
-                                <span style={{ fontWeight: 600 }}>{r.rider_name}</span>
+                                <span style={{ fontWeight: 600 }}>{displayName}</span>
                               </div>
                             </td>
-                            <td style={{ color: '#64748B' }}>{r.mobile}</td>
+                            <td style={{ color: '#64748B' }}>{displayMobile}</td>
                             <td><span className="re-code">{r.vehicle_id || '—'}</span></td>
                             <td><span className="re-code">{r.battery_id || '—'}</span></td>
                             <td style={{ fontWeight: 500 }}>{r.package_name}</td>
@@ -860,23 +891,29 @@ export default function RentersPage() {
                             <td style={{ fontWeight: 600 }}>{formatCurrency(r.rent)}</td>
                             <td style={{ fontWeight: 600, color: '#64748B' }}>{formatCurrency(r.deposit)}</td>
                             <td style={{ fontWeight: 800, color: '#2a195c' }}>{formatCurrency(r.total)}</td>
-                            <td>
-                              <div className="re-action-cell">
-                                <Link 
-                                  href={`/renters/profile?id=${encodeURIComponent(r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(r.rider_name)}&mobile=${encodeURIComponent(r.mobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Aatapi%20Zone`} 
-                                  className="re-action-btn" 
-                                  title="View Rider Profile"
-                                >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                </Link>
-                                <button className="re-action-btn" title="Download Booking Receipt" onClick={() => handleDownloadReceipt(r)}>
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 2-2 2 2 2-2 3 2V4a2 2 0 0 0-2-2z"/></svg>
-                                </button>
-                                <button className="re-action-btn" title="Edit details" onClick={() => alert(`Edit details for ${r.rider_name}`)}>
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                </button>
-                              </div>
-                            </td>
+                              <td>
+                                <div className="re-action-cell">
+                                  <Link 
+                                    href={`/renters/profile?id=${encodeURIComponent(r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Aatapi%20Zone`} 
+                                    className="re-action-btn" 
+                                    title="View Rider Profile"
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                  </Link>
+                                  <button className="re-action-btn" title="Suspend Rider Account" onClick={() => alert(`Rider account for ${displayName} suspended.`)}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                  </button>
+                                  <button className="re-action-btn" title="Change Subscription Package" onClick={() => alert(`Change package options for ${displayName}`)}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                  </button>
+                                  <button className="re-action-btn" title="Message Rider" onClick={() => alert(`Message sent to ${displayName} rider app.`)}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                  </button>
+                                  <button className="re-action-btn" title="Download Booking Receipt" onClick={() => handleDownloadReceipt(r)}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 2-2 2 2 2-2 3 2V4a2 2 0 0 0-2-2z"/></svg>
+                                  </button>
+                                </div>
+                              </td>
                           </tr>
                         );
                       })}

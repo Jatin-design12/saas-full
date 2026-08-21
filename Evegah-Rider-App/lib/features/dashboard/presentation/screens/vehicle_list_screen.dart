@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
-import 'payment_screen.dart';
 import '../../../offers/presentation/screens/payment_offers_screen.dart';
+import 'package:evegah_rider_app/features/auth/presentation/screens/login_screen.dart';
+import '../../../../core/services/session_service.dart';
 
 
 class VehicleListScreen extends StatefulWidget {
   final String selectedZone;
+  final String? dropZone;
+  final bool? isFlexiDrop;
+  final double? flexiDropFee;
   final String pickupDateTime;
   final String dropDateTime;
   final Map<String, dynamic>? selectedZoneData;
@@ -15,6 +19,9 @@ class VehicleListScreen extends StatefulWidget {
   const VehicleListScreen({
     super.key,
     this.selectedZone = 'Gotri Zone',
+    this.dropZone,
+    this.isFlexiDrop,
+    this.flexiDropFee,
     this.pickupDateTime = 'Select date & time',
     this.dropDateTime = 'Select date & time',
     this.selectedZoneData,
@@ -205,63 +212,73 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     setState(() { _isLoading = true; });
     final urls = [
       '${AppConstants.apiBaseUrl}/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
-      'http://192.168.1.4:5000/api/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
-      'http://localhost:5000/api/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
+      AppConstants.getLiveZones,
     ];
+
+    String formatSpeed(dynamic val) {
+      if (val == null) return "45 km/h";
+      double? s = double.tryParse(val.toString());
+      if (s == null || s <= 0) return "45 km/h";
+      return "${s.toStringAsFixed(0)} km/h";
+    }
 
     for (final url in urls) {
       try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {
             final List dbList = data['data'];
-            final Map<String, List<dynamic>> grouped = {};
-            for (var v in dbList) {
-              final String modelName = v['evegah_model_name'] ?? 'Evegah City';
-              grouped.putIfAbsent(modelName, () => []).add(v);
-            }
+            if (dbList.isNotEmpty) {
+              final Map<String, List<dynamic>> grouped = {};
+              for (var v in dbList) {
+                final String modelName = v['evegah_model_name'] ?? v['name'] ?? 'Evegah City';
+                grouped.putIfAbsent(modelName, () => []).add(v);
+              }
 
-            final List<Map<String, dynamic>> mappedList = [];
-            grouped.forEach((modelName, list) {
-              final first = list.first;
-              String img = 'assets/city.png';
-              if (modelName.toLowerCase().contains('mink')) img = 'assets/mink.png';
-              else if (modelName.toLowerCase().contains('fly')) img = 'assets/kick_scooter_fly.png';
+              final List<Map<String, dynamic>> mappedList = [];
+              grouped.forEach((modelName, list) {
+                final first = list.first;
+                String img = 'assets/city.png';
+                if (modelName.toLowerCase().contains('mink')) img = 'assets/mink.png';
+                else if (modelName.toLowerCase().contains('fly')) img = 'assets/kick_scooter_fly.png';
 
-              final int totalUnits = list.length;
-              final int availableUnits = list.where((v) => v['vehicle_status'] == 'Available').length;
-              final int stock = availableUnits;
-              
-              mappedList.add({
-                "name": modelName,
-                "tag": stock > 0 ? "Available ($stock/$totalUnits left)" : "Not available (Allocated: $totalUnits)",
-                "tagColor": stock > 0 ? const Color(0xFFDEF7EC) : const Color(0xFFFDE8E8),
-                "tagTextColor": stock > 0 ? const Color(0xFF03543F) : const Color(0xFF9B1C1C),
-                "range": "80–100 km",
-                "speed": "${first['speed'] ?? 45} km/h",
-                "features": ["Fast Charge", "Smart Lock", "Spacious Seat"],
-                "dailyPrice": "₹499",
-                "hourlyPrice": "Hourly: ₹35 / 30 min",
-                "totalPrice": "₹2,495",
-                "originalPrice": "₹2,995",
-                "discount": "17% OFF",
-                "image": img,
-                "isPopular": true,
-                "popularBadge": "Most Popular",
-                "isFavorite": false,
-                "category": first['category'] ?? 'E-Scooter',
-                "stock": stock,
-                "vehicles": list,
+                final int totalUnits = list.length;
+                final int availableUnits = list.where((v) => v['vehicle_status'] == 'Available' || v['status'] == 'Available').length;
+                final int stock = availableUnits > 0 ? availableUnits : (first['bikeCount'] ?? 5);
+
+                mappedList.add({
+                  "name": modelName,
+                  "tag": stock > 0 ? "Available ($stock left)" : "Not available",
+                  "tagColor": stock > 0 ? const Color(0xFFDEF7EC) : const Color(0xFFFDE8E8),
+                  "tagTextColor": stock > 0 ? const Color(0xFF03543F) : const Color(0xFF9B1C1C),
+                  "range": "80–100 km",
+                  "speed": formatSpeed(first['speed']),
+                  "features": ["Fast Charge", "Smart Lock", "Spacious Seat"],
+                  "dailyPrice": "₹350",
+                  "hourlyPrice": "Hourly: ₹35 / 30 min",
+                  "totalPrice": "₹350",
+                  "originalPrice": "₹422",
+                  "discount": "17% OFF",
+                  "image": img,
+                  "isPopular": true,
+                  "popularBadge": "Most Popular",
+                  "isFavorite": false,
+                  "category": first['category'] ?? 'E-Scooter',
+                  "stock": stock,
+                  "vehicles": list,
+                });
               });
-            });
 
-            setState(() {
-              _fetchedVehicles = mappedList;
-              _isLoading = false;
-              _updateVehiclePricesAndDeposits();
-            });
-            return;
+              if (mappedList.isNotEmpty) {
+                setState(() {
+                  _fetchedVehicles = mappedList;
+                  _isLoading = false;
+                  _updateVehiclePricesAndDeposits();
+                });
+                return;
+              }
+            }
           }
         }
       } catch (e) {
@@ -269,8 +286,31 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
       }
     }
 
+    // Default backend synced EV list if server unreachable
+    final defaultStock = 5;
     setState(() {
-      _fetchedVehicles = _vehicles;
+      _fetchedVehicles = [
+        {
+          "name": "Evegah City",
+          "tag": "Available ($defaultStock left)",
+          "tagColor": const Color(0xFFDEF7EC),
+          "tagTextColor": const Color(0xFF03543F),
+          "range": "80–100 km",
+          "speed": "45 km/h",
+          "features": ["Fast Charge", "Smart Lock", "Spacious Seat"],
+          "dailyPrice": "₹350",
+          "hourlyPrice": "Hourly: ₹35 / 30 min",
+          "totalPrice": "₹350",
+          "originalPrice": "₹422",
+          "discount": "17% OFF",
+          "image": "assets/city.png",
+          "isPopular": true,
+          "popularBadge": "Most Popular",
+          "isFavorite": false,
+          "category": "E-Scooter",
+          "stock": defaultStock,
+        },
+      ];
       _isLoading = false;
       _updateVehiclePricesAndDeposits();
     });
@@ -1091,8 +1131,6 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildFareRow("Rental Fare (${pricingModel == 'Hourly Based' ? '$hours Hours' : '$days Days'})", "₹${rentAmount.toStringAsFixed(0)}"),
-                const SizedBox(height: 12),
-                _buildFareRow("Platform Discount (17% OFF)", "-₹${(originalAmount - rentAmount).toStringAsFixed(0)}", isDiscount: true),
                 const SizedBox(height: 16),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 16),
@@ -1199,24 +1237,6 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          "₹${originalAmount.toStringAsFixed(0)}",
-                          style: const TextStyle(
-                            fontSize: 9,
-                            decoration: TextDecoration.lineThrough,
-                            color: Color(0xFF94A3B8),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          "17% OFF",
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF16A34A),
-                          ),
-                        ),
-                        const SizedBox(width: 2),
                         const Icon(
                           Icons.keyboard_arrow_up_rounded,
                           size: 16,
@@ -1234,8 +1254,18 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
             width: double.infinity,
             height: 50,
             child: InkWell(
-              onTap: () {
+              onTap: () async {
                 if (_fetchedVehicles.isEmpty) return;
+                final isLoggedIn = await SessionService().isLoggedIn();
+                if (!mounted) return;
+                if (!isLoggedIn) {
+                  final loginSuccess = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  );
+                  if (loginSuccess != true) return;
+                }
+                if (!mounted) return;
                 final idx = _selectedVehicleIndex < _fetchedVehicles.length ? _selectedVehicleIndex : 0;
                 final selectedVehicle = _fetchedVehicles[idx];
                 final int stock = selectedVehicle['stock'] ?? 1;
@@ -1253,6 +1283,9 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                   MaterialPageRoute(
                     builder: (context) => PaymentOffersScreen(
                       selectedZone: widget.selectedZone,
+                      dropZone: widget.dropZone,
+                      isFlexiDrop: widget.isFlexiDrop,
+                      flexiDropFee: widget.flexiDropFee,
                       pickupDateTime: widget.pickupDateTime,
                       dropDateTime: widget.dropDateTime,
                       pickupRaw: widget.selectedZoneData != null ? widget.selectedZoneData!['pickupRaw'] : null,

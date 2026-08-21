@@ -309,13 +309,15 @@ function RiderProfileContent() {
   const searchParams = useSearchParams();
   const riderId = searchParams.get('id') || 'RID-2026-001';
   const initialTab = searchParams.get('tab') || 'Overview';
-  const riderName = searchParams.get('name') || 'Rohit Sharma';
-  const riderMobile = searchParams.get('mobile') || '+91 98765 43210';
+  const rawParamName = searchParams.get('name') || '';
+  const riderName = (!rawParamName || rawParamName === 'Guest Rider' || rawParamName === 'Evegah Rider') ? 'jatin rohit' : rawParamName;
+  const riderMobile = searchParams.get('mobile') || '+91 8128251172';
   const riderVehicle = searchParams.get('vehicle') || 'EVM1024001';
   const riderBattery = searchParams.get('battery') || 'BAT-GOTRI-01';
   const riderStatus = searchParams.get('status') || 'Active Ride';
   const riderZone = searchParams.get('zone') || 'Aatapi Zone';
   const riderEmail = `${riderName.toLowerCase().replace(/\s+/g, '.')}@evegah.com`;
+  const riderAvatar = riderName.toLowerCase().includes('priya') ? '/priya_avatar.png' : '/rohit_avatar.png';
 
   // State management
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -607,7 +609,7 @@ function RiderProfileContent() {
               {/* Left Column: Profile Avatar + Core ID info */}
               <div className="rp-profile-left">
                 <div className="rp-avatar-circle">
-                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt={riderName} />
+                  <img src={riderAvatar} alt={riderName} />
                 </div>
                 <div className="rp-profile-details">
                   <div className="rp-profile-name-row">

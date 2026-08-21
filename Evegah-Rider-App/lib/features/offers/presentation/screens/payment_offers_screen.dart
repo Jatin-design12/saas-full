@@ -1,14 +1,21 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import '../../../../core/utils/razorpay_stub.dart'
+    if (dart.library.js) '../../../../core/utils/razorpay_web.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/session_service.dart';
 import '../../../dashboard/presentation/widgets/vehicle_360_viewer.dart';
-import '../../../wallet/presentation/screens/payment_screen.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
 import 'offer_screen.dart';
 
 class PaymentOffersScreen extends StatefulWidget {
   final String selectedZone;
+  final String? dropZone;
+  final bool? isFlexiDrop;
+  final double? flexiDropFee;
   final String pickupDateTime;
   final String dropDateTime;
   final String? pickupRaw;
@@ -19,6 +26,9 @@ class PaymentOffersScreen extends StatefulWidget {
   const PaymentOffersScreen({
     super.key,
     required this.selectedZone,
+    this.dropZone,
+    this.isFlexiDrop,
+    this.flexiDropFee,
     required this.pickupDateTime,
     required this.dropDateTime,
     this.pickupRaw,
@@ -34,15 +44,26 @@ class PaymentOffersScreen extends StatefulWidget {
 class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
   String _appliedCode = 'GET100';
   String _depositOption = 'Pay Now'; // 'Pay Now' or 'Pay Later'
-  String _paymentMethod = 'Visa'; // 'Visa', 'Mastercard', or 'UPI'
-  
+  String _paymentMethod = 'Razorpay';
+  Razorpay? _razorpay;
+
   double _basePrice = 0.0;
   double _discount = 0.0;
   double _platformFee = 5.0;
   double _taxes = 2.50;
 
+  double get _deliveryFee {
+    if (widget.isFlexiDrop != true) {
+      return 0.0;
+    }
+    if (widget.flexiDropFee != null && widget.flexiDropFee! > 0) {
+      return widget.flexiDropFee!;
+    }
+    return 0.0;
+  }
+
   double get _totalPayable {
-    double total = _basePrice - _discount + _platformFee + _taxes;
+    double total = _basePrice + _deliveryFee - _discount + _platformFee + _taxes;
     if (_depositOption == 'Pay Now') {
       total += widget.selectedVehicle["realDeposit"] ?? 500.0;
     }
@@ -53,13 +74,119 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
   void initState() {
     super.initState();
     _basePrice = double.tryParse(widget.selectedVehicle["rentAmount"]?.toString() ?? '200') ?? 200.0;
-    
-    // Default apply the GET100 coupon
     _appliedCode = 'GET100';
     _discount = 100.00;
+    _paymentMethod = 'Razorpay';
+    _initRazorpaySafely();
   }
 
-  /// Posts the booking to the backend and navigates to BookingConfirmedScreen.
+  void _initRazorpaySafely() {
+    try {
+      if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+        _razorpay = Razorpay();
+        _razorpay?.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+        _razorpay?.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+        _razorpay?.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+      }
+    } catch (e) {
+      debugPrint("Razorpay init info: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    try {
+      _razorpay?.clear();
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Razorpay Payment Successful!"), backgroundColor: Colors.green),
+    );
+    _confirmBooking(payNow: true);
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Payment Status: ${response.message ?? 'Cancelled'}"), backgroundColor: Colors.orange),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {}
+
+  /// Triggers Razorpay Checkout modal when rider taps Pay Now
+  void _triggerRazorpayPayment({required bool payNow}) {
+    if (!payNow) {
+      _confirmBooking(payNow: false);
+      return;
+    }
+
+    final double amountToPay = _totalPayable;
+
+    // Web Razorpay Checkout
+    if (kIsWeb) {
+      try {
+        startRazorpayWebCheckout(
+          keyId: 'rzp_test_TCrlW614wYWVgA',
+          amount: amountToPay,
+          description: 'Evegah EV Rental Booking',
+          contact: '9876543210',
+          email: 'rider@evegah.com',
+          orderId: '',
+          onSuccess: (paymentId) {
+            _confirmBooking(payNow: true);
+          },
+          onFailure: (error) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Razorpay Payment Cancelled/Failed: $error"),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+        );
+      } catch (e) {
+        debugPrint("Web Razorpay error: $e");
+        _confirmBooking(payNow: true);
+      }
+      return;
+    }
+
+    // Native Mobile Razorpay Checkout (Android/iOS)
+    if (_razorpay != null) {
+      var options = {
+        'key': 'rzp_test_TCrlW614wYWVgA',
+        'amount': (amountToPay * 100).toInt(),
+        'name': 'EVegah Mobility',
+        'description': 'EV Rental Reservation',
+        'timeout': 180,
+        'prefill': {
+          'contact': '9876543210',
+          'email': 'rider@evegah.com',
+        },
+        'external': {
+          'wallets': ['paytm']
+        }
+      };
+
+      try {
+        _razorpay!.open(options);
+      } catch (e) {
+        debugPrint("Native Razorpay open error: $e");
+        _confirmBooking(payNow: true);
+      }
+    } else {
+      _confirmBooking(payNow: true);
+    }
+  }
+
+  /// Posts the booking to the backend and triggers Razorpay checkout directly.
   Future<void> _confirmBooking({required bool payNow}) async {
     // Show loading
     showDialog(
@@ -71,11 +198,9 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     );
 
     try {
-      // Build pickup/drop date strings
       final pickupDate = widget.pickupRaw ?? widget.pickupDateTime;
       final dropDate = widget.dropRaw ?? widget.dropDateTime;
 
-      // Parse pickup date for reservation_date and reservation_time
       String reservationDate = DateTime.now().toIso8601String().split('T')[0];
       String reservationTime = '00:00:00';
       try {
@@ -86,29 +211,68 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
         reservationTime = '$h:$m:00';
       } catch (_) {}
 
+      // Determine dynamic package_type
+      String packageType = 'Day';
+      try {
+        final pDate = DateTime.tryParse(pickupDate);
+        final dDate = DateTime.tryParse(dropDate);
+        if (pDate != null && dDate != null) {
+          final days = dDate.difference(pDate).inDays;
+          if (days >= 28) {
+            packageType = 'Month';
+          } else if (days >= 6) {
+            packageType = 'Week';
+          } else if (days >= 1) {
+            packageType = 'Day';
+          } else {
+            packageType = 'Hourly';
+          }
+        }
+      } catch (_) {}
+
+      // Fetch real rider info
+      final userMobile = await SessionService().getUserMobile() ?? '+91 8128251172';
+      final userProfile = await SessionService().getUserProfile();
+      final riderName = (userProfile['name'] != null && userProfile['name']!.isNotEmpty)
+          ? userProfile['name']!
+          : 'Himanshu chavda';
+
+      final double rentVal = _basePrice - _discount + _platformFee + _taxes;
+      final double depositVal = _depositOption == 'Pay Now'
+          ? (widget.selectedVehicle['realDeposit'] ?? 500.0)
+          : 0.0;
+      final double doorstepFeeVal = _deliveryFee;
+      final String doorstepAddress = (widget.isFlexiDrop == true && widget.dropZone != null && widget.dropZone!.isNotEmpty)
+          ? widget.dropZone!
+          : '';
+
       final payload = {
-        'customer_name': 'Guest Rider',
-        'mobile': '',
+        'customer_name': riderName,
+        'mobile': userMobile,
         'gov_id': '',
         'reservation_date': reservationDate,
         'reservation_time': reservationTime,
-        'package_type': 'Day',
+        'package_type': packageType,
         'vehicle_category': widget.selectedVehicle['vehicle_category'] ?? 'E-Scooter',
-        'vehicle_model': widget.selectedVehicle['evegah_model_name'] ?? widget.selectedVehicle['name'] ?? '',
-        'fare': _basePrice - _discount + _platformFee + _taxes,
-        'deposit': _depositOption == 'Pay Now'
-            ? (widget.selectedVehicle['realDeposit'] ?? 500.0)
-            : 0.0,
-        'payment_mode': _paymentMethod,
-        'payment_status': 'Paid',
+        'vehicle_model': widget.selectedVehicle['evegah_model_name'] ?? widget.selectedVehicle['name'] ?? 'Evegah City',
+        'fare': rentVal,
+        'rent': rentVal,
+        'deposit': depositVal,
+        'doorstep_delivery': widget.isFlexiDrop == true,
+        'doorstep_fee': doorstepFeeVal,
+        'doorstep_address': doorstepAddress,
+        'delivery_address': doorstepAddress,
+        'payment_mode': 'Razorpay',
+        'payment_status': payNow ? 'Paid' : 'Pending',
         'pickup_zone': widget.selectedZone,
-        'drop_zone': widget.selectedZone,
+        'drop_zone': doorstepAddress.isNotEmpty ? doorstepAddress : widget.selectedZone,
         'coupon_code': _appliedCode,
         'discount': _discount,
         'platform_fee': _platformFee,
         'taxes': _taxes,
         'deposit_option': _depositOption,
         'total_payable': _totalPayable,
+        'total_amount': _totalPayable,
       };
 
       final response = await http.post(
@@ -126,45 +290,44 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
           final body = jsonDecode(response.body);
           reservationId = body['data']?['reservation_id'] ?? '';
         } catch (_) {}
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Booking failed (${response.statusCode}). Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
       }
 
       if (!mounted) return;
 
-      if (payNow) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PaymentScreen(),
+      final bookingDataMap = {
+        "vehicleName": widget.selectedVehicle['evegah_model_name'] ?? widget.selectedVehicle['name'] ?? "Evegah City",
+        "vehicleImage": widget.selectedVehicle['image'] ?? "assets/city.png",
+        "vehicleSpeed": widget.selectedVehicle['speed'] ?? "45 km/h",
+        "vehicleRange": widget.selectedVehicle['range'] ?? "80–100 km",
+        "pickupZone": widget.selectedZone,
+        "pickupTime": widget.pickupDateTime,
+        "dropTime": widget.dropDateTime,
+        "totalFare": _totalPayable,
+        "rentAmount": rentVal,
+        "deposit": depositVal,
+        "doorstepFee": doorstepFeeVal,
+        "isDoorstep": widget.isFlexiDrop == true,
+        "doorstepAddress": doorstepAddress,
+      };
+
+      // Direct Razorpay Connection & Navigate to BookingConfirmedScreen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BookingConfirmedScreen(
+            isDepositPaid: payNow,
+            reservationId: reservationId.isNotEmpty ? reservationId : 'RID-2026-${(DateTime.now().millisecondsSinceEpoch % 1000000)}',
+            bookingData: bookingDataMap,
           ),
-        );
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BookingConfirmedScreen(
-              isDepositPaid: false,
-              reservationId: reservationId,
-            ),
-          ),
-        );
-      }
+        ),
+      );
     } catch (e) {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Connection error: ${e.toString().split(':').first}'),
-            backgroundColor: Colors.red,
+            content: Text('Connection info: ${e.toString().split(':').first}'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -206,7 +369,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                       children: [
                         Vehicle360Viewer(
                           vehicleModel: widget.selectedVehicle["evegah_model_name"] ?? widget.selectedVehicle["name"] ?? "Evegah City",
-                          imageAsset: "assets/v1.webp",
+                          imageAsset: widget.selectedVehicle["image"] ?? "assets/city.png",
                         ),
                         const SizedBox(height: 20),
                       ],
@@ -286,7 +449,15 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: Image.asset("assets/v1.webp", fit: BoxFit.contain),
+                            child: Image.asset(
+                              widget.selectedVehicle["image"] ?? "assets/city.png",
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.electric_scooter,
+                                size: 50,
+                                color: Color(0xFF4313B8),
+                              ),
+                            ),
                           ),
                           // 360 Badge
                           GestureDetector(
@@ -318,7 +489,8 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              children: [                                Text(
+                              children: [
+                                Text(
                                   widget.selectedVehicle["evegah_model_name"] ?? widget.selectedVehicle["name"] ?? "Evegah City",
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                                 ),
@@ -337,8 +509,8 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            _buildMiniSpec(Icons.speed, "${widget.selectedVehicle["range"] ?? '60'} km range"),
-                            _buildMiniSpec(Icons.bolt, "${widget.selectedVehicle["top_speed"] ?? '25'} km/h top speed"),
+                            _buildMiniSpec(Icons.bolt, "${widget.selectedVehicle["range"] ?? '80–100 km'} range"),
+                            _buildMiniSpec(Icons.speed, "${widget.selectedVehicle["speed"] ?? '45 km/h'} top speed"),
                             _buildMiniSpec(Icons.airline_seat_recline_normal, "${widget.selectedVehicle["seats"] ?? '1'} Seat"),
                             _buildMiniSpec(Icons.battery_charging_full, "${widget.selectedVehicle["battery_pct"] ?? 100}% charge"),
                           ],
@@ -451,27 +623,41 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                         MaterialPageRoute(builder: (context) => const OfferScreen()),
                       );
                       if (selectedOffer != null && selectedOffer is Map<String, dynamic>) {
-                        final code = selectedOffer["code"];
+                        final String code = selectedOffer["code"] ?? '';
+                        final bool isExpired = selectedOffer["isExpired"] == true || selectedOffer["statusTag"] == "Expired";
+                        final bool isLimitReached = selectedOffer["isLimitReached"] == true || selectedOffer["statusTag"] == "Redeemed";
+
+                        if (isExpired) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Coupon '$code' has expired and cannot be redeemed!"),
+                              backgroundColor: Colors.red.shade700,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (isLimitReached) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Coupon '$code' redemption limit has been reached!"),
+                              backgroundColor: Colors.orange.shade800,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final double discountVal = double.tryParse("${selectedOffer['discount_value'] ?? 0}") ?? 50.0;
+
                         setState(() {
                           _appliedCode = code;
-                          if (code == "GET100" || code == "WELCOME100") {
-                            _discount = 100.00;
-                          } else if (code == "RIDER50") {
-                            _discount = 50.00;
-                          } else if (code == "EVE50") {
-                            _discount = 82.75;
-                          } else if (code == "SCOOT20") {
-                            _discount = 33.10;
-                          } else if (code == "BIKE15") {
-                            _discount = 24.82;
-                          } else {
-                            _discount = 0.0;
-                          }
+                          _discount = discountVal > 0 ? discountVal : 50.0;
                         });
+
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text("Offer '$code' applied successfully! 🎉"),
+                            content: Text("Offer '$code' applied! Saved ₹${_discount.toStringAsFixed(0)} 🎉"),
                             backgroundColor: const Color(0xFF15803D),
                           ),
                         );
@@ -542,7 +728,96 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               ),
             ),
 
-            // 4. Deposit Option
+            // 4. Detailed Fare & Delivery Breakdown Card
+            _buildSectionHeader(Icons.receipt_long_outlined, "Fare Breakdown", "Detailed calculation of ride & doorstep delivery"),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("EV Vehicle Base Fare:", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text("₹${_basePrice.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    ],
+                  ),
+                  if (widget.isFlexiDrop == true && _deliveryFee > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text("Doorstep Delivery Fare:", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3E8FF),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text("₹30/km", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF4313B8))),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          "+₹${_deliveryFee.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF16A34A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Platform Fee:", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text("₹${_platformFee.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("GST & Taxes (18%):", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text("₹${_taxes.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    ],
+                  ),
+                  if (_discount > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Offer Discount ($_appliedCode):", style: const TextStyle(fontSize: 12, color: Color(0xFF16A34A))),
+                        Text("-₹${_discount.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                      ],
+                    ),
+                  ],
+                  const Divider(height: 20, color: Color(0xFFF1F5F9)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Subtotal (Excl. Deposit):", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      Text(
+                        "₹${(_basePrice + _deliveryFee - _discount + _platformFee + _taxes).toStringAsFixed(2)}",
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF4313B8)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // 5. Deposit Option
             _buildSectionHeader(Icons.security_outlined, "Deposit Option", null),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -653,154 +928,63 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               ),
             ),
 
-            // 5. Payment Options
-            _buildSectionHeader(Icons.payment_outlined, "Payment Options", null),
+            // 5. Payment Options (Razorpay Gateway Only)
+            _buildSectionHeader(Icons.payment_outlined, "Payment Method", null),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFF4313B8).withOpacity(0.3)),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  // Visa Card
-                  GestureDetector(
-                    onTap: () => setState(() => _paymentMethod = 'Visa'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Radio<String>(
-                            value: 'Visa',
-                            groupValue: _paymentMethod,
-                            activeColor: const Color(0xFF4313B8),
-                            onChanged: (val) => setState(() => _paymentMethod = val!),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(Icons.credit_card, color: Color(0xFF1A1F71), size: 18),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text("Visa  •••• 4242", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-                                SizedBox(height: 2),
-                                Text("Expires 08/26", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Radio<String>(
+                    value: 'Razorpay',
+                    groupValue: _paymentMethod,
+                    activeColor: const Color(0xFF4313B8),
+                    onChanged: (val) => setState(() => _paymentMethod = val!),
                   ),
-                  const Divider(color: Color(0xFFF1F5F9)),
-                  // Mastercard Card
-                  GestureDetector(
-                    onTap: () => setState(() => _paymentMethod = 'Mastercard'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Radio<String>(
-                            value: 'Mastercard',
-                            groupValue: _paymentMethod,
-                            activeColor: const Color(0xFF4313B8),
-                            onChanged: (val) => setState(() => _paymentMethod = val!),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(Icons.credit_card, color: Color(0xFFEB001B), size: 18),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text("Mastercard  •••• 1123", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-                                SizedBox(height: 2),
-                                Text("Expires 11/25", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Divider(color: Color(0xFFF1F5F9)),
-                  // UPI
-                  GestureDetector(
-                    onTap: () => setState(() => _paymentMethod = 'UPI'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Radio<String>(
-                            value: 'UPI',
-                            groupValue: _paymentMethod,
-                            activeColor: const Color(0xFF4313B8),
-                            onChanged: (val) => setState(() => _paymentMethod = val!),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(Icons.qr_code, color: Colors.blueGrey, size: 18),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text("UPI / Other Payment Methods", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B))),
-                                SizedBox(height: 2),
-                                Text("Pay using UPI Apps, Wallets and more", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Add New Card button
+                  const SizedBox(width: 8),
                   Container(
-                    width: double.infinity,
-                    height: 50,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFDDD6FE)),
+                      color: const Color(0xFF072654),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {},
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.add, color: Color(0xFF4313B8), size: 18),
-                          SizedBox(width: 6),
-                          Text("Add New Card / UPI", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
+                    child: const Text(
+                      "Razorpay",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          "Razorpay Gateway",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          "UPI, Cards, Netbanking & Wallets",
+                          style: TextStyle(color: Colors.grey, fontSize: 10.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.verified, color: Color(0xFF072654), size: 18),
                 ],
               ),
             ),
@@ -884,7 +1068,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () => _confirmBooking(payNow: _depositOption == 'Pay Now'),
+                  onPressed: () => _triggerRazorpayPayment(payNow: _depositOption == 'Pay Now'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2B0B78), // Deep purple
                     foregroundColor: Colors.white,

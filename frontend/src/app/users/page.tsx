@@ -361,7 +361,7 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
     <RoleGuard moduleName="Users & Roles">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="usr-shell">
-        <Sidebar activePath="/users" />
+        <Sidebar activePath={activeSection === 'roles' ? '/roles' : '/users'} />
         
         <div className="usr-main">
           
@@ -740,10 +740,10 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                               <td style={{ fontWeight: '500', color: '#334155' }}>{lastUpdatedText}</td>
                               <td>
                                 <div className="usr-act-btn-group">
-                                  <button className="usr-act-btn" title="View & Edit Role Permissions" onClick={() => openRoleMatrixModal(r)}>
+                                  <button className="usr-act-btn" title="View & Edit Role Permissions" onClick={() => router.push(`/roles/add?id=${r.id}`)}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                   </button>
-                                  <button className="usr-act-btn" title="Edit permissions matrix" onClick={() => openRoleMatrixModal(r)}>
+                                  <button className="usr-act-btn" title="Edit permissions matrix" onClick={() => router.push(`/roles/add?id=${r.id}`)}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   </button>
                                   <button className="usr-act-btn" title="Delete role" onClick={() => handleDeleteRole(r.id, r.name)}>
@@ -792,8 +792,26 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
             </div>
 
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px 16px', fontSize: '12.5px', color: '#475569' }}>
-                <strong>Role Description:</strong> {selectedRoleMatrix.description || 'Configured access template.'}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12.5px', color: '#475569' }}>
+                  <strong>Role Description:</strong> {selectedRoleMatrix.description || 'Configured access template.'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A', minWidth: '160px' }}>Assigned Dashboard View:</label>
+                  <select 
+                    style={{ flex: 1, padding: '7px 12px', borderRadius: '8px', border: '1.5px solid #CBD5E1', fontSize: '12.5px', fontWeight: '600', color: '#1E293B', background: '#fff', outline: 'none' }}
+                    defaultValue="Super Admin Dashboard"
+                  >
+                    <option value="Super Admin Dashboard">Super Admin Dashboard</option>
+                    <option value="Zone Admin Dashboard">Zone Admin Dashboard</option>
+                    <option value="Operations Manager Dashboard">Operations Manager Dashboard</option>
+                    <option value="Support Executive Dashboard">Support Executive Dashboard</option>
+                    <option value="Franchise Manager Dashboard">Franchise Manager Dashboard</option>
+                    <option value="BMS Battery Dashboard">BMS Battery Dashboard</option>
+                    <option value="Fleet Manager Dashboard">Fleet Manager Dashboard</option>
+                    <option value="Finance Manager Dashboard">Finance Manager Dashboard</option>
+                  </select>
+                </div>
               </div>
 
               {/* Module Access Matrix Table */}
@@ -810,6 +828,7 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                   </thead>
                   <tbody>
                     {[
+                      'Dashboard (Auto-Assigned)',
                       'Vehicles Catalog & Active Rides',
                       'Riders & Reserved Rides',
                       'Zone Management & Pricing',
@@ -822,13 +841,14 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                       'Announcements'
                     ].map((mod, idx) => {
                       const isFullAdmin = selectedRoleMatrix.code === 'SUPER_ADMIN' || selectedRoleMatrix.code === 'ADMIN';
+                      const isDash = idx === 0;
                       return (
-                        <tr key={mod} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                          <td style={{ padding: '10px 14px', fontWeight: '700', color: '#0F172A' }}>{mod}</td>
-                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={true} disabled={isFullAdmin} /></td>
-                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isFullAdmin || idx % 2 === 0} disabled={isFullAdmin} /></td>
-                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isFullAdmin || idx < 5} disabled={isFullAdmin} /></td>
-                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isFullAdmin} disabled={isFullAdmin} /></td>
+                        <tr key={mod} style={{ borderBottom: '1px solid #F1F5F9', background: isDash ? '#F5F3FF' : 'transparent' }}>
+                          <td style={{ padding: '10px 14px', fontWeight: '700', color: isDash ? '#6366F1' : '#0F172A' }}>{mod}</td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={true} disabled={isDash || isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin || idx % 2 === 0} disabled={isDash || isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin || idx < 5} disabled={isDash || isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin} disabled={isDash || isFullAdmin} /></td>
                         </tr>
                       );
                     })}
@@ -839,7 +859,30 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
 
             <div style={{ padding: '14px 20px', borderTop: '1.5px solid #F1F5F9', background: '#FAFBFD', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button className="usr-btn-outline" onClick={() => { setIsRoleMatrixOpen(false); setSelectedRoleMatrix(null); }}>Cancel</button>
-              <button className="usr-btn-primary" onClick={() => { alert(`Permissions updated for role ${selectedRoleMatrix.name}!`); setIsRoleMatrixOpen(false); setSelectedRoleMatrix(null); }}>Save Role Matrix</button>
+              <button className="usr-btn-primary" onClick={async () => {
+                try {
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+                  await fetch(`${apiUrl}/roles/${selectedRoleMatrix.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: selectedRoleMatrix.name,
+                      code: selectedRoleMatrix.code,
+                      description: selectedRoleMatrix.description,
+                      permissions: {
+                        Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+                        ...(selectedRoleMatrix.permissions || {})
+                      }
+                    })
+                  });
+                  alert(`Role matrix & dashboard permissions updated for ${selectedRoleMatrix.name}!`);
+                  fetchRoles();
+                } catch (e) {
+                  console.error(e);
+                }
+                setIsRoleMatrixOpen(false);
+                setSelectedRoleMatrix(null);
+              }}>Save Role Matrix</button>
             </div>
           </div>
         </div>

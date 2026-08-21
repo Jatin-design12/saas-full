@@ -60,6 +60,19 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Role name or code already exists' });
     }
 
+    // Ensure Dashboard permission is auto-assigned for all roles
+    const finalPermissions = permissions || {};
+    if (!finalPermissions.Dashboard || finalPermissions.Dashboard.access === false) {
+      finalPermissions.Dashboard = {
+        access: true,
+        create: true,
+        view: true,
+        edit: true,
+        delete: true,
+        export: true
+      };
+    }
+
     const result = await db.query(`
       INSERT INTO roles (name, code, description, reporting_to, status, permissions, custom_permissions)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -70,7 +83,7 @@ router.post('/', async (req, res) => {
       description || '',
       reporting_to || null,
       status || 'Active',
-      JSON.stringify(permissions || {}),
+      JSON.stringify(finalPermissions),
       JSON.stringify(custom_permissions || [])
     ]);
 
@@ -95,6 +108,19 @@ router.put('/:id', async (req, res) => {
 
     const oldName = checkRole.rows[0].name;
 
+    // Ensure Dashboard permission is auto-assigned for all roles
+    const finalPermissions = permissions || {};
+    if (!finalPermissions.Dashboard || finalPermissions.Dashboard.access === false) {
+      finalPermissions.Dashboard = {
+        access: true,
+        create: true,
+        view: true,
+        edit: true,
+        delete: true,
+        export: true
+      };
+    }
+
     const result = await db.query(`
       UPDATE roles
       SET name = $1, code = $2, description = $3, reporting_to = $4, status = $5, 
@@ -107,7 +133,7 @@ router.put('/:id', async (req, res) => {
       description || '',
       reporting_to || null,
       status || 'Active',
-      JSON.stringify(permissions || {}),
+      JSON.stringify(finalPermissions),
       JSON.stringify(custom_permissions || []),
       id
     ]);

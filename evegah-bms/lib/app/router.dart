@@ -21,10 +21,12 @@ import '../features/franchise/presentation/screens/franchise_list_screen.dart';
 import '../features/franchise/presentation/screens/create_franchise_screen.dart';
 import '../features/franchise/presentation/screens/franchise_details_screen.dart';
 import '../features/franchise/domain/entities/franchise_entity.dart';
+import '../features/booking_agent/presentation/screens/booking_agent_home_screen.dart';
+import '../features/booking_agent/presentation/screens/new_ride_rider_details_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: AppRoutes.login,
+    initialLocation: AppRoutes.dashboard,
     routes: [
       // ──── Auth ────
       GoRoute(
@@ -36,10 +38,18 @@ class AppRouter {
         builder: (context, state) => const OtpScreen(),
       ),
 
-      // ──── Dashboard ────
+      // ──── Dashboard & Booking Agent ────
       GoRoute(
         path: AppRoutes.dashboard,
-        builder: (context, state) => const DashboardScreen(),
+        builder: (context, state) => const BookingAgentHomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.bookingAgentHome,
+        builder: (context, state) => const BookingAgentHomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.newRideRiderDetails,
+        builder: (context, state) => const NewRideRiderDetailsScreen(),
       ),
       GoRoute(
         path: AppRoutes.riderDashboard,

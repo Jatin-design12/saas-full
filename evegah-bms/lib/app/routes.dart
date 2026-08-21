@@ -7,8 +7,10 @@ abstract class AppRoutes {
   static const String login = '/login';
   static const String otp = '/otp';
 
-  // ──── Dashboard ────
+  // ──── Dashboard & Booking Agent ────
   static const String dashboard = '/dashboard';
+  static const String bookingAgentHome = '/booking-agent';
+  static const String newRideRiderDetails = '/new-ride/rider-details';
   // Rider dashboard (mobile)
   static const String riderDashboard = '/rider';
   // Battery Management & Connection

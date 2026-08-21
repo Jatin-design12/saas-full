@@ -232,6 +232,23 @@ export default function BatteryInventoryPage() {
   const [selectedType, setSelectedType] = useState('All Types');
   const [selectedHealth, setSelectedHealth] = useState('All');
   const [selectedLocation, setSelectedLocation] = useState('All Locations');
+  const [selectedZone, setSelectedZone] = useState('All Zones');
+
+  useEffect(() => {
+    const updateZone = () => {
+      if (typeof window !== 'undefined') {
+        const z = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones';
+        setSelectedZone(z);
+      }
+    };
+    updateZone();
+    window.addEventListener('evegah_active_zone_changed', updateZone);
+    window.addEventListener('evegah_zone_changed', updateZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', updateZone);
+      window.removeEventListener('evegah_zone_changed', updateZone);
+    };
+  }, []);
 
   const fetchBatteries = async () => {
     setLoading(true);
@@ -258,6 +275,12 @@ export default function BatteryInventoryPage() {
   }, []);
 
   const filtered = batteries.filter(b => {
+    let matchesZone = true;
+    if (selectedZone && selectedZone !== 'All Zones') {
+      const zStr = (b.zone || b.location || '').toLowerCase();
+      matchesZone = zStr.includes(selectedZone.toLowerCase().trim());
+    }
+
     const matchesSearch = 
       (b.battery_id && b.battery_id.toLowerCase().includes(searchVal.toLowerCase())) || 
       (b.serial_number && b.serial_number.toLowerCase().includes(searchVal.toLowerCase()));
@@ -288,7 +311,7 @@ export default function BatteryInventoryPage() {
       matchesLocation = (b.location || '').toLowerCase().includes(selectedLocation.toLowerCase());
     }
 
-    return matchesSearch && matchesStatus && matchesType && matchesHealth && matchesLocation;
+    return matchesZone && matchesSearch && matchesStatus && matchesType && matchesHealth && matchesLocation;
   });
 
   const resetFilters = () => {

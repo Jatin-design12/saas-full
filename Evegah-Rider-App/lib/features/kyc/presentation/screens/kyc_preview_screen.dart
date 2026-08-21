@@ -1,7 +1,10 @@
 import 'dart:io';
-import 'dart:math' as math;
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/session_service.dart';
+import '../../../profile/data/services/profile_service.dart';
 import '../../data/services/kyc_service.dart';
 import '../../data/services/kyc_ocr_service.dart';
 import 'kyc_camera_screen.dart';
@@ -37,9 +40,6 @@ class _KycPreviewScreenState
 
   static const Color brandPurple =
       Color(0xFF4B16C8);
-
-  static const Color darkPurple =
-      Color(0xFF24105E);
 
   static const Color successGreen =
       Color(0xFF12B981);
@@ -145,44 +145,43 @@ class _KycPreviewScreenState
 
     switch (widget.step) {
       case KycStep.selfie:
-        nextStep =
-            KycStep.aadhaarFront;
-
-        _kycService
-            .updateStepStatus(
-          "Selfie",
-          "Captured",
-          filePath:
-              widget.imagePath,
-        );
-
+        nextStep = KycStep.aadhaarFront;
+        _kycService.updateStepStatus("Selfie", "Captured", filePath: widget.imagePath);
+        ProfileService().profileImagePath = widget.imagePath;
         break;
 
       case KycStep.aadhaarFront:
-        nextStep =
-            KycStep.aadhaarBack;
-
-        _kycService
-            .updateStepStatus(
-          "Aadhaar Front",
-          "Captured",
-          filePath:
-              widget.imagePath,
-        );
-
+        nextStep = KycStep.aadhaarBack;
+        _kycService.updateStepStatus("Aadhaar Front", "Captured", filePath: widget.imagePath);
+        final frontOcr = await KycOcrService().extractDetails(widget.imagePath);
+        if (frontOcr['name'] != null && frontOcr['name']!.isNotEmpty) {
+          _kycService.ocrName = frontOcr['name']!;
+          ProfileService().userName = frontOcr['name']!;
+        }
+        if (frontOcr['aadhaarNumber'] != null) {
+          _kycService.ocrAadhaarNumber = frontOcr['aadhaarNumber']!;
+        }
+        if (frontOcr['dob'] != null) {
+          _kycService.ocrDob = frontOcr['dob']!;
+        }
+        if (frontOcr['gender'] != null) {
+          _kycService.ocrGender = frontOcr['gender']!;
+          ProfileService().userGender = frontOcr['gender']!;
+        }
         break;
 
       case KycStep.aadhaarBack:
         nextStep = null;
-
-        _kycService
-            .updateStepStatus(
-          "Aadhaar Back",
-          "Captured",
-          filePath:
-              widget.imagePath,
-        );
-
+        _kycService.updateStepStatus("Aadhaar Back", "Captured", filePath: widget.imagePath);
+        final backOcr = await KycOcrService().extractBackDetails(widget.imagePath);
+        if (backOcr['address'] != null && backOcr['address']!.isNotEmpty) {
+          _kycService.ocrAddress = backOcr['address']!;
+          ProfileService().userAddress = backOcr['address']!;
+        }
+        if (backOcr['pinCode'] != null) {
+          _kycService.ocrPinCode = backOcr['pinCode']!;
+        }
+        await _postKycAndFolderDocumentsToBackend();
         break;
     }
 
@@ -236,6 +235,88 @@ class _KycPreviewScreenState
       (route) =>
           route.isFirst,
     );
+  }
+
+  Future<void> _postKycAndFolderDocumentsToBackend() async {
+    final mobile = await SessionService().getUserMobile() ?? "+91 8128251172";
+    final name = ProfileService().userName.isNotEmpty ? ProfileService().userName : "Himanshu Chavda";
+
+    final folderWiseDocs = [
+      {
+        "folder_name": "Identity Documents (Aadhaar Card)",
+        "documents": [
+          {
+            "doc_name": "Aadhaar Front Image",
+            "file_path": _kycService.aadhaarFrontFile ?? widget.imagePath,
+            "ocr_aadhaar_no": _kycService.ocrAadhaarNumber,
+            "status": "Captured",
+            "date": DateTime.now().toIso8601String().split('T').first,
+          },
+          {
+            "doc_name": "Aadhaar Back Image",
+            "file_path": _kycService.aadhaarBackFile ?? widget.imagePath,
+            "ocr_address": _kycService.ocrAddress,
+            "status": "Captured",
+            "date": DateTime.now().toIso8601String().split('T').first,
+          }
+        ]
+      },
+      {
+        "folder_name": "Live Verification",
+        "documents": [
+          {
+            "doc_name": "Live Selfie Photo",
+            "file_path": _kycService.livePhotoFile ?? ProfileService().profileImagePath,
+            "status": "Captured",
+            "date": DateTime.now().toIso8601String().split('T').first,
+          }
+        ]
+      },
+      {
+        "folder_name": "Driving License & Agreements",
+        "documents": [
+          {
+            "doc_name": "Driving License Photo",
+            "file_path": ProfileService().dlImagePath ?? "dl_verification.jpg",
+            "status": "Verified",
+            "date": DateTime.now().toIso8601String().split('T').first,
+          }
+        ]
+      }
+    ];
+
+    final payload = {
+      "mobile": mobile,
+      "rider_name": name,
+      "kyc_status": "Under Review",
+      "ocr_details": {
+        "name": _kycService.ocrName.isNotEmpty ? _kycService.ocrName : name,
+        "aadhaar_number": _kycService.ocrAadhaarNumber,
+        "dob": _kycService.ocrDob,
+        "gender": _kycService.ocrGender,
+        "address": _kycService.ocrAddress,
+        "pin_code": _kycService.ocrPinCode,
+      },
+      "live_photo": ProfileService().profileImagePath,
+      "folders": folderWiseDocs,
+    };
+
+    final urls = [
+      '${AppConstants.apiBaseUrl}/renters/kyc',
+      '${AppConstants.apiBaseUrl}/renters/documents',
+    ];
+
+    for (final url in urls) {
+      try {
+        await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(payload),
+        ).timeout(const Duration(seconds: 4));
+      } catch (e) {
+        debugPrint("Error syncing KYC/documents to $url: $e");
+      }
+    }
   }
 
   // =========================================================

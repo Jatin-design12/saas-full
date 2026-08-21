@@ -64,6 +64,11 @@ export default function RoleGuard({ children, moduleName }: RoleGuardProps) {
       else checkModule = 'Dashboard';
     }
 
+    if (checkModule === 'Dashboard') {
+      setIsAllowed(true);
+      return;
+    }
+
     try {
       const storedPerms = localStorage.getItem('evegah_user_permissions');
       if (storedPerms) {

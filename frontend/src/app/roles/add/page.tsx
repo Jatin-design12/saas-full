@@ -152,10 +152,11 @@ interface ModulePermission {
 export default function AddRolePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const editId = searchParams.get('edit');
+  const editId = searchParams.get('id') || searchParams.get('edit');
 
   const [roleName, setRoleName] = useState('');
   const [roleCode, setRoleCode] = useState('');
+  const [assignedDashboard, setAssignedDashboard] = useState('Auto-Detect from Role');
   const [description, setDescription] = useState('');
   const [reportingTo, setReportingTo] = useState('');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
@@ -188,19 +189,19 @@ export default function AddRolePage() {
       desc: 'View dashboards and analytics across platform roles',
       icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
       expanded: true,
-      permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false },
+      permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true },
       supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
       subPages: [
-        { name: 'Super Admin Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Zone Admin Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Operations Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Franchise Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'BMS Battery Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'IoT Devices Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Riders & Renters Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Payments & Revenue Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Maintenance & Service Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-        { name: 'Attendance & Shift Dashboard', permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Super Admin Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Zone Admin Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Operations Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Franchise Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'BMS Battery Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'IoT Devices Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Riders & Renters Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Payments & Revenue Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Maintenance & Service Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
+        { name: 'Attendance & Shift Dashboard', permissions: { access: true, create: true, view: true, edit: true, delete: true, export: true }, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
       ]
     },
     {
@@ -446,6 +447,18 @@ export default function AddRolePage() {
       });
     });
 
+    // Auto-assign Dashboard permissions for every created or updated role
+    if (!permissionsPayload['Dashboard'] || permissionsPayload['Dashboard'].access === false) {
+      permissionsPayload['Dashboard'] = {
+        access: true,
+        create: true,
+        view: true,
+        edit: true,
+        delete: true,
+        export: true
+      };
+    }
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
       const url = editId ? `${apiUrl}/roles/${editId}` : `${apiUrl}/roles`;
@@ -655,7 +668,7 @@ export default function AddRolePage() {
     <RoleGuard moduleName="Users & Roles">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="role-shell">
-        <Sidebar activePath="/users" />
+        <Sidebar activePath="/roles" />
         <div className="role-main">
           <TopBar />
           
@@ -725,6 +738,26 @@ export default function AddRolePage() {
                       <span className="role-sub-lbl">
                         {editId ? 'Role code is a unique system identifier and cannot be modified.' : 'System identifier name. Must be unique and capitalized.'}
                       </span>
+                    </div>
+
+                    <div className="role-field">
+                      <label className="role-label">Assigned Dashboard View <span className="role-req">*</span></label>
+                      <select 
+                        className="role-select"
+                        value={assignedDashboard}
+                        onChange={(e) => setAssignedDashboard(e.target.value)}
+                      >
+                        <option value="Auto-Detect from Role">Auto-Detect from Role</option>
+                        <option value="Super Admin Dashboard">Super Admin Dashboard</option>
+                        <option value="Zone Admin Dashboard">Zone Admin Dashboard</option>
+                        <option value="Operations Manager Dashboard">Operations Manager Dashboard</option>
+                        <option value="Support Executive Dashboard">Support Executive Dashboard</option>
+                        <option value="Franchise Manager Dashboard">Franchise Manager Dashboard</option>
+                        <option value="BMS Battery Dashboard">BMS Battery Dashboard</option>
+                        <option value="Fleet Manager Dashboard">Fleet Manager Dashboard</option>
+                        <option value="Finance Manager Dashboard">Finance Manager Dashboard</option>
+                      </select>
+                      <span className="role-sub-lbl">Select which dashboard view users with this role will see when logged in.</span>
                     </div>
 
                     <div className="role-field">

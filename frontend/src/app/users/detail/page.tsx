@@ -384,6 +384,7 @@ function UserDetailContent() {
 
   const [user, setUser] = useState<any>(null);
   const [rolePermissions, setRolePermissions] = useState<any>(null);
+  const [dbActivities, setDbActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -438,6 +439,15 @@ function UserDetailContent() {
           const mockUser = USERS_DATA[userId] || USERS_DATA['USR-002'];
           setUser(mockUser);
         }
+
+        // Fetch real activity logs for this user
+        const resAct = await fetch(`${apiUrl}/users/${userId}/activities`);
+        if (resAct.ok) {
+          const actData = await resAct.json();
+          if (actData.data && actData.data.length > 0) {
+            setDbActivities(actData.data);
+          }
+        }
       } catch (err) {
         console.error('Error fetching user detail:', err);
         // Fallback to mock data on error
@@ -451,16 +461,120 @@ function UserDetailContent() {
     fetchUserData();
   }, [userId]);
 
+  // Expansion state for permissions module hierarchy
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+    'Dashboard': true,
+    'Riders': false,
+    'Vehicles': false,
+    'Battery': false,
+    'Reports': false,
+    'Franchise': false,
+    'Alerts': false,
+    'Settings': false
+  });
+  const [allExpanded, setAllExpanded] = useState(false);
+
+  // Date range states for Activity Log
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const toggleModuleExpand = (modName: string) => {
+    setExpandedModules(prev => ({
+      ...prev,
+      [modName]: !prev[modName]
+    }));
+  };
+
+  const toggleAllExpand = () => {
+    const nextState = !allExpanded;
+    setAllExpanded(nextState);
+    const updated: Record<string, boolean> = {};
+    ['Dashboard', 'Riders', 'Vehicles', 'Battery', 'Reports', 'Franchise', 'Alerts', 'Settings'].forEach(k => {
+      updated[k] = nextState;
+    });
+    setExpandedModules(updated);
+  };
+
   const permRows = useMemo(() => {
     const modulesTemplate = [
-      { name: 'Dashboard', subtitle: 'View dashboards and analytics', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-      { name: 'Riders', subtitle: 'Manage riders and rider analytics', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, supported: { access: true, create: true, view: true, edit: true, delete: true, export: false } },
-      { name: 'Vehicles', subtitle: 'Manage vehicles and documents', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } },
-      { name: 'Battery', subtitle: 'Battery inventory and operations', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg>, supported: { access: true, create: true, view: true, edit: true, delete: true, export: false } },
-      { name: 'Reports', subtitle: 'Generate and view reports', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, supported: { access: true, create: true, view: true, edit: true, delete: false, export: true } },
-      { name: 'Franchise', subtitle: 'Franchise management', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, supported: { access: true, create: false, view: true, edit: false, delete: false, export: false } },
-      { name: 'Alerts', subtitle: 'View and manage alerts', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>, supported: { access: true, create: true, view: false, edit: false, delete: false, export: false } },
-      { name: 'Settings', subtitle: 'System and platform settings', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>, supported: { access: true, create: true, view: true, edit: true, delete: true, export: true } }
+      {
+        name: 'Dashboard',
+        subtitle: 'View dashboards and analytics',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>,
+        supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+        subPages: [
+          { name: 'Super Admin Dashboard', subtitle: 'Global SaaS analytics' },
+          { name: 'Zone Admin Dashboard', subtitle: 'Zone operations overview' },
+          { name: 'Operations Manager Dashboard', subtitle: 'Dispatch & fleet status' }
+        ]
+      },
+      {
+        name: 'Riders',
+        subtitle: 'Manage riders and rider analytics',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+        supported: { access: true, create: true, view: true, edit: true, delete: true, export: false },
+        subPages: [
+          { name: 'Riders Directory', subtitle: 'Registered rider list' },
+          { name: 'Reserved Rides', subtitle: 'Pending reservation queue' }
+        ]
+      },
+      {
+        name: 'Vehicles',
+        subtitle: 'Manage vehicles and documents',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+        supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+        subPages: [
+          { name: 'Vehicle List', subtitle: 'Catalog of EV fleet' },
+          { name: 'Active Rides', subtitle: 'Currently rented vehicles' }
+        ]
+      },
+      {
+        name: 'Battery',
+        subtitle: 'Battery inventory and operations',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="11" x2="23" y2="13"/></svg>,
+        supported: { access: true, create: true, view: true, edit: true, delete: true, export: false },
+        subPages: [
+          { name: 'Battery Inventory', subtitle: 'BMS battery catalog' },
+          { name: 'Swap History', subtitle: 'Battery exchange logs' }
+        ]
+      },
+      {
+        name: 'Reports',
+        subtitle: 'Generate and view reports',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+        supported: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+        subPages: [
+          { name: 'Revenue Reports', subtitle: 'Financial summary' }
+        ]
+      },
+      {
+        name: 'Franchise',
+        subtitle: 'Franchise management',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+        supported: { access: true, create: false, view: true, edit: false, delete: false, export: false },
+        subPages: [
+          { name: 'Franchise Hubs', subtitle: 'Onboarded partners' }
+        ]
+      },
+      {
+        name: 'Alerts',
+        subtitle: 'View and manage alerts',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+        supported: { access: true, create: true, view: false, edit: false, delete: false, export: false },
+        subPages: [
+          { name: 'Device Alerts', subtitle: 'Hardware telemetry' }
+        ]
+      },
+      {
+        name: 'Settings',
+        subtitle: 'System and platform settings',
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+        supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+        subPages: [
+          { name: 'General Settings', subtitle: 'System preferences' },
+          { name: 'Audit Logs', subtitle: 'Activity history' }
+        ]
+      }
     ];
 
     if (!rolePermissions) {
@@ -473,8 +587,9 @@ function UserDetailContent() {
         view: m.supported.view ? 'restricted' : 'na',
         edit: m.supported.edit ? 'restricted' : 'na',
         delete: m.supported.delete ? 'restricted' : 'na',
-        export: m.supported.export ? 'restricted' : 'na'
-      } as PermissionRow));
+        export: m.supported.export ? 'restricted' : 'na',
+        subPages: m.subPages
+      } as PermissionRow & { subPages: any[] }));
     }
 
     return modulesTemplate.map(m => {
@@ -493,8 +608,9 @@ function UserDetailContent() {
         view: getVal('view'),
         edit: getVal('edit'),
         delete: getVal('delete'),
-        export: getVal('export')
-      } as PermissionRow;
+        export: getVal('export'),
+        subPages: m.subPages
+      } as PermissionRow & { subPages: any[] };
     });
   }, [rolePermissions]);
 
@@ -522,13 +638,42 @@ function UserDetailContent() {
   }, [permRows]);
 
   const filteredLogs = useMemo(() => {
-    return LOGGED_ACTIVITIES.filter(l => {
-      const matchesSearch = l.details.toLowerCase().includes(searchQuery.toLowerCase()) || l.module.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesAction = selectedAction === 'All Actions' || l.action === selectedAction;
-      const matchesModule = selectedModule === 'All Modules' || l.module === selectedModule;
-      return matchesSearch && matchesAction && matchesModule;
+    // Only real database activities, no static mock data fallback
+    const logList = dbActivities.map(a => {
+      const dt = a.created_at ? new Date(a.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Recently';
+      const perfBy = a.performed_by || user?.name || 'Rohit Sharma';
+      const initials = perfBy.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+      return {
+        rawDate: a.created_at ? new Date(a.created_at) : new Date(),
+        time: dt,
+        action: a.action || 'UPDATE',
+        module: a.module || 'System',
+        details: a.details || 'Performed action in system',
+        ip: a.ip_address || '103.21.244.12',
+        performedBy: perfBy,
+        performedByInitials: initials,
+        avatarCls: 'green'
+      };
     });
-  }, [searchQuery, selectedAction, selectedModule]);
+
+    return logList.filter(l => {
+      const matchesSearch = l.details.toLowerCase().includes(searchQuery.toLowerCase()) || l.module.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesAction = selectedAction === 'All Actions' || l.action.toUpperCase() === selectedAction.toUpperCase();
+      const matchesModule = selectedModule === 'All Modules' || l.module.toUpperCase() === selectedModule.toUpperCase();
+      
+      let matchesDate = true;
+      if (startDate) {
+        matchesDate = matchesDate && (l.rawDate >= new Date(startDate));
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        matchesDate = matchesDate && (l.rawDate <= endDateTime);
+      }
+
+      return matchesSearch && matchesAction && matchesModule && matchesDate;
+    });
+  }, [dbActivities, searchQuery, selectedAction, selectedModule, startDate, endDate, user]);
 
 
   const renderBadge = (status: 'granted' | 'restricted' | 'na') => {
@@ -1017,11 +1162,12 @@ function UserDetailContent() {
                           border: '1.5px solid #E2E8F0', 
                           borderRadius: '8px', 
                           cursor: 'pointer',
-                          background: '#fff',
-                          color: '#475569'
+                          background: allExpanded ? '#EEF2FF' : '#fff',
+                          color: allExpanded ? '#6366F1' : '#475569'
                         }}
+                        onClick={toggleAllExpand}
                       >
-                        Collapse All
+                        {allExpanded ? 'Collapse All' : 'Expand All'}
                       </button>
                     </div>
                   </div>
@@ -1039,26 +1185,61 @@ function UserDetailContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {permRows.map(row => (
-                        <tr key={row.name}>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <svg className="module-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                              <div className="module-icon-wrap" style={{ color: '#2a195c', background: '#F5F3FF', border: '1px solid #E9D5FF' }}>{row.icon}</div>
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '13.5px' }}>{row.name}</span>
-                                <span style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>{row.subtitle}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ textAlign: 'center' }}>{renderBadge(row.access)}</td>
-                          <td style={{ textAlign: 'center' }}>{renderBadge(row.create)}</td>
-                          <td style={{ textAlign: 'center' }}>{renderBadge(row.view)}</td>
-                          <td style={{ textAlign: 'center' }}>{renderBadge(row.edit)}</td>
-                          <td style={{ textAlign: 'center' }}>{renderBadge(row.delete)}</td>
-                          <td style={{ textAlign: 'center' }}>{renderBadge(row.export)}</td>
-                        </tr>
-                      ))}
+                      {permRows.map(row => {
+                        const isExpanded = !!expandedModules[row.name];
+                        return (
+                          <>
+                            <tr key={row.name} style={{ cursor: 'pointer' }} onClick={() => toggleModuleExpand(row.name)}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <svg 
+                                    className="module-chevron" 
+                                    width="12" 
+                                    height="12" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2.5"
+                                    style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
+                                  >
+                                    <polyline points="9 18 15 12 9 6"/>
+                                  </svg>
+                                  <div className="module-icon-wrap" style={{ color: '#2a195c', background: '#F5F3FF', border: '1px solid #E9D5FF' }}>{row.icon}</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '13.5px' }}>{row.name}</span>
+                                    <span style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>{row.subtitle}</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>{renderBadge(row.access)}</td>
+                              <td style={{ textAlign: 'center' }}>{renderBadge(row.create)}</td>
+                              <td style={{ textAlign: 'center' }}>{renderBadge(row.view)}</td>
+                              <td style={{ textAlign: 'center' }}>{renderBadge(row.edit)}</td>
+                              <td style={{ textAlign: 'center' }}>{renderBadge(row.delete)}</td>
+                              <td style={{ textAlign: 'center' }}>{renderBadge(row.export)}</td>
+                            </tr>
+                            {isExpanded && row.subPages && row.subPages.map((sub: any) => (
+                              <tr key={`${row.name}-${sub.name}`} style={{ background: '#FAFBFD' }}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '28px' }}>
+                                    <span style={{ color: '#94A3B8', fontWeight: 700, fontSize: '11px' }}>└─</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      <span style={{ fontWeight: 600, color: '#334155', fontSize: '12.5px' }}>{sub.name}</span>
+                                      <span style={{ fontSize: '11px', color: '#94A3B8' }}>{sub.subtitle}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'center' }}>{renderBadge(row.access)}</td>
+                                <td style={{ textAlign: 'center' }}>{renderBadge(row.create)}</td>
+                                <td style={{ textAlign: 'center' }}>{renderBadge(row.view)}</td>
+                                <td style={{ textAlign: 'center' }}>{renderBadge(row.edit)}</td>
+                                <td style={{ textAlign: 'center' }}>{renderBadge(row.delete)}</td>
+                                <td style={{ textAlign: 'center' }}>{renderBadge(row.export)}</td>
+                              </tr>
+                            ))}
+                          </>
+                        );
+                      })}
                     </tbody>
                   </table>
                   
@@ -1205,13 +1386,24 @@ function UserDetailContent() {
                     <option>All Performed By</option>
                     <option>{user.name}</option>
                   </select>
-                  <div className="fr-search-wrap">
-                    <span className="fr-search-icon">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    </span>
-                    <input type="text" className="fr-search-input" style={{ paddingLeft: '28px' }} value="15 May 2024 - 21 May 2024" readOnly />
+                  <div className="fr-search-wrap" style={{ gap: '4px' }}>
+                    <input 
+                      type="date" 
+                      className="fr-search-input" 
+                      style={{ padding: '6px 8px', fontSize: '12px' }} 
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)} 
+                    />
+                    <span style={{ fontSize: '11px', color: '#94A3B8' }}>to</span>
+                    <input 
+                      type="date" 
+                      className="fr-search-input" 
+                      style={{ padding: '6px 8px', fontSize: '12px' }} 
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)} 
+                    />
                   </div>
-                  <button className="bi-reset-btn" onClick={() => { setSearchQuery(''); setSelectedAction('All Actions'); setSelectedModule('All Modules'); }}>Reset</button>
+                  <button className="bi-reset-btn" onClick={() => { setSearchQuery(''); setSelectedAction('All Actions'); setSelectedModule('All Modules'); setStartDate(''); setEndDate(''); }}>Reset</button>
                 </div>
 
                 {/* Table */}

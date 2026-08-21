@@ -13,6 +13,11 @@ import '../../../wallet/presentation/screens/wallet_screen.dart';
 import '../../../unlock/presentation/screens/scan_qr_screen.dart';
 import '../../../kyc/data/services/kyc_service.dart';
 import '../../../../core/services/session_service.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/ble_battery_service.dart';
+import '../widgets/bluetooth_scan_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -25,6 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _carouselIndex = 0;
   bool hasActiveRide = false; // Double tap header icon toggles active ride view
   bool hasBookedRide = false;
+  Map<String, dynamic>? activeBooking;
   String selectedLocation = "Gotri Zone, Vadodara";
   late PageController _pageController;
   Timer? _carouselTimer;
@@ -39,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<Map<String, dynamic>> _evFleet = [
     {
       "name": "Evegah City",
-      "category": "E-Scooter",
+      "category": "E-Vehicle",
       "tagColor": const Color(0xFFF5F3FF),
       "tagTextColor": const Color(0xFF4313B8),
       "image": "assets/city.png",
@@ -49,13 +55,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       "isFavorite": false,
     },
     {
-      "name": "Evegah City Pro",
+      "name": "Evegah Pro",
       "category": "E-Scooter",
       "tagColor": const Color(0xFFDCFCE7),
       "tagTextColor": const Color(0xFF15803D),
-      "image": "assets/v2.webp",
+      "image": "assets/pro-1.png",
       "range": "90–120 km",
-      "speed": "40 km/h",
+      "speed": "20 km/h",
       "features": ["👥 2 Seater", "⚡ Fast Charge"],
       "isFavorite": false,
     },
@@ -66,7 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       "tagTextColor": const Color(0xFF0369A1),
       "image": "assets/mink.png",
       "range": "60–80 km",
-      "speed": "40 km/h",
+      "speed": "30 km/h",
       "features": ["👥 2 Seater", "🔒 Smart Lock"],
       "isFavorite": false,
     },
@@ -89,6 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _pageController = PageController(initialPage: 0);
     _startCarouselTimer();
     _loadBookingState();
+    _fetchActiveBooking();
   }
 
   @override
@@ -121,13 +128,644 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  Future<void> _fetchActiveBooking() async {
+    final loggedIn = await SessionService().isLoggedIn();
+    if (!loggedIn) return;
+
+    final mobile = await SessionService().getUserMobile() ?? "+91 98765 43210";
+    final urls = [
+      '${AppConstants.apiBaseUrl}/reservations?search=${Uri.encodeComponent(mobile)}',
+      'http://192.168.1.4:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
+      'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
+    ];
+
+    for (final url in urls) {
+      try {
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 2));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            final List list = data['data'];
+            final active = list.firstWhere(
+              (r) =>
+                  r['status'] == 'Confirmed' ||
+                  r['status'] == 'Upcoming' ||
+                  r['status'] == 'Ongoing',
+              orElse: () => null,
+            );
+            if (active != null) {
+              setState(() {
+                activeBooking = active;
+              });
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching active booking: $e");
+      }
+    }
+  }
+
+  Widget _buildActiveBookingCard() {
+    if (activeBooking == null) return const SizedBox.shrink();
+
+    final String vehicleName =
+        activeBooking!['vehicle_category'] ?? 'Evegah Premium';
+    final String reservationId = activeBooking!['reservation_id'] ?? '';
+    final String pickupZone = activeBooking!['pickup_zone'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF200F54), Color(0xFF4313B8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4313B8).withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "ACTIVE BOOKING",
+                      style: TextStyle(
+                        color: Color(0xFFDDD6FE),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      vehicleName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  "ID: $reservationId",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white24, height: 24),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_rounded,
+                color: Color(0xFFDDD6FE),
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  "Pickup: $pickupZone",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFE2E8F0),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Bluetooth Battery Panel
+          ValueListenableBuilder<BleBatteryState>(
+            valueListenable: BleBatteryService.instance.connectionState,
+            builder: (context, connState, _) {
+              if (connState == BleBatteryState.connected) {
+                return ValueListenableBuilder<double>(
+                  valueListenable: BleBatteryService.instance.batteryPercentage,
+                  builder: (context, batteryPct, _) {
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.battery_charging_full_rounded,
+                            color: Color(0xFF22C55E),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Connected to Battery",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  "Live BMS: ${batteryPct.toStringAsFixed(0)}%",
+                                  style: const TextStyle(
+                                    color: Color(0xFFE2E8F0),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              BleBatteryService.instance.disconnect();
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFFF87171),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              minimumSize: Size.zero,
+                            ),
+                            child: const Text(
+                              "Disconnect",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              } else if (connState == BleBatteryState.connecting ||
+                  connState == BleBatteryState.scanning) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0x14FFFFFF),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: const [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        "Connecting to Battery...",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                return SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const BluetoothScanDialog(),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.bluetooth_searching_rounded,
+                      size: 16,
+                    ),
+                    label: const Text(
+                      "Scan & Connect Battery",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF200F54),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveRideTelemetryRow() {
+    final bleService = BleBatteryService.instance;
+
+    return Row(
+      children: [
+        // --- LEFT CARD: LIVE BATTERY ---
+        Expanded(
+          child: ValueListenableBuilder<BleBatteryState>(
+            valueListenable: bleService.connectionState,
+            builder: (context, connState, _) {
+              final isConnected = connState == BleBatteryState.connected;
+              final batteryPct = bleService.batteryPercentage.value;
+              final estRange = isConnected ? (batteryPct * 0.8).round() : 0;
+
+              return GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const BluetoothScanDialog(),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x08000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row
+                      Row(
+                        children: [
+                          Icon(
+                            isConnected
+                                ? Icons.bluetooth_connected_rounded
+                                : Icons.bluetooth_disabled_rounded,
+                            size: 18,
+                            color: isConnected
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF94A3B8),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Live Battery",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Text(
+                                  isConnected
+                                      ? "• Connected"
+                                      : "• Disconnected",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isConnected
+                                        ? const Color(0xFF16A34A)
+                                        : const Color(0xFFEF4444),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // SoC & Range Display
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isConnected ? "${batteryPct.toInt()}%" : "--%",
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF4313B8),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isConnected
+                                    ? "Range ~ $estRange km"
+                                    : "Range ~ -- km",
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.flash_on_rounded,
+                                color: Color(0xFF4313B8),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      const SizedBox(height: 10),
+
+                      // Bottom Health Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.favorite_rounded,
+                                color: Color(0xFFEF4444),
+                                size: 12,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Battery Health",
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            isConnected ? "98% >" : "-- >",
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: isConnected
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF94A3B8),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // --- RIGHT CARD: VEHICLE RUNNING STATUS (REPLACING WALLET) ---
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x08000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Row
+                Row(
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF3E8FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.electric_scooter_rounded,
+                          color: Color(0xFF4313B8),
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        "Vehicle Status",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Speed / Running Metric Display
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.circle, color: Color(0xFF16A34A), size: 6),
+                          SizedBox(width: 4),
+                          Text(
+                            "In Motion",
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF16A34A),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      "24 km/h",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Lock/Unlock Control Action Row
+                GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "🔒 Vehicle Remote Command: Lock / Unlock Signal Sent!",
+                        ),
+                        backgroundColor: Color(0xFF4313B8),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F3FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFDDD6FE)),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "🔒 Lock / Unlock",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4313B8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                const SizedBox(height: 8),
+
+                // Bottom Riding Score Row
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFEAB308),
+                          size: 13,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          "Riding Score",
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      "95/100 >",
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF4313B8),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool showKycBanner =
         hasBookedRide && KycService().kycStatus != "Verified";
 
     return Scaffold(
-      drawer: const AppSidebarDrawer(),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -138,18 +776,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildTopHeader(),
               const SizedBox(height: 12),
 
-              // --- 2. KYC WARNING BANNER (IF BOOKED & UNVERIFIED) ---
-              if (showKycBanner) ...[
-                _buildKycBanner(),
-                const SizedBox(height: 12),
-              ],
-
               // --- 3. HERO CAROUSEL / SLIDER BANNER ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildHeroCarousel(),
               ),
               const SizedBox(height: 18),
+
+              // --- 3.5 ACTIVE RIDE TELEMETRY CARDS (LIVE BATTERY & VEHICLE RUNNING STATUS) ---
+              if (hasActiveRide || activeBooking != null || hasBookedRide) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildActiveRideTelemetryRow(),
+                ),
+                const SizedBox(height: 18),
+              ],
+
+              // --- 2. KYC WARNING BANNER (IF BOOKED & UNVERIFIED) ---
+              if (showKycBanner) ...[
+                _buildKycBanner(),
+                const SizedBox(height: 16),
+              ],
 
               // --- 4. QUICK ACTIONS SECTION ---
               Padding(
@@ -217,7 +864,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       currentCity: selectedLocation.split(",").first,
                       onLocationSelected: (zone) {
                         setState(() {
-                          final zoneName = zone is Map ? zone['name'] : zone.toString();
+                          final zoneName = zone is Map
+                              ? zone['name']
+                              : zone.toString();
                           selectedLocation = "$zoneName, Vadodara";
                         });
                       },
@@ -226,14 +875,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
                 if (result != null) {
                   setState(() {
-                    final zoneName = result is Map ? result['name'] : result.toString();
-                    selectedLocation = zoneName.contains(",") ? zoneName : "$zoneName, Vadodara";
+                    final zoneName = result is Map
+                        ? result['name']
+                        : result.toString();
+                    selectedLocation = zoneName.contains(",")
+                        ? zoneName
+                        : "$zoneName, Vadodara";
                   });
                 }
               },
               borderRadius: BorderRadius.circular(20),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -290,7 +946,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationScreen(),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(12),
@@ -329,7 +987,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-              
+
               const SizedBox(width: 8),
 
               // 2. Hamburger App Drawer Menu
@@ -354,7 +1012,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   );
-                }
+                },
               ),
             ],
           ),
@@ -974,7 +1632,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
- // Our EV Fleet Section
+  // Our EV Fleet Section
   // REQUIREMENT: "when we click on any vehicle navigate to the Rent Your EV page"
   Widget _buildOurEvFleetSection() {
     return Column(
@@ -1022,7 +1680,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 215, // 🚨 Increased height slightly to accommodate wrapped feature badges safely
+          height:
+              215, // 🚨 Increased height slightly to accommodate wrapped feature badges safely
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _evFleet.length,
@@ -1163,7 +1822,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       // Feature Pills
                       // 🚨 FIX: Swapped out Row for Wrap to dynamically stack tightly bound cards safely
-                     // Feature Pills
+                      // Feature Pills
                       // 🟢 FittedBox forces them onto one single line and scales down safely if needed
                       SizedBox(
                         width: double.infinity,
@@ -1171,7 +1830,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
                           child: Row(
-                            children: (item["features"] as List<String>).map((f) {
+                            children: (item["features"] as List<String>).map((
+                              f,
+                            ) {
                               return Container(
                                 margin: const EdgeInsets.only(right: 4),
                                 padding: const EdgeInsets.symmetric(

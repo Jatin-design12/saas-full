@@ -109,7 +109,6 @@ const NAV: NavGroup[] = [
     { label: 'All Maintenance', href: '/maintenance/all' },
     { label: 'Upcoming Services', href: '/maintenance/upcoming' },
     { label: 'Service History', href: '/maintenance/history' },
-    { label: 'Service Status', href: '/maintenance' },
   ]},
   { key: 'iot', icon: 'iot', label: 'IoT Devices', children: [
     { label: 'Inward', href: '/iot-devices/inward' },
@@ -199,7 +198,6 @@ const SUPER_ADMIN_NAV: NavGroup[] = [
     { label: 'All Maintenance', href: '/maintenance/all' },
     { label: 'Upcoming Services', href: '/maintenance/upcoming' },
     { label: 'Service History', href: '/maintenance/history' },
-    { label: 'Service Status', href: '/maintenance' },
   ]},
   { key: 'iot', icon: 'iot', label: 'IoT Devices', children: [
     { label: 'Inward', href: '/iot-devices/inward' },
@@ -481,7 +479,7 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
     if (g.isHeader) return true;
     
     const permKey = KEY_MAP[g.key];
-    if (!permKey) return true;
+    if (!permKey || permKey === 'Dashboard') return true;
 
     if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0) {
       const permObj = permissions[permKey];
@@ -497,13 +495,53 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
     return allowedModules.includes(permKey);
   });
 
+  const checkSubActive = (href: string, activePathStr: string) => {
+    if (!activePathStr) return false;
+
+    // Reserved Rides under Riders or Settings
+    if (href === '/renters/reserved' || href === '/settings/reserved-rides') {
+      return activePathStr.includes('reserved');
+    }
+
+    // Riders List under Riders (MUST NOT match reserved rides!)
+    if (href === '/renters') {
+      if (activePathStr.includes('reserved')) return false;
+      return activePathStr === '/renters' || activePathStr.startsWith('/renters/profile') || activePathStr.startsWith('/renters/detail');
+    }
+
+    // Roles under Users & Roles
+    if (href === '/roles') {
+      return activePathStr === '/roles' || activePathStr.startsWith('/roles/') || activePathStr.includes('/roles');
+    }
+
+    // Users under Users & Roles (MUST NOT match roles!)
+    if (href === '/users') {
+      if (activePathStr.includes('role') || activePathStr.includes('roles')) return false;
+      return activePathStr === '/users' || activePathStr.startsWith('/users/');
+    }
+
+    if (activePathStr === href) return true;
+    if (href !== '/' && activePathStr.startsWith(href + '/')) return true;
+
+    return false;
+  };
+
   // auto-expand group containing active item
   const defaultOpen = filteredNav.reduce((acc, g) => {
-    if (g.children?.some(c => c.href === active)) acc[g.key] = true;
+    if (g.children?.some(c => checkSubActive(c.href, active))) acc[g.key] = true;
     return acc;
   }, {} as Record<string, boolean>);
 
   const [open, setOpen] = useState<Record<string, boolean>>(defaultOpen);
+
+  useEffect(() => {
+    filteredNav.forEach(g => {
+      if (g.children?.some(c => checkSubActive(c.href, active))) {
+        setOpen(p => ({ ...p, [g.key]: true }));
+      }
+    });
+  }, [active]);
+
   const toggle = (key: string) => setOpen(p => ({ ...p, [key]: !p[key] }));
 
   const themeStyles = theme === 'dark' ? {
@@ -547,8 +585,10 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
                 </div>
               );
             }
-            const isGroupActive = g.href === active || g.children?.some(c => c.href === active);
+            const isGroupActive = g.href === active || g.children?.some(c => checkSubActive(c.href, active));
             const isOpen = open[g.key];
+
+            const currentPermKey = KEY_MAP[g.key];
 
             return (
               <div key={g.key}>
@@ -578,11 +618,21 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
                 {/* Sub items */}
                 {g.children && isOpen && (
                   <div className="ev-sb-sub">
-                    {g.children.map(c => (
+                    {g.children.filter(c => {
+                      if (isSuperAdmin) return true;
+                      if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0 && currentPermKey) {
+                        const subPermKey = `${currentPermKey}:${c.label}`;
+                        const subPermObj = permissions[subPermKey];
+                        if (subPermObj && subPermObj.access === false) {
+                          return false;
+                        }
+                      }
+                      return true;
+                    }).map(c => (
                       <Link
                         key={c.href}
                         href={c.href}
-                        className={`ev-sb-sub-item ${active === c.href || (c.href !== '/' && active.startsWith(c.href + '/') && !g.children?.some(sibling => sibling.href !== c.href && (active === sibling.href || active.startsWith(sibling.href + '/')))) ? 'act' : ''}`}
+                        className={`ev-sb-sub-item ${checkSubActive(c.href, active) ? 'act' : ''}`}
                       >
                         {c.label}
                       </Link>

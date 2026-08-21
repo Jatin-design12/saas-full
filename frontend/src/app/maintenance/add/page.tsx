@@ -478,7 +478,7 @@ export default function AddMaintenancePage() {
   };
 
   // Handle form submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Create a new record
@@ -494,6 +494,25 @@ export default function AddMaintenancePage() {
       lastService: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       zone: activeZone === "Koramangala Hub" ? "Koramangala, Bengaluru" : "Connaught Place Zone"
     };
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/maintenance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle_code: vehicleNumber || vehicleId || 'EVM1024008',
+          issue_category: serviceType || serviceCategory || 'General Service',
+          description: description,
+          assigned_technician: mechanic,
+          priority: priority,
+          estimated_cost: totalInvoiceCost,
+          zone: activeZone
+        })
+      });
+    } catch (err) {
+      console.error('Failed to post maintenance order to API:', err);
+    }
 
     // Save to local storage
     if (typeof window !== 'undefined') {

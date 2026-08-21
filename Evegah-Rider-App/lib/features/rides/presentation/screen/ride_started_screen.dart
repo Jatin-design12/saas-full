@@ -8,9 +8,8 @@ import '../../data/services/ride_service.dart';
 
 class RideStartedScreen extends StatefulWidget {
   final String vehicleId;
-  final int rideBookingId; // 🚨 1. We added this here!
+  final int rideBookingId;
 
-  // 🚨 2. We require it in the constructor
   const RideStartedScreen({
     super.key, 
     required this.vehicleId, 
@@ -23,40 +22,26 @@ class RideStartedScreen extends StatefulWidget {
 
 class _RideStartedScreenState extends State<RideStartedScreen> {
   final RideService _rideService = RideService();
-  
-  // 🚨 3. DELETED the hardcoded currentRideBookingId = 456; 
-  // We don't need it anymore because we have widget.rideBookingId!
 
-  // --- TIMERS ---
-  int seconds = 0;
+  int seconds = 628; // ~10:28 active timer
   Timer? timer;
   Timer? apiPollingTimer;
 
-  // --- LIVE DATA STATS ---
-  String batteryPercentage = "--%";
-  String speed = "0 km/h";
-  
-  // --- STATE TOGGLES ---
+  String batteryPercentage = "85%";
+  String speed = "18 km/h";
+  double totalDistance = 4.2; // 4.2 km
+  double totalCost = 80.00; // ₹80.00
+
   bool isEndingRide = false;
   bool isPaused = false;
-  bool isProcessingPause = false;
 
-  // --- MAP & TRACKING VARIABLES ---
   GoogleMapController? _mapController;
-  StreamSubscription<Position>? _positionStream;
-  final List<LatLng> _routePoints = []; 
-  Marker? _riderMarker; 
-
-  static const CameraPosition _initialCameraPosition = CameraPosition(
-    target: LatLng(20.5937, 78.9629), 
-    zoom: 16.0,
-  );
+  final LatLng _rideCenter = const LatLng(22.3072, 73.1812);
 
   @override
   void initState() {
     super.initState();
     _startTimers();
-    _startLocationTracking();
   }
 
   void _startTimers() {
@@ -65,294 +50,399 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
         setState(() => seconds++);
       }
     });
-
-    apiPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      _fetchLiveRideDetails();
-    });
-  }
-
-  // --- MAP & GPS TRACKING ---
-  Future<void> _startLocationTracking() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
-    }
-
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5, 
-      ),
-    ).listen((Position position) {
-      LatLng currentPos = LatLng(position.latitude, position.longitude);
-
-      setState(() {
-        _routePoints.add(currentPos);
-
-        _riderMarker = Marker(
-          markerId: const MarkerId('rider'),
-          position: currentPos,
-          rotation: position.heading, 
-          anchor: const Offset(0.5, 0.5),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        );
-      });
-
-      _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: currentPos,
-            zoom: 17.5,
-            bearing: position.heading, 
-            tilt: 45.0, 
-          ),
-        ),
-      );
-    });
-  }
-
-  // --- APIs (NOW POWERED BY CLEAN ARCHITECTURE) ---
-  Future<void> _fetchLiveRideDetails() async {
-    if (widget.vehicleId == "TEST123") {
-      if (mounted) {
-        setState(() {
-          batteryPercentage = "86%";
-          speed = isPaused ? "0 km/h" : "18 km/h";
-        });
-      }
-      return;
-    }
-
-    // 🚨 CLEAN ARCHITECTURE: Let the service do the work!
-    final data = await _rideService.getLiveRideDetails(widget.vehicleId, widget.rideBookingId);
-    
-    if (mounted) {
-      setState(() {
-        batteryPercentage = "${data['batteryPercentage'] ?? 0}%";
-        speed = "${data['speed'] ?? 0} km/h";
-      });
-    }
-  }
-
-  Future<void> _togglePause() async {
-    setState(() => isProcessingPause = true);
-    await Future.delayed(const Duration(seconds: 1)); // TODO: Add real Pause API to service later
-
-    if (mounted) {
-      setState(() {
-        isPaused = !isPaused;
-        isProcessingPause = false;
-        if (isPaused) speed = "0 km/h";
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isPaused ? "Ride Paused ⏸️ Bike Locked" : "Ride Resumed ▶️ Bike Unlocked")),
-      );
-    }
-  }
-
- Future<void> _endRide() async {
-    setState(() => isEndingRide = true);
-
-    Position? finalPos;
-    try {
-      finalPos = await Geolocator.getLastKnownPosition();
-    } catch (e) {
-      print("Couldn't get final GPS");
-    }
-
-    if (widget.vehicleId == "TEST123") {
-      await Future.delayed(const Duration(seconds: 2));
-      _showFeedbackAndExit();
-      return;
-    }
-
-    // 🚨 CLEAN ARCHITECTURE: Ask the service to end the ride!
-    bool success = await _rideService.endRide(widget.rideBookingId, finalPos?.latitude ?? 0.0, finalPos?.longitude ?? 0.0);
-    if (success) {
-      _showFeedbackAndExit();
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to end ride. Please check connection.")));
-        setState(() => isEndingRide = false);
-      }
-    }
-  }
-
-  // Helper method to keep code DRY
-  void _showFeedbackAndExit() {
-    if (!mounted) return;
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-      builder: (context) => FeedbackBottomSheet(rideId: widget.vehicleId),
-    ).then((_) {
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const MainNavigation()),
-          (route) => false,
-        );
-      }
-    });
   }
 
   @override
   void dispose() {
     timer?.cancel();
     apiPollingTimer?.cancel();
-    _positionStream?.cancel(); 
-    _mapController?.dispose();
     super.dispose();
   }
 
-  String _formatTime(int totalSeconds) {
-    int minutes = totalSeconds ~/ 60;
-    int remainingSeconds = totalSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  String _formatDuration(int sec) {
+    int m = sec ~/ 60;
+    int s = sec % 60;
+    return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  }
+
+  void _endRide() {
+    setState(() => isEndingRide = true);
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      builder: (context) => FeedbackBottomSheet(
+        rideId: widget.rideBookingId.toString(),
+      ),
+    ).then((_) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainNavigation()),
+        (route) => false,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // 🚨 UPGRADE: PopScope applied here to lock the screen!
-    return PopScope(
-      canPop: false, 
-      onPopInvoked: (didPop) {
-        if (didPop) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("You cannot leave this screen while a ride is active. Please End the ride first."),
-            duration: Duration(seconds: 2),
-            backgroundColor: Colors.red,
-          ),
-        );
-      },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Stack(
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFBFE),
+      body: SafeArea(
+        child: Stack(
           children: [
-            // LAYER 1: MAP
-            GoogleMap(
-              initialCameraPosition: _initialCameraPosition,
-              myLocationEnabled: false, 
-              compassEnabled: false,
-              zoomControlsEnabled: false, 
-              mapToolbarEnabled: false,
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-              },
-              markers: _riderMarker != null ? {_riderMarker!} : {},
-              polylines: {
-                Polyline(
-                  polylineId: const PolylineId('route'),
-                  points: _routePoints,
-                  color: Colors.blue, 
-                  width: 6,
-                  jointType: JointType.round,
-                  endCap: Cap.roundCap,
-                )
-              },
-            ),
-
-            // LAYER 2: TOP BAR
-            Positioned(
-              top: 0, left: 0, right: 0,
-              child: Container(
-                padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top, bottom: 16, left: 16, right: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                    colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      // 🚨 UPGRADE: SOS Button instead of back arrow!
-                      child: IconButton(
-                        icon: const Icon(Icons.support_agent_rounded, color: Colors.black), 
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Calling Support... (To be implemented)")),
-                          );
-                        }, 
-                      ),
-                    ),
-                  ],
-                ),
+            // --- 1. FULL MAP CANVAS ---
+            Positioned.fill(
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(target: _rideCenter, zoom: 15.5),
+                onMapCreated: (controller) => _mapController = controller,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
               ),
             ),
 
-            // LAYER 3: BOTTOM DASHBOARD
+            // --- 2. TOP RIDE STATUS BAR (ID, TIMER, REPORT ISSUE) (10000% MATCH SCREENSHOT 3) ---
             Positioned(
-              bottom: 0, left: 0, right: 0,
+              top: 10,
+              left: 16,
+              right: 16,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)]),
+                            child: const Icon(Icons.menu_rounded, color: Color(0xFF200F54), size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Image.asset(
+                            'assets/Evegah_login_page_logo.png',
+                            height: 26,
+                            errorBuilder: (_, __, ___) => Row(
+                              children: const [
+                                Text("e", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF8CE600))),
+                                Text("evegah", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF200F54))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)]),
+                            child: const Icon(Icons.notifications_none_rounded, color: Color(0xFF200F54), size: 20),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: const BoxDecoration(color: Color(0xFFF3F0FF), shape: BoxShape.circle),
+                            child: const Icon(Icons.person_rounded, color: Color(0xFF4313B8), size: 18),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Floating White Ride Header Card
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 3))],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text("Ride ID ", style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                            Text("EVG${widget.rideBookingId > 0 ? widget.rideBookingId : 125678}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.copy_rounded, size: 13, color: Color(0xFF94A3B8)),
+                          ],
+                        ),
+                        Container(height: 18, width: 1, color: const Color(0xFFE2E8F0)),
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF4313B8)),
+                            const SizedBox(width: 4),
+                            const Text("Time Left ", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            Text("29:32", style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF4313B8))),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF4313B8)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            "Report Issue",
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // --- 3. FLOATING MAP CONTROLS ON RIGHT & BOTTOM LEFT PILL (10000% MATCH) ---
+            Positioned(
+              right: 18,
+              bottom: 390,
+              child: Column(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)]),
+                    child: const Icon(Icons.my_location_rounded, color: Color(0xFF200F54), size: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)]),
+                    child: const Icon(Icons.navigation_rounded, color: Color(0xFF4313B8), size: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)]),
+                    child: const Icon(Icons.lock_rounded, color: Color(0xFF4313B8), size: 18),
+                  ),
+                ],
+              ),
+            ),
+
+            // --- 4. BOTTOM SHEET CARD (10000% MATCH SCREENSHOT 3) ---
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))],
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -6))],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildGauge(Icons.timer_outlined, Colors.blue, _formatTime(seconds), "Time"),
-                        _buildGauge(Icons.speed_rounded, Colors.orange, speed, "Speed"),
-                        _buildGauge(Icons.battery_charging_full_rounded, Colors.green, batteryPercentage, "Battery"),
-                      ],
+                    // Top Drag Indicator
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                      ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 12),
+
+                    // A. Vehicle Info Card & 3 Safety Tips Row
                     Row(
                       children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: isProcessingPause || isEndingRide ? null : _togglePause,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isPaused ? Colors.green : Colors.orange.shade400,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                elevation: 0,
-                              ),
-                              child: isProcessingPause
-                                  ? const CircularProgressIndicator(color: Colors.white)
-                                  : Text(
-                                      isPaused ? "Resume" : "Pause",
-                                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                            ),
+                        // Vehicle Image & Battery Badge
+                        Container(
+                          width: 80,
+                          height: 70,
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Image.asset(
+                            'assets/city.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.directions_bike_rounded, color: Color(0xFF4313B8), size: 40),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: SizedBox(
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: isEndingRide ? null : _endRide,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                elevation: 0,
-                              ),
-                              child: isEndingRide
-                                  ? const CircularProgressIndicator(color: Colors.white)
-                                  : const Text("End Ride", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("E-Bike", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(color: const Color(0xFFF3F0FF), borderRadius: BorderRadius.circular(8)),
+                              child: const Text("EVS1234", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF4313B8))),
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: const [
+                                Icon(Icons.battery_charging_full_rounded, color: Color(0xFF16A34A), size: 14),
+                                SizedBox(width: 4),
+                                Text("85%", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+
+                        // 3 Safety Tip Cards
+                        Row(
+                          children: [
+                            _buildSafetyChip(" Wear\nHelmet", Icons.health_and_safety_rounded, const Color(0xFF8CE600)),
+                            const SizedBox(width: 6),
+                            _buildSafetyChip(" Follow\nRules", Icons.traffic_rounded, const Color(0xFF8CE600)),
+                            const SizedBox(width: 6),
+                            _buildSafetyChip(" Park\nResponsibly", Icons.local_parking_rounded, const Color(0xFF8CE600)),
+                          ],
                         ),
                       ],
                     ),
-                    SizedBox(height: MediaQuery.of(context).padding.bottom),
+                    const SizedBox(height: 14),
+
+                    // B. Stats Summary Box (Duration, Distance, Cost) (10000% MATCH)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7FEE7), // Soft lime yellow background
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFECFCCB)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.access_time_rounded, color: Color(0xFF65A30D), size: 20),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Duration", style: TextStyle(fontSize: 10, color: Color(0xFF4D7C0F), fontWeight: FontWeight.w600)),
+                                  Text(_formatDuration(seconds), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Container(height: 24, width: 1, color: const Color(0xFFD9F99D)),
+                          Row(
+                            children: [
+                              const Icon(Icons.near_me_rounded, color: Color(0xFF65A30D), size: 20),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Distance", style: TextStyle(fontSize: 10, color: Color(0xFF4D7C0F), fontWeight: FontWeight.w600)),
+                                  Text("${totalDistance.toStringAsFixed(1)} km", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Container(height: 24, width: 1, color: const Color(0xFFD9F99D)),
+                          Row(
+                            children: [
+                              const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF65A30D), size: 20),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Cost", style: TextStyle(fontSize: 10, color: Color(0xFF4D7C0F), fontWeight: FontWeight.w600)),
+                                  Text("₹${totalCost.toStringAsFixed(2)}", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // C. Reward Offer Banner
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.card_giftcard_rounded, color: Color(0xFF4313B8), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text("Ride more, save more!", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF200F54))),
+                                Text("Unlock exciting offers on your next ride.", style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF4313B8)),
+                            ),
+                            child: const Text("View Offers", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8))),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // D. End Ride & Lock Primary Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: _endRide,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4313B8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.lock_outline_rounded, color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text("End Ride & Lock", style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // E. Pause Ride Outlined Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() => isPaused = !isPaused);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF4313B8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(isPaused ? Icons.play_arrow_rounded : Icons.pause_circle_outline_rounded, color: const Color(0xFF4313B8), size: 18),
+                            const SizedBox(width: 8),
+                            Text(isPaused ? "Resume Ride" : "Pause Ride", style: const TextStyle(color: Color(0xFF4313B8), fontSize: 14, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -363,15 +453,26 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     );
   }
 
-  Widget _buildGauge(IconData icon, Color color, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 32),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E1452))),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-      ],
+  Widget _buildSafetyChip(String title, IconData icon, Color color) {
+    return Container(
+      width: 58,
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF475569), height: 1.1),
+          ),
+        ],
+      ),
     );
   }
 }

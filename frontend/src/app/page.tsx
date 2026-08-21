@@ -795,36 +795,9 @@ export default function DynamicDashboard() {
     { key: "finance_manager", label: "Finance Manager", icon: "💳" },
   ];
 
-  const currentRoleObj = roleList.find(r => r.key === role) || roleList[0];
-
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: SUPER_DESIGN_CSS }} />
-
-      {/* Floating Role Switcher FAB */}
-      <button className="role-switcher-fab" onClick={() => setShowRoleMenu(!showRoleMenu)}>
-        <span>{currentRoleObj.icon}</span>
-        <span>{currentRoleObj.label}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-
-      {showRoleMenu && (
-        <div className="role-dropdown-panel">
-          <div className="role-dropdown-header">Switch Role Dashboard</div>
-          {roleList.map((r) => (
-            <button
-              key={r.key}
-              className={`role-opt ${role === r.key ? 'act' : ''}`}
-              onClick={() => handleSwitchRole(r.key, r.label)}
-            >
-              <span>{r.icon}</span>
-              <span>{r.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Floating AI Chatbox FAB */}
       <button className="ai-chat-fab" onClick={() => setShowChat(!showChat)}>
@@ -852,10 +825,11 @@ export default function DynamicDashboard() {
           </div>
 
           {showChatSettings && (
-            <div style={{ padding: '10px', background: '#FAF5FF', borderBottom: '1px solid #E9D5FF' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#2A195C' }}>Gemini API Key</span>
+            <div className="ai-chat-settings" style={{ padding: '10px', background: '#FAF5FF', borderBottom: '1px solid #E9D5FF' }}>
+              <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#2A195C' }}>Gemini API Key</label>
               <input 
                 type="password" 
+                className="ai-chat-inp"
                 style={{ width: '100%', padding: '6px', marginTop: '4px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
                 placeholder="Enter Gemini API Key..." 
                 value={geminiKey} 
@@ -904,8 +878,10 @@ export default function DynamicDashboard() {
         <SuperAdminRoleDashboard />
       ) : role === "zone_admin" || role === "zone_manager" || role === "Zone Admin" ? (
         <ZoneManagerRoleDashboard />
-      ) : role === "operations_manager" || role === "employee" || role === "Operations Manager" ? (
+      ) : role === "operations_manager" || role === "Operations Manager" ? (
         <GroundOperationsRoleDashboard />
+      ) : role === "support_executive" || role === "Support Executive" ? (
+        <SupportExecutiveRoleDashboard />
       ) : role === "franchise_manager" || role === "admin" || role === "Franchise Manager" ? (
         <FranchiseAdminRoleDashboard />
       ) : role === "battery_technician" || role === "technician" || role === "Battery Technician" ? (
@@ -1321,33 +1297,38 @@ function FranchiseAdminRoleDashboard() {
 }
 
 /* ──────────────────────────────────────────────────────── */
-/* ── 3. ZONE MANAGER ROLE DASHBOARD ────────────────────── */
+/* ── 3. ZONE MANAGER ROLE DASHBOARD (SUPER ADMIN STYLE) ─── */
 /* ──────────────────────────────────────────────────────── */
 function ZoneManagerRoleDashboard() {
   return (
     <div className="ev-shell">
       <Sidebar activePath="/" />
       <div className="ev-main">
-        <TopBar title="Zone Manager Dashboard" subtitle="Live zone monitoring, battery swap cabinet status, and active geofence operations." hideZone={false} />
+        <TopBar title="Zone Admin Dashboard" subtitle="Live Zone Monitoring, Battery Swap Cabinets, Fleet Telemetry & Zone Performance" hideZone={false} />
 
         <div className="ev-body">
           <div className="sa-sub-header">
             <div className="sa-sub-title-group">
-              <h2 className="sa-sub-title">Connaught Place Zone Hub</h2>
-              <span className="sa-sub-desc">Live geofence telemetry and battery swapping status</span>
+              <h2 className="sa-sub-title">Connaught Place Zone Performance</h2>
+              <span className="sa-sub-desc">Live geofence telemetry, battery swapping analytics & hub operations</span>
             </div>
             <div className="sa-sub-right">
-              <button className="sa-export-btn">+ Add Swap Cabinet</button>
+              <div className="sa-date-box">
+                <span>01 May 2024 - 31 May 2024</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+              </div>
+              <button className="sa-export-btn">Export Zone Report</button>
             </div>
           </div>
 
+          {/* 5 Top KPI Cards */}
           <div className="sa-kpi-row-5">
             {[
-              { label: 'Zone Fleet', val: '412', change: '8.5%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🚲' },
+              { label: 'Zone Fleet', val: '412 EVs', change: '8.5%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛵' },
               { label: 'Available Batteries', val: '184', change: '94% Charged', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🔋' },
-              { label: 'Swap Stations', val: '8 / 8', change: '100% Online', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' },
+              { label: 'Active Swap Stations', val: '8 / 8', change: '100% Online', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' },
               { label: 'Swaps Today', val: '92 Swaps', change: '12% vs yesterday', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '🔄' },
-              { label: 'Zone Revenue', val: '₹48,200', change: '18% vs last week', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' }
+              { label: 'Zone Daily Revenue', val: '₹48,200', change: '18% vs last week', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' }
             ].map(k => (
               <div key={k.label} className="sa-kpi-card">
                 <div className="sa-kpi-card-top">
@@ -1357,36 +1338,152 @@ function ZoneManagerRoleDashboard() {
                 <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
                 <div className="sa-kpi-card-bot">
                   <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                  <span>vs last period</span>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="sa-row-2-grid">
-            {/* Geo Boundary Map */}
-            <div className="sa-card" style={{ height: '360px' }}>
-              <div className="sa-card-hdr"><span className="sa-card-title">Live Geofence Boundary Map</span></div>
-              <div className="sa-card-body" style={{ padding: 0, background: '#F8FAFC' }}>
-                <svg width="100%" height="100%" style={{ minHeight: '280px' }}>
-                  <polygon points="80 40, 340 30, 440 220, 180 260" fill="rgba(99, 102, 241, 0.08)" stroke="rgba(99, 102, 241, 0.6)" strokeWidth="2.5" strokeDasharray="4 4" />
-                  <circle cx="160" cy="100" r="7" fill="#6366F1" stroke="#fff" strokeWidth="2" />
-                  <circle cx="280" cy="140" r="7" fill="#10B981" stroke="#fff" strokeWidth="2" />
-                  <circle cx="320" cy="90" r="7" fill="#EF4444" stroke="#fff" strokeWidth="2" />
-                  <circle cx="220" cy="200" r="7" fill="#6366F1" stroke="#fff" strokeWidth="2" />
-                  <text x="260" y="240" fontSize="11" fill="#475569" fontWeight="bold" textAnchor="middle">Connaught Geofence Polygon (Zone 1)</text>
-                </svg>
+          {/* Row 1 Grid: Line Chart, Doughnut Chart, Top Swap Stations */}
+          <div className="sa-row-1-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Zone Ride Demand & Battery Swaps (24h Trend)</span>
+                <select className="sa-select-light"><option>Today</option></select>
+              </div>
+              <div className="sa-card-body">
+                <div style={{ height: '180px', position: 'relative' }}>
+                  <Line
+                    data={{
+                      labels: ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00'],
+                      datasets: [
+                        { label: 'Active Rides', data: [80, 190, 240, 310, 380, 290, 140], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.4 },
+                        { label: 'Battery Swaps', data: [12, 35, 48, 62, 92, 54, 20], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
+                      ]
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Swap Stations Cabinet Capacity */}
             <div className="sa-card">
-              <div className="sa-card-hdr"><span className="sa-card-title">Swap Station Battery Capacity</span></div>
-              <div className="sa-card-body" style={{ gap: '12px' }}>
+              <div className="sa-card-hdr"><span className="sa-card-title">Battery SOC Distribution</span></div>
+              <div className="sa-card-body" style={{ alignItems: 'center' }}>
+                <div className="sa-donut-wrap">
+                  <Doughnut
+                    data={{
+                      labels: ['Fully Charged (>80%)', 'Medium (40-80%)', 'Low Battery (<40%)', 'In Charging Station'],
+                      datasets: [{ data: [112, 48, 14, 10], backgroundColor: ['#10B981', '#6366F1', '#F97316', '#8B5CF6'] }]
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }}
+                  />
+                  <div className="sa-donut-center">
+                    <span className="sa-donut-num">184</span>
+                    <span className="sa-donut-lbl">Batteries</span>
+                  </div>
+                </div>
+                <div className="sa-donut-legends">
+                  <div className="sa-donut-leg-row"><span>Charged (&gt;80%)</span><span className="sa-donut-leg-val">112 (60.8%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Medium (40-80%)</span><span className="sa-donut-leg-val">48 (26.1%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Low (&lt;40%)</span><span className="sa-donut-leg-val">14 (7.6%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Charging</span><span className="sa-donut-leg-val">10 (5.5%)</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Top Swap Cabinets</span>
+                <a href="/battery" className="sa-link-all">View All</a>
+              </div>
+              <div className="sa-card-body">
+                <div className="sa-rank-list">
+                  {[
+                    { name: 'CP Hub Station A', val: '342 Swaps', color: '#6366F1' },
+                    { name: 'CP Metro Gate 2 Cabinet', val: '289 Swaps', color: '#10B981' },
+                    { name: 'Janpath Crossing Hub', val: '210 Swaps', color: '#F59E0B' },
+                    { name: 'Barakhamba Road Station', val: '154 Swaps', color: '#8B5CF6' }
+                  ].map((s, idx) => (
+                    <div key={s.name} className="sa-rank-row">
+                      <div className="sa-rank-left">
+                        <span className="sa-rank-circle" style={{ background: s.color }}>{idx + 1}</span>
+                        <span className="sa-rank-name">{s.name}</span>
+                      </div>
+                      <span className="sa-rank-val">{s.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 6 Small KPIs Row */}
+          <div className="sa-kpi-row-6">
+            {[
+              { label: 'Active Riders Online', val: '315', change: '14.2%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
+              { label: 'Avg Swap Time', val: '1.8 min', change: '0.4m faster', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⏱️' },
+              { label: 'Geofence Violations', val: '0', change: 'Zero breaches', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
+              { label: 'Fleet Uptime', val: '99.2%', change: 'Optimal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '📈' },
+              { label: 'Maintenance Pending', val: '3 Bikes', change: 'In workshop', up: false, bg: '#FFF7ED', color: '#F97316', ic: '🛠️' },
+              { label: 'Revenue / Rider', val: '₹153', change: '8.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '💳' }
+            ].map(k => (
+              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
+                <div className="sa-kpi-card-top">
+                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
+                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
+                </div>
+                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
+                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
+                  <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Row 3 Data Grid: Fleet Overview & Cabinets */}
+          <div className="sa-row-3-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Live Zone Fleet Telemetry</span>
+                <a href="/vehicles" className="sa-link-all">View All Fleet</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <table className="sa-table">
+                  <thead>
+                    <tr><th>Vehicle Plate</th><th>Rider Name</th><th>Battery SOC</th><th>Current Location</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { plate: 'EVM-901', rider: 'Amit Kumar', battery: '92%', loc: 'Connaught Inner Circle', st: 'Active Ride', bg: 'sa-badge-green' },
+                      { plate: 'EVM-804', rider: 'Neha Gupta', battery: '78%', loc: 'Barakhamba Road', st: 'Active Ride', bg: 'sa-badge-green' },
+                      { plate: 'EVM-755', rider: 'Rohit Singh', battery: '64%', loc: 'Janpath Hub', st: 'Available', bg: 'sa-badge-blue' },
+                      { plate: 'EVM-612', rider: 'Sneha Reddy', battery: '18%', loc: 'Metro Gate 2 Cabinet', st: 'Charging', bg: 'sa-badge-orange' }
+                    ].map(v => (
+                      <tr key={v.plate}>
+                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{v.plate}</td>
+                        <td>{v.rider}</td>
+                        <td style={{ fontWeight: '700' }}>{v.battery}</td>
+                        <td>{v.loc}</td>
+                        <td><span className={`sa-badge ${v.bg}`}>{v.st}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Cabinet Capacity & Live Status</span>
+                <a href="/battery" className="sa-link-all">Manage Cabinets</a>
+              </div>
+              <div className="sa-card-body" style={{ gap: '14px' }}>
                 {[
                   { name: 'CP Hub Station A', charged: 24, total: 32, pct: '75%', color: '#10B981' },
                   { name: 'CP Metro Gate 2 Cabinet', charged: 14, total: 16, pct: '87%', color: '#10B981' },
                   { name: 'Janpath Crossing Hub', charged: 6, total: 12, pct: '50%', color: '#F59E0B' },
-                  { name: 'Barakhamba Road Cabinet', charged: 2, total: 8, pct: '25%', color: '#EF4444' }
+                  { name: 'Barakhamba Road Station', charged: 2, total: 8, pct: '25%', color: '#EF4444' }
                 ].map(st => (
                   <div key={st.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700' }}>
@@ -1406,33 +1503,38 @@ function ZoneManagerRoleDashboard() {
 }
 
 /* ──────────────────────────────────────────────────────── */
-/* ── 4. GROUND OPERATIONS ROLE DASHBOARD ───────────────── */
+/* ── 4. OPERATIONS MANAGER DASHBOARD (SUPER ADMIN STYLE) ─ */
 /* ──────────────────────────────────────────────────────── */
 function GroundOperationsRoleDashboard() {
   return (
     <div className="ev-shell">
       <Sidebar activePath="/" />
       <div className="ev-main">
-        <TopBar title="Ground Operations Dashboard" subtitle="Streamlined rider registrations, vehicle check-ins, extensions, and return handling." hideZone={false} />
+        <TopBar title="Operations Manager Dashboard" subtitle="Real-time Fleet Dispatch, Active Rides, Driver Logistics & On-Field Telemetry" hideZone={false} />
 
         <div className="ev-body">
           <div className="sa-sub-header">
             <div className="sa-sub-title-group">
-              <h2 className="sa-sub-title">Daily Rider Operations</h2>
-              <span className="sa-sub-desc">Quick processing for new rides, returns, extensions & battery swaps</span>
+              <h2 className="sa-sub-title">Fleet Dispatch & Daily Logistics</h2>
+              <span className="sa-sub-desc">Active ride tracking, vehicle dispatch health & field technician coordination</span>
             </div>
             <div className="sa-sub-right">
-              <a href="/new-rider" className="sa-export-btn">+ New Ride Registration</a>
+              <div className="sa-date-box">
+                <span>Today (Live Operations)</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+              </div>
+              <a href="/new-rider" className="sa-export-btn">+ Register New Dispatch</a>
             </div>
           </div>
 
+          {/* 5 Top KPI Cards */}
           <div className="sa-kpi-row-5">
             {[
-              { label: 'New Rides Today', val: '48', change: '12%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
-              { label: 'Retain Rides', val: '32', change: '8%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '✓' },
-              { label: 'Returns Processed', val: '64', change: '15%', up: true, bg: '#FFF7ED', color: '#F97316', ic: '🔄' },
-              { label: 'Extensions Granted', val: '28', change: '5%', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '📅' },
-              { label: 'Battery Swaps', val: '92', change: '20%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '🔋' }
+              { label: 'Total Operations Fleet', val: '1,250 EVs', change: '10.2%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛵' },
+              { label: 'Active Rides On-Road', val: '890 Rides', change: '15.4%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛣️' },
+              { label: 'Swaps Executed Today', val: '1,420 Swaps', change: '9.8%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '⚡' },
+              { label: 'On-Field Technicians', val: '34 Active', change: '100% On-Duty', up: true, bg: '#EEF2FF', color: '#2563EB', ic: '🛠️' },
+              { label: 'Daily Ops Revenue', val: '₹3,45,800', change: '14.1%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '₹' }
             ].map(k => (
               <div key={k.label} className="sa-kpi-card">
                 <div className="sa-kpi-card-top">
@@ -1442,58 +1544,378 @@ function GroundOperationsRoleDashboard() {
                 <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
                 <div className="sa-kpi-card-bot">
                   <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
-                  <span>today</span>
+                  <span>vs last week</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Quick Action Navigation Buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px' }}>
+          {/* Row 1 Grid */}
+          <div className="sa-row-1-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Fleet Operations & Dispatch Telemetry</span>
+                <select className="sa-select-light"><option>Hourly View</option></select>
+              </div>
+              <div className="sa-card-body">
+                <div style={{ height: '180px', position: 'relative' }}>
+                  <Line
+                    data={{
+                      labels: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'],
+                      datasets: [
+                        { label: 'Dispatched Rides', data: [310, 520, 680, 750, 890, 820, 540], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.4 },
+                        { label: 'Swaps Processed', data: [120, 240, 310, 420, 510, 480, 290], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
+                      ]
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr"><span className="sa-card-title">Fleet Operational Status</span></div>
+              <div className="sa-card-body" style={{ alignItems: 'center' }}>
+                <div className="sa-donut-wrap">
+                  <Doughnut
+                    data={{
+                      labels: ['On Active Ride (71%)', 'Available at Hub (18%)', 'In Swap/Charging (7%)', 'Under Maintenance (4%)'],
+                      datasets: [{ data: [890, 225, 85, 50], backgroundColor: ['#10B981', '#6366F1', '#F59E0B', '#EF4444'] }]
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }}
+                  />
+                  <div className="sa-donut-center">
+                    <span className="sa-donut-num">1,250</span>
+                    <span className="sa-donut-lbl">Total EVs</span>
+                  </div>
+                </div>
+                <div className="sa-donut-legends">
+                  <div className="sa-donut-leg-row"><span>Active Ride</span><span className="sa-donut-leg-val">890 (71.2%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Available</span><span className="sa-donut-leg-val">225 (18.0%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Charging</span><span className="sa-donut-leg-val">85 (6.8%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Maintenance</span><span className="sa-donut-leg-val">50 (4.0%)</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Top Operating Corridors</span>
+                <a href="/zones" className="sa-link-all">View All</a>
+              </div>
+              <div className="sa-card-body">
+                <div className="sa-rank-list">
+                  {[
+                    { name: 'Gotri to Alkapuri Corridor', val: '420 Trips', color: '#6366F1' },
+                    { name: 'CP to Janpath Ring', val: '380 Trips', color: '#10B981' },
+                    { name: 'Akota Hub Transit Line', val: '290 Trips', color: '#F59E0B' },
+                    { name: 'Subhanpura Express Way', val: '195 Trips', color: '#3B82F6' }
+                  ].map((c, idx) => (
+                    <div key={c.name} className="sa-rank-row">
+                      <div className="sa-rank-left">
+                        <span className="sa-rank-circle" style={{ background: c.color }}>{idx + 1}</span>
+                        <span className="sa-rank-name">{c.name}</span>
+                      </div>
+                      <span className="sa-rank-val">{c.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 6 Small KPIs Row */}
+          <div className="sa-kpi-row-6">
             {[
-              { label: 'New Ride', desc: 'Onboard new rider', href: '/new-rider', bg: '#6366F1', ic: '👤' },
-              { label: 'Retain Ride', desc: 'Extend rider plan', href: '/retain-rider', bg: '#10B981', ic: '✓' },
-              { label: 'Return Ride', desc: 'Process vehicle return', href: '/return-ride', bg: '#F97316', ic: '🔄' },
-              { label: 'Extend Ride', desc: 'Modify ride duration', href: '/extend-ride', bg: '#2563EB', ic: '📅' },
-              { label: 'Franchise Users', desc: 'Staff directory', href: '/franchise-users', bg: '#7E22CE', ic: '👥' }
-            ].map(act => (
-              <a href={act.href} key={act.label} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', transition: 'transform 0.15s' }}>
-                <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: act.bg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{act.ic}</span>
-                <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', fontFamily: 'Outfit' }}>{act.label}</span>
-                <span style={{ fontSize: '11px', color: '#64748B' }}>{act.desc}</span>
-              </a>
+              { label: 'Avg Speed', val: '28 km/h', change: 'Safe driving', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '💨' },
+              { label: 'Critical Telemetry Alerts', val: '2 Alerts', change: 'Requires check', up: false, bg: '#FEF2F2', color: '#EF4444', ic: '⚠️' },
+              { label: 'Low Battery Bikes', val: '14 Bikes', change: 'En route to swap', up: false, bg: '#FFF7ED', color: '#F97316', ic: '🔋' },
+              { label: 'Dispatch Efficiency', val: '96.8%', change: 'High performance', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
+              { label: 'Breakdown Response', val: '8.5 min', change: '2.1m faster', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⏱️' },
+              { label: 'Daily Distance Covered', val: '14,850 km', change: '12.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛣️' }
+            ].map(k => (
+              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
+                <div className="sa-kpi-card-top">
+                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
+                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
+                </div>
+                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
+                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
+                  <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
+                </div>
+              </div>
             ))}
           </div>
 
-          <div className="sa-card">
-            <div className="sa-card-hdr">
-              <span className="sa-card-title">Recent Ground Transactions & Registrations</span>
-              <a href="/renters" className="sa-link-all">View All Riders</a>
+          {/* Table & Field Team Grid */}
+          <div className="sa-row-3-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Live Dispatch & Fleet Activity</span>
+                <a href="/renters" className="sa-link-all">View All Activity</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <table className="sa-table">
+                  <thead>
+                    <tr><th>Request ID</th><th>Type</th><th>Rider Name</th><th>Mobile</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { id: 'REQ-2024-0518-0012', type: 'New Ride', name: 'Amit Kumar', mob: '+91 98765 43210', st: 'Completed', bg: 'sa-badge-green' },
+                      { id: 'REQ-2024-0518-0011', type: 'Retain Ride', name: 'Neha Gupta', mob: '+91 91254 56789', st: 'Pending', bg: 'sa-badge-orange' },
+                      { id: 'REQ-2024-0518-0010', type: 'Return Ride', name: 'Rohit Singh', mob: '+91 99876 54321', st: 'In Progress', bg: 'sa-badge-blue' },
+                      { id: 'REQ-2024-0518-0009', type: 'Extend Ride', name: 'Sneha Reddy', mob: '+91 87654 32109', st: 'Completed', bg: 'sa-badge-green' }
+                    ].map(r => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{r.id}</td>
+                        <td><span className="sa-badge sa-badge-purple">{r.type}</span></td>
+                        <td style={{ fontWeight: '700' }}>{r.name}</td>
+                        <td>{r.mob}</td>
+                        <td><span className={`sa-badge ${r.bg}`}>{r.st}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="sa-card-body" style={{ padding: 0 }}>
-              <table className="sa-table">
-                <thead>
-                  <tr><th>Request ID</th><th>Type</th><th>Rider Name</th><th>Mobile</th><th>Status</th><th>Date & Time</th></tr>
-                </thead>
-                <tbody>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">On-Field Tech Teams & Status</span>
+                <a href="/users" className="sa-link-all">Manage Team</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <table className="sa-table">
+                  <thead>
+                    <tr><th>Tech Name</th><th>Assigned Zone</th><th>Active Task</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { name: 'Vikram Singh', zone: 'Gotri Zone', task: 'Battery Swapping', st: 'Active', bg: 'sa-badge-green' },
+                      { name: 'Rahul Verma', zone: 'CP Hub Zone', task: 'Motor Inspection', st: 'In Workshop', bg: 'sa-badge-blue' },
+                      { name: 'Suresh Mehta', zone: 'Akota Hub', task: 'Fleet Dispatch', st: 'Active', bg: 'sa-badge-green' }
+                    ].map(t => (
+                      <tr key={t.name}>
+                        <td style={{ fontWeight: '700' }}>{t.name}</td>
+                        <td>{t.zone}</td>
+                        <td>{t.task}</td>
+                        <td><span className={`sa-badge ${t.bg}`}>{t.st}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────── */
+/* ── 5. SUPPORT EXECUTIVE ROLE DASHBOARD (SUPER ADMIN) ─── */
+/* ──────────────────────────────────────────────────────── */
+function SupportExecutiveRoleDashboard() {
+  return (
+    <div className="ev-shell">
+      <Sidebar activePath="/" />
+      <div className="ev-main">
+        <TopBar title="Support Executive Dashboard" subtitle="Customer Tickets, Rider Complaints, Reservation Assistance & Live Support Telemetry" hideZone={false} />
+
+        <div className="ev-body">
+          <div className="sa-sub-header">
+            <div className="sa-sub-title-group">
+              <h2 className="sa-sub-title">Rider Support & Service Telemetry</h2>
+              <span className="sa-sub-desc">Real-time rider tickets, complaint resolution status & reservation desk</span>
+            </div>
+            <div className="sa-sub-right">
+              <div className="sa-date-box">
+                <span>Today (Support Shift)</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+              </div>
+              <button className="sa-export-btn">+ Create Support Ticket</button>
+            </div>
+          </div>
+
+          {/* 5 Top KPI Cards */}
+          <div className="sa-kpi-row-5">
+            {[
+              { label: 'Open Support Tickets', val: '14 Open', change: '18.5%', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '🎧' },
+              { label: 'Resolved Today', val: '142 Tickets', change: '12.3%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '✅' },
+              { label: 'Avg First Response', val: '1.4 min', change: '0.3m faster', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '⏱️' },
+              { label: 'Customer Satisfaction', val: '98.4%', change: '2.1%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '⭐' },
+              { label: 'Active Reservations', val: '320 Active', change: '8.7%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '📅' }
+            ].map(k => (
+              <div key={k.label} className="sa-kpi-card">
+                <div className="sa-kpi-card-top">
+                  <span className="sa-kpi-card-lbl">{k.label}</span>
+                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+                </div>
+                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
+                <div className="sa-kpi-card-bot">
+                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                  <span>vs last shift</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Row 1 Grid */}
+          <div className="sa-row-1-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Support Ticket Volume & Resolution Speed</span>
+                <select className="sa-select-light"><option>Today</option></select>
+              </div>
+              <div className="sa-card-body">
+                <div style={{ height: '180px', position: 'relative' }}>
+                  <Line
+                    data={{
+                      labels: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'],
+                      datasets: [
+                        { label: 'Incoming Tickets', data: [15, 32, 45, 50, 38, 24, 12], borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.12)', fill: true, tension: 0.4 },
+                        { label: 'Resolved Tickets', data: [12, 30, 42, 48, 36, 22, 11], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
+                      ]
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr"><span className="sa-card-title">Ticket Categories Breakdown</span></div>
+              <div className="sa-card-body" style={{ alignItems: 'center' }}>
+                <div className="sa-donut-wrap">
+                  <Doughnut
+                    data={{
+                      labels: ['Unlock Issue (42%)', 'Payment Query (28%)', 'Swap Inquiry (18%)', 'General Info (12%)'],
+                      datasets: [{ data: [65, 44, 28, 19], backgroundColor: ['#EF4444', '#6366F1', '#F59E0B', '#10B981'] }]
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }}
+                  />
+                  <div className="sa-donut-center">
+                    <span className="sa-donut-num">156</span>
+                    <span className="sa-donut-lbl">Today</span>
+                  </div>
+                </div>
+                <div className="sa-donut-legends">
+                  <div className="sa-donut-leg-row"><span>Unlock Issue</span><span className="sa-donut-leg-val">65 (41.7%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Payment Query</span><span className="sa-donut-leg-val">44 (28.2%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Swap Inquiry</span><span className="sa-donut-leg-val">28 (17.9%)</span></div>
+                  <div className="sa-donut-leg-row"><span>General Info</span><span className="sa-donut-leg-val">19 (12.2%)</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Top Agent Performers</span>
+                <a href="/users" className="sa-link-all">View All</a>
+              </div>
+              <div className="sa-card-body">
+                <div className="sa-rank-list">
                   {[
-                    { id: 'REQ-2024-0518-0012', type: 'New Ride', name: 'Amit Kumar', mob: '+91 98765 43210', st: 'Completed', bg: 'sa-badge-green' },
-                    { id: 'REQ-2024-0518-0011', type: 'Retain Ride', name: 'Neha Gupta', mob: '+91 91254 56789', st: 'Pending', bg: 'sa-badge-orange' },
-                    { id: 'REQ-2024-0518-0010', type: 'Return Ride', name: 'Rohit Singh', mob: '+91 99876 54321', st: 'In Progress', bg: 'sa-badge-blue' },
-                    { id: 'REQ-2024-0518-0009', type: 'Extend Ride', name: 'Sneha Reddy', mob: '+91 87654 32109', st: 'Completed', bg: 'sa-badge-green' },
-                    { id: 'REQ-2024-0518-0008', type: 'Battery Swap', name: 'Vikram Patel', mob: '+91 78945 61230', st: 'Pending', bg: 'sa-badge-orange' }
-                  ].map(r => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{r.id}</td>
-                      <td><span className="sa-badge sa-badge-purple">{r.type}</span></td>
-                      <td style={{ fontWeight: '700' }}>{r.name}</td>
-                      <td>{r.mob}</td>
-                      <td><span className={`sa-badge ${r.bg}`}>{r.st}</span></td>
-                      <td style={{ fontSize: '11px', color: '#64748B' }}>May 18, 2024 10:30 AM</td>
-                    </tr>
+                    { name: 'Amit Kumar', val: '48 Resolved', color: '#10B981' },
+                    { name: 'Neha Singh', val: '42 Resolved', color: '#6366F1' },
+                    { name: 'Priya Sharma', val: '36 Resolved', color: '#F59E0B' },
+                    { name: 'Suresh Mehta', val: '28 Resolved', color: '#3B82F6' }
+                  ].map((a, idx) => (
+                    <div key={a.name} className="sa-rank-row">
+                      <div className="sa-rank-left">
+                        <span className="sa-rank-circle" style={{ background: a.color }}>{idx + 1}</span>
+                        <span className="sa-rank-name">{a.name}</span>
+                      </div>
+                      <span className="sa-rank-val">{a.val}</span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 6 Small KPIs Row */}
+          <div className="sa-kpi-row-6">
+            {[
+              { label: 'SLA Adherence', val: '99.1%', change: 'Optimal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
+              { label: 'Live Chat Queue', val: '3 Waiting', change: 'In queue', up: false, bg: '#FFF7ED', color: '#F97316', ic: '💬' },
+              { label: 'Pending Refunds', val: '₹4,200', change: '2 claims', up: false, bg: '#EEF2FF', color: '#2563EB', ic: '💳' },
+              { label: 'Call Volume', val: '86 Calls', change: '9.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '📞' },
+              { label: 'Escalated Tickets', val: '1 Escalated', change: 'Level 2', up: false, bg: '#FEF2F2', color: '#EF4444', ic: '🚨' },
+              { label: 'App Feedback Score', val: '4.9 / 5', change: 'High rating', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⭐' }
+            ].map(k => (
+              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
+                <div className="sa-kpi-card-top">
+                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
+                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
+                </div>
+                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
+                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
+                  <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table & Reservations Grid */}
+          <div className="sa-row-3-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Recent Rider Support Tickets</span>
+                <a href="/alerts" className="sa-link-all">View All Tickets</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <table className="sa-table">
+                  <thead>
+                    <tr><th>Ticket ID</th><th>Rider Name</th><th>Issue Category</th><th>Priority</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { id: '#TCK-9901', rider: 'Rajesh Kumar', category: 'Unlock Scooter Failure', priority: 'High', st: 'In Progress', bg: 'sa-badge-red' },
+                      { id: '#TCK-9900', rider: 'Pooja Verma', category: 'Deposit Refund Status', priority: 'Medium', st: 'Open', bg: 'sa-badge-orange' },
+                      { id: '#TCK-9899', rider: 'Vikram Singh', category: 'Swap Cabinet Door Jammed', priority: 'High', st: 'Resolved', bg: 'sa-badge-green' },
+                      { id: '#TCK-9898', rider: 'Ananya Roy', category: 'Fare Discount Code Inquiry', priority: 'Low', st: 'Resolved', bg: 'sa-badge-green' }
+                    ].map(t => (
+                      <tr key={t.id}>
+                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{t.id}</td>
+                        <td style={{ fontWeight: '700' }}>{t.rider}</td>
+                        <td>{t.category}</td>
+                        <td><span className={t.priority === 'High' ? 'sa-badge sa-badge-red' : 'sa-badge sa-badge-orange'}>{t.priority}</span></td>
+                        <td><span className={`sa-badge ${t.bg}`}>{t.st}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Upcoming Rider Reservations</span>
+                <a href="/renters/reserved" className="sa-link-all">View Desk</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <table className="sa-table">
+                  <thead>
+                    <tr><th>Reservation ID</th><th>Customer Name</th><th>Vehicle Type</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { id: 'RES-2024-098', name: 'Kunal Shah', type: 'Evegah City E-Scooter', st: 'Confirmed', bg: 'sa-badge-green' },
+                      { id: 'RES-2024-097', name: 'Deepak Malhotra', type: 'Evegah Pro Delivery', st: 'Pending Deposit', bg: 'sa-badge-orange' },
+                      { id: 'RES-2024-096', name: 'Sunita Sharma', type: 'Evegah Mink Express', st: 'Confirmed', bg: 'sa-badge-green' }
+                    ].map(r => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{r.id}</td>
+                        <td style={{ fontWeight: '700' }}>{r.name}</td>
+                        <td>{r.type}</td>
+                        <td><span className={`sa-badge ${r.bg}`}>{r.st}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

@@ -136,6 +136,7 @@ class _OtpScreenState extends State<OtpScreen> with SingleTickerProviderStateMix
     await Future.delayed(const Duration(milliseconds: 600));
     try {
       await SessionService().saveToken("mock_evegah_session_token_12345");
+      await SessionService().saveUserMobile(widget.phoneNumber);
     } catch (se) {
       debugPrint("Error saving token: $se");
     }

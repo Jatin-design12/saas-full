@@ -131,7 +131,19 @@ export default function TopBar({
     const name = localStorage.getItem('evegah_user_name') || '';
     const rawRole = localStorage.getItem('evegah_role') || '';
     const avatar = localStorage.getItem('evegah_user_avatar') || '';
-    const zone = localStorage.getItem('evegah_active_zone') || '';
+    const userZone = localStorage.getItem('evegah_user_zone') || '';
+    let zone = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone');
+    
+    if (!zone && userZone) {
+      zone = userZone;
+      localStorage.setItem('evegah_active_zone', userZone);
+      localStorage.setItem('evegah_selected_zone', userZone);
+    } else if (!zone) {
+      zone = 'All Zones';
+      localStorage.setItem('evegah_active_zone', 'All Zones');
+      localStorage.setItem('evegah_selected_zone', 'All Zones');
+    }
+
     setSessionName(name);
     setSessionRole(roleLabel(rawRole));
     setSessionAvatar(avatar);
@@ -149,12 +161,6 @@ export default function TopBar({
         const names = zones.map((z: any) => z.name).filter(Boolean);
         if (names.length > 0) {
           setZonesList(names);
-          // Auto-select first zone if none selected
-          const current = localStorage.getItem('evegah_active_zone');
-          if (!current && names[0]) {
-            localStorage.setItem('evegah_active_zone', names[0]);
-            setActiveZone(names[0]);
-          }
         }
       }
     } catch (e) {
@@ -168,9 +174,11 @@ export default function TopBar({
     if (typeof window !== 'undefined') {
       window.addEventListener('evegah_role_changed', loadSession);
       window.addEventListener('evegah_active_zone_changed', loadSession);
+      window.addEventListener('evegah_zone_changed', loadSession);
       return () => {
         window.removeEventListener('evegah_role_changed', loadSession);
         window.removeEventListener('evegah_active_zone_changed', loadSession);
+        window.removeEventListener('evegah_zone_changed', loadSession);
       };
     }
   }, []);
@@ -204,7 +212,7 @@ export default function TopBar({
         try {
           const permissions = JSON.parse(stored);
           const permKey = getPermissionKeyForPath(pathname);
-          if (permKey) {
+          if (permKey && permKey !== 'Dashboard') {
             const perm = permissions[permKey];
             if (perm && perm.access === false) {
               alert(`Access Denied: You do not have permission to access ${permKey}.`);
@@ -280,11 +288,38 @@ export default function TopBar({
           <div style={{ position: 'relative' }}>
             <div className="ev-tb-zone" onClick={() => setZoneDropdownOpen(!zoneDropdownOpen)}>
               <span style={{ color: '#2a195c' }}><IPin /></span>
-              <span className="ev-tb-zone-t">{activeZone || 'Select Zone'}</span>
+              <span className="ev-tb-zone-t">{activeZone || 'All Zones'}</span>
               <span style={{ color: '#9CA3AF' }}><IChevD /></span>
             </div>
             {zoneDropdownOpen && (
               <div className="ev-tb-zone-dd">
+                {/* All Zones Option for Multi-Zone Roles */}
+                {['super_admin', 'admin', 'operations_manager', 'finance_manager', 'franchise_manager', 'Super Admin', 'Platform Admin'].includes(sessionRole || '') || true ? (
+                  <button
+                    className="ev-tb-zone-opt"
+                    onClick={() => {
+                      localStorage.setItem('evegah_active_zone', 'All Zones');
+                      localStorage.setItem('evegah_selected_zone', 'All Zones');
+                      window.dispatchEvent(new Event('evegah_active_zone_changed'));
+                      window.dispatchEvent(new Event('evegah_zone_changed'));
+                      setActiveZone('All Zones');
+                      setZoneDropdownOpen(false);
+                    }}
+                    type="button"
+                    style={{
+                      color: activeZone === 'All Zones' || !activeZone ? '#FFF' : '#374151',
+                      background: activeZone === 'All Zones' || !activeZone ? '#2a195c' : 'transparent',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    All Zones (Multi-Zone)
+                  </button>
+                ) : null}
+
                 {zonesList.length === 0 && (
                   <div style={{ padding: '10px 12px', fontSize: '12px', color: '#94A3B8' }}>Loading zones...</div>
                 )}
@@ -294,6 +329,7 @@ export default function TopBar({
                     className="ev-tb-zone-opt"
                     onClick={() => {
                       localStorage.setItem('evegah_active_zone', z);
+                      localStorage.setItem('evegah_selected_zone', z);
                       window.dispatchEvent(new Event('evegah_active_zone_changed'));
                       window.dispatchEvent(new Event('evegah_zone_changed'));
                       setActiveZone(z);
@@ -303,8 +339,12 @@ export default function TopBar({
                     style={{
                       color: activeZone === z ? '#FFF' : '#374151',
                       background: activeZone === z ? '#2a195c' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
                     }}
                   >
+                    <IPin />
                     {z}
                   </button>
                 ))}

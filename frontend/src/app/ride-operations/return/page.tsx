@@ -914,7 +914,25 @@ export default function ReturnVehiclePage() {
                   ? <button
                       className={`ro-confirm-final-btn ${!confirmed?'':''}` }
                       style={{opacity:confirmed?1:.5,cursor:confirmed?'pointer':'not-allowed'}}
-                      onClick={()=>{if(confirmed)alert('Return confirmed & ride closed!');}}
+                      onClick={async () => {
+                        if (confirmed) {
+                          try {
+                            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+                            await fetch(`${apiUrl}/renters/return`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                vehicle_id: 'EV-450X-202401',
+                                rider_name: 'Amit Kumar',
+                                mobile: '+91 98765 43210'
+                              })
+                            });
+                          } catch (err) {
+                            console.error('Failed to submit return ride:', err);
+                          }
+                          alert('Return confirmed & ride closed successfully!');
+                        }
+                      }}
                     >
                       Confirm Return &amp; Close Ride <ICheck s={16} c="#fff"/>
                     </button>

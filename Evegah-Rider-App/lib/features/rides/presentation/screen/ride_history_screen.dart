@@ -3,6 +3,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'booking_confirmed_screen.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/session_service.dart';
 
 class RideHistoryScreen extends StatefulWidget {
   const RideHistoryScreen({super.key});
@@ -13,11 +17,53 @@ class RideHistoryScreen extends StatefulWidget {
 
 class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  List<dynamic> _reservations = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _fetchReservations();
+  }
+
+  Future<void> _fetchReservations() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final mobile = await SessionService().getUserMobile() ?? "+91 98765 43210";
+    final urls = [
+      '${AppConstants.apiBaseUrl}/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
+      'http://192.168.1.4:5000/api/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
+      'http://localhost:5000/api/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
+    ];
+
+    for (final url in urls) {
+      try {
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            if (mounted) {
+              setState(() {
+                _reservations = data['data'];
+                _isLoading = false;
+              });
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint("Failed to fetch reservations from $url: $e");
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -145,180 +191,382 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
     );
   }
 
-  // --- UPCOMING TAB ---
-  Widget _buildUpcomingTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildBookingCard(
-            status: "UPCOMING",
-            statusColor: const Color(0xFFEEF2FF),
-            textColor: const Color(0xFF4313B8),
-            price: "₹65.50",
-            vehicleName: "EVegah Mink",
-            bookingId: "EVG12345678",
-            dateTime: "15 May 2024, 09:00 AM - 11:00 AM",
-            location: "Koramangala Parking 2\nBasavanagudi Main Rd, Bengaluru",
-            duration: "2 Hours",
-            buttons: [
-              _buildOutlinedCardButton("View Details", () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const BookingConfirmedScreen(isDepositPaid: false)),
-                );
-              }),
-              const SizedBox(width: 12),
-              _buildSolidCardButton("Start Ride", () {}),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildSupportCard(),
-        ],
+  DateTime? _parseDateTime(dynamic dateStr, dynamic timeStr) {
+    if (dateStr == null || dateStr.toString().trim().isEmpty) return null;
+    final cleanDate = dateStr.toString().split('T').first;
+    final cleanTime = (timeStr != null && timeStr.toString().trim().isNotEmpty) ? timeStr.toString().trim() : '00:00:00';
+    try {
+      return DateTime.parse("${cleanDate}T$cleanTime");
+    } catch (_) {}
+    try {
+      return DateTime.parse(cleanDate);
+    } catch (_) {}
+    return null;
+  }
+
+  DateTime _calculateReturnTime(DateTime pickup, dynamic packageType, dynamic dropDateStr) {
+    if (dropDateStr != null && dropDateStr.toString().trim().isNotEmpty) {
+      try {
+        final d = DateTime.parse(dropDateStr.toString().split('T').first);
+        return d;
+      } catch (_) {}
+    }
+    final pkg = (packageType ?? '').toString().toLowerCase();
+    if (pkg.contains('week')) return pickup.add(const Duration(days: 7));
+    if (pkg.contains('month')) return pickup.add(const Duration(days: 30));
+    return pickup.add(const Duration(days: 1));
+  }
+
+  String _formatDateTimeString(dynamic dateStr, dynamic timeStr) {
+    final dt = _parseDateTime(dateStr, timeStr);
+    if (dt == null) return "${_formatDate(dateStr)} ${timeStr ?? ''}";
+    final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    final hourInt = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final ampm = dt.hour >= 12 ? "PM" : "AM";
+    final minuteStr = dt.minute.toString().padLeft(2, '0');
+    final hourStr = hourInt.toString().padLeft(2, '0');
+    return "${dt.day} ${months[dt.month - 1]} ${dt.year}, $hourStr:$minuteStr $ampm";
+  }
+
+  String _getTotalPriceString(dynamic r) {
+    final double totalAmount = double.tryParse("${r['total_amount'] ?? r['total_payable'] ?? 0}") ?? 0.0;
+    final double fare = double.tryParse("${r['fare'] ?? r['rent'] ?? 0}") ?? 0.0;
+    final double deposit = double.tryParse("${r['deposit'] ?? 0}") ?? 0.0;
+
+    double finalVal = totalAmount > 0 ? totalAmount : (fare + deposit);
+    if (finalVal <= 0) finalVal = fare;
+    return "₹${finalVal.toStringAsFixed(2)}";
+  }
+
+  String _getVehicleImagePath(dynamic model, dynamic category) {
+    final name = "${model ?? ''} ${category ?? ''}".toLowerCase();
+    if (name.contains('mink')) return "assets/mink.png";
+    return "assets/city.png";
+  }
+
+  void _navigateToDetails(dynamic r) {
+    final double fareVal = double.tryParse("${r['fare'] ?? r['rent'] ?? 0}") ?? 0.0;
+    final double depositVal = double.tryParse("${r['deposit'] ?? 0}") ?? 0.0;
+    final double totalVal = double.tryParse("${r['total_amount'] ?? r['total_payable'] ?? (fareVal + depositVal)}") ?? (fareVal + depositVal);
+
+    final bookingDataMap = {
+      "vehicleName": r['vehicle_model'] ?? r['vehicle_category'] ?? "Evegah EV",
+      "vehicleImage": _getVehicleImagePath(r['vehicle_model'], r['vehicle_category']),
+      "vehicleSpeed": "45 km/h",
+      "vehicleRange": "80–100 km",
+      "pickupZone": r['pickup_zone'] ?? "Gotri Zone",
+      "pickupTime": _formatDateTimeString(r['reservation_date'], r['reservation_time']),
+      "dropTime": _formatDateTimeString(r['drop_date'] ?? r['reservation_date'], r['drop_time']),
+      "totalFare": totalVal,
+      "rentAmount": fareVal,
+      "deposit": depositVal,
+      "doorstepFee": double.tryParse("${r['doorstep_fee'] ?? 0}") ?? 0.0,
+      "isDoorstep": r['doorstep_delivery'] == true || (r['doorstep_address'] != null && r['doorstep_address'].toString().isNotEmpty),
+      "doorstepAddress": r['doorstep_address'] ?? r['drop_zone'] ?? '',
+      "packageType": r['package_type'] ?? 'Day',
+      "pickupRaw": r['reservation_date'],
+      "dropRaw": r['drop_date'],
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BookingConfirmedScreen(
+          isDepositPaid: (r['payment_status'] ?? '').toString().toLowerCase() == 'paid',
+          reservationId: r['reservation_id'] ?? '',
+          bookingData: bookingDataMap,
+        ),
       ),
     );
   }
 
- Widget _buildOngoingTab() {
-  return SingleChildScrollView(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      children: [
-        _buildBookingCard(
-          status: "ONGOING",
-          statusColor: const Color(0xFFDCFCE7),
-          textColor: const Color(0xFF16A34A),
-          price: "₹116.00",
-          vehicleName: "EVegah City",
-          bookingId: "EVG87654321",
-          dateTime: "15 May 2024, 08:00 AM - 02:00 PM",
-          location: "Indiranagar 100ft Road\nNear BDA Complex, Bengaluru",
-          duration: "6 Hours",
-          extraWidget: Container(
-            margin: const EdgeInsets.only(top: 14),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F3FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.timer_outlined, color: Color(0xFF4313B8), size: 16),
-                    const SizedBox(width: 8),
-                    const Text("Time Left ", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
-                    const Text("02h 35m", style: TextStyle(color: Color(0xFF4313B8), fontSize: 12, fontWeight: FontWeight.w900)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Text("Return Before ", style: TextStyle(color: Colors.grey, fontSize: 10)),
-                    Expanded(
-                      child: Text(
-                        "02:00 PM, 15 May 2024",
-                        textAlign: TextAlign.left,
-                        style: const TextStyle(color: Color(0xFF1E293B), fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
+  String _formatDate(String? rawDate) {
+    if (rawDate == null || rawDate.isEmpty) return "";
+    try {
+      final dt = DateTime.parse(rawDate);
+      final List<String> months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return "${dt.day} ${months[dt.month - 1]} ${dt.year}";
+    } catch (_) {
+      return rawDate.split('T').first;
+    }
+  }
+
+  // --- UPCOMING TAB ---
+  Widget _buildUpcomingTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF4313B8)));
+    }
+
+    final now = DateTime.now();
+    final upcomingList = _reservations.where((r) {
+      final stat = (r['status'] ?? '').toString().toLowerCase();
+      final pTime = _parseDateTime(r['reservation_date'], r['reservation_time']);
+      final rTime = pTime != null ? _calculateReturnTime(pTime, r['package_type'], r['drop_date']) : null;
+
+      if (rTime != null && now.isAfter(rTime)) return false;
+      return stat == 'upcoming' || stat == 'pending';
+    }).toList();
+
+    if (upcomingList.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text("No upcoming bookings found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchReservations,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: upcomingList.length + 1,
+        itemBuilder: (context, index) {
+          if (index == upcomingList.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: _buildSupportCard(),
+            );
+          }
+          final r = upcomingList[index];
+          final pTime = _parseDateTime(r['reservation_date'], r['reservation_time']);
+          final rTime = pTime != null ? _calculateReturnTime(pTime, r['package_type'], r['drop_date']) : null;
+          bool canStartRide = true;
+          if (pTime != null && rTime != null) {
+            final allowStartTime = pTime.subtract(const Duration(minutes: 30));
+            canStartRide = now.isAfter(allowStartTime) && now.isBefore(rTime);
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildBookingCard(
+              status: "UPCOMING",
+              statusColor: const Color(0xFFEEF2FF),
+              textColor: const Color(0xFF4313B8),
+              price: _getTotalPriceString(r),
+              vehicleName: r['vehicle_model'] ?? r['vehicle_category'] ?? 'Evegah EV',
+              vehicleImage: _getVehicleImagePath(r['vehicle_model'], r['vehicle_category']),
+              bookingId: r['reservation_id'] ?? '',
+              dateTime: _formatDateTimeString(r['reservation_date'], r['reservation_time']),
+              location: "${r['pickup_zone'] ?? ''} to ${r['drop_zone'] ?? ''}",
+              duration: r['package_type'] ?? 'Day',
+              buttons: [
+                _buildOutlinedCardButton("View Details", () => _navigateToDetails(r)),
+                const SizedBox(width: 12),
+                _buildSolidCardButton(
+                  "Start Ride",
+                  canStartRide
+                      ? () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Starting ride... Bluetooth unlock initiated.")),
+                          );
+                        }
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Ride can only be started during booking window (${_formatDateTimeString(r['reservation_date'], r['reservation_time'])})."),
+                              backgroundColor: Colors.orange.shade800,
+                            ),
+                          );
+                        },
+                  isDisabled: !canStartRide,
                 ),
               ],
             ),
-          ),
-          buttons: [
-            _buildOutlinedCardButton("Extend Ride", () {}),
-            const SizedBox(width: 12),
-            _buildOutlinedCardButton("View Details", () {}),
-            const SizedBox(width: 12),
-            _buildSolidCardButton("End Ride", () {}),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  // --- ONGOING TAB ---
+  Widget _buildOngoingTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF4313B8)));
+    }
+
+    final ongoingList = _reservations.where((r) {
+      final stat = (r['status'] ?? '').toString().toLowerCase();
+      return stat == 'confirmed' || stat == 'ongoing' || stat == 'active' || stat == 'active ride';
+    }).toList();
+
+    if (ongoingList.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text("No ongoing rides found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
         ),
-        const SizedBox(height: 20),
-        _buildSupportCard(),
-      ],
-    ),
-  );
-}
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchReservations,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: ongoingList.length + 1,
+        itemBuilder: (context, index) {
+          if (index == ongoingList.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: _buildSupportCard(),
+            );
+          }
+          final r = ongoingList[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildBookingCard(
+              status: "ONGOING",
+              statusColor: const Color(0xFFDCFCE7),
+              textColor: const Color(0xFF16A34A),
+              price: _getTotalPriceString(r),
+              vehicleName: r['vehicle_model'] ?? r['vehicle_category'] ?? 'Evegah EV',
+              vehicleImage: _getVehicleImagePath(r['vehicle_model'], r['vehicle_category']),
+              bookingId: r['reservation_id'] ?? '',
+              dateTime: _formatDateTimeString(r['reservation_date'], r['reservation_time']),
+              location: "${r['pickup_zone'] ?? ''} to ${r['drop_zone'] ?? ''}",
+              duration: r['package_type'] ?? 'Day',
+              buttons: [
+                _buildOutlinedCardButton("View Details", () => _navigateToDetails(r)),
+                const SizedBox(width: 12),
+                _buildSolidCardButton("End Ride", () {}),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   // --- COMPLETED TAB ---
   Widget _buildCompletedTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildBookingCard(
-            status: "COMPLETED",
-            statusColor: const Color(0xFFF1F5F9),
-            textColor: Colors.blueGrey,
-            price: "₹87.00",
-            vehicleName: "EVegah Fly",
-            bookingId: "EVG56473829",
-            dateTime: "12 May 2024, 10:00 AM - 12:00 PM",
-            location: "HSR Layout Sector 2\n27th Main Rd, Bengaluru",
-            duration: "2 Hours",
-            buttons: [
-              _buildOutlinedCardButton("View Invoice", () {
-                _generateAndDownloadInvoice(
-                  "EVegah Fly",
-                  "EVG56473829",
-                  "12 May 2024",
-                  "₹87.00",
-                  "12.4 km",
-                  "2 Hours",
-                );
-              }, hasIcon: true),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildSupportCard(),
-        ],
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF4313B8)));
+    }
+
+    final completedList = _reservations.where((r) {
+      final stat = (r['status'] ?? '').toString().toLowerCase();
+      return stat == 'completed' || stat == 'done';
+    }).toList();
+
+    if (completedList.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text("No completed bookings found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchReservations,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: completedList.length + 1,
+        itemBuilder: (context, index) {
+          if (index == completedList.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: _buildSupportCard(),
+            );
+          }
+          final r = completedList[index];
+          final vehicle = r['vehicle_model'] ?? r['vehicle_category'] ?? 'Evegah EV';
+          final rId = r['reservation_id'] ?? '';
+          final dateStr = _formatDateTimeString(r['reservation_date'], r['reservation_time']);
+          final priceStr = _getTotalPriceString(r);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildBookingCard(
+              status: "COMPLETED",
+              statusColor: const Color(0xFFF1F5F9),
+              textColor: Colors.blueGrey,
+              price: priceStr,
+              vehicleName: vehicle,
+              vehicleImage: _getVehicleImagePath(r['vehicle_model'], r['vehicle_category']),
+              bookingId: rId,
+              dateTime: dateStr,
+              location: "${r['pickup_zone'] ?? ''} to ${r['drop_zone'] ?? ''}",
+              duration: r['package_type'] ?? 'Day',
+              buttons: [
+                _buildOutlinedCardButton("View Invoice", () {
+                  _generateAndDownloadInvoice(
+                    vehicle,
+                    rId,
+                    dateStr,
+                    priceStr,
+                    "12.4 km",
+                    r['package_type'] ?? 'Day',
+                  );
+                }, hasIcon: true),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   // --- CANCELLED TAB ---
   Widget _buildCancelledTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildBookingCard(
-            status: "CANCELLED",
-            statusColor: const Color(0xFFFEE2E2),
-            textColor: const Color(0xFFEF4444),
-            price: "₹58.00",
-            vehicleName: "EVegah Pro",
-            bookingId: "EVG11223344",
-            dateTime: "10 May 2024, 09:00 AM - 10:00 AM",
-            location: "Jayanagar 4th Block\n4th T Block, Jayanagar, Bengaluru",
-            duration: "2 Hours",
-            extraWidget: Container(
-              margin: const EdgeInsets.only(top: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 14),
-                  SizedBox(width: 8),
-                  Text(
-                    "Cancelled on 10 May 2024, 08:20 AM",
-                    style: TextStyle(color: Color(0xFFEF4444), fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF4313B8)));
+    }
+
+    final now = DateTime.now();
+    final cancelledList = _reservations.where((r) {
+      final stat = (r['status'] ?? '').toString().toLowerCase();
+      if (stat == 'cancelled' || stat == 'expired') return true;
+      final pTime = _parseDateTime(r['reservation_date'], r['reservation_time']);
+      final rTime = pTime != null ? _calculateReturnTime(pTime, r['package_type'], r['drop_date']) : null;
+      if (rTime != null && now.isAfter(rTime) && stat != 'completed' && stat != 'done') return true;
+      return false;
+    }).toList();
+
+    if (cancelledList.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text("No cancelled bookings found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchReservations,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: cancelledList.length + 1,
+        itemBuilder: (context, index) {
+          if (index == cancelledList.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: _buildSupportCard(),
+            );
+          }
+          final r = cancelledList[index];
+          final pTime = _parseDateTime(r['reservation_date'], r['reservation_time']);
+          final rTime = pTime != null ? _calculateReturnTime(pTime, r['package_type'], r['drop_date']) : null;
+          final isExpired = rTime != null && now.isAfter(rTime);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildBookingCard(
+              status: isExpired ? "EXPIRED" : "CANCELLED",
+              statusColor: const Color(0xFFFEE2E2),
+              textColor: const Color(0xFFEF4444),
+              price: _getTotalPriceString(r),
+              vehicleName: r['vehicle_model'] ?? r['vehicle_category'] ?? 'Evegah EV',
+              vehicleImage: _getVehicleImagePath(r['vehicle_model'], r['vehicle_category']),
+              bookingId: r['reservation_id'] ?? '',
+              dateTime: _formatDateTimeString(r['reservation_date'], r['reservation_time']),
+              location: "${r['pickup_zone'] ?? ''} to ${r['drop_zone'] ?? ''}",
+              duration: r['package_type'] ?? 'Day',
+              buttons: [
+                _buildOutlinedCardButton("View Details", () => _navigateToDetails(r)),
+              ],
             ),
-            buttons: [
-              _buildOutlinedCardButton("View Details", () {}, hasIcon: true),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildSupportCard(),
-        ],
+          );
+        },
       ),
     );
   }
@@ -330,6 +578,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
     required Color textColor,
     required String price,
     required String vehicleName,
+    required String vehicleImage,
     required String bookingId,
     required String dateTime,
     required String location,
@@ -354,7 +603,6 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Status Badge & Price
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -376,19 +624,18 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
             ],
           ),
           const SizedBox(height: 12),
-
-          // Scooter details row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 70,
                 height: 70,
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Image.asset("assets/mink.png", fit: BoxFit.contain),
+                child: Image.asset(vehicleImage, fit: BoxFit.contain),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -431,12 +678,10 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
               ),
             ],
           ),
-          ?extraWidget,
+          if (extraWidget != null) extraWidget,
           const SizedBox(height: 16),
           const Divider(color: Color(0xFFF1F5F9), height: 1),
           const SizedBox(height: 14),
-
-          // Bottom button row
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: buttons,
@@ -487,13 +732,13 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
     );
   }
 
-  Widget _buildSolidCardButton(String label, VoidCallback onTap) {
+  Widget _buildSolidCardButton(String label, VoidCallback? onTap, {bool isDisabled = false}) {
     return Expanded(
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2B0B78), // Deep purple
-          foregroundColor: Colors.white,
+          backgroundColor: isDisabled ? Colors.grey.shade300 : const Color(0xFF2B0B78),
+          foregroundColor: isDisabled ? Colors.grey.shade600 : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(vertical: 10),
           minimumSize: Size.zero,

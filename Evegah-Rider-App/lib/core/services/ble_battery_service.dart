@@ -123,6 +123,7 @@ class BleBatteryService {
       await device.connect(
         timeout: const Duration(seconds: 10),
         autoConnect: false,
+        license: License.free,
       );
 
       connectionState.value = BleBatteryState.connected;

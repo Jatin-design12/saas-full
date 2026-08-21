@@ -86,59 +86,69 @@ class _OfferScreenState extends State<OfferScreen> {
               data['data'] != null) {
             final List dbList = data['data'];
 
-            final List<Map<String, dynamic>>
-                mappedList = [];
+            final List<Map<String, dynamic>> activeList = [];
+            final List<Map<String, dynamic>> historyList = [];
+
+            final now = DateTime.now();
 
             for (var c in dbList) {
-              if (c['status'] != 'Active') {
-                continue;
+              final String code = c['code'] ?? 'EVEGAH';
+              final String title = c['title'] ?? c['code'] ?? 'Discount Coupon';
+              final String subtitle = c['description'] ?? 'Save on your next rental';
+
+              DateTime? endDate;
+              if (c['end_date'] != null && c['end_date'].toString().isNotEmpty) {
+                endDate = DateTime.tryParse(c['end_date'].toString());
+              } else if (c['validity_end'] != null && c['validity_end'].toString().isNotEmpty) {
+                endDate = DateTime.tryParse(c['validity_end'].toString());
               }
 
-              final expiryStr = c['end_date'] != null
-                  ? "Valid till ${DateTime.parse(c['end_date'].toString()).toLocal().toString().split(' ')[0]}"
-                  : "No expiry";
+              final int usedCount = int.tryParse(c['used_count']?.toString() ?? c['usage']?.toString() ?? '0') ?? 0;
+              final int totalLimit = int.tryParse(c['total_limit']?.toString() ?? c['max_limit']?.toString() ?? '100') ?? 100;
 
-              mappedList.add(
-                {
-                  "code": c['code'],
-                  "title":
-                      c['title'] ?? 'Discount Coupon',
-                  "subtitle": c['description'] ??
-                      'Save on your next ride',
-                  "expiry": expiryStr,
-                  "isBest": c['code'] == 'GET100' ||
-                      c['code'] == 'WELCOME100',
-                  "category": "All",
-                  "type": c['discount_type']
-                              ?.toString()
-                              .toLowerCase() ==
-                          'percentage'
-                      ? 'percent'
-                      : 'flat',
-                  "discount_value": double.tryParse(
-                        c['discount_value']
-                                ?.toString() ??
-                            '0',
-                      ) ??
-                      0.0,
-                  "min_order": double.tryParse(
-                        c['min_order']?.toString() ??
-                            '0',
-                      ) ??
-                      0.0,
-                },
-              );
+              final bool isExpired = endDate != null && now.isAfter(endDate);
+              final bool isLimitReached = usedCount >= totalLimit;
+              final bool isActive = (c['status'] == 'Active' || c['status'] == null) && !isExpired && !isLimitReached;
+
+              final expiryText = endDate != null
+                  ? "Valid till ${endDate.toLocal().toString().split(' ')[0]}"
+                  : "No Expiry";
+
+              String statusTag = "Active";
+              if (isExpired) {
+                statusTag = "Expired";
+              } else if (isLimitReached) {
+                statusTag = "Redeemed";
+              }
+
+              final offerMap = {
+                "code": code,
+                "title": title,
+                "subtitle": subtitle,
+                "expiry": expiryText,
+                "isBest": code == 'GET100' || code == 'WELCOME100',
+                "category": "All",
+                "statusTag": statusTag,
+                "isExpired": isExpired,
+                "isLimitReached": isLimitReached,
+                "usedCount": usedCount,
+                "totalLimit": totalLimit,
+                "type": c['discount_type']?.toString().toLowerCase() == 'percentage' ? 'percent' : 'flat',
+                "discount_value": double.tryParse(c['discount_value']?.toString() ?? '0') ?? 0.0,
+                "min_order": double.tryParse(c['min_order']?.toString() ?? '0') ?? 0.0,
+              };
+
+              if (isActive) {
+                activeList.add(offerMap);
+              }
+              historyList.add(offerMap);
             }
 
-            if (!mounted) {
-              return;
-            }
+            if (!mounted) return;
 
             setState(() {
-              _availableOffers = mappedList;
-
-              _myOffers = mappedList;
-
+              _availableOffers = activeList.isNotEmpty ? activeList : historyList.where((o) => !o['isExpired']).toList();
+              _myOffers = historyList;
               _isLoading = false;
             });
 
@@ -883,28 +893,28 @@ class _OfferScreenState extends State<OfferScreen> {
                                 ),
                               ),
                             )
-                          : filteredOffers
-                                  .isEmpty
-                              ? const Padding(
-                                  padding:
-                                      EdgeInsets
-                                          .symmetric(
-                                    vertical:
-                                        40,
-                                  ),
-
-                                  child: Text(
-                                    "No offers available for this category",
-
-                                    textAlign:
-                                        TextAlign
-                                            .center,
-
-                                    style:
-                                        TextStyle(
-                                      color:
-                                          secondaryText,
-                                    ),
+                          : filteredOffers.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 40),
+                                  child: Column(
+                                    children: [
+                                      Image.asset(
+                                        'assets/empty-states/no-search-results.png',
+                                        height: 120,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.search_off_rounded, size: 60, color: Colors.grey),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        "No offers available for this category",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: secondaryText,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 )
                               : Column(

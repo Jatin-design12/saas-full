@@ -112,6 +112,7 @@ function AddUserPageContent() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState('Select role');
+  const [assignedDashboard, setAssignedDashboard] = useState('Auto-Detect from Role');
   const [zone, setZone] = useState('Select zone or scope');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [password, setPassword] = useState('G7r!pLk9@#X2s');
@@ -428,6 +429,25 @@ function AddUserPageContent() {
                             <option value="Finance Manager">Finance Manager</option>
                           </>
                         )}
+                      </select>
+                    </div>
+
+                    <div className="ua-form-field">
+                      <label className="ua-form-lbl">Assigned Dashboard View *</label>
+                      <select 
+                        className="ua-inp ua-select"
+                        value={assignedDashboard}
+                        onChange={(e) => setAssignedDashboard(e.target.value)}
+                      >
+                        <option value="Auto-Detect from Role">Auto-Detect from Role</option>
+                        <option value="Super Admin Dashboard">Super Admin Dashboard</option>
+                        <option value="Zone Admin Dashboard">Zone Admin Dashboard</option>
+                        <option value="Operations Manager Dashboard">Operations Manager Dashboard</option>
+                        <option value="Support Executive Dashboard">Support Executive Dashboard</option>
+                        <option value="Franchise Manager Dashboard">Franchise Manager Dashboard</option>
+                        <option value="BMS Battery Dashboard">BMS Battery Dashboard</option>
+                        <option value="Fleet Manager Dashboard">Fleet Manager Dashboard</option>
+                        <option value="Finance Manager Dashboard">Finance Manager Dashboard</option>
                       </select>
                     </div>
 

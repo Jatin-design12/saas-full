@@ -8,35 +8,37 @@ const CSS = `
 .log-shell {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   min-height: 100vh;
-  background: #F8F9FF;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.45) 0%, rgba(42, 25, 92, 0.6) 100%), url('/login_bg.png') no-repeat center center / cover;
   font-family: 'Inter', sans-serif;
   overflow: hidden;
   position: relative;
-  padding: 24px 20px;
+  padding: 32px 48px;
   box-sizing: border-box;
 }
 
-/* Background Wavy Lines */
+/* Background Ambient Glows */
 .log-bg-wave {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 50%;
-  height: 250px;
-  background: radial-gradient(circle at 10% 120%, rgba(42, 25, 92, 0.06) 0%, rgba(22, 163, 74, 0.04) 50%, transparent 100%);
+  top: -100px;
+  right: -100px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(22, 163, 74, 0.1) 50%, transparent 80%);
   pointer-events: none;
   z-index: 1;
+  filter: blur(40px);
 }
 
 /* Left Hero Column */
 .log-hero {
   flex: 1;
-  max-width: 760px;
+  max-width: 620px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 36px 48px;
+  justify-content: space-between;
+  min-height: 82vh;
   position: relative;
   z-index: 2;
 }
@@ -44,212 +46,100 @@ const CSS = `
 .log-logo-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .log-logo-img {
-  height: 42px;
+  height: 48px;
   object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
 }
 
 .log-hero-content {
-  margin-top: -20px;
+  margin-top: 40px;
 }
 
 .log-hero-h1 {
-  font-size: 38px;
-  font-weight: 800;
-  color: #0F172A;
-  line-height: 1.15;
-  margin: 0 0 16px;
+  font-size: 46px;
+  font-weight: 900;
+  color: #FFFFFF;
+  line-height: 1.12;
+  margin: 0 0 18px;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .log-hero-h1 span {
-  color: #16a34a;
+  background: linear-gradient(135deg, #4ADE80 0%, #22C55E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .log-hero-features {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 13.5px;
-  color: #64748B;
+  gap: 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 600;
-  margin-bottom: 40px;
+  margin-bottom: 30px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
 .log-feature-dot {
-  color: #16a34a;
+  color: #4ADE80;
   font-weight: bold;
 }
 
-/* Animated Scooter Area */
-.log-scooter-area {
-  position: relative;
-  width: 100%;
-  height: 340px;
+/* Hero Badge Cards Row */
+.log-hero-badges {
+  display: flex;
+  gap: 14px;
   margin-top: 20px;
 }
 
-.log-scooter-container {
-  display: flex;
-  align-items: flex-end;
-  position: absolute;
-  bottom: 10px;
-  left: 0;
-  width: 100%;
-}
-
-.log-scooter-item {
-  position: absolute;
-  transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-  filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.08));
-}
-
-/* Asynchronous floating keyframes */
-@keyframes float-sc1 {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(-0.5deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
-}
-
-@keyframes float-sc2 {
-  0% { transform: translateY(0px) scale(1.05); }
-  50% { transform: translateY(-12px) scale(1.05); }
-  100% { transform: translateY(0px) scale(1.05); }
-}
-
-@keyframes float-sc3 {
-  0% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-7px) rotate(0.5deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
-}
-
-.sc-left {
-  left: 0px;
-  z-index: 12;
-  width: 190px;
-  animation: float-sc1 6s ease-in-out infinite;
-}
-
-.sc-mid {
-  left: 140px;
-  z-index: 10;
-  width: 220px;
-  animation: float-sc2 7s ease-in-out infinite;
-}
-
-.sc-right {
-  left: 270px;
-  z-index: 13;
-  width: 260px;
-  animation: float-sc3 5.5s ease-in-out infinite;
-}
-
-.log-scooter-img {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-}
-
-/* Floating dynamic badges */
-.log-floating-badge {
-  position: absolute;
-  background: #fff;
-  border-radius: 50%;
+.log-hero-badge-item {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 25px rgba(42, 25, 92, 0.08);
-  border: 1px solid #F1F5F9;
-  z-index: 15;
-  transition: all 0.3s;
+  gap: 10px;
+  color: #fff;
 }
 
-@keyframes bounce-badge {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-
-@keyframes pulse-badge {
-  0%, 100% { transform: scale(1); box-shadow: 0 10px 25px rgba(42, 25, 92, 0.08); }
-  50% { transform: scale(1.05); box-shadow: 0 10px 25px rgba(22, 163, 74, 0.15); }
-}
-
-.badge-pin {
-  top: 60px;
-  left: 90px;
-  width: 36px;
-  height: 36px;
-  color: #2A195C;
-  background: #FAF5FF;
-  animation: bounce-badge 4s ease-in-out infinite;
-}
-
-.badge-battery {
-  top: 15px;
-  left: 210px;
-  width: 42px;
-  height: 42px;
-  color: #16A34A;
-  background: #ECFDF5;
-  animation: pulse-badge 5s ease-in-out infinite;
-}
-
-.badge-chart {
-  top: 80px;
-  left: 370px;
-  width: 38px;
-  height: 38px;
-  color: #2563EB;
-  background: #EFF6FF;
-  animation: bounce-badge 4.5s ease-in-out infinite 0.5s;
-}
-
-.log-bottom-card {
-  align-self: flex-start;
-  background: #fff;
-  border: 1.5px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 12px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-  margin-top: auto;
-  z-index: 5;
-}
-
-.log-shield-ic {
+.log-hero-badge-icon {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #EEF2FF;
-  color: #2A195C;
+  background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  font-size: 16px;
 }
 
 /* Right Login Card Column */
 .log-card-col {
-  flex: 0.9;
+  flex: 0.85;
+  max-width: 460px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
   z-index: 3;
 }
 
 .log-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 24px;
   width: 100%;
-  max-width: 520px;
-  padding: 32px 36px;
-  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.05);
+  padding: 36px 38px;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.4);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -562,6 +452,7 @@ export default function LoginPage() {
           }
 
           try {
+            const defaultDashPerm = { access: true, create: true, view: true, edit: true, delete: true, export: true };
             const resRoles = await fetch(`${apiUrl}/roles`);
             if (resRoles.ok) {
               const rolesResult = await resRoles.json();
@@ -569,14 +460,17 @@ export default function LoginPage() {
                 r.name.toLowerCase() === matchedUser.role.toLowerCase() || 
                 r.code.toLowerCase() === matchedUser.role.toLowerCase()
               );
-              if (matchedRole) {
-                localStorage.setItem("evegah_user_permissions", JSON.stringify(matchedRole.permissions || {}));
-              } else {
-                localStorage.setItem("evegah_user_permissions", JSON.stringify({}));
+              const perms = matchedRole?.permissions ? { ...matchedRole.permissions } : {};
+              if (!perms.Dashboard || perms.Dashboard.access === false) {
+                perms.Dashboard = defaultDashPerm;
               }
+              localStorage.setItem("evegah_user_permissions", JSON.stringify(perms));
+            } else {
+              localStorage.setItem("evegah_user_permissions", JSON.stringify({ Dashboard: defaultDashPerm }));
             }
           } catch (err) {
             console.error('Error fetching roles for permissions:', err);
+            localStorage.setItem("evegah_user_permissions", JSON.stringify({ Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true } }));
           }
           
           window.dispatchEvent(new Event("evegah_role_changed"));

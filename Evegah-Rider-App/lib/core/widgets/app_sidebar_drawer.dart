@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/session_service.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/dashboard/presentation/screens/rent_ev_screen.dart';
 import '../../features/dashboard/presentation/screens/select_location_screen.dart';
@@ -6,16 +7,25 @@ import '../../features/dashboard/presentation/screens/select_date_time_screen.da
 import '../../features/dashboard/presentation/screens/vehicle_list_screen.dart';
 import '../../features/offers/presentation/screens/offer_screen.dart';
 import '../../features/rides/presentation/screen/ride_history_screen.dart';
+import '../../features/wallet/presentation/screens/payment_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/kyc/presentation/screens/kyc_screen.dart';
 import '../../features/unlock/presentation/screens/scan_qr_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/dashboard/presentation/screens/bms_screen.dart';
 
 class AppSidebarDrawer extends StatelessWidget {
   const AppSidebarDrawer({super.key});
 
-  // 1. Dashboard Helper (Wipes stack)
+  String _getInitials(String name) {
+    final clean = name.trim();
+    if (clean.isEmpty) return "HC";
+    final parts = clean.split(" ").where((p) => p.isNotEmpty).toList();
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return "${parts[0][0]}${parts[1][0]}".toUpperCase();
+  }
+
   void _navigateToDashboard(BuildContext context) {
     Navigator.pop(context);
     Navigator.pushAndRemoveUntil(
@@ -25,7 +35,6 @@ class AppSidebarDrawer extends StatelessWidget {
     );
   }
 
-  // 2. Sub-page Helper (Keeps dashboard in stack so 'Back' works)
   void _navigateToSubPage(BuildContext context, Widget screen) {
     Navigator.pop(context);
     Navigator.push(
@@ -40,190 +49,136 @@ class AppSidebarDrawer extends StatelessWidget {
       backgroundColor: const Color(0xFFFAFBFE),
       child: Column(
         children: [
-          // =================================================
-// RIDER PROFILE HEADER
-// =================================================
-
-Container(
-  width: double.infinity,
-
-  padding: EdgeInsets.fromLTRB(
-    22,
-    MediaQuery.of(context).padding.top + 28,
-    20,
-    30,
-  ),
-
-  decoration: const BoxDecoration(
-    color: Color(0xFF24105E),
-
-    borderRadius: BorderRadius.only(
-      bottomRight: Radius.circular(42),
-    ),
-  ),
-
-  child: Material(
-    color: Colors.transparent,
-
-    child: InkWell(
-      onTap: () {
-  _navigateToSubPage(
-    context,
-    const ProfileScreen(),
-  );
-},
-
-      borderRadius: BorderRadius.circular(24),
-
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-
-        children: [
-
-          // =================================================
-          // PROFILE ICON
-          // =================================================
-
+          // Brand Logo + Rider Profile Header
           Container(
-            height: 55,
-            width: 55,
-
-            decoration: BoxDecoration(
-              color: const Color(0xFF8CE600),
-
-              borderRadius: BorderRadius.circular(23),
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              22,
+              MediaQuery.of(context).padding.top + 16,
+              20,
+              24,
             ),
-
-            child: const Icon(
-              Icons.person_rounded,
+            decoration: const BoxDecoration(
               color: Color(0xFF24105E),
-              size: 32,
+              borderRadius: BorderRadius.only(
+                bottomRight: Radius.circular(42),
+              ),
             ),
-          ),
-
-          const SizedBox(
-            width: 16,
-          ),
-
-          // =================================================
-          // PROFILE INFORMATION
-          // =================================================
-
-          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
-                // Rider name
-
-                const Text(
-                  "Hello, Rider!",
-
-                  maxLines: 1,
-
-                  overflow: TextOverflow.ellipsis,
-
-                  style: TextStyle(
-                    color: Colors.white,
-
-                    fontSize: 21,
-
-                    fontWeight: FontWeight.w800,
-
-                    letterSpacing: -0.4,
+                // Brand logo image
+                Image.asset(
+                  "assets/brand.png",
+                  height: 32,
+                  errorBuilder: (_, __, ___) => const Text(
+                    "EVEGAH",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                 ),
+                const SizedBox(height: 18),
+                FutureBuilder<Map<String, String>>(
+                  future: SessionService().getUserProfile(),
+                  builder: (context, snapshot) {
+                    final rawName = snapshot.data?['name'];
+                    final userName = (rawName != null && rawName.trim().isNotEmpty && rawName != "Evegah Rider")
+                        ? rawName.trim()
+                        : "Himanshu Chavda";
+                    final initials = _getInitials(userName);
 
-                const SizedBox(
-                  height: 5,
-                ),
-
-                // Profile description
-
-                 Transform.translate(
-                  offset: Offset(-3, 0),
-
-                  child: Row(
-                    children: [
-
-                      Icon(
-                        Icons.bolt_rounded,
-
-                        color: Color(
-                          0xFF8CE600,
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          _navigateToSubPage(
+                            context,
+                            const ProfileScreen(),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(24),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 48,
+                              width: 48,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4313B8),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: const Color(0xFF8CE600), width: 2),
+                              ),
+                              child: Text(
+                                initials,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    userName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: const [
+                                      Icon(
+                                        Icons.bolt_rounded,
+                                        color: Color(0xFF8CE600),
+                                        size: 14,
+                                      ),
+                                      SizedBox(width: 1),
+                                      Expanded(
+                                        child: Text(
+                                          "View and edit your profile",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 9.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white70,
+                              size: 22,
+                            ),
+                          ],
                         ),
-
-                        size: 18,
                       ),
-
-                      SizedBox(
-                        width: 1,
-                      ),
-
-                      Expanded(
-                        child: Text(
-                          "View and edit your profile",
-
-                          maxLines: 1,
-
-                          overflow:
-                              TextOverflow.ellipsis,
-
-                          style: TextStyle(
-                            color: Colors.white70,
-
-                            fontSize: 10,
-
-                            fontWeight:
-                                FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ],
             ),
           ),
-
-          const SizedBox(
-            width: 10,
-          ),
-
-          // =================================================
-          // ARROW BUTTON
-          // =================================================
-
-          Container(
-            height: 43,
-            width: 43,
-
-            decoration: BoxDecoration(
-              color: Colors.white12,
-
-              borderRadius: BorderRadius.circular(
-                14,
-              ),
-            ),
-
-            child: const Icon(
-              Icons.chevron_right_rounded,
-
-              color: Colors.white70,
-
-              size: 28,
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
-          // Menu
+          // Menu list
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -241,8 +196,9 @@ Container(
                 _buildDrawerTile(context, Icons.payments_rounded, "Payments & Offers", "Checkout & promo discounts", () => _navigateToSubPage(context, const OfferScreen())),
                 _buildDrawerTile(context, Icons.history_rounded, "My Rides & History", "Active and past bookings", () => _navigateToSubPage(context, const RideHistoryScreen())),
                 _buildDrawerTile(context, Icons.account_balance_wallet_rounded, "Wallet & Transactions", "Balance and payment methods", () => _navigateToSubPage(context, const WalletScreen())),
+                _buildDrawerTile(context, Icons.battery_charging_full_rounded, "BMS Live Status", "Battery SOH & voltage metrics", () => _navigateToSubPage(context, const BmsScreen())),
                 _buildDrawerTile(context, Icons.person_rounded, "My Profile", "Personal information & stats", () => _navigateToSubPage(context, const ProfileScreen())),
-                _buildDrawerTile(context, Icons.verified_user_rounded, "KYC Verification", "Identity & Aadhaar [Redacted]", () => _navigateToSubPage(context, const KycScreen())),
+                _buildDrawerTile(context, Icons.verified_user_rounded, "KYC Verification", "Identity & Aadhaar Verification", () => _navigateToSubPage(context, const KycScreen())),
                 _buildDrawerTile(context, Icons.qr_code_scanner_rounded, "Scan to Ride (QR)", "QR scanner vehicle unlock", () => _navigateToSubPage(context, const ScanQrScreen())),
                 _buildDrawerTile(context, Icons.login_rounded, "Auth / Login", "Phone & Google sign-in", () => _navigateToSubPage(context, const LoginScreen())),
               ],

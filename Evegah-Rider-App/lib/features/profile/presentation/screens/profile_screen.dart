@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+import '../../../../core/constants/app_constants.dart';
 
 import '../../data/services/profile_service.dart';
 import 'basic_profile_screen.dart';
+import 'about_screen.dart';
 
 import '../../../offers/presentation/screens/offer_screen.dart';
 import '../../../offers/presentation/screens/refer_earn_screen.dart';
-
 import '../../../preferences/presentation/screens/preferences_screen.dart';
-
-import '../../../support/presentation/screens/faq_screen.dart';
 import '../../../support/presentation/screens/help_screen.dart';
-
 import '../../../wallet/presentation/screens/wallet_screen.dart';
-
 import '../../../rides/presentation/screen/ride_history_screen.dart';
-
 import '../../../auth/presentation/screens/login_screen.dart';
 
 import '../../../../core/services/session_service.dart';
@@ -23,2493 +22,1108 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() =>
-      _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState
-    extends State<ProfileScreen> {
-  // =================================================
-  // EVEGAH COLORS
-  // =================================================
+class _ProfileScreenState extends State<ProfileScreen> {
+  int _totalRidesCount = 0;
+  double _co2SavedKg = 0.0;
+  int _evePointsVal = 120;
 
-  static const Color primaryPurple =
-      Color(0xFF200F54);
+  final ProfileService _profileService = ProfileService();
 
-  static const Color brandPurple =
-      Color(0xFF4313B8);
+  // ============================================================
+  // COLORS
+  // ============================================================
 
-  static const Color lightPurple =
-      Color(0xFFF5F3FF);
+  static const Color brandPurple = Color(0xFF4313B8);
+  static const Color brandPurpleDark = Color(0xFF32108A);
+  static const Color brandPurpleLight = Color(0xFFF1EDFF);
 
-  static const Color accentGreen =
-      Color(0xFFD2FC00);
+  static const Color backgroundColor = Color(0xFFF7F8FC);
+  static const Color cardColor = Colors.white;
 
-  static const Color backgroundColor =
-      Color(0xFFFAFBFE);
+  static const Color darkText = Color(0xFF111827);
+  static const Color secondaryText = Color(0xFF6B7280);
+  static const Color mutedText = Color(0xFF9CA3AF);
 
-  static const Color darkText =
-      Color(0xFF0F172A);
+  static const Color borderColor = Color(0xFFE9ECF2);
 
-  static const Color secondaryText =
-      Color(0xFF94A3B8);
+  static const Color accentGreen = Color(0xFFD2FC00);
+  static const Color green = Color(0xFF16A34A);
 
-  static const Color borderColor =
-      Color(0xFFE2E8F0);
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileAndStats();
+  }
 
-  // =================================================
-  // PROFILE SERVICE
-  // =================================================
+  // ============================================================
+  // DATA
+  // ============================================================
 
-  final ProfileService _profileService =
-      ProfileService();
+  Future<void> _loadProfileAndStats() async {
+    await _profileService.fetchUserData();
 
-  // =================================================
-  // REFRESH PROFILE
-  // =================================================
+    if (mounted) {
+      setState(() {});
+    }
+
+    await _fetchBackendStats();
+  }
+
+  Future<void> _fetchBackendStats() async {
+    final mobile =
+        await SessionService().getUserMobile() ?? "+91 98765 43210";
+
+    final url =
+        '${AppConstants.apiBaseUrl}/reservations?limit=100&search=${Uri.encodeComponent(mobile)}';
+
+    try {
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['status'] == 'success' && data['data'] != null) {
+          final list = data['data'] as List;
+          final int count = list.length;
+
+          if (mounted) {
+            setState(() {
+              _totalRidesCount = count;
+              _co2SavedKg = count * 0.85;
+              _evePointsVal = (count * 25) + 120;
+            });
+          }
+
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint("Profile stats fetch error: $e");
+    }
+  }
 
   void _refreshProfile() {
-    setState(() {});
+    _loadProfileAndStats();
   }
 
-  // =================================================
-  // USER INITIALS
-  // =================================================
+  // ============================================================
+  // INITIALS
+  // ============================================================
 
   String _getInitials() {
-    final String name =
-        _profileService.userName.trim();
+    final String name = _profileService.userName.trim();
 
     if (name.isEmpty) {
-      return "AO";
+      return "ER";
     }
 
-    final List<String> words = name
-        .split(" ")
-        .where(
-          (
-            String word,
-          ) =>
-              word.isNotEmpty,
-        )
-        .toList();
+    final List<String> words =
+        name.split(" ").where((String word) => word.isNotEmpty).toList();
 
     if (words.length == 1) {
-      return words.first[0]
-          .toUpperCase();
+      return words.first[0].toUpperCase();
     }
 
-    return "${words[0][0]}${words[1][0]}"
-        .toUpperCase();
+    return "${words[0][0]}${words[1][0]}".toUpperCase();
   }
 
-  // =================================================
-  // OPEN BASIC PROFILE
-  // =================================================
+  // ============================================================
+  // PROFILE
+  // ============================================================
 
   Future<void> _openProfileDetails() async {
     await Navigator.push(
       context,
-
       MaterialPageRoute(
-        builder: (
-          BuildContext context,
-        ) =>
-            const BasicProfileScreen(),
+        builder: (context) => const BasicProfileScreen(),
       ),
     );
 
     _refreshProfile();
   }
 
-  // =================================================
+  // ============================================================
   // LOGOUT
-  // =================================================
+  // ============================================================
 
   Future<void> _handleLogout() async {
-    final bool? shouldLogout =
-        await showDialog<bool>(
+    final bool? shouldLogout = await showDialog<bool>(
       context: context,
-
-      builder: (
-        BuildContext context,
-      ) {
-        return AlertDialog(
+      builder: (BuildContext context) {
+        return Dialog(
           backgroundColor: Colors.white,
-
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(
-              24,
-            ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
           ),
-
-          icon: Container(
-            height: 58,
-            width: 58,
-
-            decoration:
-                const BoxDecoration(
-              color: Color(
-                0xFFFFF1F2,
-              ),
-
-              shape:
-                  BoxShape.circle,
-            ),
-
-            child:
-                const Icon(
-              Icons.logout_rounded,
-
-              color:
-                  Color(
-                0xFFEF4444,
-              ),
-
-              size:
-                  27,
-            ),
-          ),
-
-          title:
-              const Text(
-            "Log out?",
-
-            textAlign:
-                TextAlign.center,
-
-            style:
-                TextStyle(
-              color:
-                  darkText,
-
-              fontSize:
-                  20,
-
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-
-          content:
-              const Text(
-            "Are you sure you want to log out of your Evegah account?",
-
-            textAlign:
-                TextAlign.center,
-
-            style:
-                TextStyle(
-              color:
-                  secondaryText,
-
-              fontSize:
-                  12,
-
-              height:
-                  1.5,
-            ),
-          ),
-
-          actionsPadding:
-              const EdgeInsets
-                  .fromLTRB(
-            20,
-            0,
-            20,
-            20,
-          ),
-
-          actions: [
-
-            Row(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  height: 64,
+                  width: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: Color(0xFFE11D48),
+                    size: 28,
+                  ),
+                ),
 
-                Expanded(
-                  child:
-                      OutlinedButton(
-                    onPressed:
-                        () {
-                      Navigator.pop(
-                        context,
-                        false,
-                      );
-                    },
+                const SizedBox(height: 20),
 
-                    style:
-                        OutlinedButton
-                            .styleFrom(
-                      foregroundColor:
-                          darkText,
+                const Text(
+                  "Log out?",
+                  style: TextStyle(
+                    color: darkText,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
 
-                      side:
-                          const BorderSide(
-                        color:
-                            borderColor,
-                      ),
+                const SizedBox(height: 8),
 
-                      minimumSize:
-                          const Size(
-                        double.infinity,
-                        48,
-                      ),
+                const Text(
+                  "Are you sure you want to log out of your Evegah account?",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: secondaryText,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
 
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          14,
+                const SizedBox(height: 24),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(context, false);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          side: const BorderSide(
+                            color: borderColor,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          "Cancel",
+                          style: TextStyle(
+                            color: darkText,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
 
-                    child:
-                        const Text(
-                      "Cancel",
+                    const SizedBox(width: 12),
 
-                      style:
-                          TextStyle(
-                        fontWeight:
-                            FontWeight
-                                .w700,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(
-                  width:
-                      12,
-                ),
-
-                Expanded(
-                  child:
-                      ElevatedButton(
-                    onPressed:
-                        () {
-                      Navigator.pop(
-                        context,
-                        true,
-                      );
-                    },
-
-                    style:
-                        ElevatedButton
-                            .styleFrom(
-                      elevation:
-                          0,
-
-                      backgroundColor:
-                          const Color(
-                        0xFFEF4444,
-                      ),
-
-                      foregroundColor:
-                          Colors.white,
-
-                      minimumSize:
-                          const Size(
-                        double.infinity,
-                        48,
-                      ),
-
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          14,
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context, true);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: const Color(0xFFE11D48),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(52),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          "Log Out",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
-
-                    child:
-                        const Text(
-                      "Log Out",
-
-                      style:
-                          TextStyle(
-                        fontWeight:
-                            FontWeight
-                                .w800,
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         );
       },
     );
 
-    if (shouldLogout != true) {
-      return;
-    }
+    if (shouldLogout != true) return;
 
     await SessionService().logout();
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     Navigator.pushAndRemoveUntil(
       context,
-
       MaterialPageRoute(
-        builder: (
-          BuildContext context,
-        ) =>
-            const LoginScreen(),
+        builder: (context) => const LoginScreen(),
       ),
-
-      (
-        Route<dynamic> route,
-      ) =>
-          false,
+      (Route<dynamic> route) => false,
     );
   }
 
-  // =================================================
-  // PROFILE SCREEN
-  // =================================================
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          backgroundColor,
+      backgroundColor: backgroundColor,
 
-      body:
-          SafeArea(
-        child:
-            SingleChildScrollView(
-          physics:
-              const BouncingScrollPhysics(),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: brandPurple,
+          onRefresh: _loadProfileAndStats,
 
-          child:
-              Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
 
-            children: [
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
 
-              // =================================================
-              // PROFILE HEADER
-              // =================================================
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
 
-              const Padding(
-                padding:
-                    EdgeInsets.fromLTRB(
-                  20,
-                  24,
-                  20,
-                  20,
-                ),
+                children: [
+                  _buildTopBar(),
 
-                child:
-                    Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  const SizedBox(height: 22),
 
-                  children: [
+                  _buildProfileHero(),
 
-                    Text(
-                      "Profile",
+                  const SizedBox(height: 18),
 
-                      style:
-                          TextStyle(
-                        color:
-                            darkText,
+                  _buildStatsStrip(),
 
-                        fontSize:
-                            29,
+                  const SizedBox(height: 28),
 
-                        fontWeight:
-                            FontWeight
-                                .w800,
-
-                        letterSpacing:
-                            -0.8,
-                      ),
-                    ),
-
-                    SizedBox(
-                      height:
-                          5,
-                    ),
-
-                    Text(
-                      "Manage your account and preferences",
-
-                      style:
-                          TextStyle(
-                        color:
-                            secondaryText,
-
-                        fontSize:
-                            13,
-
-                        fontWeight:
-                            FontWeight
-                                .w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // =================================================
-              // PREMIUM PROFILE CARD
-              // =================================================
-
-              Padding(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Container(
-                  width:
-                      double.infinity,
-
-                  decoration:
-                      BoxDecoration(
-                    gradient:
-                        const LinearGradient(
-                      colors: [
-
-                        Color(
-                          0xFF4313B8,
-                        ),
-
-                        Color(
-                          0xFF200F54,
-                        ),
-                      ],
-
-                      begin:
-                          Alignment
-                              .topLeft,
-
-                      end:
-                          Alignment
-                              .bottomRight,
-                    ),
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      28,
-                    ),
-
-                    boxShadow: [
-
-                      BoxShadow(
-                        color:
-                            brandPurple
-                                .withValues(
-                          alpha:
-                              0.20,
-                        ),
-
-                        blurRadius:
-                            24,
-
-                        offset:
-                            const Offset(
-                          0,
-                          12,
-                        ),
-                      ),
-                    ],
+                  _buildSectionHeader(
+                    "Your Activity",
+                    "This week",
                   ),
 
-                  child:
-                      Column(
-                    children: [
+                  const SizedBox(height: 12),
 
-                      // =========================================
-                      // USER INFORMATION
-                      // =========================================
+                  _buildActivityCard(),
 
-                      Material(
-                        color:
-                            Colors.transparent,
+                  const SizedBox(height: 28),
 
-                        child:
-                            InkWell(
-                          onTap:
-                              _openProfileDetails,
-
-                          borderRadius:
-                              const BorderRadius
-                                  .vertical(
-                            top:
-                                Radius.circular(
-                              28,
-                            ),
-                          ),
-
-                          child:
-                              Padding(
-                            padding:
-                                const EdgeInsets
-                                    .all(
-                              20,
-                            ),
-
-                            child:
-                                Row(
-                              children: [
-
-                                // =================================
-                                // USER AVATAR
-                                // =================================
-
-                                Stack(
-                                  clipBehavior:
-                                      Clip.none,
-
-                                  children: [
-
-                                    Container(
-                                      height:
-                                          76,
-
-                                      width:
-                                          76,
-
-                                      alignment:
-                                          Alignment
-                                              .center,
-
-                                      decoration:
-                                          BoxDecoration(
-                                        color:
-                                            Colors.white
-                                                .withValues(
-                                          alpha:
-                                              0.13,
-                                        ),
-
-                                        shape:
-                                            BoxShape
-                                                .circle,
-
-                                        border:
-                                            Border.all(
-                                          color:
-                                              Colors.white
-                                                  .withValues(
-                                            alpha:
-                                                0.20,
-                                          ),
-
-                                          width:
-                                              2,
-                                        ),
-                                      ),
-
-                                      child:
-                                          Text(
-                                        _getInitials(),
-
-                                        style:
-                                            const TextStyle(
-                                          color:
-                                              Colors.white,
-
-                                          fontSize:
-                                              25,
-
-                                          fontWeight:
-                                              FontWeight
-                                                  .w900,
-                                        ),
-                                      ),
-                                    ),
-
-                                    Positioned(
-                                      right:
-                                          -1,
-
-                                      bottom:
-                                          -1,
-
-                                      child:
-                                          Container(
-                                        height:
-                                            27,
-
-                                        width:
-                                            27,
-
-                                        decoration:
-                                            BoxDecoration(
-                                          color:
-                                              accentGreen,
-
-                                          shape:
-                                              BoxShape
-                                                  .circle,
-
-                                          border:
-                                              Border.all(
-                                            color:
-                                                primaryPurple,
-
-                                            width:
-                                                3,
-                                          ),
-                                        ),
-
-                                        child:
-                                            const Icon(
-                                          Icons
-                                              .edit_rounded,
-
-                                          color:
-                                              darkText,
-
-                                          size:
-                                              12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(
-                                  width:
-                                      15,
-                                ),
-
-                                // =================================
-                                // USER DETAILS
-                                // =================================
-
-                                Expanded(
-                                  child:
-                                      Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment
-                                            .start,
-
-                                    children: [
-
-                                      Text(
-                                        _profileService
-                                            .userName,
-
-                                        maxLines:
-                                            1,
-
-                                        overflow:
-                                            TextOverflow
-                                                .ellipsis,
-
-                                        style:
-                                            const TextStyle(
-                                          color:
-                                              Colors.white,
-
-                                          fontSize:
-                                              18,
-
-                                          fontWeight:
-                                              FontWeight
-                                                  .w800,
-
-                                          letterSpacing:
-                                              -0.3,
-                                        ),
-                                      ),
-
-                                      const SizedBox(
-                                        height:
-                                            5,
-                                      ),
-
-                                      Text(
-                                        _profileService
-                                            .phoneNumber,
-
-                                        maxLines:
-                                            1,
-
-                                        overflow:
-                                            TextOverflow
-                                                .ellipsis,
-
-                                        style:
-                                            const TextStyle(
-                                          color:
-                                              Colors.white70,
-
-                                          fontSize:
-                                              10,
-
-                                          fontWeight:
-                                              FontWeight
-                                                  .w500,
-                                        ),
-                                      ),
-
-                                      const SizedBox(
-                                        height:
-                                            3,
-                                      ),
-
-                                      Text(
-                                        _profileService
-                                            .email,
-
-                                        maxLines:
-                                            1,
-
-                                        overflow:
-                                            TextOverflow
-                                                .ellipsis,
-
-                                        style:
-                                            const TextStyle(
-                                          color:
-                                              Colors.white70,
-
-                                          fontSize:
-                                              10,
-
-                                          fontWeight:
-                                              FontWeight
-                                                  .w500,
-                                        ),
-                                      ),
-
-                                      const SizedBox(
-                                        height:
-                                            8,
-                                      ),
-
-                                      // VERIFIED BADGE
-
-                                      Container(
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
-                                          horizontal:
-                                              9,
-
-                                          vertical:
-                                              5,
-                                        ),
-
-                                        decoration:
-                                            BoxDecoration(
-                                          color:
-                                              Colors.white
-                                                  .withValues(
-                                            alpha:
-                                                0.12,
-                                          ),
-
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
-                                            30,
-                                          ),
-                                        ),
-
-                                        child:
-                                            const Row(
-                                          mainAxisSize:
-                                              MainAxisSize
-                                                  .min,
-
-                                          children: [
-
-                                            Icon(
-                                              Icons
-                                                  .verified_rounded,
-
-                                              color:
-                                                  accentGreen,
-
-                                              size:
-                                                  12,
-                                            ),
-
-                                            SizedBox(
-                                              width:
-                                                  5,
-                                            ),
-
-                                            Text(
-                                              "Verified Account",
-
-                                              style:
-                                                  TextStyle(
-                                                color:
-                                                    Colors.white,
-
-                                                fontSize:
-                                                    8,
-
-                                                fontWeight:
-                                                    FontWeight.w700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(
-                                  width:
-                                      8,
-                                ),
-
-                                Container(
-                                  height:
-                                      34,
-
-                                  width:
-                                      34,
-
-                                  decoration:
-                                      BoxDecoration(
-                                    color:
-                                        Colors.white
-                                            .withValues(
-                                      alpha:
-                                          0.10,
-                                    ),
-
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                      10,
-                                    ),
-                                  ),
-
-                                  child:
-                                      const Icon(
-                                    Icons
-                                        .arrow_forward_ios_rounded,
-
-                                    color:
-                                        Colors.white70,
-
-                                    size:
-                                        13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // =========================================
-                      // PROFILE STATISTICS
-                      // =========================================
-
-                      Container(
-                        margin:
-                            const EdgeInsets
-                                .fromLTRB(
-                          14,
-                          0,
-                          14,
-                          14,
-                        ),
-
-                        padding:
-                            const EdgeInsets
-                                .symmetric(
-                          horizontal:
-                              8,
-
-                          vertical:
-                              17,
-                        ),
-
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors.white
-                                  .withValues(
-                            alpha:
-                                0.10,
-                          ),
-
-                          borderRadius:
-                              BorderRadius
-                                  .circular(
-                            20,
-                          ),
-
-                          border:
-                              Border.all(
-                            color:
-                                Colors.white
-                                    .withValues(
-                              alpha:
-                                  0.08,
-                            ),
-                          ),
-                        ),
-
-                        child:
-                            Row(
-                          children: [
-
-                            Expanded(
-                              child:
-                                  _buildProfileStat(
-                                icon:
-                                    Icons
-                                        .electric_scooter_rounded,
-
-                                value:
-                                    "32",
-
-                                title:
-                                    "Total Rides",
-                              ),
-                            ),
-
-                            _buildStatDivider(),
-
-                            Expanded(
-                              child:
-                                  _buildProfileStat(
-                                icon:
-                                    Icons
-                                        .eco_rounded,
-
-                                value:
-                                    "18.4 kg",
-
-                                title:
-                                    "CO₂ Saved",
-                              ),
-                            ),
-
-                            _buildStatDivider(),
-
-                            Expanded(
-                              child:
-                                  _buildProfileStat(
-                                icon:
-                                    Icons
-                                        .stars_rounded,
-
-                                value:
-                                    "420",
-
-                                title:
-                                    "EvePoints",
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    24,
-              ),
-
-              // =================================================
-              // QUICK ACCESS TITLE
-              // =================================================
-
-              const Padding(
-                padding:
-                    EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Text(
-                  "Quick Access",
-
-                  style:
-                      TextStyle(
-                    color:
-                        darkText,
-
-                    fontSize:
-                        18,
-
-                    fontWeight:
-                        FontWeight
-                            .w800,
-
-                    letterSpacing:
-                        -0.3,
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    14,
-              ),
-
-              // =================================================
-              // QUICK ACCESS CARDS
-              // =================================================
-
-              Padding(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Row(
-                  children: [
-
-                    _buildQuickAccess(
-                      icon:
-                          Icons
-                              .history_rounded,
-
-                      title:
-                          "My Rides",
-
-                      subtitle:
-                          "Ride history",
-
-                      iconColor:
-                          const Color(
-                        0xFF16A34A,
-                      ),
-
-                      background:
-                          const Color(
-                        0xFFECFDF3,
-                      ),
-
-                      onTap:
-                          () {
-                        Navigator.push(
-                          context,
-
-                          MaterialPageRoute(
-                            builder:
-                                (
-                              BuildContext
-                                  context,
-                            ) =>
-                                const RideHistoryScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(
-                      width:
-                          12,
-                    ),
-
-                    _buildQuickAccess(
-                      icon:
-                          Icons
-                              .account_balance_wallet_rounded,
-
-                      title:
-                          "Wallet",
-
-                      subtitle:
-                          "Balance & payments",
-
-                      iconColor:
-                          brandPurple,
-
-                      background:
-                          lightPurple,
-
-                      onTap:
-                          () {
-                        Navigator.push(
-                          context,
-
-                          MaterialPageRoute(
-                            builder:
-                                (
-                              BuildContext
-                                  context,
-                            ) =>
-                                const WalletScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    24,
-              ),
-
-              // =================================================
-              // REFER AND EARN
-              // =================================================
-
-              Padding(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Material(
-                  color:
-                      Colors.transparent,
-
-                  child:
-                      InkWell(
-                    onTap:
-                        () {
-                      Navigator.push(
-                        context,
-
-                        MaterialPageRoute(
-                          builder:
-                              (
-                            BuildContext
-                                context,
-                          ) =>
-                              const ReferEarnScreen(),
-                        ),
-                      );
-                    },
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      22,
-                    ),
-
-                    child:
-                        Container(
-                      padding:
-                          const EdgeInsets
-                              .all(
-                        17,
-                      ),
-
-                      decoration:
-                          BoxDecoration(
-                        gradient:
-                            const LinearGradient(
-                          colors: [
-
-                            Color(
-                              0xFFF7FEE7,
-                            ),
-
-                            Color(
-                              0xFFF0FDF4,
-                            ),
-                          ],
-                        ),
-
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          22,
-                        ),
-
-                        border:
-                            Border.all(
-                          color:
-                              const Color(
-                            0xFFD9F99D,
-                          ),
-                        ),
-                      ),
-
-                      child:
-                          Row(
-                        children: [
-
-                          Container(
-                            height:
-                                58,
-
-                            width:
-                                58,
-
-                            padding:
-                                const EdgeInsets
-                                    .all(
-                              7,
-                            ),
-
-                            decoration:
-                                BoxDecoration(
-                              color:
-                                  Colors.white,
-
-                              borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                17,
-                              ),
-                            ),
-
-                            child:
-                                Image.asset(
-                              "assets/gift_box_refer.png",
-
-                              fit:
-                                  BoxFit.contain,
-
-                              errorBuilder:
-                                  (
-                                BuildContext
-                                    context,
-
-                                Object
-                                    error,
-
-                                StackTrace?
-                                    stackTrace,
-                              ) {
-                                return const Icon(
-                                  Icons
-                                      .card_giftcard_rounded,
-
-                                  color:
-                                      Color(
-                                    0xFF65A30D,
-                                  ),
-
-                                  size:
-                                      28,
-                                );
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(
-                            width:
-                                13,
-                          ),
-
-                          const Expanded(
-                            child:
-                                Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
-
-                              children: [
-
-                                Text(
-                                  "Refer & Earn",
-
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        darkText,
-
-                                    fontSize:
-                                        14,
-
-                                    fontWeight:
-                                        FontWeight.w800,
-                                  ),
-                                ),
-
-                                SizedBox(
-                                  height:
-                                      4,
-                                ),
-
-                                Text(
-                                  "Invite friends and earn EvePoints",
-
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        Color(
-                                      0xFF65A30D,
-                                    ),
-
-                                    fontSize:
-                                        9,
-
-                                    fontWeight:
-                                        FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Container(
-                            height:
-                                36,
-
-                            padding:
-                                const EdgeInsets
-                                    .symmetric(
-                              horizontal:
-                                  12,
-                            ),
-
-                            alignment:
-                                Alignment.center,
-
-                            decoration:
-                                BoxDecoration(
-                              color:
-                                  Colors.white,
-
-                              borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                11,
-                              ),
-                            ),
-
-                            child:
-                                const Text(
-                              "Refer Now →",
-
-                              style:
-                                  TextStyle(
-                                color:
-                                    Color(
-                                  0xFF65A30D,
-                                ),
-
-                                fontSize:
-                                    9,
-
-                                fontWeight:
-                                    FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    16,
-              ),
-
-              // =================================================
-              // EVECLUB MEMBERSHIP
-              // =================================================
-
-              Padding(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Container(
-                  padding:
-                      const EdgeInsets
-                          .all(
-                    17,
+                  _buildSectionHeader(
+                    "Quick Actions",
+                    null,
                   ),
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        lightPurple,
+                  const SizedBox(height: 14),
 
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      22,
-                    ),
+                  _buildQuickActions(),
 
-                    border:
-                        Border.all(
-                      color:
-                          const Color(
-                        0xFFDDD6FE,
-                      ),
-                    ),
+                  const SizedBox(height: 28),
+
+                  _buildMembershipCard(),
+
+                  const SizedBox(height: 30),
+
+                  _buildSectionHeader(
+                    "Account",
+                    null,
                   ),
 
-                  child:
-                      Column(
-                    children: [
+                  const SizedBox(height: 12),
 
-                      Row(
-                        children: [
+                  _buildAccountMenu(),
 
-                          Container(
-                            height:
-                                46,
+                  const SizedBox(height: 20),
 
-                            width:
-                                46,
+                  _buildLogoutButton(),
 
-                            decoration:
-                                const BoxDecoration(
-                              gradient:
-                                  LinearGradient(
-                                colors: [
+                  const SizedBox(height: 24),
 
-                                  Color(
-                                    0xFF6D28D9,
-                                  ),
-
-                                  Color(
-                                    0xFF4313B8,
-                                  ),
-                                ],
-                              ),
-
-                              shape:
-                                  BoxShape.circle,
-                            ),
-
-                            child:
-                                const Icon(
-                              Icons
-                                  .workspace_premium_rounded,
-
-                              color:
-                                  Colors.white,
-
-                              size:
-                                  23,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            width:
-                                12,
-                          ),
-
-                          const Expanded(
-                            child:
-                                Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
-
-                              children: [
-
-                                Row(
-                                  children: [
-
-                                    Flexible(
-                                      child:
-                                          Text(
-                                        "EveClub Member",
-
-                                        style:
-                                            TextStyle(
-                                          color:
-                                              darkText,
-
-                                          fontSize:
-                                              13,
-
-                                          fontWeight:
-                                              FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-
-                                    SizedBox(
-                                      width:
-                                          7,
-                                    ),
-
-                                    _MembershipBadge(),
-                                  ],
-                                ),
-
-                                SizedBox(
-                                  height:
-                                      5,
-                                ),
-
-                                Text(
-                                  "80 points away from Gold level",
-
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        secondaryText,
-
-                                    fontSize:
-                                        9,
-
-                                    fontWeight:
-                                        FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .end,
-
-                            children: [
-
-                              Text(
-                                "420",
-
-                                style:
-                                    TextStyle(
-                                  color:
-                                      brandPurple,
-
-                                  fontSize:
-                                      17,
-
-                                  fontWeight:
-                                      FontWeight.w900,
-                                ),
-                              ),
-
-                              Text(
-                                "of 500 pts",
-
-                                style:
-                                    TextStyle(
-                                  color:
-                                      secondaryText,
-
-                                  fontSize:
-                                      8,
-
-                                  fontWeight:
-                                      FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(
-                        height:
-                            16,
-                      ),
-
-                      ClipRRect(
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          10,
-                        ),
-
-                        child:
-                            const LinearProgressIndicator(
-                          value:
-                              420 / 500,
-
-                          minHeight:
-                              7,
-
-                          backgroundColor:
-                              Color(
-                            0xFFE2E8F0,
-                          ),
-
-                          valueColor:
-                              AlwaysStoppedAnimation<
-                                  Color>(
-                            brandPurple,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                  _buildFooter(),
+                ],
               ),
-
-              const SizedBox(
-                height:
-                    27,
-              ),
-
-              // =================================================
-              // ACCOUNT TITLE
-              // =================================================
-
-              const Padding(
-                padding:
-                    EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Text(
-                  "Account",
-
-                  style:
-                      TextStyle(
-                    color:
-                        darkText,
-
-                    fontSize:
-                        18,
-
-                    fontWeight:
-                        FontWeight
-                            .w800,
-
-                    letterSpacing:
-                        -0.3,
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    14,
-              ),
-
-              // =================================================
-              // ACCOUNT MENU
-              // =================================================
-
-              Padding(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Container(
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        Colors.white,
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      22,
-                    ),
-
-                    border:
-                        Border.all(
-                      color:
-                          borderColor,
-                    ),
-                  ),
-
-                  child:
-                      Column(
-                    children: [
-
-                      _buildMenuItem(
-                        icon:
-                            Icons
-                                .credit_card_rounded,
-
-                        title:
-                            "Payment Methods",
-
-                        subtitle:
-                            "Manage cards and payment options",
-
-                        iconColor:
-                            const Color(
-                          0xFF0284C7,
-                        ),
-
-                        iconBackground:
-                            const Color(
-                          0xFFEFF6FF,
-                        ),
-
-                        onTap:
-                            () {},
-                      ),
-
-                      _menuDivider(),
-
-                      _buildMenuItem(
-                        icon:
-                            Icons
-                                .local_offer_rounded,
-
-                        title:
-                            "Promotions & Offers",
-
-                        subtitle:
-                            "View your available offers",
-
-                        iconColor:
-                            const Color(
-                          0xFF9333EA,
-                        ),
-
-                        iconBackground:
-                            const Color(
-                          0xFFFAE8FF,
-                        ),
-
-                        onTap:
-                            () {
-                          Navigator.push(
-                            context,
-
-                            MaterialPageRoute(
-                              builder:
-                                  (
-                                BuildContext
-                                    context,
-                              ) =>
-                                  const OfferScreen(),
-                            ),
-                          );
-                        },
-                      ),
-
-                      _menuDivider(),
-
-                      _buildMenuItem(
-                        icon:
-                            Icons
-                                .shield_outlined,
-
-                        title:
-                            "Safety & Help",
-
-                        subtitle:
-                            "Get support and safety assistance",
-
-                        iconColor:
-                            const Color(
-                          0xFF16A34A,
-                        ),
-
-                        iconBackground:
-                            const Color(
-                          0xFFECFDF3,
-                        ),
-
-                        onTap:
-                            () {
-                          Navigator.push(
-                            context,
-
-                            MaterialPageRoute(
-                              builder:
-                                  (
-                                BuildContext
-                                    context,
-                              ) =>
-                                  const HelpScreen(),
-                            ),
-                          );
-                        },
-                      ),
-
-                      _menuDivider(),
-
-                      _buildMenuItem(
-                        icon:
-                            Icons
-                                .tune_rounded,
-
-                        title:
-                            "Preferences",
-
-                        subtitle:
-                            "Notifications, language and privacy",
-
-                        iconColor:
-                            const Color(
-                          0xFFF59E0B,
-                        ),
-
-                        iconBackground:
-                            const Color(
-                          0xFFFFFBEB,
-                        ),
-
-                        onTap:
-                            () {
-                          Navigator.push(
-                            context,
-
-                            MaterialPageRoute(
-                              builder:
-                                  (
-                                BuildContext
-                                    context,
-                              ) =>
-                                  const PreferencesScreen(),
-                            ),
-                          );
-                        },
-                      ),
-
-                      _menuDivider(),
-
-                      _buildMenuItem(
-                        icon:
-                            Icons
-                                .info_outline_rounded,
-
-                        title:
-                            "About Evegah",
-
-                        subtitle:
-                            "FAQs and app information",
-
-                        iconColor:
-                            brandPurple,
-
-                        iconBackground:
-                            lightPurple,
-
-                        onTap:
-                            () {
-                          Navigator.push(
-                            context,
-
-                            MaterialPageRoute(
-                              builder:
-                                  (
-                                BuildContext
-                                    context,
-                              ) =>
-                                  const FaqScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    17,
-              ),
-
-              // =================================================
-              // LOGOUT
-              // =================================================
-
-              Padding(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal:
-                      20,
-                ),
-
-                child:
-                    Material(
-                  color:
-                      Colors.white,
-
-                  borderRadius:
-                      BorderRadius
-                          .circular(
-                    18,
-                  ),
-
-                  child:
-                      InkWell(
-                    onTap:
-                        _handleLogout,
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      18,
-                    ),
-
-                    child:
-                        Container(
-                      width:
-                          double.infinity,
-
-                      padding:
-                          const EdgeInsets
-                              .all(
-                        16,
-                      ),
-
-                      decoration:
-                          BoxDecoration(
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          18,
-                        ),
-
-                        border:
-                            Border.all(
-                          color:
-                              const Color(
-                            0xFFFECACA,
-                          ),
-                        ),
-                      ),
-
-                      child:
-                          const Row(
-                        children: [
-
-                          Icon(
-                            Icons
-                                .logout_rounded,
-
-                            color:
-                                Color(
-                              0xFFEF4444,
-                            ),
-
-                            size:
-                                20,
-                          ),
-
-                          SizedBox(
-                            width:
-                                13,
-                          ),
-
-                          Expanded(
-                            child:
-                                Text(
-                              "Log Out",
-
-                              style:
-                                  TextStyle(
-                                color:
-                                    Color(
-                                  0xFFEF4444,
-                                ),
-
-                                fontSize:
-                                    13,
-
-                                fontWeight:
-                                    FontWeight.w800,
-                              ),
-                            ),
-                          ),
-
-                          Icon(
-                            Icons
-                                .arrow_forward_ios_rounded,
-
-                            color:
-                                Color(
-                              0xFFFCA5A5,
-                            ),
-
-                            size:
-                                13,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    12,
-              ),
-
-              // =================================================
-              // APP VERSION
-              // =================================================
-
-              const Center(
-                child:
-                    Text(
-                  "Evegah Rider • Version 1.0.0",
-
-                  style:
-                      TextStyle(
-                    color:
-                        secondaryText,
-
-                    fontSize:
-                        9,
-
-                    fontWeight:
-                        FontWeight
-                            .w500,
-                  ),
-                ),
-              ),
-
-              const SizedBox(
-                height:
-                    35,
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // =================================================
-  // PROFILE STAT
-  // =================================================
+  // ============================================================
+  // TOP BAR
+  // ============================================================
 
-  Widget _buildProfileStat({
-    required IconData icon,
-
-    required String value,
-
-    required String title,
-  }) {
-    return Column(
+  Widget _buildTopBar() {
+    return Row(
       children: [
-
-        Icon(
-          icon,
-
-          color:
-              accentGreen,
-
-          size:
-              20,
-        ),
-
-        const SizedBox(
-          height:
-              7,
-        ),
-
-        Text(
-          value,
-
-          maxLines:
-              1,
-
-          style:
-              const TextStyle(
-            color:
-                Colors.white,
-
-            fontSize:
-                14,
-
-            fontWeight:
-                FontWeight.w900,
+        const Expanded(
+          child: Text(
+            "Profile",
+            style: TextStyle(
+              color: darkText,
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.8,
+            ),
           ),
         ),
 
-        const SizedBox(
-          height:
-              3,
-        ),
+        Material(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(15),
 
-        Text(
-          title,
+          child: InkWell(
+            onTap: _openProfileDetails,
 
-          maxLines:
-              1,
+            borderRadius: BorderRadius.circular(15),
 
-          style:
-              const TextStyle(
-            color:
-                Colors.white60,
+            child: Container(
+              height: 44,
+              width: 44,
 
-            fontSize:
-                8,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: borderColor,
+                ),
+              ),
 
-            fontWeight:
-                FontWeight.w600,
+              child: const Icon(
+                Icons.edit_outlined,
+                color: darkText,
+                size: 20,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  // =================================================
-  // STAT DIVIDER
-  // =================================================
+  // ============================================================
+  // PROFILE HERO
+  // ============================================================
 
-  Widget _buildStatDivider() {
-    return Container(
-      height:
-          42,
+  Widget _buildProfileHero() {
+    return GestureDetector(
+      onTap: _openProfileDetails,
 
-      width:
-          1,
+      child: Container(
+        padding: const EdgeInsets.all(20),
 
-      color:
-          Colors.white
-              .withValues(
-        alpha:
-            0.12,
-      ),
-    );
-  }
+        decoration: BoxDecoration(
+          color: cardColor,
 
-  // =================================================
-  // QUICK ACCESS CARD
-  // =================================================
+          borderRadius: BorderRadius.circular(26),
 
-  Widget _buildQuickAccess({
-    required IconData icon,
-
-    required String title,
-
-    required String subtitle,
-
-    required Color iconColor,
-
-    required Color background,
-
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child:
-          Material(
-        color:
-            Colors.white,
-
-        borderRadius:
-            BorderRadius
-                .circular(
-          19,
-        ),
-
-        child:
-            InkWell(
-          onTap:
-              onTap,
-
-          borderRadius:
-              BorderRadius
-                  .circular(
-            19,
+          border: Border.all(
+            color: borderColor,
           ),
 
-          child:
-              Container(
-            padding:
-                const EdgeInsets
-                    .all(
-              15,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.035),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
+          ],
+        ),
 
-            decoration:
-                BoxDecoration(
-              borderRadius:
-                  BorderRadius
-                      .circular(
-                19,
-              ),
+        child: Row(
+          children: [
+            // Avatar
+            Stack(
+              clipBehavior: Clip.none,
 
-              border:
-                  Border.all(
-                color:
-                    borderColor,
-              ),
-            ),
-
-            child:
-                Row(
               children: [
-
                 Container(
-                  height:
-                      43,
+                  height: 76,
+                  width: 76,
 
-                  width:
-                      43,
+                  alignment: Alignment.center,
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        background,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        brandPurple,
+                        Color(0xFF6D3FE8),
+                      ],
 
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      13,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ),
 
-                  child:
-                      Icon(
-                    icon,
+                    shape: BoxShape.circle,
 
-                    color:
-                        iconColor,
-
-                    size:
-                        21,
-                  ),
-                ),
-
-                const SizedBox(
-                  width:
-                      11,
-                ),
-
-                Expanded(
-                  child:
-                      Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-
-                    children: [
-
-                      Text(
-                        title,
-
-                        style:
-                            const TextStyle(
-                          color:
-                              darkText,
-
-                          fontSize:
-                              12,
-
-                          fontWeight:
-                              FontWeight.w800,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height:
-                            3,
-                      ),
-
-                      Text(
-                        subtitle,
-
-                        maxLines:
-                            1,
-
-                        overflow:
-                            TextOverflow.ellipsis,
-
-                        style:
-                            const TextStyle(
-                          color:
-                              secondaryText,
-
-                          fontSize:
-                              8,
-
-                          fontWeight:
-                              FontWeight.w500,
-                        ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: brandPurple.withOpacity(0.20),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
                       ),
                     ],
+                  ),
+
+                  child: Text(
+                    _getInitials(),
+
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  right: -1,
+                  bottom: -1,
+
+                  child: Container(
+                    height: 25,
+                    width: 25,
+
+                    decoration: BoxDecoration(
+                      color: accentGreen,
+                      shape: BoxShape.circle,
+
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 3,
+                      ),
+                    ),
+
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: darkText,
+                      size: 13,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
+
+            const SizedBox(width: 16),
+
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _profileService.userName.isNotEmpty
+                              ? _profileService.userName
+                              : "Evegah Rider",
+
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+
+                          style: const TextStyle(
+                            color: darkText,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 7),
+
+                      const Icon(
+                        Icons.verified_rounded,
+                        color: brandPurple,
+                        size: 17,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 7),
+
+                  if (_profileService.phoneNumber.isNotEmpty)
+                    Text(
+                      _profileService.phoneNumber,
+
+                      style: const TextStyle(
+                        color: secondaryText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+
+                  if (_profileService.email.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+
+                    Text(
+                      _profileService.email,
+
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+
+                      style: const TextStyle(
+                        color: mutedText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 9),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+
+                    decoration: BoxDecoration(
+                      color: brandPurpleLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+
+                    child: const Text(
+                      "VERIFIED RIDER",
+
+                      style: TextStyle(
+                        color: brandPurple,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: mutedText,
+              size: 24,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // =================================================
-  // MENU ITEM
-  // =================================================
+  // ============================================================
+  // STATS STRIP
+  // ============================================================
 
-  Widget _buildMenuItem({
-    required IconData icon,
+  Widget _buildStatsStrip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: 18,
+        horizontal: 10,
+      ),
 
-    required String title,
+      decoration: BoxDecoration(
+        color: cardColor,
 
-    required String subtitle,
+        borderRadius: BorderRadius.circular(22),
 
-    required Color iconColor,
+        border: Border.all(
+          color: borderColor,
+        ),
+      ),
 
-    required Color iconBackground,
-
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color:
-          Colors.transparent,
-
-      child:
-          InkWell(
-        onTap:
-            onTap,
-
-        child:
-            Padding(
-          padding:
-              const EdgeInsets
-                  .symmetric(
-            horizontal:
-                16,
-
-            vertical:
-                14,
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatItem(
+              value: _totalRidesCount.toString(),
+              label: "RIDES",
+              icon: Icons.electric_scooter_rounded,
+              iconColor: brandPurple,
+            ),
           ),
 
-          child:
-              Row(
+          _buildVerticalDivider(),
+
+          Expanded(
+            child: _buildStatItem(
+              value: "${_co2SavedKg.toStringAsFixed(1)} kg",
+              label: "CO₂ SAVED",
+              icon: Icons.eco_rounded,
+              iconColor: green,
+            ),
+          ),
+
+          _buildVerticalDivider(),
+
+          Expanded(
+            child: _buildStatItem(
+              value: _evePointsVal.toString(),
+              label: "POINTS",
+              icon: Icons.stars_rounded,
+              iconColor: const Color(0xFFD97706),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required String value,
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          color: iconColor,
+          size: 20,
+        ),
+
+        const SizedBox(height: 8),
+
+        Text(
+          value,
+
+          style: const TextStyle(
+            color: darkText,
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+          ),
+        ),
+
+        const SizedBox(height: 3),
+
+        Text(
+          label,
+
+          style: const TextStyle(
+            color: mutedText,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.7,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerticalDivider() {
+    return Container(
+      height: 42,
+      width: 1,
+      color: borderColor,
+    );
+  }
+
+  // ============================================================
+  // SECTION HEADER
+  // ============================================================
+
+  Widget _buildSectionHeader(
+    String title,
+    String? action,
+  ) {
+    return Row(
+      children: [
+        Text(
+          title,
+
+          style: const TextStyle(
+            color: darkText,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+          ),
+        ),
+
+        const Spacer(),
+
+        if (action != null)
+          Text(
+            action,
+
+            style: const TextStyle(
+              color: secondaryText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY CARD
+  // ============================================================
+
+  Widget _buildActivityCard() {
+    final List<double> values = [
+      0.35,
+      0.55,
+      0.78,
+      0.48,
+      0.92,
+      0.68,
+      0.56,
+    ];
+
+    final List<String> days = [
+      "M",
+      "T",
+      "W",
+      "T",
+      "F",
+      "S",
+      "S",
+    ];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+
+      decoration: BoxDecoration(
+        color: cardColor,
+
+        borderRadius: BorderRadius.circular(24),
+
+        border: Border.all(
+          color: borderColor,
+        ),
+      ),
+
+      child: Column(
+        children: [
+          Row(
             children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+                  const Text(
+                    "Riding activity",
+
+                    style: TextStyle(
+                      color: darkText,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    _totalRidesCount == 0
+                        ? "Start your first ride"
+                        : "Keep moving with Evegah",
+
+                    style: const TextStyle(
+                      color: secondaryText,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+
+              const Spacer(),
 
               Container(
-                height:
-                    43,
-
-                width:
-                    43,
-
-                decoration:
-                    BoxDecoration(
-                  color:
-                      iconBackground,
-
-                  borderRadius:
-                      BorderRadius
-                          .circular(
-                    13,
-                  ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 6,
                 ),
 
-                child:
-                    Icon(
-                  icon,
-
-                  color:
-                      iconColor,
-
-                  size:
-                      21,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
 
-              const SizedBox(
-                width:
-                    13,
-              ),
-
-              Expanded(
-                child:
-                    Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-
+                child: const Row(
                   children: [
-
-                    Text(
-                      title,
-
-                      style:
-                          const TextStyle(
-                        color:
-                            darkText,
-
-                        fontSize:
-                            12,
-
-                        fontWeight:
-                            FontWeight.w800,
-                      ),
+                    Icon(
+                      Icons.trending_up_rounded,
+                      color: green,
+                      size: 14,
                     ),
 
-                    const SizedBox(
-                      height:
-                          4,
-                    ),
+                    SizedBox(width: 4),
 
                     Text(
-                      subtitle,
-
-                      maxLines:
-                          1,
-
-                      overflow:
-                          TextOverflow.ellipsis,
-
-                      style:
-                          const TextStyle(
-                        color:
-                            secondaryText,
-
-                        fontSize:
-                            8,
-
-                        fontWeight:
-                            FontWeight.w500,
+                      "+15%",
+                      style: TextStyle(
+                        color: green,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
               ),
+            ],
+          ),
 
-              const SizedBox(
-                width:
-                    8,
+          const SizedBox(height: 26),
+
+          SizedBox(
+            height: 145,
+
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+
+              children: List.generate(
+                values.length,
+                (index) {
+                  final bool selected = index == 4;
+
+                  return _buildActivityBar(
+                    days[index],
+                    values[index],
+                    selected,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityBar(
+    String day,
+    double value,
+    bool selected,
+  ) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+
+      children: [
+        if (selected)
+          Container(
+            margin: const EdgeInsets.only(bottom: 7),
+
+            padding: const EdgeInsets.symmetric(
+              horizontal: 7,
+              vertical: 4,
+            ),
+
+            decoration: BoxDecoration(
+              color: brandPurple,
+              borderRadius: BorderRadius.circular(7),
+            ),
+
+            child: const Text(
+              "95 km",
+
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+
+        Container(
+          width: 20,
+          height: 90 * value,
+
+          decoration: BoxDecoration(
+            color: selected
+                ? brandPurple
+                : const Color(0xFFE8E9F0),
+
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+
+        const SizedBox(height: 9),
+
+        Text(
+          day,
+
+          style: TextStyle(
+            color: selected ? darkText : mutedText,
+            fontSize: 11,
+            fontWeight: selected
+                ? FontWeight.w800
+                : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // QUICK ACTIONS
+  // ============================================================
+
+  Widget _buildQuickActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionItem(
+            title: "My Rides",
+            icon: Icons.route_rounded,
+            color: const Color(0xFF059669),
+            background: const Color(0xFFECFDF5),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const RideHistoryScreen(),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: _buildActionItem(
+            title: "Wallet",
+            icon: Icons.account_balance_wallet_rounded,
+            color: brandPurple,
+            background: brandPurpleLight,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const WalletScreen(),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: _buildActionItem(
+            title: "Offers",
+            icon: Icons.local_offer_rounded,
+            color: const Color(0xFFEA580C),
+            background: const Color(0xFFFFF7ED),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const OfferScreen(),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: _buildActionItem(
+            title: "Help",
+            icon: Icons.support_agent_rounded,
+            color: const Color(0xFF2563EB),
+            background: const Color(0xFFEFF6FF),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const HelpScreen(),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionItem({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Color background,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: cardColor,
+
+      borderRadius: BorderRadius.circular(18),
+
+      child: InkWell(
+        onTap: onTap,
+
+        borderRadius: BorderRadius.circular(18),
+
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: 15,
+            horizontal: 5,
+          ),
+
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+
+            border: Border.all(
+              color: borderColor,
+            ),
+          ),
+
+          child: Column(
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 20,
+                ),
               ),
 
-              const Icon(
-                Icons
-                    .arrow_forward_ios_rounded,
+              const SizedBox(height: 9),
 
-                color:
-                    secondaryText,
+              Text(
+                title,
 
-                size:
-                    13,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  color: darkText,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -2518,86 +1132,529 @@ class _ProfileScreenState
     );
   }
 
-  // =================================================
-  // MENU DIVIDER
-  // =================================================
+  // ============================================================
+  // MEMBERSHIP
+  // ============================================================
 
-  Widget _menuDivider() {
-    return const Padding(
-      padding:
-          EdgeInsets.only(
-        left:
-            72,
-      ),
+  Widget _buildMembershipCard() {
+    final double progress =
+        (_evePointsVal / 1000).clamp(0.0, 1.0);
 
-      child:
-          Divider(
-        color:
-            Color(
-          0xFFF1F5F9,
+    final int remaining =
+        _evePointsVal >= 1000 ? 0 : 1000 - _evePointsVal;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFF5F1FF),
+            Color(0xFFFFFFFF),
+          ],
+
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
 
-        height:
-            1,
+        borderRadius: BorderRadius.circular(26),
+
+        border: Border.all(
+          color: const Color(0xFFE2D9FF),
+        ),
+      ),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+
+                decoration: BoxDecoration(
+                  color: brandPurple,
+                  borderRadius: BorderRadius.circular(14),
+
+                  boxShadow: [
+                    BoxShadow(
+                      color: brandPurple.withOpacity(0.20),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Colors.white,
+                  size: 23,
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      "EveClub",
+
+                      style: TextStyle(
+                        color: brandPurple,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+
+                    SizedBox(height: 2),
+
+                    Text(
+                      "Silver Member",
+
+                      style: TextStyle(
+                        color: darkText,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Text(
+                "$_evePointsVal",
+
+                style: const TextStyle(
+                  color: brandPurple,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              const Text(
+                " pts",
+
+                style: TextStyle(
+                  color: secondaryText,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 22),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+            children: [
+              const Text(
+                "Progress to Gold",
+
+                style: TextStyle(
+                  color: darkText,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+
+              Text(
+                remaining == 0
+                    ? "Gold unlocked!"
+                    : "$remaining pts to go",
+
+                style: const TextStyle(
+                  color: secondaryText,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 9),
+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 9,
+
+              backgroundColor: const Color(0xFFE4E0EF),
+
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(
+                brandPurple,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Material(
+            color: Colors.transparent,
+
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ReferEarnScreen(),
+                  ),
+                );
+              },
+
+              borderRadius: BorderRadius.circular(12),
+
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 11,
+                  horizontal: 12,
+                ),
+
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.card_giftcard_rounded,
+                      color: brandPurple,
+                      size: 17,
+                    ),
+
+                    SizedBox(width: 8),
+
+                    Expanded(
+                      child: Text(
+                        "Refer friends & earn more points",
+
+                        style: TextStyle(
+                          color: darkText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: brandPurple,
+                      size: 17,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
 
-// =================================================
-// MEMBERSHIP BADGE
-// =================================================
+  // ============================================================
+  // ACCOUNT MENU
+  // ============================================================
 
-class _MembershipBadge
-    extends StatelessWidget {
-  const _MembershipBadge();
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget _buildAccountMenu() {
     return Container(
-      padding:
-          const EdgeInsets
-              .symmetric(
-        horizontal:
-            7,
+      decoration: BoxDecoration(
+        color: cardColor,
 
-        vertical:
-            3,
-      ),
+        borderRadius: BorderRadius.circular(22),
 
-      decoration:
-          BoxDecoration(
-        color:
-            const Color(
-          0xFFE0E7FF,
-        ),
-
-        borderRadius:
-            BorderRadius
-                .circular(
-          20,
+        border: Border.all(
+          color: borderColor,
         ),
       ),
 
-      child:
-          const Text(
-        "SILVER",
+      child: Column(
+        children: [
+          _buildAccountTile(
+            title: "Payment Methods",
+            subtitle: "Cards & payment options",
+            icon: Icons.credit_card_rounded,
+            iconColor: const Color(0xFF2563EB),
+            iconBackground: const Color(0xFFEFF6FF),
+            onTap: () {},
+            isFirst: true,
+          ),
 
-        style:
-            TextStyle(
-          color: Color(0xFF4313B8),
+          _buildAccountTile(
+            title: "Promotions & Offers",
+            subtitle: "Available offers for you",
+            icon: Icons.local_offer_rounded,
+            iconColor: const Color(0xFF9333EA),
+            iconBackground: const Color(0xFFF3E8FF),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const OfferScreen(),
+                ),
+              );
+            },
+          ),
 
-          fontSize:
-              7,
+          _buildAccountTile(
+            title: "Safety & Help",
+            subtitle: "Support and safety center",
+            icon: Icons.shield_outlined,
+            iconColor: green,
+            iconBackground: const Color(0xFFECFDF5),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const HelpScreen(),
+                ),
+              );
+            },
+          ),
 
-          fontWeight:
-              FontWeight.w900,
+          _buildAccountTile(
+            title: "Preferences",
+            subtitle: "App settings & preferences",
+            icon: Icons.tune_rounded,
+            iconColor: const Color(0xFFD97706),
+            iconBackground: const Color(0xFFFFFBEB),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PreferencesScreen(),
+                ),
+              );
+            },
+          ),
 
-          letterSpacing:
-              0.3,
+          _buildAccountTile(
+            title: "About Evegah",
+            subtitle: "Version, terms & information",
+            icon: Icons.info_outline_rounded,
+            iconColor: const Color(0xFF64748B),
+            iconBackground: const Color(0xFFF1F5F9),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AboutScreen(),
+                ),
+              );
+            },
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBackground,
+    required VoidCallback onTap,
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+
+      child: InkWell(
+        onTap: onTap,
+
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(isFirst ? 22 : 0),
+          bottom: Radius.circular(isLast ? 22 : 0),
         ),
+
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+
+              child: Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+
+                    decoration: BoxDecoration(
+                      color: iconBackground,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+
+                    child: Icon(
+                      icon,
+                      color: iconColor,
+                      size: 20,
+                    ),
+                  ),
+
+                  const SizedBox(width: 14),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                      children: [
+                        Text(
+                          title,
+
+                          style: const TextStyle(
+                            color: darkText,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+
+                        const SizedBox(height: 3),
+
+                        Text(
+                          subtitle,
+
+                          style: const TextStyle(
+                            color: mutedText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFFB8BEC9),
+                    size: 22,
+                  ),
+                ],
+              ),
+            ),
+
+            if (!isLast)
+              const Padding(
+                padding: EdgeInsets.only(
+                  left: 72,
+                  right: 16,
+                ),
+
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: borderColor,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
+  Widget _buildLogoutButton() {
+    return Material(
+      color: Colors.transparent,
+
+      child: InkWell(
+        onTap: _handleLogout,
+
+        borderRadius: BorderRadius.circular(16),
+
+        child: Container(
+          width: double.infinity,
+
+          padding: const EdgeInsets.symmetric(
+            vertical: 15,
+          ),
+
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF7F7),
+
+            borderRadius: BorderRadius.circular(16),
+
+            border: Border.all(
+              color: const Color(0xFFFEE2E2),
+            ),
+          ),
+
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+
+            children: [
+              Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFE11D48),
+                size: 19,
+              ),
+
+              SizedBox(width: 8),
+
+              Text(
+                "Log out",
+
+                style: TextStyle(
+                  color: Color(0xFFE11D48),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // FOOTER
+  // ============================================================
+
+  Widget _buildFooter() {
+    return const Center(
+      child: Column(
+        children: [
+          Text(
+            "EVEGAH",
+
+            style: TextStyle(
+              color: Color(0xFFB5BAC4),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+
+          SizedBox(height: 5),
+
+          Text(
+            "Rider App • Version 1.0.0",
+
+            style: TextStyle(
+              color: Color(0xFFB5BAC4),
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -64,8 +64,8 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
           }
         }
 
-        // If the permissions object has this module and access is false, redirect!
-        if (perms[requiredModule] && perms[requiredModule].access === false) {
+        // If the permissions object has this module and access is false, redirect! (Except Dashboard)
+        if (requiredModule !== 'Dashboard' && perms[requiredModule] && perms[requiredModule].access === false) {
           console.warn(`Access denied to ${pathname} (Requires ${requiredModule})`);
           router.push('/'); // Redirect back to dashboard if access is denied
           return;

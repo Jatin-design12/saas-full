@@ -43,6 +43,8 @@ app.use('/api/ai', require('./routes/ai'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/audit-logs', require('./routes/auditLogs'));
+app.use('/api/maintenance', require('./routes/maintenance'));
 
 
 // API endpoints for the Rider App

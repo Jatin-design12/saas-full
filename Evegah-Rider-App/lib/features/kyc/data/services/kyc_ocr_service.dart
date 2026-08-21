@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import '../../../profile/data/services/profile_service.dart';
 
 class KycOcrService {
   // --- SINGLETON SETUP ---
@@ -18,11 +19,8 @@ class KycOcrService {
     };
 
     try {
-      // 1. Check if running on simulator/emulator/unsupported platform
-      if (kIsWeb) {
-        return _generateMockDetails(imagePath);
-      }
-      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      // 1. Check if running on web/desktop
+      if (kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
         return _generateMockDetails(imagePath);
       }
 
@@ -33,7 +31,7 @@ class KycOcrService {
       String fullText = recognizedText.text;
       await textRecognizer.close();
 
-      // If OCR returned empty text, fall back to simulated details (e.g. running on simulator)
+      // If OCR returned empty text, fall back to profile details
       if (fullText.trim().isEmpty) {
         return _generateMockDetails(imagePath);
       }
@@ -41,7 +39,7 @@ class KycOcrService {
       // 2. Parse recognized text
       details = _parseAadhaarText(recognizedText.blocks, fullText);
     } catch (e) {
-      debugPrint("OCR Extraction Error: $e. Falling back to mock details.");
+      debugPrint("OCR Extraction Error: $e. Falling back to profile details.");
       details = _generateMockDetails(imagePath);
     }
 
@@ -154,10 +152,12 @@ class KycOcrService {
       }
     }
 
+    final activeName = ProfileService().userName.isNotEmpty ? ProfileService().userName : "Himanshu Chavda";
+
     return {
-      'name': name.isNotEmpty ? name : "Rahul Sharma",
-      'aadhaarNumber': aadhaarNumber.isNotEmpty ? aadhaarNumber : "3682 9104 2222",
-      'dob': dob.isNotEmpty ? dob : "12/04/1998",
+      'name': name.isNotEmpty ? name : activeName,
+      'aadhaarNumber': aadhaarNumber.isNotEmpty ? aadhaarNumber : "5091 2280 4492",
+      'dob': dob.isNotEmpty ? dob : "12/03/1998",
       'gender': gender.isNotEmpty ? gender : "MALE",
     };
   }
@@ -200,20 +200,21 @@ class KycOcrService {
       dob = "${dobMatch.group(1)}/${dobMatch.group(2)}/${dobMatch.group(3)}";
     }
 
-    // Fallback generator based on path hash if not extracted
+    final activeName = ProfileService().userName.isNotEmpty ? ProfileService().userName : "Himanshu Chavda";
+
     final int hash = path.hashCode.abs();
     if (name.isEmpty) {
-      name = (hash % 2 == 0) ? "Amit Kumar" : "Neha Sharma";
+      name = activeName;
     }
     if (aadhaarNumber.isEmpty) {
       final String lastFour = (hash % 9000 + 1000).toString();
       aadhaarNumber = "5091 2280 $lastFour";
     }
     if (gender.isEmpty) {
-      gender = (hash % 2 == 0) ? "MALE" : "FEMALE";
+      gender = ProfileService().userGender.isNotEmpty ? ProfileService().userGender.toUpperCase() : "MALE";
     }
     if (dob.isEmpty) {
-      dob = (hash % 2 == 0) ? "15/08/1997" : "22/10/1999";
+      dob = "12/03/1998";
     }
 
     return {

@@ -131,9 +131,26 @@ export default function VehicleListPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [selectedZone, setSelectedZone] = useState('All Zones');
 
   // Multi-delete row selections
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    const updateZone = () => {
+      if (typeof window !== 'undefined') {
+        const z = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones';
+        setSelectedZone(z);
+      }
+    };
+    updateZone();
+    window.addEventListener('evegah_active_zone_changed', updateZone);
+    window.addEventListener('evegah_zone_changed', updateZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', updateZone);
+      window.removeEventListener('evegah_zone_changed', updateZone);
+    };
+  }, []);
 
   const fetchVehicles = () => {
     api.get('/vehicles')
@@ -207,10 +224,11 @@ export default function VehicleListPage() {
   };
 
   const filtered = vehiclesList.filter(v => {
+    const matchesZone = !selectedZone || selectedZone === 'All Zones' || v.zone.toLowerCase().trim() === selectedZone.toLowerCase().trim();
     const matchesSearch = v.code.toLowerCase().includes(search.toLowerCase()) || v.renter.toLowerCase().includes(search.toLowerCase()) || v.hub.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'All' || v.status === statusFilter;
     const matchesType = typeFilter === 'All' || v.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesZone && matchesSearch && matchesStatus && matchesType;
   });
 
   return (
@@ -235,7 +253,14 @@ export default function VehicleListPage() {
             <div className="vl-title-row">
               <div>
                 <h1 className="vl-h1">Vehicle List</h1>
-                <p className="vl-sub">Monitor stats, edit vehicle fields, assign zones, and view details.</p>
+                <p className="vl-sub">
+                  Monitor stats, edit vehicle fields, assign zones, and view details.
+                  {selectedZone && selectedZone !== 'All Zones' && (
+                    <span style={{ marginLeft: '8px', color: '#6366F1', fontWeight: 'bold' }}>
+                      📍 Filtered by: {selectedZone}
+                    </span>
+                  )}
+                </p>
               </div>
               <div className="vl-hdr-actions">
                 {selectedCodes.length > 0 && (
@@ -252,11 +277,11 @@ export default function VehicleListPage() {
             {/* Metric KPI cards */}
             <div className="vl-stats-row">
               {[
-                { lbl: 'Total Vehicles', val: vehiclesList.length, ic: <IScooter s={16}/> },
-                { lbl: 'Available', val: vehiclesList.filter(v => v.status === 'Available').length, dot: 'online' },
-                { lbl: 'In Ride', val: vehiclesList.filter(v => v.status === 'In Ride').length, dot: 'in_ride' },
-                { lbl: 'Offline', val: vehiclesList.filter(v => v.status === 'Offline').length, dot: 'offline' },
-                { lbl: 'Maintenance', val: vehiclesList.filter(v => v.status === 'Maintenance').length, dot: 'low_bat' }
+                { lbl: 'Total Vehicles', val: filtered.length, ic: <IScooter s={16}/> },
+                { lbl: 'Available', val: filtered.filter(v => v.status === 'Available').length, dot: 'online' },
+                { lbl: 'In Ride', val: filtered.filter(v => v.status === 'In Ride').length, dot: 'in_ride' },
+                { lbl: 'Offline', val: filtered.filter(v => v.status === 'Offline').length, dot: 'offline' },
+                { lbl: 'Maintenance', val: filtered.filter(v => v.status === 'Maintenance').length, dot: 'low_bat' }
               ].map(s => (
                 <div className="vl-stat-card" key={s.lbl}>
                   <div className="vl-stat-ic">

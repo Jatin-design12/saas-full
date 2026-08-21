@@ -477,7 +477,10 @@ export default function AddZonePage() {
                   notes: zone.notes || '',
                   map_link: zone.map_link || '',
                   address: zone.address || '',
-                  image_url: zone.image_url || ''
+                  image_url: zone.image_url || '',
+                  open_time: zone.open_time || '06:00',
+                  close_time: zone.close_time || '23:00',
+                  is_24_hours: !!zone.is_24_hours
                 });
                 setPoints(pts);
               }
@@ -598,7 +601,10 @@ export default function AddZonePage() {
     notes: '',
     map_link: 'https://maps.google.com/?q=22.3129,73.1674',
     address: 'Alkapuri, Vadodara, Gujarat 390007',
-    image_url: 'https://images.unsplash.com/photo-1573348722427-f1d6819fdf98?auto=format&fit=crop&q=80&w=400'
+    image_url: '',
+    open_time: '06:00',
+    close_time: '23:00',
+    is_24_hours: false
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -1382,62 +1388,157 @@ export default function AddZonePage() {
                   <span className="zn-card-title">Location & Zone Information</span>
                   <span className="zn-card-subtitle">Fill in the details to define your new operational zone.</span>
 
-                  {/* Zone Image Section at the top with Upload Option */}
-                  <div className="zn-form-group-full" style={{ marginBottom: '14px', borderBottom: '1px solid #F1F5F9', paddingBottom: '14px' }}>
-                    <label className="zn-label">Zone Image / Banner <span>*</span></label>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '8px' }}>
-                      <div style={{ width: '120px', height: '80px', borderRadius: '8px', border: '1.5px dashed #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', overflow: 'hidden', flexShrink: 0 }}>
+                  {/* Pixel-Perfect Zone Image / Banner Upload Container */}
+                  <div className="zn-form-group-full" style={{ marginBottom: '18px' }}>
+                    <label className="zn-label" style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                      Zone Image / Banner <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+
+                    <div 
+                      style={{
+                        background: '#FAF8FF',
+                        border: '1.5px dashed #CBD5E1',
+                        borderRadius: '14px',
+                        padding: '20px 24px',
+                        display: 'grid',
+                        gridTemplateColumns: '260px 1fr',
+                        gap: '24px',
+                        alignItems: 'center',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Left Side: Thumbnail Box with Floating Remove Button */}
+                      <div 
+                        style={{
+                          width: '260px',
+                          height: '140px',
+                          borderRadius: '12px',
+                          border: '1px solid #E2E8F0',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          background: '#F8FAFC',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
                         {formData.image_url ? (
-                          <img src={formData.image_url} alt="Zone Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ fontSize: '18px', color: '#64748B' }}>📷</span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                          <input
-                            type="text"
-                            className="zn-input"
-                            placeholder="Paste Zone Image URL..."
-                            style={{ flex: 1, height: '36px' }}
-                            value={formData.image_url || ''}
-                            onChange={(e) => handleInputChange('image_url', e.target.value)}
-                          />
-                          {/* File input for simulation */}
-                          <label className="zn-btn" style={{ height: '36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1.5px solid #2a195c', color: '#2a195c', background: '#FFF', padding: '0 12px', fontSize: '12px' }}>
-                            Upload File
-                            <input
-                              type="file"
-                              style={{ display: 'none' }}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  // simulate upload by setting a local object URL
-                                  handleInputChange('image_url', URL.createObjectURL(file));
-                                }
-                              }}
+                          <>
+                            <img 
+                              src={formData.image_url} 
+                              alt="Zone Banner Preview" 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                             />
-                          </label>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            type="button"
-                            className="zn-btn"
-                            style={{ padding: '4px 10px', fontSize: '11px', height: '28px', background: '#2A195C', color: '#FFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                            onClick={() => handleInputChange('image_url', 'https://images.unsplash.com/photo-1573348722427-f1d6819fdf98?auto=format&fit=crop&q=80&w=400')}
-                          >
-                            Use Sample Image
-                          </button>
-                          {formData.image_url && (
                             <button
                               type="button"
-                              className="zn-btn"
-                              style={{ padding: '4px 10px', fontSize: '11px', height: '28px', background: '#EF4444', color: '#FFF', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                              onClick={() => handleInputChange('image_url', '')}
+                              onClick={(e) => { e.stopPropagation(); handleInputChange('image_url', ''); }}
+                              title="Remove image"
+                              style={{
+                                position: 'absolute',
+                                top: '8px',
+                                right: '8px',
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '50%',
+                                background: '#2A195C',
+                                color: '#fff',
+                                border: '2px solid #fff',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}
                             >
-                              Clear Image
+                              ✕
                             </button>
-                          )}
+                          </>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#94A3B8' }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                              <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>No Zone Image Uploaded</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Side: Upload Dropzone Instructions & File Trigger */}
+                      <div 
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textAlign: 'center',
+                          gap: '6px',
+                          padding: '10px 0'
+                        }}
+                      >
+                        <div 
+                          style={{
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '50%',
+                            background: '#EEF2FF',
+                            color: '#6366F1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '2px'
+                          }}
+                        >
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                        </div>
+
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>
+                          Drag & drop an image here
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: '500' }}>
+                          or
+                        </div>
+
+                        <label 
+                          style={{
+                            padding: '8px 20px',
+                            border: '1.5px solid #CBD5E1',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            color: '#2A195C',
+                            background: '#fff',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                            margin: '4px 0'
+                          }}
+                        >
+                          Choose from Device
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleInputChange('image_url', URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                        </label>
+
+                        <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: '500', marginTop: '2px' }}>
+                          JPG, PNG or WEBP • Max size 5MB • Recommended 16:9
                         </div>
                       </div>
                     </div>
@@ -1543,6 +1644,7 @@ export default function AddZonePage() {
                       <label className="zn-label">Zone Type <span>*</span></label>
                       <select className="zn-select" value={formData.type} onChange={(e) => handleInputChange('type', e.target.value)}>
                         <option value="Operational Zone">Operational Zone</option>
+                        <option value="Service Zone (Maintenance Hub)">Service Zone (Maintenance Hub)</option>
                         <option value="Hub Zone">Hub Zone</option>
                         <option value="No-Ride Zone">No-Ride Zone</option>
                         <option value="Charging Zone">Charging Zone</option>
@@ -1571,6 +1673,57 @@ export default function AddZonePage() {
                       <select className="zn-select" value={formData.timezone} onChange={(e) => handleInputChange('timezone', e.target.value)}>
                         <option value="(GMT+05:30) Asia/Kolkata">(GMT+05:30) Asia/Kolkata</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* Zone Operating Hours & Pickup Timings Section */}
+                  <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#2a195c', marginTop: '14px', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Zone Operating Hours & Pickup Timings
+                  </span>
+                  <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                        Vehicle Pickup, Return & Booking Operational Window
+                      </span>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: '#6366F1', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={formData.is_24_hours}
+                          onChange={(e) => handleInputChange('is_24_hours', e.target.checked)}
+                          style={{ width: '16px', height: '16px', accentColor: '#6366F1', cursor: 'pointer' }}
+                        />
+                        24/7 Operational (Open Always)
+                      </label>
+                    </div>
+
+                    {!formData.is_24_hours && (
+                      <div className="zn-form-grid" style={{ marginBottom: 0 }}>
+                        <div className="zn-form-group">
+                          <label className="zn-label">Zone Opening / Pickup Start Time <span>*</span></label>
+                          <input
+                            type="time"
+                            className="zn-input"
+                            value={formData.open_time || '06:00'}
+                            onChange={(e) => handleInputChange('open_time', e.target.value)}
+                          />
+                        </div>
+                        <div className="zn-form-group">
+                          <label className="zn-label">Zone Closing / Return Cutoff Time <span>*</span></label>
+                          <input
+                            type="time"
+                            className="zn-input"
+                            value={formData.close_time || '23:00'}
+                            onChange={(e) => handleInputChange('close_time', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '11.5px', color: '#475569', background: '#FFF', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      <span style={{ color: '#10B981', fontWeight: '800' }}>Operational Rule:</span>
+                      <span>Riders can only book, pickup, or return vehicles within this zone during active hours ({formData.is_24_hours ? '24 Hours Open' : `${formData.open_time || '06:00 AM'} - ${formData.close_time || '11:00 PM'}`}).</span>
                     </div>
                   </div>
 
@@ -1708,6 +1861,17 @@ export default function AddZonePage() {
                           <span>{formData.city || 'N/A'}</span>
                           <span style={{ color: '#94A3B8' }}>&gt;</span>
                           <span>{formData.state || 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ paddingTop: '10px', borderTop: '1px solid #F1F5F9' }}>
+                        <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          Zone Operating Window
+                        </span>
+                        <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#6366F1', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
+                          {formData.is_24_hours ? '24 Hours Open (Always Operational)' : `${formData.open_time || '06:00 AM'} - ${formData.close_time || '11:00 PM'}`}
                         </div>
                       </div>
                     </div>
