@@ -680,26 +680,36 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   }
 
   // Vehicle Card Item
+  //
+  // Responsive layout to prevent right-side overflow on smaller screens
+  // and when the backend returns long vehicle/zone names.
   Widget _buildVehicleCard(Map<String, dynamic> v, int index) {
     final bool isSelected = _selectedVehicleIndex == index;
-    final int stock = v['stock'] ?? 1;
+    final int stock = v['stock'] is int
+        ? v['stock'] as int
+        : int.tryParse(v['stock']?.toString() ?? '1') ?? 1;
     final bool isOutOfStock = stock <= 0;
 
     return Opacity(
       opacity: isOutOfStock ? 0.6 : 1.0,
       child: GestureDetector(
-        onTap: isOutOfStock ? null : () {
-          setState(() {
-            _selectedVehicleIndex = index;
-          });
-        },
+        onTap: isOutOfStock
+            ? null
+            : () {
+                setState(() {
+                  _selectedVehicleIndex = index;
+                });
+              },
         child: Container(
+          width: double.infinity,
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
             color: isOutOfStock ? Colors.grey.shade50 : Colors.white,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: isSelected && !isOutOfStock ? const Color(0xFF4313B8) : const Color(0xFFF1F5F9),
+              color: isSelected && !isOutOfStock
+                  ? const Color(0xFF4313B8)
+                  : const Color(0xFFF1F5F9),
               width: isSelected && !isOutOfStock ? 2.0 : 1.0,
             ),
             boxShadow: [
@@ -711,264 +721,346 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
             ],
           ),
           child: Stack(
+            clipBehavior: Clip.hardEdge,
             children: [
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Vehicle Image Box
-                Container(
-                  width: 110,
-                  height: 120,
-                  alignment: Alignment.center,
-                  child: Image.asset(
-                    v["image"],
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.electric_scooter,
-                      size: 50,
-                      color: Color(0xFF4313B8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Vehicle image
+                    SizedBox(
+                      width: 102,
+                      height: 128,
+                      child: Center(
+                        child: Image.asset(
+                          v["image"],
+                          width: 98,
+                          height: 118,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.electric_scooter,
+                            size: 50,
+                            color: Color(0xFF4313B8),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
 
-                // Vehicle Details Column
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    const SizedBox(width: 10),
+
+                    // Details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            v["name"],
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: v["tagColor"],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              v["tag"],
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                color: v["tagTextColor"],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Specs Row (Range & Speed)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.bolt_rounded,
-                            size: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            v["range"],
-                            style: const TextStyle(
-                              fontSize: 9,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Icon(
-                            Icons.speed_rounded,
-                            size: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            v["speed"],
-                            style: const TextStyle(
-                              fontSize: 9,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Feature Pills
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: (v["features"] as List<String>).map((f) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F3FF),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              f,
-                              style: const TextStyle(
-                                fontSize: 8,
-                                color: Color(0xFF4313B8),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Pricing & Select Button Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: v["dailyPrice"],
-                                      style: const TextStyle(
-                                        fontSize: 13,
+                          // Name + availability.
+                          // The name can shrink/ellipsis and the badge has
+                          // a maximum width, so this Row cannot overflow.
+                          // Zone / vehicle name + availability.
+                          // Keep the name flexible and allow it to wrap to two
+                          // lines instead of cutting it off with an ellipsis.
+                          // The availability badge has a fixed safe width so
+                          // the row itself can never overflow.
+                          Padding(
+                            padding: const EdgeInsets.only(right: 22),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    v["name"]?.toString() ?? "Evegah City",
+                                    // Keep short names on one line. If the
+                                    // name does not fit, Flutter wraps it to
+                                    // a second line without showing an
+                                    // ellipsis. Names are capped at two lines
+                                    // to keep the card layout stable.
+                                    maxLines: 2,
+                                    softWrap: true,
+                                    overflow: TextOverflow.clip,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      height: 1.15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                SizedBox(
+                                  width: 82,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: v["tagColor"],
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      v["tag"]?.toString() ?? "",
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 7.5,
+                                        height: 1.05,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0F172A),
+                                        color: v["tagTextColor"],
                                       ),
                                     ),
-                                    if (!v["dailyPrice"].toString().contains("/hr"))
-                                      const TextSpan(
-                                        text: " / day",
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                v["hourlyPrice"],
-                                style: const TextStyle(
-                                  fontSize: 8,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                              if (v["depositAmount"] != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  v["depositAmount"],
-                                  style: const TextStyle(
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF16A34A),
                                   ),
                                 ),
                               ],
-                            ],
-                          ),
-                          Column(crossAxisAlignment: CrossAxisAlignment.end),
-                          InkWell(
-                            onTap: isOutOfStock ? null : () {
-                              setState(() {
-                                _selectedVehicleIndex = index;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isOutOfStock ? Colors.grey : const Color(0xFF200F54),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                isOutOfStock ? "Sold Out" : "Select",
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
                             ),
                           ),
-                          ],
-                        ),
-                      ],
+
+                          const SizedBox(height: 6),
+
+                          // Range + speed.
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.bolt_rounded,
+                                    size: 13,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    v["range"]?.toString() ?? "80–100 km",
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.speed_rounded,
+                                    size: 13,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    v["speed"]?.toString() ?? "45 km/h",
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Features.
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children:
+                                (v["features"] as List? ?? const <dynamic>[])
+                                    .map(
+                              (f) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F3FF),
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                                child: Text(
+                                  f.toString(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    color: Color(0xFF4313B8),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ).toList(),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // Price + action button.
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text.rich(
+                                      TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: v["dailyPrice"]?.toString() ??
+                                                "₹499",
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                          if (!(v["dailyPrice"]
+                                                  ?.toString()
+                                                  .contains("/hr") ??
+                                              false))
+                                            const TextSpan(
+                                              text: " / day",
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      v["hourlyPrice"]?.toString() ?? "",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 8,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    if (v["depositAmount"] != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        v["depositAmount"].toString(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF16A34A),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 88,
+                                height: 44,
+                                child: InkWell(
+                                  onTap: isOutOfStock
+                                      ? null
+                                      : () {
+                                          setState(() {
+                                            _selectedVehicleIndex = index;
+                                          });
+                                        },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isOutOfStock
+                                          ? Colors.grey
+                                          : const Color(0xFF200F54),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      isOutOfStock ? "Sold Out" : "Select",
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Most Popular badge.
+              if (v["isPopular"] == true)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD2FC00),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      v["popularBadge"]?.toString() ?? "Most Popular",
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
 
-          // Floating Most Popular Badge
-          if (v["isPopular"])
-            Positioned(
-              top: 0,
-              left: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFD2FC00), // Lime green
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(10),
+              // Favorite button.
+              Positioned(
+                top: 10,
+                right: 10,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    setState(() {
+                      v["isFavorite"] = !(v["isFavorite"] as bool? ?? false);
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      v["isFavorite"] == true
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_outline_rounded,
+                      color: v["isFavorite"] == true
+                          ? Colors.red
+                          : const Color(0xFF94A3B8),
+                      size: 18,
+                    ),
                   ),
                 ),
-                child: Text(
-                  v["popularBadge"],
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
-                  ),
-                ),
               ),
-            ),
-
-          // Heart Favorite Button
-          Positioned(
-            top: 10,
-            right: 12,
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  v["isFavorite"] = !(v["isFavorite"] as bool);
-                });
-              },
-              child: Icon(
-                v["isFavorite"]
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_outline_rounded,
-                color: v["isFavorite"] ? Colors.red : const Color(0xFF94A3B8),
-                size: 18,
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  ),
-);
+    );
   }
 
   // Inclusions Strip

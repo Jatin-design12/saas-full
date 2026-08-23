@@ -72,9 +72,7 @@ class _OfferScreenState extends State<OfferScreen> {
               Uri.parse(url),
             )
             .timeout(
-              const Duration(
-                seconds: 2,
-              ),
+              const Duration(seconds: 2),
             );
 
         if (response.statusCode == 200) {
@@ -92,29 +90,75 @@ class _OfferScreenState extends State<OfferScreen> {
             final now = DateTime.now();
 
             for (var c in dbList) {
-              final String code = c['code'] ?? 'EVEGAH';
-              final String title = c['title'] ?? c['code'] ?? 'Discount Coupon';
-              final String subtitle = c['description'] ?? 'Save on your next rental';
+              final String code =
+                  c['code'] ?? 'EVEGAH';
+
+              final String title =
+                  c['title'] ??
+                      c['code'] ??
+                      'Discount Coupon';
+
+              final String subtitle =
+                  c['description'] ??
+                      'Save on your next rental';
 
               DateTime? endDate;
-              if (c['end_date'] != null && c['end_date'].toString().isNotEmpty) {
-                endDate = DateTime.tryParse(c['end_date'].toString());
-              } else if (c['validity_end'] != null && c['validity_end'].toString().isNotEmpty) {
-                endDate = DateTime.tryParse(c['validity_end'].toString());
+
+              if (c['end_date'] != null &&
+                  c['end_date']
+                      .toString()
+                      .isNotEmpty) {
+                endDate = DateTime.tryParse(
+                  c['end_date'].toString(),
+                );
+              } else if (c['validity_end'] != null &&
+                  c['validity_end']
+                      .toString()
+                      .isNotEmpty) {
+                endDate = DateTime.tryParse(
+                  c['validity_end'].toString(),
+                );
               }
 
-              final int usedCount = int.tryParse(c['used_count']?.toString() ?? c['usage']?.toString() ?? '0') ?? 0;
-              final int totalLimit = int.tryParse(c['total_limit']?.toString() ?? c['max_limit']?.toString() ?? '100') ?? 100;
+              final int usedCount =
+                  int.tryParse(
+                        c['used_count']
+                                ?.toString() ??
+                            c['usage']?.toString() ??
+                            '0',
+                      ) ??
+                      0;
 
-              final bool isExpired = endDate != null && now.isAfter(endDate);
-              final bool isLimitReached = usedCount >= totalLimit;
-              final bool isActive = (c['status'] == 'Active' || c['status'] == null) && !isExpired && !isLimitReached;
+              final int totalLimit =
+                  int.tryParse(
+                        c['total_limit']
+                                ?.toString() ??
+                            c['max_limit']
+                                ?.toString() ??
+                            '100',
+                      ) ??
+                      100;
 
-              final expiryText = endDate != null
-                  ? "Valid till ${endDate.toLocal().toString().split(' ')[0]}"
-                  : "No Expiry";
+              final bool isExpired =
+                  endDate != null &&
+                  now.isAfter(endDate);
+
+              final bool isLimitReached =
+                  usedCount >= totalLimit;
+
+              final bool isActive =
+                  (c['status'] == 'Active' ||
+                      c['status'] == null) &&
+                  !isExpired &&
+                  !isLimitReached;
+
+              final expiryText =
+                  endDate != null
+                      ? "Valid till ${endDate.toLocal().toString().split(' ')[0]}"
+                      : "No Expiry";
 
               String statusTag = "Active";
+
               if (isExpired) {
                 statusTag = "Expired";
               } else if (isLimitReached) {
@@ -126,29 +170,59 @@ class _OfferScreenState extends State<OfferScreen> {
                 "title": title,
                 "subtitle": subtitle,
                 "expiry": expiryText,
-                "isBest": code == 'GET100' || code == 'WELCOME100',
+                "isBest":
+                    code == 'GET100' ||
+                    code == 'WELCOME100',
                 "category": "All",
                 "statusTag": statusTag,
                 "isExpired": isExpired,
                 "isLimitReached": isLimitReached,
                 "usedCount": usedCount,
                 "totalLimit": totalLimit,
-                "type": c['discount_type']?.toString().toLowerCase() == 'percentage' ? 'percent' : 'flat',
-                "discount_value": double.tryParse(c['discount_value']?.toString() ?? '0') ?? 0.0,
-                "min_order": double.tryParse(c['min_order']?.toString() ?? '0') ?? 0.0,
+                "type":
+                    c['discount_type']
+                                ?.toString()
+                                .toLowerCase() ==
+                            'percentage'
+                        ? 'percent'
+                        : 'flat',
+                "discount_value":
+                    double.tryParse(
+                          c['discount_value']
+                                  ?.toString() ??
+                              '0',
+                        ) ??
+                        0.0,
+                "min_order":
+                    double.tryParse(
+                          c['min_order']
+                                  ?.toString() ??
+                              '0',
+                        ) ??
+                        0.0,
               };
 
               if (isActive) {
                 activeList.add(offerMap);
               }
+
               historyList.add(offerMap);
             }
 
             if (!mounted) return;
 
             setState(() {
-              _availableOffers = activeList.isNotEmpty ? activeList : historyList.where((o) => !o['isExpired']).toList();
+              _availableOffers =
+                  activeList.isNotEmpty
+                      ? activeList
+                      : historyList
+                          .where(
+                            (o) => !o['isExpired'],
+                          )
+                          .toList();
+
               _myOffers = historyList;
+
               _isLoading = false;
             });
 
@@ -177,8 +251,10 @@ class _OfferScreenState extends State<OfferScreen> {
         {
           "code": "GET100",
           "title": "Flat ₹100 OFF on All Rentals",
-          "subtitle": "Flat ₹100 off on your booking",
-          "expiry": "Valid till 31 Dec 2026",
+          "subtitle":
+              "Flat ₹100 off on your booking",
+          "expiry":
+              "Valid till 31 Dec 2026",
           "isBest": true,
           "category": "All",
           "type": "flat",
@@ -190,7 +266,8 @@ class _OfferScreenState extends State<OfferScreen> {
           "title": "Flat ₹50 OFF for New Users",
           "subtitle":
               "Get ₹50 off on your first ride",
-          "expiry": "Valid till 31 Dec 2026",
+          "expiry":
+              "Valid till 31 Dec 2026",
           "isBest": false,
           "category": "All",
           "type": "flat",
@@ -202,7 +279,8 @@ class _OfferScreenState extends State<OfferScreen> {
           "title": "Save ₹50 on Next 3 Rides",
           "subtitle":
               "Save ₹50 off on next rides",
-          "expiry": "Valid till 31 Dec 2026",
+          "expiry":
+              "Valid till 31 Dec 2026",
           "isBest": false,
           "category": "All",
           "type": "flat",
@@ -224,14 +302,14 @@ class _OfferScreenState extends State<OfferScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>>
-        displayedOffers = _showAvailableOffers
+        displayedOffers =
+        _showAvailableOffers
             ? _availableOffers
             : _myOffers;
 
-    // Filter offers according to selected category
-
     final List<Map<String, dynamic>>
-        filteredOffers = displayedOffers.where(
+        filteredOffers =
+        displayedOffers.where(
       (offer) {
         if (_selectedCategory == "All") {
           return true;
@@ -252,53 +330,59 @@ class _OfferScreenState extends State<OfferScreen> {
 
           children: [
             // =================================================
-            // REDESIGNED HEADER
+            // HEADER
             // =================================================
-                // =================================================
-                // PROMOTIONS & OFFERS HEADER
-                // =================================================
 
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    20,
-                    20,
-                    20,
-                    18,
+            Padding(
+              padding:
+                  const EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                18,
+              ),
+
+              child: const Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
+                children: [
+                  Text(
+                    "Promotions & Offers",
+
+                    style: TextStyle(
+                      color: darkText,
+                      fontSize: 26,
+                      fontWeight:
+                          FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
                   ),
 
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  SizedBox(height: 5),
 
-                    children: [
+                  Text(
+                    "Save more on every ride",
 
-                      Text(
-                        "Promotions & Offers",
-                        style: TextStyle(
-                          color: darkText,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-
-                      SizedBox(height: 5),
-
-                      Text(
-                        "Save more on every ride",
-                        style: TextStyle(
-                          color: secondaryText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                    style: TextStyle(
+                      color: secondaryText,
+                      fontSize: 12,
+                      fontWeight:
+                          FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
 
-                const SizedBox(height: 4),
+            const SizedBox(height: 4),
 
             // =================================================
-            // AVAILABLE OFFERS / MY OFFERS TABS
+            // AVAILABLE OFFERS / MY OFFERS
+            //
+            // NEW DESIGN:
+            // No white rounded selection box.
+            // Selected tab uses purple text + bottom indicator.
             // =================================================
 
             Padding(
@@ -310,22 +394,21 @@ class _OfferScreenState extends State<OfferScreen> {
               child: Container(
                 height: 48,
 
-                padding:
-                    const EdgeInsets.all(4),
-
                 decoration: BoxDecoration(
                   color: const Color(
                     0xFFF1F5F9,
                   ),
 
                   borderRadius:
-                      BorderRadius.circular(14),
+                      BorderRadius.circular(
+                    14,
+                  ),
                 ),
 
                 child: Row(
                   children: [
                     // =================================================
-                    // AVAILABLE OFFERS TAB
+                    // AVAILABLE OFFERS
                     // =================================================
 
                     Expanded(
@@ -337,117 +420,22 @@ class _OfferScreenState extends State<OfferScreen> {
                           });
                         },
 
-                        child: Container(
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                _showAvailableOffers
-                                    ? Colors.white
-                                    : Colors
-                                        .transparent,
+                        child: _buildOfferTab(
+                          title:
+                              "Available Offers",
 
-                            borderRadius:
-                                BorderRadius
-                                    .circular(10),
+                          count:
+                              _availableOffers
+                                  .length,
 
-                            boxShadow:
-                                _showAvailableOffers
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors
-                                              .black
-                                              .withValues(
-                                            alpha:
-                                                0.04,
-                                          ),
-
-                                          blurRadius:
-                                              4,
-
-                                          offset:
-                                              const Offset(
-                                            0,
-                                            2,
-                                          ),
-                                        ),
-                                      ]
-                                    : null,
-                          ),
-
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment
-                                    .center,
-
-                            children: [
-                              Text(
-                                "Available Offers",
-
-                                style: TextStyle(
-                                  color:
-                                      _showAvailableOffers
-                                          ? brandPurple
-                                          : Colors
-                                              .grey
-                                              .shade600,
-
-                                  fontWeight:
-                                      FontWeight
-                                          .bold,
-
-                                  fontSize: 12,
-                                ),
-                              ),
-
-                              const SizedBox(
-                                width: 6,
-                              ),
-
-                              Container(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-
-                                decoration:
-                                    BoxDecoration(
-                                  color:
-                                      _showAvailableOffers
-                                          ? brandPurple
-                                          : Colors
-                                              .grey
-                                              .shade400,
-
-                                  shape:
-                                      BoxShape.circle,
-                                ),
-
-                                child: Text(
-                                  "${_availableOffers.length}",
-
-                                  style:
-                                      const TextStyle(
-                                    color:
-                                        Colors.white,
-
-                                    fontSize: 9,
-
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          selected:
+                              _showAvailableOffers,
                         ),
                       ),
                     ),
 
                     // =================================================
-                    // MY OFFERS TAB
+                    // MY OFFERS
                     // =================================================
 
                     Expanded(
@@ -459,111 +447,14 @@ class _OfferScreenState extends State<OfferScreen> {
                           });
                         },
 
-                        child: Container(
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                !_showAvailableOffers
-                                    ? Colors.white
-                                    : Colors
-                                        .transparent,
+                        child: _buildOfferTab(
+                          title: "My Offers",
 
-                            borderRadius:
-                                BorderRadius
-                                    .circular(10),
+                          count:
+                              _myOffers.length,
 
-                            boxShadow:
-                                !_showAvailableOffers
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors
-                                              .black
-                                              .withValues(
-                                            alpha:
-                                                0.04,
-                                          ),
-
-                                          blurRadius:
-                                              4,
-
-                                          offset:
-                                              const Offset(
-                                            0,
-                                            2,
-                                          ),
-                                        ),
-                                      ]
-                                    : null,
-                          ),
-
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment
-                                    .center,
-
-                            children: [
-                              Text(
-                                "My Offers",
-
-                                style: TextStyle(
-                                  color:
-                                      !_showAvailableOffers
-                                          ? brandPurple
-                                          : Colors
-                                              .grey
-                                              .shade600,
-
-                                  fontWeight:
-                                      FontWeight
-                                          .bold,
-
-                                  fontSize: 12,
-                                ),
-                              ),
-
-                              const SizedBox(
-                                width: 6,
-                              ),
-
-                              Container(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-
-                                decoration:
-                                    BoxDecoration(
-                                  color:
-                                      !_showAvailableOffers
-                                          ? brandPurple
-                                          : Colors
-                                              .grey
-                                              .shade400,
-
-                                  shape:
-                                      BoxShape.circle,
-                                ),
-
-                                child: Text(
-                                  "${_myOffers.length}",
-
-                                  style:
-                                      const TextStyle(
-                                    color:
-                                        Colors.white,
-
-                                    fontSize: 9,
-
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          selected:
+                              !_showAvailableOffers,
                         ),
                       ),
                     ),
@@ -575,11 +466,15 @@ class _OfferScreenState extends State<OfferScreen> {
             const SizedBox(height: 16),
 
             // =================================================
-            // SCROLLABLE SCREEN CONTENT
+            // SCROLLABLE CONTENT
             // =================================================
 
             Expanded(
-              child: SingleChildScrollView(
+              child:
+                  SingleChildScrollView(
+                physics:
+                    const BouncingScrollPhysics(),
+
                 child: Column(
                   children: [
                     // =================================================
@@ -588,7 +483,8 @@ class _OfferScreenState extends State<OfferScreen> {
 
                     Padding(
                       padding:
-                          const EdgeInsets.symmetric(
+                          const EdgeInsets
+                              .symmetric(
                         horizontal: 20,
                       ),
 
@@ -612,18 +508,24 @@ class _OfferScreenState extends State<OfferScreen> {
                             ],
 
                             begin:
-                                Alignment.topLeft,
+                                Alignment
+                                    .topLeft,
 
-                            end: Alignment
-                                .bottomRight,
+                            end:
+                                Alignment
+                                    .bottomRight,
                           ),
 
                           borderRadius:
                               BorderRadius
-                                  .circular(24),
+                                  .circular(
+                            24,
+                          ),
 
-                          border: Border.all(
-                            color: const Color(
+                          border:
+                              Border.all(
+                            color:
+                                const Color(
                               0xFFDDD6FE,
                             ),
                           ),
@@ -631,6 +533,10 @@ class _OfferScreenState extends State<OfferScreen> {
 
                         child: Row(
                           children: [
+                            // =================================================
+                            // PROMO TEXT
+                            // =================================================
+
                             Expanded(
                               flex: 5,
 
@@ -646,11 +552,9 @@ class _OfferScreenState extends State<OfferScreen> {
                                     style:
                                         TextStyle(
                                       fontSize: 16,
-
                                       fontWeight:
                                           FontWeight
                                               .bold,
-
                                       color:
                                           darkText,
                                     ),
@@ -666,10 +570,8 @@ class _OfferScreenState extends State<OfferScreen> {
                                     style:
                                         TextStyle(
                                       fontSize: 10,
-
                                       color:
                                           secondaryText,
-
                                       fontWeight:
                                           FontWeight
                                               .w500,
@@ -681,7 +583,8 @@ class _OfferScreenState extends State<OfferScreen> {
                                   ),
 
                                   ElevatedButton(
-                                    onPressed: () {},
+                                    onPressed:
+                                        () {},
 
                                     style:
                                         ElevatedButton
@@ -690,7 +593,8 @@ class _OfferScreenState extends State<OfferScreen> {
                                           brandPurple,
 
                                       foregroundColor:
-                                          Colors.white,
+                                          Colors
+                                              .white,
 
                                       elevation: 0,
 
@@ -699,7 +603,6 @@ class _OfferScreenState extends State<OfferScreen> {
                                               .symmetric(
                                         horizontal:
                                             14,
-
                                         vertical: 8,
                                       ),
 
@@ -730,7 +633,6 @@ class _OfferScreenState extends State<OfferScreen> {
                                               TextStyle(
                                             fontSize:
                                                 10,
-
                                             fontWeight:
                                                 FontWeight
                                                     .bold,
@@ -744,11 +646,10 @@ class _OfferScreenState extends State<OfferScreen> {
                                         Icon(
                                           Icons
                                               .arrow_forward_rounded,
-
                                           size: 10,
-
-                                          color: Colors
-                                              .white,
+                                          color:
+                                              Colors
+                                                  .white,
                                         ),
                                       ],
                                     ),
@@ -761,60 +662,27 @@ class _OfferScreenState extends State<OfferScreen> {
                               width: 12,
                             ),
 
+                            // =================================================
+                            // NEW PROMOTIONAL GRAPHIC
+                            //
+                            // Replaces gift_box_refer.png
+                            // No asset required.
+                            // =================================================
+
                             Expanded(
                               flex: 3,
 
-                              child: Image.asset(
-                                "assets/gift_box_refer.png",
-
-                                fit:
-                                    BoxFit.contain,
-
-                                errorBuilder:
-                                    (
-                                  context,
-                                  error,
-                                  stackTrace,
-                                ) {
-                                  return Container(
-                                    height: 100,
-
-                                    decoration:
-                                        BoxDecoration(
-                                      color: Colors
-                                          .white
-                                          .withValues(
-                                        alpha:
-                                            0.60,
-                                      ),
-
-                                      borderRadius:
-                                          BorderRadius
-                                              .circular(
-                                        18,
-                                      ),
-                                    ),
-
-                                    child:
-                                        const Icon(
-                                      Icons
-                                          .card_giftcard_rounded,
-
-                                      color:
-                                          brandPurple,
-
-                                      size: 50,
-                                    ),
-                                  );
-                                },
-                              ),
+                              child:
+                                  _buildPromoGraphic(),
                             ),
                           ],
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(
+                      height: 20,
+                    ),
 
                     // =================================================
                     // OFFER CATEGORIES
@@ -865,7 +733,9 @@ class _OfferScreenState extends State<OfferScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(
+                      height: 16,
+                    ),
 
                     // =================================================
                     // OFFERS
@@ -873,7 +743,8 @@ class _OfferScreenState extends State<OfferScreen> {
 
                     Padding(
                       padding:
-                          const EdgeInsets.symmetric(
+                          const EdgeInsets
+                              .symmetric(
                         horizontal: 20,
                       ),
 
@@ -893,25 +764,63 @@ class _OfferScreenState extends State<OfferScreen> {
                                 ),
                               ),
                             )
-                          : filteredOffers.isEmpty
+                          : filteredOffers
+                                  .isEmpty
                               ? Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 40),
-                                  child: Column(
+                                  padding:
+                                      const EdgeInsets
+                                          .symmetric(
+                                    vertical: 40,
+                                  ),
+
+                                  child:
+                                      Column(
                                     children: [
                                       Image.asset(
                                         'assets/empty-states/no-search-results.png',
-                                        height: 120,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Icon(Icons.search_off_rounded, size: 60, color: Colors.grey),
+
+                                        height:
+                                            120,
+
+                                        fit: BoxFit
+                                            .contain,
+
+                                        errorBuilder:
+                                            (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return const Icon(
+                                            Icons
+                                                .search_off_rounded,
+                                            size:
+                                                60,
+                                            color:
+                                                Colors.grey,
+                                          );
+                                        },
                                       ),
-                                      const SizedBox(height: 16),
+
+                                      const SizedBox(
+                                        height:
+                                            16,
+                                      ),
+
                                       const Text(
                                         "No offers available for this category",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: secondaryText,
-                                          fontWeight: FontWeight.w600,
+
+                                        textAlign:
+                                            TextAlign
+                                                .center,
+
+                                        style:
+                                            TextStyle(
+                                          color:
+                                              secondaryText,
+                                          fontWeight:
+                                              FontWeight
+                                                  .w600,
                                         ),
                                       ),
                                     ],
@@ -946,22 +855,26 @@ class _OfferScreenState extends State<OfferScreen> {
 
                       child: Container(
                         padding:
-                            const EdgeInsets.all(
-                          16,
-                        ),
+                            const EdgeInsets
+                                .all(16),
 
                         decoration:
                             BoxDecoration(
-                          color: const Color(
+                          color:
+                              const Color(
                             0xFFF5F3FF,
                           ),
 
                           borderRadius:
                               BorderRadius
-                                  .circular(20),
+                                  .circular(
+                            20,
+                          ),
 
-                          border: Border.all(
-                            color: const Color(
+                          border:
+                              Border.all(
+                            color:
+                                const Color(
                               0xFFDDD6FE,
                             ),
                           ),
@@ -978,19 +891,17 @@ class _OfferScreenState extends State<OfferScreen> {
                                   const BoxDecoration(
                                 color:
                                     brandPurple,
-
                                 shape:
-                                    BoxShape.circle,
+                                    BoxShape
+                                        .circle,
                               ),
 
                               child:
                                   const Icon(
                                 Icons
                                     .shield_outlined,
-
                                 color:
                                     Colors.white,
-
                                 size: 20,
                               ),
                             ),
@@ -1012,11 +923,9 @@ class _OfferScreenState extends State<OfferScreen> {
                                     style:
                                         TextStyle(
                                       fontSize: 13,
-
                                       fontWeight:
                                           FontWeight
                                               .bold,
-
                                       color:
                                           darkText,
                                     ),
@@ -1032,10 +941,8 @@ class _OfferScreenState extends State<OfferScreen> {
                                     style:
                                         TextStyle(
                                       fontSize: 9,
-
                                       color:
                                           secondaryText,
-
                                       fontWeight:
                                           FontWeight
                                               .w500,
@@ -1055,11 +962,9 @@ class _OfferScreenState extends State<OfferScreen> {
                                 style:
                                     TextStyle(
                                   fontSize: 11,
-
                                   fontWeight:
                                       FontWeight
                                           .bold,
-
                                   color:
                                       brandPurple,
                                 ),
@@ -1070,13 +975,273 @@ class _OfferScreenState extends State<OfferScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 30),
+                    const SizedBox(
+                      height: 30,
+                    ),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // =================================================
+  // NEW OFFER TAB DESIGN
+  // =================================================
+
+  Widget _buildOfferTab({
+    required String title,
+    required int count,
+    required bool selected,
+  }) {
+    return AnimatedContainer(
+      duration:
+          const Duration(milliseconds: 180),
+
+      curve: Curves.easeOut,
+
+      margin:
+          const EdgeInsets.symmetric(
+        horizontal: 5,
+      ),
+
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+
+        border: Border(
+          bottom: BorderSide(
+            color: selected
+                ? brandPurple
+                : Colors.transparent,
+
+            width: 3,
+          ),
+        ),
+      ),
+
+      child: Column(
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+
+        children: [
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment.center,
+
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Text(
+                title,
+
+                style: TextStyle(
+                  color: selected
+                      ? brandPurple
+                      : const Color(
+                          0xFF64748B,
+                        ),
+
+                  fontWeight:
+                      selected
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+
+                  fontSize: 12,
+                ),
+              ),
+
+              const SizedBox(
+                width: 6,
+              ),
+
+              // Small count badge
+              Container(
+                constraints:
+                    const BoxConstraints(
+                  minWidth: 20,
+                  minHeight: 20,
+                ),
+
+                alignment:
+                    Alignment.center,
+
+                decoration:
+                    BoxDecoration(
+                  color: selected
+                      ? brandPurple
+                      : const Color(
+                          0xFFE2E8F0,
+                        ),
+
+                  shape:
+                      BoxShape.circle,
+                ),
+
+                child: Text(
+                  "$count",
+
+                  style: TextStyle(
+                    color: selected
+                        ? Colors.white
+                        : const Color(
+                            0xFF64748B,
+                          ),
+
+                    fontSize: 9,
+
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =================================================
+  // NEW PROMOTIONAL GRAPHIC
+  // =================================================
+
+  Widget _buildPromoGraphic() {
+    return SizedBox(
+      height: 110,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Soft background glow
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient:
+                  const LinearGradient(
+                colors: [
+                  Color(0xFFE9DDFF),
+                  Color(0xFFF5F3FF),
+                ],
+                begin:
+                    Alignment.topLeft,
+                end:
+                    Alignment.bottomRight,
+              ),
+            ),
+          ),
+
+          // Main offer ticket
+          Transform.rotate(
+            angle: -0.10,
+            child: Container(
+              width: 82,
+              height: 58,
+              decoration: BoxDecoration(
+                gradient:
+                    const LinearGradient(
+                  colors: [
+                    Color(0xFF6D3FE8),
+                    Color(0xFF4313B8),
+                  ],
+                  begin:
+                      Alignment.topLeft,
+                  end:
+                      Alignment.bottomRight,
+                ),
+
+                borderRadius:
+                    BorderRadius.circular(
+                  16,
+                ),
+
+                boxShadow: [
+                  BoxShadow(
+                    color: brandPurple
+                        .withOpacity(0.20),
+                    blurRadius: 12,
+                    offset:
+                        const Offset(0, 6),
+                  ),
+                ],
+              ),
+
+              child: const Center(
+                child: Icon(
+                  Icons
+                      .local_offer_rounded,
+                  color: Colors.white,
+                  size: 34,
+                ),
+              ),
+            ),
+          ),
+
+          // Percentage badge
+          Positioned(
+            right: 8,
+            top: 6,
+            child: Container(
+              width: 36,
+              height: 36,
+
+              decoration:
+                  const BoxDecoration(
+                color: Color(
+                  0xFF8CE600,
+                ),
+                shape:
+                    BoxShape.circle,
+              ),
+
+              child: const Center(
+                child: Text(
+                  "%",
+                  style:
+                      TextStyle(
+                    color:
+                        darkText,
+                    fontSize: 18,
+                    fontWeight:
+                        FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Small decorative circle
+          Positioned(
+            left: 4,
+            bottom: 8,
+            child: Container(
+              width: 18,
+              height: 18,
+
+              decoration:
+                  const BoxDecoration(
+                color:
+                    Color(0xFFFFD54F),
+                shape:
+                    BoxShape.circle,
+              ),
+            ),
+          ),
+
+          // Small sparkle
+          const Positioned(
+            right: 3,
+            bottom: 12,
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: Color(0xFFFFC107),
+              size: 22,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1096,9 +1261,12 @@ class _OfferScreenState extends State<OfferScreen> {
         ? brandPurple
         : Colors.grey.shade600;
 
-    final Color borderColor = isSelected
-        ? brandPurple
-        : const Color(0xFFE2E8F0);
+    final Color borderColor =
+        isSelected
+            ? brandPurple
+            : const Color(
+                0xFFE2E8F0,
+              );
 
     return GestureDetector(
       onTap: () {
@@ -1122,19 +1290,25 @@ class _OfferScreenState extends State<OfferScreen> {
 
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF5F3FF)
+              ? const Color(
+                  0xFFF5F3FF,
+                )
               : Colors.white,
 
           borderRadius:
-              BorderRadius.circular(11),
+              BorderRadius.circular(
+            11,
+          ),
 
-          border: Border.all(
+          border:
+              Border.all(
             color: borderColor,
           ),
         ),
 
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
 
           children: [
             Icon(
@@ -1143,16 +1317,16 @@ class _OfferScreenState extends State<OfferScreen> {
               size: 16,
             ),
 
-            const SizedBox(width: 6),
+            const SizedBox(
+              width: 6,
+            ),
 
             Text(
               label,
 
               style: TextStyle(
                 color: color,
-
                 fontSize: 11,
-
                 fontWeight:
                     FontWeight.bold,
               ),
@@ -1181,10 +1355,13 @@ class _OfferScreenState extends State<OfferScreen> {
         icon =
             Icons.electric_scooter_rounded;
 
-        iconColor = brandPurple;
+        iconColor =
+            brandPurple;
 
         iconBackground =
-            const Color(0xFFF5F3FF);
+            const Color(
+          0xFFF5F3FF,
+        );
 
         break;
 
@@ -1193,22 +1370,30 @@ class _OfferScreenState extends State<OfferScreen> {
             Icons.electric_bike_rounded;
 
         iconColor =
-            const Color(0xFF65A30D);
+            const Color(
+          0xFF65A30D,
+        );
 
         iconBackground =
-            const Color(0xFFF7FEE7);
+            const Color(
+          0xFFF7FEE7,
+        );
 
         break;
 
       case "wallet":
-        icon = Icons
-            .account_balance_wallet_rounded;
+        icon =
+            Icons.account_balance_wallet_rounded;
 
         iconColor =
-            const Color(0xFF1D4ED8);
+            const Color(
+          0xFF1D4ED8,
+        );
 
         iconBackground =
-            const Color(0xFFEFF6FF);
+            const Color(
+          0xFFEFF6FF,
+        );
 
         break;
 
@@ -1217,10 +1402,14 @@ class _OfferScreenState extends State<OfferScreen> {
             Icons.directions_car_rounded;
 
         iconColor =
-            const Color(0xFF854D0E);
+            const Color(
+          0xFF854D0E,
+        );
 
         iconBackground =
-            const Color(0xFFFEF9C3);
+            const Color(
+          0xFFFEF9C3,
+        );
 
         break;
 
@@ -1229,10 +1418,14 @@ class _OfferScreenState extends State<OfferScreen> {
             Icons.percent_rounded;
 
         iconColor =
-            const Color(0xFF16A34A);
+            const Color(
+          0xFF16A34A,
+        );
 
         iconBackground =
-            const Color(0xFFECFDF5);
+            const Color(
+          0xFFECFDF5,
+        );
     }
 
     return Container(
@@ -1248,27 +1441,27 @@ class _OfferScreenState extends State<OfferScreen> {
         color: Colors.white,
 
         borderRadius:
-            BorderRadius.circular(20),
+            BorderRadius.circular(
+          20,
+        ),
 
-        border: Border.all(
+        border:
+            Border.all(
           color:
-              const Color(0xFFE2E8F0),
+              const Color(
+            0xFFE2E8F0,
+          ),
         ),
 
         boxShadow: [
           BoxShadow(
             color: Colors.black
-                .withValues(
-              alpha: 0.02,
-            ),
+                .withOpacity(0.02),
 
             blurRadius: 10,
 
             offset:
-                const Offset(
-              0,
-              4,
-            ),
+                const Offset(0, 4),
           ),
         ],
       ),
@@ -1278,9 +1471,9 @@ class _OfferScreenState extends State<OfferScreen> {
             CrossAxisAlignment.start,
 
         children: [
-          // Best-offer label
-
-          if (offer["isBest"] == true) ...[
+          // Best offer label
+          if (offer["isBest"] ==
+              true) ...[
             Container(
               padding:
                   const EdgeInsets
@@ -1291,7 +1484,8 @@ class _OfferScreenState extends State<OfferScreen> {
 
               decoration:
                   BoxDecoration(
-                color: const Color(
+                color:
+                    const Color(
                   0xFFF5F3FF,
                 ),
 
@@ -1300,35 +1494,37 @@ class _OfferScreenState extends State<OfferScreen> {
                         .circular(6),
               ),
 
-              child: const Text(
+              child:
+                  const Text(
                 "BEST OFFER",
 
-                style: TextStyle(
-                  color: brandPurple,
-
+                style:
+                    TextStyle(
+                  color:
+                      brandPurple,
                   fontSize: 8,
-
                   fontWeight:
                       FontWeight.bold,
                 ),
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(
+              height: 8,
+            ),
           ],
 
           Row(
             crossAxisAlignment:
-                CrossAxisAlignment.start,
+                CrossAxisAlignment
+                    .start,
 
             children: [
               // Offer icon
-
               Container(
                 padding:
-                    const EdgeInsets.all(
-                  10,
-                ),
+                    const EdgeInsets
+                        .all(10),
 
                 decoration:
                     BoxDecoration(
@@ -1341,18 +1537,17 @@ class _OfferScreenState extends State<OfferScreen> {
 
                 child: Icon(
                   icon,
-
                   color:
                       iconColor,
-
                   size: 22,
                 ),
               ),
 
-              const SizedBox(width: 14),
+              const SizedBox(
+                width: 14,
+              ),
 
               // Offer information
-
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -1445,10 +1640,11 @@ class _OfferScreenState extends State<OfferScreen> {
                 ),
               ),
 
-              const SizedBox(width: 8),
+              const SizedBox(
+                width: 8,
+              ),
 
               // Coupon and Apply button
-
               Column(
                 children: [
                   _buildDashedCodeBox(
@@ -1524,9 +1720,12 @@ class _OfferScreenState extends State<OfferScreen> {
     String code,
   ) {
     return CustomPaint(
-      painter: DashedRectPainter(
+      painter:
+          DashedRectPainter(
         color:
-            const Color(0xFFD9F99D),
+            const Color(
+          0xFFD9F99D,
+        ),
 
         strokeWidth: 1.5,
 
@@ -1535,23 +1734,30 @@ class _OfferScreenState extends State<OfferScreen> {
 
       child: Container(
         padding:
-            const EdgeInsets.symmetric(
+            const EdgeInsets
+                .symmetric(
           horizontal: 12,
           vertical: 7,
         ),
 
-        decoration: BoxDecoration(
+        decoration:
+            BoxDecoration(
           color:
-              const Color(0xFFF7FEE7),
+              const Color(
+            0xFFF7FEE7,
+          ),
 
           borderRadius:
-              BorderRadius.circular(7),
+              BorderRadius.circular(
+            7,
+          ),
         ),
 
         child: Text(
           code,
 
-          style: const TextStyle(
+          style:
+              const TextStyle(
             color: darkText,
 
             fontWeight:
@@ -1581,7 +1787,9 @@ class DashedRectPainter
 
   DashedRectPainter({
     this.color =
-        const Color(0xFFDDD6FE),
+        const Color(
+      0xFFDDD6FE,
+    ),
     this.strokeWidth = 1,
     this.gap = 4,
   });
@@ -1591,43 +1799,46 @@ class DashedRectPainter
     Canvas canvas,
     Size size,
   ) {
-    final Paint paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style =
-          PaintingStyle.stroke;
+    final Paint paint =
+        Paint()
+          ..color = color
+          ..strokeWidth =
+              strokeWidth
+          ..style =
+              PaintingStyle.stroke;
 
-    final Path path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            0,
-            0,
-            size.width,
-            size.height,
-          ),
+    final Path path =
+        Path()
+          ..addRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(
+                0,
+                0,
+                size.width,
+                size.height,
+              ),
+              const Radius.circular(
+                7,
+              ),
+            ),
+          );
 
-          const Radius.circular(
-            7,
-          ),
-        ),
-      );
-
-    for (final PathMetric pathMetric
+    for (final PathMetric
+        pathMetric
         in path.computeMetrics()) {
       double distance = 0;
 
       while (
           distance <
               pathMetric.length) {
-        final double length = gap;
+        final double length =
+            gap;
 
         canvas.drawPath(
           pathMetric.extractPath(
             distance,
             distance + length,
           ),
-
           paint,
         );
 

@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
+import '../../../support/presentation/screens/help_screen.dart';
 
 class RideHistoryScreen extends StatefulWidget {
   const RideHistoryScreen({super.key});
@@ -793,7 +794,14 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
             ),
           ),
           OutlinedButton(
-            onPressed: () {},
+            onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HelpScreen(),
+        ),
+      );
+    },
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF16A34A),
               side: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
