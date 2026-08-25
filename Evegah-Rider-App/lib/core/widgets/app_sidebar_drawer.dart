@@ -53,11 +53,11 @@ class AppSidebarDrawer extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(
-              22,
-              MediaQuery.of(context).padding.top + 16,
-              20,
-              24,
-            ),
+            22,
+            MediaQuery.of(context).padding.top + 45,
+            20,
+            30,
+),
             decoration: const BoxDecoration(
               color: Color(0xFF24105E),
               borderRadius: BorderRadius.only(
@@ -67,21 +67,7 @@ class AppSidebarDrawer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Brand logo image
-                Image.asset(
-                  "assets/brand.png",
-                  height: 32,
-                  errorBuilder: (_, __, ___) => const Text(
-                    "EVEGAH",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
+                
                 FutureBuilder<Map<String, String>>(
                   future: SessionService().getUserProfile(),
                   builder: (context, snapshot) {

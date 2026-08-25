@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   
   // Profile Completion Controllers
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _ageController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   String _selectedGender = "Male";
 
@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final name = profile['name'] != null && profile['name']!.isNotEmpty ? profile['name']! : "Evegah Rider";
     await _handleLoginSuccess(
       name: name,
-      age: profile['age'] ?? "24",
+      dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
       address: profile['address'] ?? "Vadodara, Gujarat",
       gender: profile['gender'] ?? "Male",
     );
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       c.dispose();
     }
     _nameController.dispose();
-    _ageController.dispose();
+    _dobController.dispose();
     _addressController.dispose();
     _animController.dispose();
     super.dispose();
@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final profile = await SessionService().getUserProfile();
       await _handleLoginSuccess(
         name: profile['name'] ?? "Evegah Rider",
-        age: profile['age'] ?? "24",
+        dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
         address: profile['address'] ?? "Vadodara, Gujarat",
         gender: profile['gender'] ?? "Male",
       );
@@ -161,15 +161,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _handleStep3Submit() async {
     final name = _nameController.text.trim();
-    final age = _ageController.text.trim();
+    final dateOfBirth = _dobController.text.trim();
     final address = _addressController.text.trim();
 
     if (name.isEmpty) {
       _showSnackBar("Please enter your full name");
       return;
     }
-    if (age.isEmpty) {
-      _showSnackBar("Please enter your age");
+    if (dateOfBirth.isEmpty) {
+      _showSnackBar("Please enter your date of birth");
       return;
     }
     if (address.isEmpty) {
@@ -179,12 +179,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     setState(() => _isLoading = true);
 
-    await _handleLoginSuccess(name: name, age: age, address: address, gender: _selectedGender);
+    await _handleLoginSuccess(name: name, dateOfBirth: dateOfBirth, address: address, gender: _selectedGender);
   }
 
   Future<void> _handleLoginSuccess({
     String name = "Evegah Rider",
-    String age = "24",
+    String dateOfBirth = "",
     String address = "Vadodara, Gujarat",
     String gender = "Male",
   }) async {
@@ -196,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     await session.saveUserProfile(
       name: name,
       gender: gender,
-      age: age,
+      age: dateOfBirth,
       address: address,
     );
 
@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     profileService.userName = name;
     profileService.phoneNumber = mobileStr;
     profileService.gender = gender;
-    profileService.age = age;
+    profileService.dateOfBirth = dateOfBirth;
     profileService.address = address;
 
     try {
@@ -216,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           'name': name,
           'mobile': mobileStr,
           'address': address,
-          'age': age,
+          'dateOfBirth': dateOfBirth,
           'gender': gender,
         }),
       ).timeout(const Duration(seconds: 4));
@@ -281,7 +281,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     final name = profile['name'] != null && profile['name']!.isNotEmpty ? profile['name']! : "Evegah Rider";
                     await _handleLoginSuccess(
                       name: name,
-                      age: profile['age'] ?? "24",
+                      dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
                       address: profile['address'] ?? "Vadodara, Gujarat",
                       gender: profile['gender'] ?? "Male",
                     );
@@ -464,26 +464,52 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: "Enter your phone number",
-                    hintStyle: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w400,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                ),
-              ),
+  child: TextField(
+    controller: _phoneController,
+
+    keyboardType: TextInputType.phone,
+
+    cursorColor: const Color(0xFF4F2DA1),
+
+    style: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: Color(0xFF0F172A),
+    ),
+
+    decoration: InputDecoration(
+
+      hintText: "Enter your phone number",
+
+      hintStyle: const TextStyle(
+        fontSize: 14,
+        color: Color(0xFF94A3B8),
+        fontWeight: FontWeight.w400,
+      ),
+      
+
+      contentPadding:
+          EdgeInsets.zero,
+
+      isDense: true,
+
+      // removes inner outline completely
+      filled: false,
+
+      fillColor: Colors.transparent,
+      border: InputBorder.none,
+
+      enabledBorder:
+          InputBorder.none,
+
+      focusedBorder:
+          InputBorder.none,
+
+      disabledBorder:
+          InputBorder.none,
+    ),
+  ),
+),
               const SizedBox(width: 14),
             ],
           ),
@@ -804,10 +830,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
         const SizedBox(height: 12),
 
-        // Age
-        const Text("Age", style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        // Date of Birth
+        const Text(
+          "Date of Birth",
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+          ),
+        ),
         const SizedBox(height: 6),
-        _buildTextField(_ageController, "Enter age (e.g. 24)", Icons.cake_outlined, keyboardType: TextInputType.number),
+        _buildDateOfBirthField(),
         const SizedBox(height: 12),
 
         // Address with Google Maps Autocomplete & GPS Fetch
@@ -835,60 +868,118 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
         const SizedBox(height: 6),
         Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFC),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+  height: 48,
+  decoration: BoxDecoration(
+    color: const Color(0xFFFAFAFC),
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(
+      color: const Color(0xFFE2E8F0),
+      width: 1,
+    ),
+  ),
+  child: Row(
+    children: [
+      const SizedBox(width: 12),
+
+      const Icon(
+        Icons.location_on_outlined,
+        color: Color(0xFF64748B),
+        size: 21,
+      ),
+
+      const SizedBox(width: 10),
+
+      Expanded(
+        child: TextField(
+          controller: _addressController,
+
+          keyboardType: TextInputType.streetAddress,
+          textInputAction: TextInputAction.done,
+
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF172033),
           ),
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              const Icon(Icons.location_on_outlined, color: Color(0xFF64748B), size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _addressController,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                  onChanged: (val) async {
-                    if (val.trim().isEmpty) {
-                      setState(() {
-                        _addressPredictions = [];
-                        _isSearchingAddress = false;
-                      });
-                      return;
-                    }
-                    setState(() => _isSearchingAddress = true);
-                    final predictions = await GooglePlacesService().searchPlaces(val);
-                    if (mounted) {
-                      setState(() {
-                        _addressPredictions = predictions;
-                        _isSearchingAddress = false;
-                      });
-                    }
-                  },
-                  decoration: const InputDecoration(
-                    hintText: "Enter society name, area or city",
-                    hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8), fontWeight: FontWeight.w400),
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                ),
-              ),
-              if (_isSearchingAddress)
-                const Padding(
-                  padding: EdgeInsets.only(right: 12),
-                  child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F2DA1))),
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.map_rounded, color: Color(0xFF4F2DA1), size: 18),
-                  tooltip: "Google Maps Location",
-                  onPressed: _fetchGpsLocation,
-                ),
-            ],
+
+          cursorColor: const Color(0xFF4F2DA1),
+
+          decoration: const InputDecoration(
+            hintText: 'Enter society name, area or city',
+            hintStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF94A3B8),
+            ),
+
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+
+            filled: false,
+            fillColor: Colors.transparent,
+
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+
+          onChanged: (value) async {
+            if (value.trim().isEmpty) {
+              setState(() {
+                _addressPredictions = [];
+                _isSearchingAddress = false;
+              });
+              return;
+            }
+
+            setState(() {
+              _isSearchingAddress = true;
+            });
+
+            final predictions =
+                await GooglePlacesService().searchPlaces(value);
+
+            if (!mounted) return;
+
+            setState(() {
+              _addressPredictions = predictions;
+              _isSearchingAddress = false;
+            });
+          },
+        ),
+      ),
+
+      if (_isSearchingAddress)
+        const Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: SizedBox(
+            width: 15,
+            height: 15,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF4F2DA1),
+            ),
+          ),
+        )
+      else
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: 44,
+            minHeight: 48,
+          ),
+          onPressed: _fetchGpsLocation,
+          icon: const Icon(
+            Icons.map_rounded,
+            color: Color(0xFF4F2DA1),
+            size: 21,
           ),
         ),
+    ],
+  ),
+),
 
         // Floating Google Maps Autocomplete Predictions List
         if (_addressPredictions.isNotEmpty) ...[
@@ -965,6 +1056,129 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
+  Future<void> _selectDateOfBirth() async {
+    FocusScope.of(context).unfocus();
+
+    DateTime initialDate = DateTime(2002, 1, 1);
+    final existing = _parseDate(_dobController.text);
+    if (existing != null) {
+      initialDate = existing;
+    }
+
+    final DateTime today = DateTime.now();
+    final DateTime? selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isAfter(today) ? today : initialDate,
+      firstDate: DateTime(1900),
+      lastDate: today,
+      helpText: "SELECT DATE OF BIRTH",
+      cancelText: "CANCEL",
+      confirmText: "SELECT",
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF4F2DA1),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Color(0xFF0F172A),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (selectedDate == null) return;
+
+    setState(() {
+      _dobController.text =
+          "${selectedDate.day.toString().padLeft(2, '0')}/"
+          "${selectedDate.month.toString().padLeft(2, '0')}/"
+          "${selectedDate.year}";
+    });
+  }
+
+  DateTime? _parseDate(String value) {
+    try {
+      final parts = value.split('/');
+      if (parts.length == 3) {
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Widget _buildDateOfBirthField() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          const Icon(
+            Icons.calendar_month_outlined,
+            color: Color(0xFF64748B),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _dobController,
+              keyboardType: TextInputType.datetime,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+              decoration: const InputDecoration(
+                hintText: "DD / MM / YYYY",
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w400,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                filled: false,
+                fillColor: Colors.transparent,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _selectDateOfBirth,
+            child: Container(
+              width: 38,
+              height: 38,
+              margin: const EdgeInsets.only(right: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1EDFF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.calendar_month_rounded,
+                color: Color(0xFF4F2DA1),
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _fetchGpsLocation() async {
     setState(() => _isFetchingGpsLocation = true);
     try {
@@ -1020,6 +1234,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 hintText: hint,
                 hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8), fontWeight: FontWeight.w400),
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                filled: false,
+                fillColor: Colors.transparent,
                 isDense: true,
               ),
             ),

@@ -28,6 +28,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _carouselIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool hasActiveRide = false; // Double tap header icon toggles active ride view
   bool hasBookedRide = false;
   Map<String, dynamic>? activeBooking;
@@ -647,38 +648,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Speed / Running Metric Display
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.circle, color: Color(0xFF16A34A), size: 6),
-                          SizedBox(width: 4),
-                          Text(
-                            "In Motion",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF16A34A),
-                              fontWeight: FontWeight.bold,
-                            ),
+                    Flexible(
+                      flex: 5,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.circle,
+                                color: Color(0xFF16A34A),
+                                size: 6,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "In Motion",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF16A34A),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "24 km/h",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      flex: 5,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: const Text(
+                          "24 km/h",
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -766,6 +786,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         hasBookedRide && KycService().kycStatus != "Verified";
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppSidebarDrawer(),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -995,7 +1017,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 builder: (context) {
                   return InkWell(
                     onTap: () {
-                      Scaffold.of(context).openDrawer(); // Opens the sidebar
+                      _scaffoldKey.currentState?.openDrawer(); // Opens the sidebar
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
@@ -1210,7 +1232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             InkWell(
               onTap: () {
-                Scaffold.of(context).openDrawer();
+                _scaffoldKey.currentState?.openDrawer();
               },
               child: Row(
                 children: const [
@@ -1875,38 +1897,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xFFF7FBEF), // Soft green
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          _ImpactColumn(
-            Icons.eco_rounded,
-            "CO₂ Saved",
-            "12.4 kg",
-            "This Month",
-            Color(0xFF16A34A),
-          ),
-          _ImpactColumn(
-            Icons.park_rounded,
-            "Green Rides",
-            "8",
-            "This Month",
-            Color(0xFF16A34A),
-          ),
-          _ImpactColumn(
-            Icons.bolt_rounded,
-            "Energy Saved",
-            "18.6 kWh",
-            "This Month",
-            Color(0xFF16A34A),
-          ),
-          _ImpactColumn(
-            Icons.spa_rounded,
-            "Together We Save",
-            "",
-            "For a Better Tomorrow",
-            Color(0xFF16A34A),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: const [
+            _ImpactColumn(
+              Icons.eco_rounded,
+              "CO₂ Saved",
+              "12.4 kg",
+              "This Month",
+              Color(0xFF16A34A),
+            ),
+            SizedBox(width: 24),
+            _ImpactColumn(
+              Icons.park_rounded,
+              "Green Rides",
+              "8",
+              "This Month",
+              Color(0xFF16A34A),
+            ),
+            SizedBox(width: 24),
+            _ImpactColumn(
+              Icons.bolt_rounded,
+              "Energy Saved",
+              "18.6 kWh",
+              "This Month",
+              Color(0xFF16A34A),
+            ),
+            SizedBox(width: 24),
+            _ImpactColumn(
+              Icons.spa_rounded,
+              "Together We Save",
+              "",
+              "For a Better Tomorrow",
+              Color(0xFF16A34A),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1914,71 +1942,103 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Host Your EV & Earn Banner
   Widget _buildHostYourEvBanner() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F3FF),
         borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 70,
-            height: 50,
+          // EV icon
+          Container(
+            width: 52,
+            height: 52,
+            alignment: Alignment.center,
             child: Image.asset(
               "assets/MINK.png",
+              width: 44,
+              height: 44,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => const Icon(
                 Icons.directions_car_rounded,
-                size: 40,
+                size: 34,
                 color: Color(0xFF4313B8),
               ),
             ),
           ),
           const SizedBox(width: 10),
+
+          // Text + button area
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   "Host Your EV Fleet & Earn",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
+                    height: 1.15,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF200F54),
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
+                const SizedBox(height: 4),
+                const Text(
                   "Earn extra income by sharing your EV with trusted riders.",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 8.5,
+                    height: 1.2,
                     color: Color(0xFF64748B),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF200F54),
-              foregroundColor: Colors.white,
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
-                  "Become a Host",
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                const SizedBox(height: 8),
+
+                // Button gets its own row, so it never collides with text.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF200F54),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 7,
+                      ),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Become a Host",
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 3),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 13,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                SizedBox(width: 2),
-                Icon(Icons.chevron_right_rounded, size: 12),
               ],
             ),
           ),
@@ -1996,26 +2056,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          _TrustBadgeItem(
-            Icons.verified_user_outlined,
-            "100% Secure",
-            "Verified Rides",
-          ),
-          _TrustBadgeItem(
-            Icons.headset_mic_outlined,
-            "24/7 Support",
-            "We're here for you",
-          ),
-          _TrustBadgeItem(
-            Icons.grid_view_rounded,
-            "On-Road Assistance",
-            "Whenever you need",
-          ),
-          _TrustBadgeItem(Icons.sell_outlined, "Best Value", "For every ride"),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: const [
+            _TrustBadgeItem(
+              Icons.verified_user_outlined,
+              "100% Secure",
+              "Verified Rides",
+            ),
+            SizedBox(width: 18),
+            _TrustBadgeItem(
+              Icons.headset_mic_outlined,
+              "24/7 Support",
+              "We're here for you",
+            ),
+            SizedBox(width: 18),
+            _TrustBadgeItem(
+              Icons.grid_view_rounded,
+              "On-Road Assistance",
+              "Whenever you need",
+            ),
+            SizedBox(width: 18),
+            _TrustBadgeItem(Icons.sell_outlined, "Best Value", "For every ride"),
+          ],
+        ),
       ),
     );
   }

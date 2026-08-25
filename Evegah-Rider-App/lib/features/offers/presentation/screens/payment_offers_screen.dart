@@ -42,7 +42,7 @@ class PaymentOffersScreen extends StatefulWidget {
 }
 
 class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
-  String _appliedCode = 'GET100';
+  String _appliedCode = '';
   String _depositOption = 'Pay Now'; // 'Pay Now' or 'Pay Later'
   String _paymentMethod = 'Razorpay';
   Razorpay? _razorpay;
@@ -74,8 +74,9 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
   void initState() {
     super.initState();
     _basePrice = double.tryParse(widget.selectedVehicle["rentAmount"]?.toString() ?? '200') ?? 200.0;
-    _appliedCode = 'GET100';
-    _discount = 100.00;
+    // No coupon is applied by default. The user must explicitly tap Apply.
+    _appliedCode = '';
+    _discount = 0.0;
     _paymentMethod = 'Razorpay';
     _initRazorpaySafely();
   }
@@ -424,122 +425,253 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. Vehicle Details Card with 360 viewer link
+            // 1. Redesigned Vehicle Details Card
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A0F172A),
+                    blurRadius: 14,
+                    offset: Offset(0, 5),
+                  ),
+                ],
               ),
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Vehicle Image
-                      Stack(
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
+                  // Vehicle image + 360 viewer
+                  SizedBox(
+                    width: 112,
+                    height: 132,
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        Container(
+                          width: 112,
+                          height: 132,
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF6F7FB),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFE8EAF2)),
+                          ),
+                          child: Image.asset(
+                            widget.selectedVehicle["image"] ?? "assets/city.png",
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.electric_scooter_rounded,
+                              size: 52,
+                              color: Color(0xFF4313B8),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _show360Viewer,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 7),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Image.asset(
-                              widget.selectedVehicle["image"] ?? "assets/city.png",
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.electric_scooter,
-                                size: 50,
-                                color: Color(0xFF4313B8),
-                              ),
-                            ),
-                          ),
-                          // 360 Badge
-                          GestureDetector(
-                            onTap: _show360Viewer,
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF4313B8),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(Icons.threed_rotation, color: Colors.white, size: 10),
-                                  SizedBox(width: 2),
-                                  Text("360° View", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-                      // Details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  widget.selectedVehicle["evegah_model_name"] ?? widget.selectedVehicle["name"] ?? "Evegah City",
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                              color: const Color(0xFF4313B8),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x33000000),
+                                  blurRadius: 5,
+                                  offset: Offset(0, 2),
                                 ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFDCFCE7),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Text(
-                                    "Self-Drive",
-                                    style: TextStyle(color: Color(0xFF15803D), fontSize: 9, fontWeight: FontWeight.bold),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.threed_rotation_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  "360° View",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            _buildMiniSpec(Icons.bolt, "${widget.selectedVehicle["range"] ?? '80–100 km'} range"),
-                            _buildMiniSpec(Icons.speed, "${widget.selectedVehicle["speed"] ?? '45 km/h'} top speed"),
-                            _buildMiniSpec(Icons.airline_seat_recline_normal, "${widget.selectedVehicle["seats"] ?? '1'} Seat"),
-                            _buildMiniSpec(Icons.battery_charging_full, "${widget.selectedVehicle["battery_pct"] ?? 100}% charge"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Vehicle information
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // The zone/vehicle name gets the remaining width.
+                            // It may use a second line only when the available
+                            // width is not enough; otherwise it stays on one line.
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: Text(
+                                  widget.selectedVehicle["evegah_model_name"] ??
+                                      widget.selectedVehicle["name"] ??
+                                      widget.selectedZone,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    height: 1.15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF172033),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Keep the complete price + unit together on one line.
+                            // A fixed width reserves enough room for ₹499 / hr
+                            // without hiding the zone name unnecessarily.
+                            SizedBox(
+                              width: 78,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      "₹${(widget.selectedVehicle["realPrice"] ?? 29).toStringAsFixed(0)}",
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF4313B8),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      widget.zonePricing?['pricingModel'] == 'Hourly Based'
+                                          ? "/ hr"
+                                          : "/ day",
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: const TextStyle(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                      // Price
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            "₹${(widget.selectedVehicle["realPrice"] ?? 29).toStringAsFixed(0)}/${widget.zonePricing?['pricingModel'] == 'Hourly Based' ? 'hr' : 'day'}",
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFBBF7D0)),
+                        const SizedBox(height: 7),
+
+                        // Status row
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFECFDF3),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFBBF7D0),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    color: Color(0xFF16A34A),
+                                    size: 11,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "Available",
+                                    style: TextStyle(
+                                      color: Color(0xFF15803D),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: const Text(
-                              "Available",
-                              style: TextStyle(color: Color(0xFF16A34A), fontSize: 9, fontWeight: FontWeight.bold),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F0FF),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                "Self-Drive",
+                                style: TextStyle(
+                                  color: Color(0xFF5B21B6),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Vehicle specifications
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _buildVehicleSpecChip(
+                              Icons.bolt_rounded,
+                              widget.selectedVehicle["range"] ?? "80–100 km",
+                            ),
+                            _buildVehicleSpecChip(
+                              Icons.speed_rounded,
+                              widget.selectedVehicle["speed"] ?? "45 km/h",
+                            ),
+                            _buildVehicleSpecChip(
+                              Icons.airline_seat_recline_normal_rounded,
+                              "${widget.selectedVehicle["seats"] ?? '1'} Seat",
+                            ),
+                            _buildVehicleSpecChip(
+                              Icons.battery_charging_full_rounded,
+                              "${widget.selectedVehicle["battery_pct"] ?? 100}%",
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1045,6 +1177,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
         child: Row(
           children: [
             Expanded(
+              flex: 4,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -1063,8 +1196,9 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
+              flex: 5,
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
@@ -1075,22 +1209,53 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _depositOption == 'Pay Now' ? "Pay Now" : "Confirm Booking",
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.arrow_forward, size: 16),
-                    ],
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _depositOption == 'Pay Now' ? "Pay Now" : "Confirm Booking",
+                          maxLines: 1,
+                          softWrap: false,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.arrow_forward, size: 16),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildVehicleSpecChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F7FF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8E2FF)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFF5B21B6), size: 13),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
