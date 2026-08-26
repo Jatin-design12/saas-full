@@ -478,6 +478,7 @@ export default function AddZonePage() {
                   map_link: zone.map_link || '',
                   address: zone.address || '',
                   image_url: zone.image_url || '',
+                  phone: zone.phone || '',
                   open_time: zone.open_time || '06:00',
                   close_time: zone.close_time || '23:00',
                   is_24_hours: !!zone.is_24_hours
