@@ -58,22 +58,30 @@ class _KycUploadScreenState extends State<KycUploadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
-                  // HEADER
-                  const Text(
-                    "KYC Verification 🪪",
-
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  // HEADER BANNER
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/kyc_banner.png',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF24105E),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "KYC Verification 🪪",
+                            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
 
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    "Verify your identity to unlock EV rides",
-
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 24),
 
                   // STEPPER
                   Row(

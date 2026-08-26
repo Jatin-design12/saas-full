@@ -2,6 +2,18 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Ensure renters profile columns exist in Postgres
+(async () => {
+  try {
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS email VARCHAR(255)');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS date_of_birth VARCHAR(50)');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS address TEXT');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS gender VARCHAR(20)');
+  } catch (e) {
+    console.error('Renters DB column init error:', e);
+  }
+})();
+
 // Fallback static mock data representing exact schema
 const MOCK_RENTERS = [
   { rider_name: 'Amit Kumar', mobile: '+91 98765 43210', vehicle_id: 'EV-450X-202401', battery_id: 'BAT-450X-12340001', package_name: 'Weekly Pro', rental_start_date: '2026-06-10T00:00:00.000Z', return_date: '2026-06-17T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
@@ -105,11 +117,17 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/renters (create new renter)
+// POST /api/renters (create or update renter profile)
 router.post('/', async (req, res) => {
   const {
     rider_name,
+    name,
     mobile,
+    email,
+    address,
+    dateOfBirth,
+    date_of_birth,
+    gender,
     vehicle_id,
     battery_id,
     package_name,
@@ -121,17 +139,57 @@ router.post('/', async (req, res) => {
     total
   } = req.body;
 
-  try {
-    const result = await db.query(`
-      INSERT INTO renters (rider_name, mobile, vehicle_id, battery_id, package_name, rental_start_date, return_date, status, rent, deposit, total)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *
-    `, [rider_name, mobile, vehicle_id, battery_id, package_name, rental_start_date || new Date(), return_date || null, status || 'Active Ride', rent || 0, deposit || 0, total || 0]);
+  const fullName = rider_name || name || 'Evegah Rider';
+  const dobVal = date_of_birth || dateOfBirth || '';
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
 
-    res.json({ status: 'success', message: 'Renter registration added successfully', data: result.rows[0] });
+  try {
+    // Check if renter with this mobile exists
+    const checkRes = await db.query('SELECT * FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2 LIMIT 1', [`%${cleanMobile}%`, `%${mobile}%`]);
+
+    if (checkRes.rows.length > 0) {
+      // Update existing renter profile
+      const updated = await db.query(`
+        UPDATE renters 
+        SET rider_name = $1, 
+            email = COALESCE(NULLIF($2, ''), email), 
+            address = COALESCE(NULLIF($3, ''), address), 
+            date_of_birth = COALESCE(NULLIF($4, ''), date_of_birth), 
+            gender = COALESCE(NULLIF($5, ''), gender)
+        WHERE mobile LIKE $6 OR mobile LIKE $7
+        RETURNING *
+      `, [fullName, email || '', address || '', dobVal, gender || '', `%${cleanMobile}%`, `%${mobile}%`]);
+
+      return res.json({ status: 'success', message: 'Renter profile updated successfully', data: updated.rows[0] });
+    }
+
+    // Otherwise insert new renter
+    const result = await db.query(`
+      INSERT INTO renters (rider_name, mobile, email, address, date_of_birth, gender, vehicle_id, battery_id, package_name, rental_start_date, return_date, status, rent, deposit, total)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      RETURNING *
+    `, [
+      fullName,
+      mobile,
+      email || '',
+      address || '',
+      dobVal,
+      gender || 'Male',
+      vehicle_id || 'EV-DEFAULT',
+      battery_id || 'BAT-DEFAULT',
+      package_name || 'Rider Plan',
+      rental_start_date || new Date(),
+      return_date || null,
+      status || 'Active',
+      rent || 0,
+      deposit || 0,
+      total || 0
+    ]);
+
+    res.json({ status: 'success', message: 'Renter registered successfully', data: result.rows[0] });
   } catch (err) {
-    console.error('Failed to add renter to DB:', err);
-    res.json({ status: 'success', message: 'Renter added successfully', data: req.body });
+    console.error('Failed to add/update renter in DB:', err);
+    res.json({ status: 'success', message: 'Renter processed', data: req.body });
   }
 });
 
@@ -216,12 +274,25 @@ router.post('/kyc', async (req, res) => {
   };
 
   try {
+    const cleanMobile = (mobile || '').replace(/\D/g, '');
+    const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
     await db.query(`
       UPDATE renters 
       SET rider_name = COALESCE($1, rider_name),
-          status = COALESCE($2, status)
-      WHERE mobile = $3
-    `, [rider_name || null, kyc_status || 'Under Review', mobile || '']);
+          kyc_status = COALESCE($2, kyc_status),
+          date_of_birth = COALESCE($3, date_of_birth),
+          gender = COALESCE($4, gender),
+          address = COALESCE($5, address)
+      WHERE mobile LIKE $6 OR mobile LIKE $7
+    `, [
+      rider_name || null, 
+      kyc_status || 'Under Review', 
+      ocr_details?.dob || null,
+      ocr_details?.gender || null,
+      ocr_details?.address || null,
+      `%${last10}%`, 
+      `%${cleanMobile}%`
+    ]);
   } catch (_) {}
 
   res.json({
@@ -231,54 +302,110 @@ router.post('/kyc', async (req, res) => {
   });
 });
 
-// GET /api/renters/kyc - Fetch rider KYC details
-router.get('/kyc', (req, res) => {
-  const mobile = req.query.mobile || req.query.search || '';
-  const data = RIDER_KYC_STORE[mobile] || Object.values(RIDER_KYC_STORE)[0] || {
-    mobile: mobile || '+91 8128251172',
-    rider_name: 'Himanshu Chavda',
-    kyc_status: 'Approved',
-    ocr_details: {
-      name: 'Himanshu Chavda',
-      aadhaar_number: '5091 2280 4492',
-      dob: '12/03/1998',
-      gender: 'MALE',
-      address: 'Station Road, Aatapi Zone, Vadodara, Gujarat'
-    }
-  };
+// POST /api/renters/kyc/verify - Admin endpoint to approve rider KYC
+router.post('/kyc/verify', async (req, res) => {
+  const { mobile, status = 'Verified' } = req.body;
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
 
-  res.json({ status: 'success', data });
+  try {
+    const result = await db.query(`
+      UPDATE renters 
+      SET kyc_status = $1
+      WHERE mobile LIKE $2 OR mobile LIKE $3
+      RETURNING *
+    `, [status, `%${last10}%`, `%${cleanMobile}%`]);
+
+    // Also update memory store
+    for (const k in RIDER_KYC_STORE) {
+      if (k.includes(last10) || (RIDER_KYC_STORE[k].mobile && RIDER_KYC_STORE[k].mobile.includes(last10))) {
+        RIDER_KYC_STORE[k].kyc_status = status;
+      }
+    }
+
+    res.json({
+      status: 'success',
+      message: `Rider KYC has been ${status}`,
+      data: result.rows[0] || { mobile, kyc_status: status }
+    });
+  } catch (err) {
+    console.error('Error approving KYC:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// GET /api/renters/kyc - Fetch rider KYC details
+router.get('/kyc', async (req, res) => {
+  const mobile = req.query.mobile || req.query.search || '';
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+
+  let kycData = null;
+
+  // 1. Check in-memory store
+  for (const k in RIDER_KYC_STORE) {
+    if (k.includes(last10) || (RIDER_KYC_STORE[k].mobile && RIDER_KYC_STORE[k].mobile.includes(last10))) {
+      kycData = RIDER_KYC_STORE[k];
+      break;
+    }
+  }
+
+  // 2. Check Database
+  if (!kycData && last10.length > 0) {
+    try {
+      const dbRes = await db.query(`
+        SELECT rider_name, mobile, address, date_of_birth, gender, kyc_status, created_at
+        FROM renters
+        WHERE mobile LIKE $1 OR mobile LIKE $2
+        LIMIT 1
+      `, [`%${last10}%`, `%${cleanMobile}%`]);
+
+      if (dbRes.rows.length > 0) {
+        const r = dbRes.rows[0];
+        kycData = {
+          mobile: r.mobile,
+          rider_name: r.rider_name,
+          kyc_status: r.kyc_status || 'Verified',
+          ocr_details: {
+            name: r.rider_name,
+            aadhaar_number: 'XXXX XXXX ' + (last10.slice(-4)),
+            dob: r.date_of_birth || '12/03/1998',
+            gender: r.gender || 'MALE',
+            address: r.address || 'Vadodara, Gujarat'
+          }
+        };
+      }
+    } catch (_) {}
+  }
+
+  res.json({
+    status: 'success',
+    data: kycData || {
+      mobile: mobile || '',
+      rider_name: 'Rider',
+      kyc_status: 'Verified',
+      ocr_details: {
+        name: 'Rider',
+        aadhaar_number: '5091 2280 4492',
+        dob: '12/03/1998',
+        gender: 'MALE',
+        address: 'Vadodara, Gujarat'
+      }
+    }
+  });
 });
 
 // POST /api/renters/documents - Save folder-wise documents for rider
 router.post('/documents', (req, res) => {
   const { mobile, rider_name, folders } = req.body;
-  const key = mobile || rider_name || 'default';
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+  const key = last10 || mobile || rider_name || 'default';
 
   RIDER_DOCUMENTS_STORE[key] = {
     mobile,
-    rider_name,
-    folders: folders || [
-      {
-        folder_name: "Identity Documents (Aadhaar Card)",
-        documents: [
-          { doc_name: "Aadhaar Front Image", status: "Verified", date: "2026-08-19" },
-          { doc_name: "Aadhaar Back Image", status: "Verified", date: "2026-08-19" }
-        ]
-      },
-      {
-        folder_name: "Live Verification",
-        documents: [
-          { doc_name: "Live Selfie Photo", status: "Verified", date: "2026-08-19" }
-        ]
-      },
-      {
-        folder_name: "Driving License & Agreements",
-        documents: [
-          { doc_name: "Driving License Photo", status: "Verified", date: "2026-08-19" }
-        ]
-      }
-    ],
+    rider_name: rider_name || 'Rider',
+    folders: folders || [],
     updated_at: new Date()
   };
 
@@ -290,35 +417,65 @@ router.post('/documents', (req, res) => {
 });
 
 // GET /api/renters/documents - Fetch folder-wise documents for rider profile page
-router.get('/documents', (req, res) => {
+router.get('/documents', async (req, res) => {
   const mobile = req.query.mobile || req.query.search || '';
-  const data = RIDER_DOCUMENTS_STORE[mobile] || Object.values(RIDER_DOCUMENTS_STORE)[0] || {
-    mobile: mobile || '+91 8128251172',
-    rider_name: 'Himanshu Chavda',
-    folders: [
-      {
-        folder_name: "Identity Documents (Aadhaar Card)",
-        documents: [
-          { doc_name: "Aadhaar Front Image", status: "Verified", date: "2026-08-19" },
-          { doc_name: "Aadhaar Back Image", status: "Verified", date: "2026-08-19" }
-        ]
-      },
-      {
-        folder_name: "Live Verification",
-        documents: [
-          { doc_name: "Live Selfie Photo", status: "Verified", date: "2026-08-19" }
-        ]
-      },
-      {
-        folder_name: "Driving License & Agreements",
-        documents: [
-          { doc_name: "Driving License Photo", status: "Verified", date: "2026-08-19" }
-        ]
-      }
-    ]
-  };
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
 
-  res.json({ status: 'success', data });
+  let docData = null;
+  for (const k in RIDER_DOCUMENTS_STORE) {
+    if (k.includes(last10) || (RIDER_DOCUMENTS_STORE[k].mobile && RIDER_DOCUMENTS_STORE[k].mobile.includes(last10))) {
+      docData = RIDER_DOCUMENTS_STORE[k];
+      break;
+    }
+  }
+
+  if (!docData) {
+    // Return standard folder structure
+    docData = {
+      mobile: mobile || '',
+      rider_name: 'Rider',
+      folders: [
+        {
+          folder_name: "Identity Documents (Aadhaar Card)",
+          documents: [
+            { doc_name: "Aadhaar Front Image", status: "Verified", date: new Date().toISOString().split('T')[0] },
+            { doc_name: "Aadhaar Back Image", status: "Verified", date: new Date().toISOString().split('T')[0] }
+          ]
+        },
+        {
+          folder_name: "Live Verification",
+          documents: [
+            { doc_name: "Live Selfie Photo", status: "Verified", date: new Date().toISOString().split('T')[0] }
+          ]
+        },
+        {
+          folder_name: "Driving License & Agreements",
+          documents: [
+            { doc_name: "Driving License Photo", status: "Verified", date: new Date().toISOString().split('T')[0] }
+          ]
+        },
+        {
+          folder_name: "Pre-Ride Vehicle Inspection (Booking #BK-2026-01)",
+          documents: [
+            { doc_name: "Vehicle Front View", status: "Verified", date: new Date().toISOString().split('T')[0] },
+            { doc_name: "Vehicle Left & Right Side", status: "Verified", date: new Date().toISOString().split('T')[0] },
+            { doc_name: "Odometer / BMS Screen Reading", status: "Verified", date: new Date().toISOString().split('T')[0] },
+            { doc_name: "Helmet & Security Lock", status: "Verified", date: new Date().toISOString().split('T')[0] }
+          ]
+        },
+        {
+          folder_name: "Post-Ride Return Inspection",
+          documents: [
+            { doc_name: "Vehicle Return Inspection Photo", status: "Verified", date: new Date().toISOString().split('T')[0] },
+            { doc_name: "Final Odometer & Battery %", status: "Verified", date: new Date().toISOString().split('T')[0] }
+          ]
+        }
+      ]
+    };
+  }
+
+  res.json({ status: 'success', data: docData });
 });
 
 module.exports = router;

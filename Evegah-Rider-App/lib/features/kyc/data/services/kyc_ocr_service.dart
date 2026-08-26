@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import '../../../../core/services/session_service.dart';
 import '../../../profile/data/services/profile_service.dart';
 
 class KycOcrService {
@@ -152,13 +153,21 @@ class KycOcrService {
       }
     }
 
-    final activeName = ProfileService().userName.isNotEmpty ? ProfileService().userName : "Himanshu Chavda";
+    final activeName = ProfileService().userName.isNotEmpty 
+        ? ProfileService().userName 
+        : (SessionService().userProfileSync['name'] ?? "");
+    final activeDob = ProfileService().dateOfBirth.isNotEmpty 
+        ? ProfileService().dateOfBirth 
+        : (SessionService().userProfileSync['age'] ?? "");
+    final activeGender = ProfileService().userGender.isNotEmpty 
+        ? ProfileService().userGender.toUpperCase() 
+        : (SessionService().userProfileSync['gender']?.toUpperCase() ?? "MALE");
 
     return {
       'name': name.isNotEmpty ? name : activeName,
-      'aadhaarNumber': aadhaarNumber.isNotEmpty ? aadhaarNumber : "5091 2280 4492",
-      'dob': dob.isNotEmpty ? dob : "12/03/1998",
-      'gender': gender.isNotEmpty ? gender : "MALE",
+      'aadhaarNumber': aadhaarNumber,
+      'dob': dob.isNotEmpty ? dob : activeDob,
+      'gender': gender.isNotEmpty ? gender : activeGender,
     };
   }
 
@@ -200,21 +209,24 @@ class KycOcrService {
       dob = "${dobMatch.group(1)}/${dobMatch.group(2)}/${dobMatch.group(3)}";
     }
 
-    final activeName = ProfileService().userName.isNotEmpty ? ProfileService().userName : "Himanshu Chavda";
+    final activeName = ProfileService().userName.isNotEmpty 
+        ? ProfileService().userName 
+        : (SessionService().userProfileSync['name'] ?? "");
+    final activeDob = ProfileService().dateOfBirth.isNotEmpty 
+        ? ProfileService().dateOfBirth 
+        : (SessionService().userProfileSync['age'] ?? "");
+    final activeGender = ProfileService().userGender.isNotEmpty 
+        ? ProfileService().userGender.toUpperCase() 
+        : (SessionService().userProfileSync['gender']?.toUpperCase() ?? "MALE");
 
-    final int hash = path.hashCode.abs();
     if (name.isEmpty) {
       name = activeName;
     }
-    if (aadhaarNumber.isEmpty) {
-      final String lastFour = (hash % 9000 + 1000).toString();
-      aadhaarNumber = "5091 2280 $lastFour";
-    }
     if (gender.isEmpty) {
-      gender = ProfileService().userGender.isNotEmpty ? ProfileService().userGender.toUpperCase() : "MALE";
+      gender = activeGender;
     }
     if (dob.isEmpty) {
-      dob = "12/03/1998";
+      dob = activeDob;
     }
 
     return {
@@ -311,9 +323,13 @@ class KycOcrService {
       }
     }
 
+    final activeAddress = ProfileService().userAddress.isNotEmpty 
+        ? ProfileService().userAddress 
+        : (SessionService().userProfileSync['address'] ?? "");
+
     return {
-      'address': address.isNotEmpty ? address : "S/O: Ramesh Sharma, House No. 42, Koramangala, Bengaluru, Karnataka - 560034",
-      'pinCode': pinCode.isNotEmpty ? pinCode : "560034",
+      'address': address.isNotEmpty ? address : activeAddress,
+      'pinCode': pinCode,
     };
   }
 
@@ -339,14 +355,12 @@ class KycOcrService {
       }
     }
 
-    final int hash = path.hashCode.abs();
-    if (pinCode.isEmpty) {
-      pinCode = (hash % 2 == 0) ? "560034" : "110001";
-    }
+    final activeAddress = ProfileService().userAddress.isNotEmpty 
+        ? ProfileService().userAddress 
+        : (SessionService().userProfileSync['address'] ?? "");
+
     if (address.isEmpty) {
-      address = (hash % 2 == 0)
-          ? "S/O: Ramesh Sharma, House No. 42, Koramangala, Bengaluru, Karnataka - 560034"
-          : "W/O: Rajesh Kumar, Plot 105, Sector 15, Dwarka, New Delhi - 110001";
+      address = activeAddress;
     }
 
     return {

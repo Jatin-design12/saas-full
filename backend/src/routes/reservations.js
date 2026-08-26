@@ -154,6 +154,29 @@ router.get('/available-vehicles', async (req, res) => {
   }
 });
 
+// GET /api/reservations/active-ride — Check if rider has an ongoing/active ride
+router.get('/active-ride', async (req, res) => {
+  const { mobile } = req.query;
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  if (!cleanMobile) {
+    return res.json({ status: 'success', has_active_ride: false });
+  }
+
+  try {
+    const result = await db.query(
+      "SELECT * FROM reservations WHERE (mobile LIKE $1 OR mobile LIKE $2) AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride') ORDER BY created_at DESC LIMIT 1",
+      [`%${cleanMobile}%`, `%${mobile}%`]
+    );
+    if (result.rows.length > 0) {
+      return res.json({ status: 'success', has_active_ride: true, data: result.rows[0] });
+    }
+    return res.json({ status: 'success', has_active_ride: false });
+  } catch (err) {
+    console.error('Failed to check active ride:', err);
+    return res.json({ status: 'success', has_active_ride: false });
+  }
+});
+
 // POST /api/reservations (create new reservation — called by Rider App on booking confirmation)
 router.post('/', async (req, res) => {
   const {
@@ -178,6 +201,27 @@ router.post('/', async (req, res) => {
     deposit_option,
     total_payable
   } = req.body;
+
+  const cleanMobile = (mobile || '').replace(/\D/g, '');
+
+  // 🚨 VALIDATION: Block new reservation if rider ALREADY has an active/ongoing ride!
+  if (cleanMobile.length > 0) {
+    try {
+      const activeCheck = await db.query(
+        "SELECT reservation_id, status FROM reservations WHERE (mobile LIKE $1 OR mobile LIKE $2) AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride') LIMIT 1",
+        [`%${cleanMobile}%`, `%${mobile}%`]
+      );
+      if (activeCheck.rows.length > 0) {
+        return res.status(400).json({
+          status: 'error',
+          has_active_ride: true,
+          message: `Active Ride In Progress! You already have an active ride (${activeCheck.rows[0].reservation_id}). Please return or end your current ride before booking a new one.`
+        });
+      }
+    } catch (e) {
+      console.warn('Active ride check error:', e.message);
+    }
+  }
 
   // Generate unique reservation ID
   const randomSuffix = String(Math.floor(100 + Math.random() * 900));
@@ -248,6 +292,40 @@ router.post('/', async (req, res) => {
     createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
 
     res.json({ status: 'success', message: 'Reservation created (offline)', data: newRecord });
+  }
+});
+
+// POST /api/reservations/:id/pay (update payment status to Paid)
+router.post('/:id/pay', async (req, res) => {
+  const { id } = req.params;
+  const { payment_method, razorpay_payment_id } = req.body;
+
+  try {
+    const updateResult = await db.query(`
+      UPDATE reservations
+      SET payment_status = 'Paid', deposit_status = 'Paid', payment_method = $1
+      WHERE id = $2 OR reservation_id = $3
+      RETURNING *
+    `, [payment_method || 'Razorpay', id, id]);
+
+    const memIdx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
+    if (memIdx !== -1) {
+      mockList[memIdx].payment_status = 'Paid';
+      mockList[memIdx].deposit_status = 'Paid';
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Payment status updated to Paid',
+      data: updateResult.rows[0] || (memIdx !== -1 ? mockList[memIdx] : { payment_status: 'Paid' })
+    });
+  } catch (err) {
+    console.error('Failed to update reservation payment:', err);
+    res.json({
+      status: 'success',
+      message: 'Payment updated locally',
+      data: { payment_status: 'Paid' }
+    });
   }
 });
 

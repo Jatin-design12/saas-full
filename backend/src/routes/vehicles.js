@@ -65,6 +65,12 @@ const initVehicleModelsTable = async () => {
          '70–90 km', '45 km/h', '2.0 kWh', 'Dual Heavy Disc Brakes', '2000 W', 'High-Capacity Li-ion', '12 inch', 'IP67', '4 Hours', '220 kg', '2 Years Warranty',
          'assets/mink.png', '["assets/mink.png", "assets/mink_banner.png", "assets/MINK.png"]'::jsonb, 'assets/ev_video.mp4',
          '[{"icon":"box","title":"Heavy Cargo Deck","subtitle":"Up to 220kg"},{"icon":"shield","title":"Steel Reinforced","subtitle":"Heavy Duty Frame"},{"icon":"battery","title":"Dual Battery Bay","subtitle":"Double Range"}]'::jsonb);
+    } else {
+      // Clean up any legacy or malformed image paths in existing database records
+      await db.query(`
+        UPDATE vehicle_models SET main_image = 'assets/city.png' WHERE (main_image IS NULL OR main_image = '' OR main_image = 'assets/City-1.png' OR main_image = '/assets/City-1.png') AND LOWER(name) LIKE '%city%';
+        UPDATE vehicle_models SET main_image = 'assets/Pro_Banner.png' WHERE (main_image = 'assets/Pro Banner.png' OR main_image = '/assets/Pro Banner.png') AND LOWER(name) LIKE '%pro%';
+        UPDATE vehicle_models SET main_image = 'assets/fly-1.png' WHERE (main_image = 'assets/Fly.png' OR main_image = '/assets/Fly.png') AND LOWER(name) LIKE '%fly%';
       `);
     }
   } catch (err) {

@@ -268,10 +268,13 @@ export default function VehicleModelsPage() {
   };
 
   const resolveImg = (src: string) => {
-    if (!src) return '/City-1.png';
-    if (src.startsWith('data:') || src.startsWith('http')) return src;
-    if (src.startsWith('/')) return src;
-    return `/${src}`;
+    if (!src) return '/assets/city.png';
+    if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) return src;
+    let clean = src.trim();
+    if (clean.startsWith('/assets/')) return clean;
+    if (clean.startsWith('assets/')) return `/${clean}`;
+    if (clean.startsWith('/')) return clean;
+    return `/assets/${clean}`;
   };
 
   return (

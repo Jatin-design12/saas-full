@@ -402,261 +402,50 @@ class _KycScreenState extends State<KycScreen> {
 
                   children: [
                     // =========================================
-                    // MAIN KYC CARD
+                    // MAIN KYC BANNER (MATCHING ASSETS/KYC_BANNER.PNG)
                     // =========================================
 
-                    Container(
-                      width: double.infinity,
-
-                      padding:
-                          const EdgeInsets.all(
-                        22,
-                      ),
-
-                      decoration:
-                          BoxDecoration(
-                        gradient:
-                            const LinearGradient(
-                          begin:
-                              Alignment.topLeft,
-
-                          end:
-                              Alignment.bottomRight,
-
-                          colors: [
-                            brandPurple,
-                            brightPurple,
-                          ],
-                        ),
-
-                        borderRadius:
-                            BorderRadius.circular(
-                          28,
-                        ),
-
-                        boxShadow: [
-                          BoxShadow(
-                            color: brightPurple
-                                .withValues(
-                              alpha: 0.18,
-                            ),
-
-                            blurRadius: 28,
-
-                            offset:
-                                const Offset(
-                              0,
-                              12,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Stack(
                         children: [
-                          // Icon and progress status
-
-                          Row(
-                            children: [
-                              Container(
-                                height: 62,
-                                width: 62,
-
-                                decoration:
-                                    BoxDecoration(
-                                  color: Colors
-                                      .white
-                                      .withValues(
-                                    alpha: 0.12,
-                                  ),
-
-                                  borderRadius:
-                                      BorderRadius
-                                          .circular(
-                                    20,
-                                  ),
-
-                                  border:
-                                      Border.all(
-                                    color: Colors
-                                        .white
-                                        .withValues(
-                                      alpha: 0.14,
-                                    ),
-                                  ),
-                                ),
-
-                                child:
-                                    const Icon(
-                                  Icons
-                                      .verified_user_outlined,
-
-                                  color:
-                                      limeGreen,
-
-                                  size: 35,
-                                ),
+                          Image.asset(
+                            'kyc_banner.png',
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              height: 150,
+                              decoration: BoxDecoration(
+                                color: brandPurple,
+                                borderRadius: BorderRadius.circular(24),
                               ),
-
-                              const Spacer(),
-
-                              Container(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                  horizontal: 12,
-                                  vertical: 7,
-                                ),
-
-                                decoration:
-                                    BoxDecoration(
-                                  color: Colors
-                                      .white
-                                      .withValues(
-                                    alpha: 0.12,
-                                  ),
-
-                                  borderRadius:
-                                      BorderRadius
-                                          .circular(
-                                    30,
-                                  ),
-                                ),
-
+                              child: const Center(
                                 child: Text(
-                                  "$completedSteps of 3 completed",
-
-                                  style:
-                                      const TextStyle(
-                                    color:
-                                        Colors.white,
-
-                                    fontSize: 10,
-
-                                    fontWeight:
-                                        FontWeight
-                                            .w700,
-                                  ),
+                                  "KYC Verification",
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
                                 ),
                               ),
-                            ],
-                          ),
-
-                          const SizedBox(
-                            height: 24,
-                          ),
-
-                          const Text(
-                            "Verify your identity",
-
-                            style: TextStyle(
-                              color:
-                                  Colors.white,
-
-                              fontSize: 25,
-
-                              fontWeight:
-                                  FontWeight.w800,
-
-                              letterSpacing: -0.5,
                             ),
                           ),
-
-                          const SizedBox(
-                            height: 7,
-                          ),
-
-                          Text(
-                            "Complete these simple steps to unlock all Evegah rides and features.",
-
-                            style: TextStyle(
-                              color: Colors.white
-                                  .withValues(
-                                alpha: 0.70,
+                          Positioned(
+                            top: 14,
+                            right: 14,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-
-                              fontSize: 12,
-
-                              height: 1.5,
-                            ),
-                          ),
-
-                          const SizedBox(
-                            height: 22,
-                          ),
-
-                          // Progress title
-
-                          Row(
-                            children: [
-                              const Text(
-                                "KYC progress",
-
-                                style:
-                                    TextStyle(
-                                  color:
-                                      Colors.white,
-
-                                  fontSize: 11,
-
-                                  fontWeight:
-                                      FontWeight
-                                          .w700,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: Text(
+                                "$completedSteps of 3 completed",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
-
-                              const Spacer(),
-
-                              Text(
-                                "${(progress * 100).round()}%",
-
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      limeGreen,
-
-                                  fontSize: 11,
-
-                                  fontWeight:
-                                      FontWeight
-                                          .w800,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(
-                            height: 9,
-                          ),
-
-                          // Progress bar
-
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(
-                              20,
-                            ),
-
-                            child:
-                                LinearProgressIndicator(
-                              value: progress,
-
-                              minHeight: 7,
-
-                              backgroundColor:
-                                  Colors.white
-                                      .withValues(
-                                alpha: 0.16,
-                              ),
-
-                              valueColor:
-                                  const AlwaysStoppedAnimation<
-                                      Color>(
-                                limeGreen,
                               ),
                             ),
                           ),
@@ -674,138 +463,94 @@ class _KycScreenState extends State<KycScreen> {
 
                     const Text(
                       "Complete these steps",
-
                       style: TextStyle(
-                        color: darkText,
-
-                        fontSize: 19,
-
-                        fontWeight:
-                            FontWeight.w800,
-
+                        color: Color(0xFF0F172A),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         letterSpacing: -0.3,
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 5,
-                    ),
+                    const SizedBox(height: 4),
 
                     const Text(
                       "Make sure all photos are clear and readable.",
-
                       style: TextStyle(
-                        color: greyText,
-
-                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                        fontSize: 11.5,
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 17,
-                    ),
+                    const SizedBox(height: 16),
 
                     // =========================================
-                    // LIVE PHOTO
+                    // ALL 3 STEPS IN SINGLE BOX CARD
                     // =========================================
 
-                    _buildKycStepCard(
-                      number: "1",
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.015),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Step 1: Live Photo
+                          _buildKycStepRowItem(
+                            number: "1",
+                            title: "Live Photo",
+                            subtitle: "Take a clear photo of your face",
+                            icon: Icons.camera_alt_rounded,
+                            isCompleted: isSelfieDone,
+                            isLocked: false,
+                            onTap: () {
+                              _triggerSpecificStep(KycStep.selfie);
+                            },
+                          ),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
 
-                      title: "Live Photo",
+                          // Step 2: Aadhaar Front
+                          _buildKycStepRowItem(
+                            number: "2",
+                            title: "Aadhaar Front",
+                            subtitle: isFrontLocked
+                                ? "Complete Live Photo to unlock"
+                                : "Capture the front side clearly",
+                            icon: Icons.badge_outlined,
+                            isCompleted: isFrontDone,
+                            isLocked: isFrontLocked,
+                            onTap: () {
+                              _triggerSpecificStep(KycStep.aadhaarFront);
+                            },
+                          ),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
 
-                      subtitle:
-                          "Take a clear photo of your face",
-
-                      icon:
-                          Icons.camera_alt_rounded,
-
-                      isCompleted:
-                          isSelfieDone,
-
-                      isLocked:
-                          false,
-
-                      onTap: () {
-                        _triggerSpecificStep(
-                          KycStep.selfie,
-                        );
-                      },
+                          // Step 3: Aadhaar Back
+                          _buildKycStepRowItem(
+                            number: "3",
+                            title: "Aadhaar Back",
+                            subtitle: isBackLocked
+                                ? "Complete Aadhaar Front to unlock"
+                                : "Capture the back side clearly",
+                            icon: Icons.contact_mail_outlined,
+                            isCompleted: isBackDone,
+                            isLocked: isBackLocked,
+                            onTap: () {
+                              _triggerSpecificStep(KycStep.aadhaarBack);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
 
-                    const SizedBox(
-                      height: 12,
-                    ),
-
-                    // =========================================
-                    // AADHAAR FRONT
-                    // =========================================
-
-                    _buildKycStepCard(
-                      number: "2",
-
-                      title: "Aadhaar Front",
-
-                      subtitle:
-                          isFrontLocked
-                              ? "Complete Live Photo to unlock"
-                              : "Capture the front side clearly",
-
-                      icon:
-                          Icons.badge_outlined,
-
-                      isCompleted:
-                          isFrontDone,
-
-                      isLocked:
-                          isFrontLocked,
-
-                      onTap: () {
-                        _triggerSpecificStep(
-                          KycStep
-                              .aadhaarFront,
-                        );
-                      },
-                    ),
-
-                    const SizedBox(
-                      height: 12,
-                    ),
-
-                    // =========================================
-                    // AADHAAR BACK
-                    // =========================================
-
-                    _buildKycStepCard(
-                      number: "3",
-
-                      title: "Aadhaar Back",
-
-                      subtitle:
-                          isBackLocked
-                              ? "Complete Aadhaar Front to unlock"
-                              : "Capture the back side clearly",
-
-                      icon:
-                          Icons.contact_mail_outlined,
-
-                      isCompleted:
-                          isBackDone,
-
-                      isLocked:
-                          isBackLocked,
-
-                      onTap: () {
-                        _triggerSpecificStep(
-                          KycStep
-                              .aadhaarBack,
-                        );
-                      },
-                    ),
-
-                    const SizedBox(
-                      height: 20,
-                    ),
+                    const SizedBox(height: 20),
 
                     // =========================================
                     // SECURITY CARD
@@ -813,91 +558,38 @@ class _KycScreenState extends State<KycScreen> {
 
                     Container(
                       width: double.infinity,
-
-                      padding:
-                          const EdgeInsets.all(
-                        15,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFDCFCE7)),
                       ),
-
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            const Color(
-                          0xFFF0FDF4,
-                        ),
-
-                        borderRadius:
-                            BorderRadius.circular(
-                          17,
-                        ),
-
-                        border: Border.all(
-                          color:
-                              const Color(
-                            0xFFDCFCE7,
-                          ),
-                        ),
-                      ),
-
-                      child:
-                          const Row(
+                      child: const Row(
                         children: [
                           Icon(
-                            Icons
-                                .lock_outline_rounded,
-
-                            color:
-                                Color(
-                              0xFF16A34A,
-                            ),
-
-                            size: 22,
+                            Icons.lock_outline_rounded,
+                            color: Color(0xFF16A34A),
+                            size: 20,
                           ),
-
-                          SizedBox(
-                            width: 12,
-                          ),
-
+                          SizedBox(width: 12),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
-
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   "Your data is protected",
-
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        Color(
-                                      0xFF166534,
-                                    ),
-
+                                  style: TextStyle(
+                                    color: Color(0xFF166534),
                                     fontSize: 12,
-
-                                    fontWeight:
-                                        FontWeight
-                                            .w700,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-
-                                SizedBox(
-                                  height: 3,
-                                ),
-
+                                SizedBox(height: 2),
                                 Text(
                                   "Your information is encrypted and securely stored.",
-
-                                  style:
-                                      TextStyle(
-                                    color:
-                                        Color(
-                                      0xFF568164,
-                                    ),
-
-                                    fontSize: 9,
+                                  style: TextStyle(
+                                    color: Color(0xFF568164),
+                                    fontSize: 9.5,
                                   ),
                                 ),
                               ],
@@ -907,77 +599,41 @@ class _KycScreenState extends State<KycScreen> {
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 21,
-                    ),
+                    const SizedBox(height: 20),
 
                     // =========================================
-                    // START OR CONTINUE BUTTON
+                    // START OR CONTINUE BUTTON (PURPLE BRAND)
                     // =========================================
 
                     SizedBox(
-                      height: 57,
-
-                      width:
-                          double.infinity,
-
-                      child:
-                          ElevatedButton(
-                        onPressed:
-                            _triggerStartKyc,
-
-                        style:
-                            ElevatedButton
-                                .styleFrom(
+                      height: 52,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _triggerStartKyc,
+                        style: ElevatedButton.styleFrom(
                           elevation: 0,
-
-                          backgroundColor:
-                              brightPurple,
-
-                          foregroundColor:
-                              Colors.white,
-
-                          shape:
-                              RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
-                              18,
-                            ),
+                          backgroundColor: const Color(0xFF4313B8),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-
                         child: Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment
-                                  .center,
-
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              completedSteps ==
-                                      0
+                              completedSteps == 0
                                   ? "Start KYC Verification"
                                   : "Continue Verification",
-
-                              style:
-                                  const TextStyle(
+                              style: const TextStyle(
                                 fontSize: 15,
-
-                                fontWeight:
-                                    FontWeight
-                                        .w800,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-
-                            const SizedBox(
-                              width: 9,
-                            ),
-
+                            const SizedBox(width: 8),
                             const Icon(
-                              Icons
-                                  .arrow_forward_rounded,
-
-                              size: 21,
+                              Icons.arrow_forward_rounded,
+                              size: 20,
                             ),
                           ],
                         ),
@@ -1012,11 +668,11 @@ class _KycScreenState extends State<KycScreen> {
     );
   }
 
-  // =========================================================
-  // KYC VERIFICATION STEP CARD
-  // =========================================================
+  // =========================================
+  // KYC VERIFICATION STEP ROW ITEM (INSIDE SINGLE CARD)
+  // =========================================
 
-  Widget _buildKycStepCard({
+  Widget _buildKycStepRowItem({
     required String number,
     required String title,
     required String subtitle,
@@ -1025,147 +681,125 @@ class _KycScreenState extends State<KycScreen> {
     required bool isLocked,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isCompleted
-                  ? const Color(0xFFBBF7D0)
-                  : isLocked
-                      ? const Color(0xFFE5E7EB)
-                      : lightBorder,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              height: 48,
+              width: 48,
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? const Color(0xFFDCFCE7)
+                    : isLocked
+                        ? const Color(0xFFF1F5F9)
+                        : const Color(0xFFF3E8FF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isCompleted
+                    ? Icons.check_rounded
+                    : isLocked
+                        ? Icons.lock_outline_rounded
+                        : icon,
+                color: isCompleted
+                    ? const Color(0xFF16A34A)
+                    : isLocked
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF4313B8),
+                size: 22,
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.025),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                height: 55,
-                width: 55,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? const Color(0xFFF0FDF4)
-                      : isLocked
-                          ? const Color(0xFFF3F4F6)
-                          : const Color(0xFFF2EEFF),
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: Icon(
-                  isCompleted
-                      ? Icons.check_rounded
-                      : isLocked
-                          ? Icons.lock_outline_rounded
-                          : icon,
-                  color: isCompleted
-                      ? const Color(0xFF16A34A)
-                      : isLocked
-                          ? const Color(0xFF9CA3AF)
-                          : brightPurple,
-                  size: 25,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          "STEP $number",
-                          style: TextStyle(
-                            color: isLocked
-                                ? const Color(0xFF9CA3AF)
-                                : brightPurple,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.7,
-                          ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        "STEP $number",
+                        style: TextStyle(
+                          color: isLocked
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF4313B8),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.7,
                         ),
-                        if (isCompleted) ...[
-                          const SizedBox(width: 7),
-                          _buildStepBadge(
-                            text: "DONE",
-                            backgroundColor: const Color(0xFFDCFCE7),
-                            textColor: const Color(0xFF15803D),
-                          ),
-                        ] else if (isLocked) ...[
-                          const SizedBox(width: 7),
-                          _buildStepBadge(
-                            text: "LOCKED",
-                            backgroundColor: const Color(0xFFF3F4F6),
-                            textColor: const Color(0xFF6B7280),
-                          ),
-                        ],
+                      ),
+                      if (isCompleted) ...[
+                        const SizedBox(width: 7),
+                        _buildStepBadge(
+                          text: "DONE",
+                          backgroundColor: const Color(0xFFDCFCE7),
+                          textColor: const Color(0xFF15803D),
+                        ),
+                      ] else if (isLocked) ...[
+                        const SizedBox(width: 7),
+                        _buildStepBadge(
+                          text: "LOCKED",
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          textColor: const Color(0xFF64748B),
+                        ),
                       ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isLocked
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: isLocked
-                            ? const Color(0xFF6B7280)
-                            : darkText,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isCompleted ? "Successfully captured" : subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isLocked
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B),
+                      fontSize: 10.5,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      isCompleted ? "Successfully captured" : subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: isLocked
-                            ? const Color(0xFF9CA3AF)
-                            : greyText,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 7),
-              Container(
-                height: 36,
-                width: 36,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? const Color(0xFFF0FDF4)
-                      : isLocked
-                          ? const Color(0xFFF3F4F6)
-                          : const Color(0xFFF6F3FF),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isCompleted
-                      ? Icons.check_rounded
-                      : isLocked
-                          ? Icons.lock_rounded
-                          : Icons.chevron_right_rounded,
-                  color: isCompleted
-                      ? const Color(0xFF16A34A)
-                      : isLocked
-                          ? const Color(0xFF9CA3AF)
-                          : brightPurple,
-                  size: 20,
-                ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 32,
+              width: 32,
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? const Color(0xFFDCFCE7)
+                    : isLocked
+                        ? const Color(0xFFF1F5F9)
+                        : const Color(0xFFF3E8FF),
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
+              child: Icon(
+                isCompleted
+                    ? Icons.check_rounded
+                    : isLocked
+                        ? Icons.lock_rounded
+                        : Icons.chevron_right_rounded,
+                color: isCompleted
+                    ? const Color(0xFF16A34A)
+                    : isLocked
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF4313B8),
+                size: 18,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1231,7 +865,7 @@ class _KycScreenState extends State<KycScreen> {
                           TextStyle(
                         color: darkText,
 
-                        fontSize: 20,
+                        fontSize: 15,
 
                         fontWeight:
                             FontWeight.w800,

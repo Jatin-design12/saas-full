@@ -22,15 +22,15 @@ class ProfileService {
   // USER DATA
   // =========================================================
 
-  String userName = "Evegah Rider";
-  String phoneNumber = "+91 98765 43210";
-  String email = "rider@evegah.com";
+  String userName = "";
+  String phoneNumber = "";
+  String email = "";
   String gender = "Male";
 
   // Changed from age to date of birth
   String dateOfBirth = "";
 
-  String address = "Vadodara, Gujarat";
+  String address = "";
 
   String kycStatus = "Verified";
 
@@ -38,6 +38,37 @@ class ProfileService {
 
   String? profileImagePath;
   String? dlImagePath;
+
+  // =========================================================
+  // FAST INITIALIZATION (0ms load on app startup)
+  // =========================================================
+
+  Future<void> initFromSession() async {
+    final session = SessionService();
+    await session.init();
+
+    final profile = session.userProfileSync;
+    final mobile = session.userMobileSync;
+
+    if (profile['name'] != null && profile['name']!.isNotEmpty) {
+      userName = profile['name']!;
+    }
+    if (mobile != null && mobile.isNotEmpty) {
+      phoneNumber = mobile;
+    }
+    if (profile['email'] != null && profile['email']!.isNotEmpty) {
+      email = profile['email']!;
+    }
+    if (profile['gender'] != null && profile['gender']!.isNotEmpty) {
+      gender = profile['gender']!;
+    }
+    if (profile['age'] != null && profile['age']!.isNotEmpty) {
+      dateOfBirth = profile['age']!;
+    }
+    if (profile['address'] != null && profile['address']!.isNotEmpty) {
+      address = profile['address']!;
+    }
+  }
 
   // =========================================================
   // GETTERS / SETTERS
@@ -62,7 +93,7 @@ class ProfileService {
   }
 
   // =========================================================
-  // LOAD USER DATA
+  // LOAD USER DATA (Instant Memory + Background Remote Sync)
   // =========================================================
 
   Future<void> fetchUserData() async {
@@ -71,41 +102,86 @@ class ProfileService {
     final profile = await session.getUserProfile();
     final mobile = await session.getUserMobile();
 
-    isBiometricEnabled =
-        await session.isBiometricEnabled();
+    isBiometricEnabled = await session.isBiometricEnabled();
 
-    if (profile['name'] != null &&
-        profile['name']!.isNotEmpty) {
+    if (profile['name'] != null && profile['name']!.isNotEmpty) {
       userName = profile['name']!;
     }
 
-    if (mobile != null &&
-        mobile.isNotEmpty) {
+    if (mobile != null && mobile.isNotEmpty) {
       phoneNumber = mobile;
     }
 
-    if (profile['email'] != null &&
-        profile['email']!.isNotEmpty) {
+    if (profile['email'] != null && profile['email']!.isNotEmpty) {
       email = profile['email']!;
     }
 
-    if (profile['gender'] != null &&
-        profile['gender']!.isNotEmpty) {
+    if (profile['gender'] != null && profile['gender']!.isNotEmpty) {
       gender = profile['gender']!;
     }
 
-    // New DOB field
-    if (profile['dateOfBirth'] != null &&
-        profile['dateOfBirth']!.isNotEmpty) {
-      dateOfBirth = profile['dateOfBirth']!;
+    if (profile['age'] != null && profile['age']!.isNotEmpty) {
+      dateOfBirth = profile['age']!;
     }
 
-    // Backward compatibility:
-    // If old saved data contains "age",
-    // don't use it as DOB.
-    if (profile['address'] != null &&
-        profile['address']!.isNotEmpty) {
+    if (profile['address'] != null && profile['address']!.isNotEmpty) {
       address = profile['address']!;
+    }
+
+    // Dynamic backend sync for already registered user in background
+    if (phoneNumber.isNotEmpty) {
+      final cleanMobile = phoneNumber.replaceAll(RegExp(r'\D'), '');
+      final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
+      final checkUrls = [
+        '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
+        'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+      ];
+
+      for (final url in checkUrls) {
+        try {
+          final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+          if (res.statusCode == 200) {
+            final data = json.decode(res.body);
+            if (data['status'] == 'success' && data['data'] != null) {
+              final List renters = data['data'];
+              if (renters.isNotEmpty) {
+                final r = renters.first;
+                final backendName = r['rider_name'] ?? r['name'] ?? r['full_name'];
+                final backendEmail = r['email'];
+                final backendDob = r['date_of_birth'] ?? r['dateOfBirth'] ?? r['dob'];
+                final backendAddress = r['address'];
+                final backendGender = r['gender'];
+
+                if (backendName != null && backendName.toString().trim().isNotEmpty) {
+                  userName = backendName.toString().trim();
+                }
+                if (backendEmail != null && backendEmail.toString().trim().isNotEmpty) {
+                  email = backendEmail.toString().trim();
+                }
+                if (backendDob != null && backendDob.toString().trim().isNotEmpty) {
+                  dateOfBirth = backendDob.toString().trim();
+                }
+                if (backendAddress != null && backendAddress.toString().trim().isNotEmpty) {
+                  address = backendAddress.toString().trim();
+                }
+                if (backendGender != null && backendGender.toString().trim().isNotEmpty) {
+                  gender = backendGender.toString().trim();
+                }
+
+                await session.saveUserProfile(
+                  name: userName,
+                  gender: gender,
+                  age: dateOfBirth,
+                  address: address,
+                  email: email,
+                );
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
     }
   }
 

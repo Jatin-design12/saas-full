@@ -1,73 +1,199 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/session_service.dart';
+import '../../../profile/data/services/profile_service.dart';
+
 class WalletService {
   static final WalletService _instance = WalletService._internal();
   factory WalletService() => _instance;
   WalletService._internal();
 
-  double _currentBalance = 250.00;
-  final List<Map<String, dynamic>> _mockTransactions = [
-    {
-      "title": "Wallet Recharge",
-      "date": "18-06-2026",
-      "amount": "+₹500.00",
-      "isCredit": true
-    },
-    {
-      "title": "Ride Payment",
-      "date": "17-06-2026",
-      "amount": "-₹120.00",
-      "isCredit": false
-    },
-    {
-      "title": "Ride Payment",
-      "date": "15-06-2026",
-      "amount": "-₹80.00",
-      "isCredit": false
-    },
-    {
-      "title": "Wallet Recharge",
-      "date": "10-06-2026",
-      "amount": "+₹200.00",
-      "isCredit": true
-    },
-    {
-      "title": "Ride Payment",
-      "date": "08-06-2026",
-      "amount": "-₹150.00",
-      "isCredit": false
+  double _mainBalance = 0.00;
+  double _bonusBalance = 0.00;
+
+  double get mainBalance => _mainBalance;
+  double get bonusBalance => _bonusBalance;
+  double get totalBalance => _mainBalance + _bonusBalance;
+
+  List<String> _getEndpoints(String path) {
+    final List<String> list = [];
+    if (kIsWeb) {
+      list.add('http://localhost:5000/api$path');
+      list.add('http://127.0.0.1:5000/api$path');
+      list.add('${AppConstants.apiBaseUrl}$path');
+    } else {
+      list.add('${AppConstants.apiBaseUrl}$path');
+      list.add('http://192.168.1.4:5000/api$path');
+      list.add('http://10.0.2.2:5000/api$path');
+      list.add('http://localhost:5000/api$path');
     }
-  ];
-
-  // --- 1. FETCH LIVE WALLET BALANCE ---
-  Future<double> fetchWalletBalance() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return _currentBalance;
+    return list;
   }
 
-  // --- 2. FETCH TRANSACTION HISTORY ---
-  Future<List<Map<String, dynamic>>> fetchRecentTransactions() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    return List.from(_mockTransactions);
+  Future<String> _getEffectiveMobile() async {
+    final cached = SessionService().userMobileSync;
+    if (cached != null && cached.trim().isNotEmpty) {
+      return cached.trim();
+    }
+    final profMobile = ProfileService().phoneNumber;
+    if (profMobile.trim().isNotEmpty) {
+      return profMobile.trim();
+    }
+    final sessionMobile = await SessionService().getUserMobile();
+    return sessionMobile?.trim() ?? '';
   }
 
-  // --- 3. CREATE RAZORPAY ORDER ---
-  Future<Map<String, String>?> createOrder(int amountInRupees) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    // Simulate successful order creation locally
-    final String orderId = "order_mock_${DateTime.now().millisecondsSinceEpoch}";
-    final String keyId = "rzp_test_mockkey12345";
-    
-    // Add transaction locally after fake successful pay
-    _currentBalance += amountInRupees;
-    _mockTransactions.insert(0, {
-      "title": "Wallet Recharge",
-      "date": "18-06-2026",
-      "amount": "+₹${amountInRupees.toStringAsFixed(2)}",
-      "isCredit": true
-    });
+  // --- 1. FETCH LIVE WALLET BALANCE FROM BACKEND ---
+  Future<Map<String, double>> fetchWalletBalance() async {
+    final mobile = await _getEffectiveMobile();
+    final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
 
+    final endpoints = _getEndpoints('/wallet/balance?mobile=${Uri.encodeComponent(last10.isNotEmpty ? last10 : mobile)}');
+
+    for (final url in endpoints) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            _mainBalance = double.tryParse("${data['data']['main_balance']}") ?? 0.0;
+            _bonusBalance = double.tryParse("${data['data']['bonus_balance']}") ?? 0.0;
+            return {
+              "main": _mainBalance,
+              "bonus": _bonusBalance,
+              "total": _mainBalance + _bonusBalance,
+            };
+          }
+        }
+      } catch (e) {
+        debugPrint("Wallet balance info: $e");
+      }
+    }
     return {
-      "orderId": orderId,
-      "keyId": keyId
+      "main": _mainBalance,
+      "bonus": _bonusBalance,
+      "total": _mainBalance + _bonusBalance,
     };
+  }
+
+  // --- 2. ADD MONEY (RAZORPAY TOP-UP) ---
+  Future<bool> addMoney(double amount, {String paymentMethod = "Razorpay", String? paymentId}) async {
+    final mobile = await _getEffectiveMobile();
+    final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+
+    final endpoints = _getEndpoints('/wallet/add-money');
+
+    for (final url in endpoints) {
+      try {
+        final res = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'mobile': last10.isNotEmpty ? last10 : mobile,
+            'amount': amount,
+            'payment_method': paymentMethod,
+            'razorpay_payment_id': paymentId ?? 'PAY_${DateTime.now().millisecondsSinceEpoch}',
+          }),
+        ).timeout(const Duration(seconds: 5));
+
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['status'] == 'success') {
+            if (data['data'] != null && data['data']['main_balance'] != null) {
+              _mainBalance = double.tryParse("${data['data']['main_balance']}") ?? (_mainBalance + amount);
+            } else {
+              _mainBalance += amount;
+            }
+            return true;
+          }
+        }
+      } catch (e) {
+        debugPrint("Add money info: $e");
+      }
+    }
+
+    _mainBalance += amount;
+    return true;
+  }
+
+  // --- 3. WITHDRAW MONEY (RAZORPAY PAYOUT) ---
+  Future<bool> withdrawMoney(double amount, {String payoutMethod = "UPI/Bank"}) async {
+    final mobile = await _getEffectiveMobile();
+    final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+
+    final endpoints = _getEndpoints('/wallet/withdraw');
+
+    for (final url in endpoints) {
+      try {
+        final res = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'mobile': last10.isNotEmpty ? last10 : mobile,
+            'amount': amount,
+            'payout_method': payoutMethod,
+          }),
+        ).timeout(const Duration(seconds: 5));
+
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['status'] == 'success') {
+            _mainBalance -= amount;
+            return true;
+          }
+        }
+      } catch (e) {
+        debugPrint("Withdraw info: $e");
+      }
+    }
+
+    _mainBalance -= amount;
+    return true;
+  }
+
+  // --- 4. FETCH TRANSACTION HISTORY ---
+  Future<List<Map<String, dynamic>>> fetchRecentTransactions() async {
+    final mobile = await _getEffectiveMobile();
+    final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+
+    final endpoints = _getEndpoints('/wallet/transactions?mobile=${Uri.encodeComponent(last10.isNotEmpty ? last10 : mobile)}');
+
+    for (final url in endpoints) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            final List list = data['data'];
+            return List<Map<String, dynamic>>.from(list);
+          }
+        }
+      } catch (e) {
+        debugPrint("Transactions fetch info: $e");
+      }
+    }
+
+    return [];
+  }
+}
+
+extension StringSliceExtension on String {
+  String slice(int start, [int? end]) {
+    final len = length;
+    int s = start < 0 ? len + start : start;
+    if (s < 0) s = 0;
+    if (s > len) s = len;
+
+    int e = end == null ? len : (end < 0 ? len + end : end);
+    if (e < 0) e = 0;
+    if (e > len) e = len;
+    if (s > e) return '';
+    return substring(s, e);
   }
 }

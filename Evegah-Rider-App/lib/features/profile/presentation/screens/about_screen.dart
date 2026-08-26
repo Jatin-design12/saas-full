@@ -3,352 +3,433 @@ import 'package:flutter/material.dart';
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
+  static const Color brandPurple = Color(0xFF5B30D1);
+  static const Color brandPurpleDark = Color(0xFF38148E);
+  static const Color darkText = Color(0xFF111827);
+  static const Color secondaryText = Color(0xFF64748B);
+  static const Color pageBackground = Color(0xFFF7F8FC);
+  static const Color cardBorder = Color(0xFFF1F5F9);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 18),
-              onPressed: () => Navigator.maybePop(context),
-            ),
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "About EVegah",
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 22,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            SizedBox(height: 2),
-            Text(
-              "Ride Green. Live Clean.",
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      backgroundColor: pageBackground,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Hero Card
-            _buildHeroCard(),
-            const SizedBox(height: 20),
-
-            // 4 Metrics / Stats Row
-            Row(
-              children: [
-                Expanded(child: _buildStatItem("25K+", "Rides Completed", Icons.electric_scooter_rounded, const Color(0xFFF5F3FF), const Color(0xFF6366F1))),
-                const SizedBox(width: 8),
-                Expanded(child: _buildStatItem("120+", "Tons CO₂ Saved", Icons.eco_rounded, const Color(0xFFECFDF5), const Color(0xFF10B981))),
-                const SizedBox(width: 8),
-                Expanded(child: _buildStatItem("15K+", "Happy Riders", Icons.people_alt_rounded, const Color(0xFFEFF6FF), const Color(0xFF3B82F6))),
-                const SizedBox(width: 8),
-                Expanded(child: _buildStatItem("25+", "Cities", Icons.location_on_rounded, const Color(0xFFFFF7ED), const Color(0xFFF97316))),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Our Mission Section
-            const Text(
-              "Our Mission",
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "To make clean and green mobility accessible to everyone while contributing to a sustainable future.",
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.45, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 18),
-
-            // 4 Value / Feature Action Rows
-            _buildValueCard(
-              title: "Smart & Reliable",
-              subtitle: "AI-powered fleet ensuring a seamless and reliable ride.",
-              icon: Icons.bolt_rounded,
-              iconColor: const Color(0xFF6366F1),
-              iconBg: const Color(0xFFF5F3FF),
-            ),
-            const SizedBox(height: 10),
-
-            _buildValueCard(
-              title: "Eco-Friendly",
-              subtitle: "Zero emissions, lower carbon footprint, cleaner tomorrow.",
-              icon: Icons.eco_outlined,
-              iconColor: const Color(0xFF10B981),
-              iconBg: const Color(0xFFECFDF5),
-            ),
-            const SizedBox(height: 10),
-
-            _buildValueCard(
-              title: "Safe & Secure",
-              subtitle: "Your safety is our priority at every kilometer.",
-              icon: Icons.shield_outlined,
-              iconColor: const Color(0xFF3B82F6),
-              iconBg: const Color(0xFFEFF6FF),
-            ),
-            const SizedBox(height: 10),
-
-            _buildValueCard(
-              title: "Easy & Accessible",
-              subtitle: "Book, ride, and pay in just a few taps.",
-              icon: Icons.phone_android_rounded,
-              iconColor: const Color(0xFFF97316),
-              iconBg: const Color(0xFFFFF7ED),
-            ),
-            const SizedBox(height: 20),
-
-            // Bottom Sustainability Banner
-            _buildGreenerPlanetCard(),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF8FAFC), Color(0xFFF5F3FF), Color(0xFFEEF2FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDDD6FE), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "EVEGAH",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF2A195C),
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "EVegah is building the future of urban mobility with smart, sustainable, and accessible EV solutions.",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                    height: 1.45,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: 32,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "Smarter Rides. Better Planet.",
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF6366F1),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // 3D EV Scooter Illustration
-          Expanded(
-            flex: 5,
-            child: Container(
-              height: 130,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
+            // Custom App Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.asset(
-                    'assets/city.png',
-                    height: 100,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.electric_scooter_rounded, size: 70, color: Color(0xFF8B5CF6)),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 28,
+                          color: darkText,
+                        ),
+                      ),
+                    ),
                   ),
-                  const Positioned(
-                    top: 16,
-                    right: 16,
-                    child: Icon(Icons.eco_rounded, size: 18, color: Color(0xFF10B981)),
+                  const Text(
+                    "About Evegah",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: darkText,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            // Scrollable Content
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Top Artwork Banner (contains hero + about card in single crisp banner)
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: brandPurple.withOpacity(0.06),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          "assets/about_banner.png",
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.topCenter,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 2. Stats Row Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.025),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          _buildStatItem(Icons.groups_rounded, "10,000+", "Happy Customers"),
+                          _buildDivider(),
+                          _buildStatItem(Icons.electric_scooter_rounded, "5,000+", "EVs on Rent"),
+                          _buildDivider(),
+                          _buildStatItem(Icons.location_on_rounded, "75+", "Cities Covered"),
+                          _buildDivider(),
+                          _buildStatItem(Icons.workspace_premium_rounded, "4.8 ★", "Customer Rating"),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // 3. Why Choose Evegah? Section
+                    const Text(
+                      "Why Choose Evegah?",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: darkText,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Horizontal scrolling features list
+                    SizedBox(
+                      height: 180,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildFeatureCard(
+                            Icons.electric_scooter_rounded,
+                            "Wide Range",
+                            "Choose from a variety of EVs that suit your every need.",
+                          ),
+                          _buildFeatureCard(
+                            Icons.verified_user_rounded,
+                            "Smart & Reliable",
+                            "Advanced technology for a safe, smooth & connected ride.",
+                          ),
+                          _buildFeatureCard(
+                            Icons.account_balance_wallet_rounded,
+                            "Affordable Plans",
+                            "Flexible rental plans that fit your budget and usage.",
+                          ),
+                          _buildFeatureCard(
+                            Icons.headset_mic_rounded,
+                            "24/7 Support",
+                            "Round the clock support for a hassle-free experience.",
+                          ),
+                          _buildFeatureCard(
+                            Icons.eco_rounded,
+                            "Sustainable Future",
+                            "Drive electric and contribute to a greener tomorrow.",
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // 4. Bottom CTA Banner
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Color(0xFF38148E),
+                            Color(0xFF5B30D1),
+                            Color(0xFF7A4DFB),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: brandPurple.withOpacity(0.28),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Shield Icon
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.verified_user_rounded,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // Text Info
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  "Drive Smart. Drive Electric. Drive Evegah.",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                SizedBox(height: 3),
+                                Text(
+                                  "Join thousands of Indians who trust Evegah for a smarter and sustainable ride.",
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10,
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 10),
+
+                          // Explore Vehicles Button
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Text(
+                                    "Explore Vehicles",
+                                    style: TextStyle(
+                                      color: brandPurpleDark,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: brandPurpleDark,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // 5. Footer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          "Made with ",
+                          style: TextStyle(
+                            color: secondaryText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Icon(
+                          Icons.favorite_rounded,
+                          color: brandPurple,
+                          size: 14,
+                        ),
+                        Text(
+                          " for a better tomorrow",
+                          style: TextStyle(
+                            color: secondaryText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatItem(String val, String lbl, IconData icon, Color iconBg, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-      ),
+  Widget _buildStatItem(IconData icon, String value, String label) {
+    return Expanded(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(height: 8),
+          Icon(icon, color: brandPurple, size: 24),
+          const SizedBox(height: 6),
           Text(
-            val,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: darkText,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
-            lbl,
+            label,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: secondaryText,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildValueCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-  }) {
+  Widget _buildDivider() {
     return Container(
+      width: 1,
+      height: 48,
+      color: const Color(0xFFF1F5F9),
+    );
+  }
+
+  Widget _buildFeatureCard(IconData icon, String title, String description) {
+    return Container(
+      width: 135,
+      margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 22),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
         ],
       ),
-    );
-  }
-
-  Widget _buildGreenerPlanetCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFECFDF5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFA7F3D0), width: 1.5),
-      ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3EFFF),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.eco_rounded, color: Color(0xFF10B981), size: 22),
+            child: Icon(icon, color: brandPurple, size: 22),
           ),
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Together for a Greener Planet",
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  "Every ride with EVegah brings us closer to a cleaner, greener and better tomorrow.",
-                  style: TextStyle(fontSize: 11.5, color: Color(0xFF047857), fontWeight: FontWeight.w500),
-                ),
-              ],
+          const Spacer(),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: darkText,
+              letterSpacing: -0.2,
             ),
           ),
-
-          const SizedBox(width: 8),
-          const Icon(Icons.public_rounded, size: 40, color: Color(0xFF10B981)),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              color: secondaryText,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

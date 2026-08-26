@@ -234,101 +234,29 @@ class _BluetoothScanDialogState extends State<BluetoothScanDialog>
 
                 const SizedBox(height: 12),
 
-                // Action Buttons (Simulation option for testing)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          _showSimulatedDialog(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF65A30D),
-                          side: const BorderSide(color: Color(0xFF65A30D)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: const Text('Simulate Battery', style: TextStyle(fontSize: 11)),
+                if (connState == BleBatteryState.connected) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await _bleService.disconnect();
+                        if (context.mounted) Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
+                      child: const Text('Disconnect Battery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
-                    if (connState == BleBatteryState.connected) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            await _bleService.disconnect();
-                            if (context.mounted) Navigator.of(context).pop();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text('Disconnect', style: TextStyle(fontSize: 11)),
-                        ),
-                      ),
-                    ]
-                  ],
-                ),
+                  ),
+                ],
               ],
             );
           },
         ),
       ),
-    );
-  }
-
-  void _showSimulatedDialog(BuildContext context) {
-    int soc = 85;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Simulate Battery', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          content: StatefulBuilder(
-            builder: (context, setStateSlider) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Battery SOC: $soc%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  Slider(
-                    value: soc.toDouble(),
-                    min: 0,
-                    max: 100,
-                    divisions: 100,
-                    activeColor: const Color(0xFF4313B8),
-                    onChanged: (val) {
-                      setStateSlider(() {
-                        soc = val.toInt();
-                      });
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _bleService.startSimulation(soc.toDouble());
-                Navigator.pop(context); // Close slider dialog
-                Navigator.pop(context); // Close scanning dialog
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4313B8),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Add Simulated', style: TextStyle(fontSize: 12)),
-            ),
-          ],
-        );
-      },
     );
   }
 }

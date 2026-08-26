@@ -386,16 +386,20 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
       return const Center(child: CircularProgressIndicator(color: Color(0xFF4313B8)));
     }
 
-    final ongoingList = _reservations.where((r) {
+    final rawOngoingList = _reservations.where((r) {
       final stat = (r['status'] ?? '').toString().toLowerCase();
       return stat == 'confirmed' || stat == 'ongoing' || stat == 'active' || stat == 'active ride';
     }).toList();
+
+    // 🚨 Real-World Business Rule: A rider can only have ONE active ongoing ride at a time!
+    // Take only the most recent active ride to prevent unrealistic duplicate active rides.
+    final ongoingList = rawOngoingList.isNotEmpty ? [rawOngoingList.first] : [];
 
     if (ongoingList.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32.0),
-          child: Text("No ongoing rides found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          child: Text("No active ongoing ride found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
         ),
       );
     }
@@ -429,7 +433,17 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
               buttons: [
                 _buildOutlinedCardButton("View Details", () => _navigateToDetails(r)),
                 const SizedBox(width: 12),
-                _buildSolidCardButton("End Ride", () {}),
+                _buildSolidCardButton("End Ride", () {
+                  setState(() {
+                    r['status'] = 'Completed';
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Ride ended successfully. You can now book your next ride! ⚡"),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                }),
               ],
             ),
           );

@@ -113,6 +113,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> with Single
     }
 
     String assetPath = src.trim();
+    while (assetPath.startsWith('/')) {
+      assetPath = assetPath.substring(1);
+    }
     if (!assetPath.startsWith('assets/')) {
       assetPath = 'assets/$assetPath';
     }
@@ -122,7 +125,25 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> with Single
       width: width,
       height: height,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) => fallback,
+      errorBuilder: (context, error, stackTrace) {
+        // Fallback for asset image variations
+        String altPath = assetPath;
+        if (assetPath.contains('City-1.png')) altPath = 'assets/city.png';
+        if (assetPath.contains('fly-1.png')) altPath = 'assets/Fly.png';
+        if (assetPath.contains('Pro Banner.png')) altPath = 'assets/Pro_Banner.png';
+        if (assetPath.contains('mink banner.png')) altPath = 'assets/mink_banner.png';
+        
+        if (altPath != assetPath) {
+          return Image.asset(
+            altPath,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (context, err, stack) => fallback,
+          );
+        }
+        return fallback;
+      },
     );
   }
 

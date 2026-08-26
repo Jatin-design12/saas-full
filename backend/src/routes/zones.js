@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// Ensure phone column exists
+// Ensure zone schema columns exist
 (async () => {
   try {
     await db.query('ALTER TABLE zones ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT \'+91 98765 43210\'');
+    await db.query('ALTER TABLE zones ADD COLUMN IF NOT EXISTS open_time VARCHAR(20) DEFAULT \'06:00 AM\'');
+    await db.query('ALTER TABLE zones ADD COLUMN IF NOT EXISTS close_time VARCHAR(20) DEFAULT \'11:00 PM\'');
+    await db.query('ALTER TABLE zones ADD COLUMN IF NOT EXISTS is_24_hours BOOLEAN DEFAULT false');
+    await db.query('ALTER TABLE zones ALTER COLUMN image_url TYPE TEXT');
   } catch (e) {
-    console.error('Migration error for zones.phone:', e);
+    console.error('Migration error for zones columns:', e);
   }
 })();
 

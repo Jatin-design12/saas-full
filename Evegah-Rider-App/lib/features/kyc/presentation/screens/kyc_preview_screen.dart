@@ -161,13 +161,21 @@ class _KycPreviewScreenState
         if (frontOcr['aadhaarNumber'] != null) {
           _kycService.ocrAadhaarNumber = frontOcr['aadhaarNumber']!;
         }
-        if (frontOcr['dob'] != null) {
+        if (frontOcr['dob'] != null && frontOcr['dob']!.isNotEmpty) {
           _kycService.ocrDob = frontOcr['dob']!;
+          ProfileService().dateOfBirth = frontOcr['dob']!;
         }
-        if (frontOcr['gender'] != null) {
+        if (frontOcr['gender'] != null && frontOcr['gender']!.isNotEmpty) {
           _kycService.ocrGender = frontOcr['gender']!;
           ProfileService().userGender = frontOcr['gender']!;
         }
+        await SessionService().saveUserProfile(
+          name: ProfileService().userName,
+          gender: ProfileService().gender,
+          age: ProfileService().dateOfBirth,
+          address: ProfileService().address,
+          email: ProfileService().email,
+        );
         break;
 
       case KycStep.aadhaarBack:
@@ -181,6 +189,13 @@ class _KycPreviewScreenState
         if (backOcr['pinCode'] != null) {
           _kycService.ocrPinCode = backOcr['pinCode']!;
         }
+        await SessionService().saveUserProfile(
+          name: ProfileService().userName,
+          gender: ProfileService().gender,
+          age: ProfileService().dateOfBirth,
+          address: ProfileService().address,
+          email: ProfileService().email,
+        );
         await _postKycAndFolderDocumentsToBackend();
         break;
     }
@@ -238,8 +253,8 @@ class _KycPreviewScreenState
   }
 
   Future<void> _postKycAndFolderDocumentsToBackend() async {
-    final mobile = await SessionService().getUserMobile() ?? "+91 8128251172";
-    final name = ProfileService().userName.isNotEmpty ? ProfileService().userName : "Himanshu Chavda";
+    final mobile = await SessionService().getUserMobile() ?? ProfileService().phoneNumber;
+    final name = ProfileService().userName.isNotEmpty ? ProfileService().userName : (mobile.isNotEmpty ? mobile : "Rider");
 
     final folderWiseDocs = [
       {

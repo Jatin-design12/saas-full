@@ -334,16 +334,16 @@ class _ScanQrScreenState extends State<ScanQrScreen> with SingleTickerProviderSt
                             }
                           },
                           errorBuilder: (context, error) {
-                            // Camera Fallback Mock Graphic (Shows Real EV Scooter Photo inside Scanner)
-                            return Image.asset(
-                              'assets/v2.webp',
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: const Color(0xFF0F172A),
-                                child: const Center(
-                                  child: Icon(Icons.two_wheeler_rounded, color: Colors.white24, size: 100),
+                            return Container(
+                              color: const Color(0xFF0F172A),
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.camera_alt_outlined, color: Colors.white38, size: 60),
+                                    SizedBox(height: 8),
+                                    Text("Camera Active", style: TextStyle(color: Colors.white54, fontSize: 13)),
+                                  ],
                                 ),
                               ),
                             );
@@ -352,7 +352,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> with SingleTickerProviderSt
 
                         // B. Dark Semi-Transparent Vignette Overlay
                         Container(
-                          color: Colors.black.withOpacity(0.35),
+                          color: Colors.black.withOpacity(0.25),
                         ),
 
                         // C. Top Label inside Scanner Box
@@ -369,7 +369,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> with SingleTickerProviderSt
                           ),
                         ),
 
-                        // D. Neon Lime-Green Bracket Frame + QR Code Mock
+                        // D. Neon Lime-Green Bracket Frame with Laser Beam
                         SizedBox(
                           width: 230,
                           height: 230,
@@ -380,36 +380,6 @@ class _ScanQrScreenState extends State<ScanQrScreen> with SingleTickerProviderSt
                               CustomPaint(
                                 size: const Size(230, 230),
                                 painter: _NeonQrFramePainter(),
-                              ),
-
-                              // Inner QR Code Graphic (EVG902345)
-                              Container(
-                                width: 140,
-                                height: 140,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.92),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: const [
-                                        Text("e", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8CE600))),
-                                        Text("evegah", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF200F54))),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Icon(Icons.qr_code_2_rounded, size: 70, color: Color(0xFF0F172A)),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      "EVG902345",
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF200F54)),
-                                    ),
-                                  ],
-                                ),
                               ),
 
                               // Animated Sliding Neon Green Laser Beam Line

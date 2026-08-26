@@ -42,27 +42,40 @@
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script>
     window.payWithRazorpay = function(options, onSuccess, onFailure) {
-      var rzpOptions = {
-        key: options.key,
-        amount: options.amount,
-        name: options.name,
-        description: options.description,
-        order_id: options.order_id,
-        prefill: {
-          contact: options.contact,
-          email: options.email
-        },
-        handler: function(response) {
-          onSuccess(response.razorpay_payment_id);
-        },
-        modal: {
-          ondismiss: function() {
-            onFailure("Payment dismissed by user");
+      try {
+        var rzpOptions = {
+          key: options.key,
+          amount: options.amount,
+          name: options.name || 'Evegah Mobility',
+          description: options.description || 'Wallet Top-Up',
+          prefill: {
+            contact: options.contact || '',
+            email: options.email || ''
+          },
+          theme: {
+            color: '#4313B8'
+          },
+          handler: function(response) {
+            onSuccess(response.razorpay_payment_id || ('PAY_' + Date.now()));
+          },
+          modal: {
+            ondismiss: function() {
+              if (onFailure) onFailure("Payment cancelled");
+            }
           }
+        };
+        if (options.order_id && typeof options.order_id === 'string' && options.order_id.trim().length > 0) {
+          rzpOptions.order_id = options.order_id;
         }
-      };
-      var rzp = new Razorpay(rzpOptions);
-      rzp.open();
+        var rzp = new Razorpay(rzpOptions);
+        rzp.on('payment.failed', function(resp) {
+          if (onFailure) onFailure(resp.error ? resp.error.description : "Payment failed");
+        });
+        rzp.open();
+      } catch (err) {
+        console.error('Razorpay popup error:', err);
+        if (onFailure) onFailure(err.message || String(err));
+      }
     };
   </script>
 </head>

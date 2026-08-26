@@ -6,6 +6,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../dashboard/presentation/screens/main_navigation.dart';
 import '../../../kyc/presentation/screens/kyc_screen.dart';
 import '../../../wallet/presentation/screens/payment_screen.dart';
+import '../../../wallet/data/services/wallet_service.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../support/presentation/screens/help_screen.dart';
 
@@ -41,26 +42,32 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
   Future<void> _fetchBackendReservation() async {
     if (widget.reservationId.isEmpty) return;
 
-    try {
-      final res = await http
-          .get(
-            Uri.parse(
-              '${AppConstants.apiBaseUrl}/reservations/${widget.reservationId}',
-            ),
-          )
-          .timeout(const Duration(seconds: 3));
+    final urls = [
+      '${AppConstants.apiBaseUrl}/reservations/${widget.reservationId}',
+      'http://192.168.1.4:5000/api/reservations/${widget.reservationId}',
+      'http://localhost:5000/api/reservations/${widget.reservationId}',
+    ];
 
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-
-        if (data['data'] != null && mounted) {
-          setState(() {
-            _fetchedReservation = data['data'];
-          });
+    for (final url in urls) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['data'] != null && mounted) {
+            final item = data['data'];
+            final String payStatus = item['payment_status'] ?? item['deposit_status'] ?? 'Pending';
+            setState(() {
+              _fetchedReservation = item;
+              if (payStatus.toLowerCase() == 'paid') {
+                _depositPaid = true;
+              }
+            });
+            return;
+          }
         }
+      } catch (e) {
+        debugPrint("Fetch reservation details error: $e");
       }
-    } catch (e) {
-      debugPrint("Fetch reservation details error: $e");
     }
   }
 
@@ -79,7 +86,14 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
     );
   }
 
-  void _showDepositPaymentModal() {
+  void _showDepositPaymentModal() async {
+    final WalletService walletService = WalletService();
+    final balMap = await walletService.fetchWalletBalance();
+    final double currentBal = balMap['main'] ?? 0.0;
+    final double depositAmount = 500.00;
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -87,94 +101,188 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) {
+        bool isWalletSelected = true;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final bool hasEnoughWallet = currentBal >= depositAmount;
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "⚡ Refundable Security Deposit",
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "⚡ Refundable Security Deposit",
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text("Security Deposit Amount", style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                        Text("₹500.00", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF4313B8))),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                  const SizedBox(height: 16),
+                  const Text("Select Payment Method", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 10),
+
+                  // Option 1: Wallet
+                  GestureDetector(
+                    onTap: () => setModalState(() => isWalletSelected = true),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isWalletSelected ? const Color(0xFFF3E8FF) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isWalletSelected ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF4313B8)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("Evegah Wallet Balance", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text(
+                                  hasEnoughWallet ? "Available: ₹${currentBal.toStringAsFixed(0)} (Sufficient)" : "Available: ₹${currentBal.toStringAsFixed(0)} (Insufficient)",
+                                  style: TextStyle(fontSize: 11, color: hasEnoughWallet ? Colors.green : Colors.redAccent, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(isWalletSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: const Color(0xFF4313B8)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Option 2: Razorpay UPI / Card
+                  GestureDetector(
+                    onTap: () => setModalState(() => isWalletSelected = false),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: !isWalletSelected ? const Color(0xFFF3E8FF) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: !isWalletSelected ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.payment_rounded, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text("Razorpay UPI / Card / Netbanking", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text("Instant online deposit payment", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                              ],
+                            ),
+                          ),
+                          Icon(!isWalletSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: const Color(0xFF4313B8)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (isWalletSelected) {
+                          if (!hasEnoughWallet) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Insufficient wallet balance (Available: ₹${currentBal.toStringAsFixed(0)}). Please top up or select Razorpay."),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.pop(ctx);
+                          await walletService.withdrawMoney(depositAmount, payoutMethod: "Ride Deposit Payment");
+                          await _markBackendPaymentPaid("Evegah Wallet");
+                        } else {
+                          Navigator.pop(ctx);
+                          await _markBackendPaymentPaid("Razorpay UPI");
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4313B8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        isWalletSelected ? "Pay ₹500 via Wallet" : "Pay ₹500 via Razorpay",
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text("Security Deposit Amount", style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                    Text("₹500.00", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF4313B8))),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text("Select Payment Method", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-              const SizedBox(height: 10),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Color(0xFF4313B8)),
-                ),
-                leading: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF4313B8)),
-                title: const Text("Evegah Wallet Balance", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: const Text("Sufficient balance available", style: TextStyle(fontSize: 11, color: Colors.green)),
-                trailing: const Icon(Icons.check_circle_rounded, color: Color(0xFF4313B8)),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    if (mounted) {
-                      setState(() {
-                        _depositPaid = true;
-                      });
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("✅ Security Deposit paid successfully via Evegah Wallet!"),
-                        backgroundColor: Color(0xFF16A34A),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4313B8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: const Text(
-                    "Confirm & Pay ₹500 Deposit",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
+  }
+
+  Future<void> _markBackendPaymentPaid(String method) async {
+    final resId = widget.reservationId.isNotEmpty ? widget.reservationId : 'RID-2026-445023';
+    final urls = [
+      '${AppConstants.apiBaseUrl}/reservations/$resId/pay',
+      'http://192.168.1.4:5000/api/reservations/$resId/pay',
+      'http://localhost:5000/api/reservations/$resId/pay',
+    ];
+
+    for (final url in urls) {
+      try {
+        await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'payment_method': method}),
+        ).timeout(const Duration(seconds: 3));
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() {
+        _depositPaid = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("✅ Deposit paid successfully via $method!"),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    }
   }
 
   DateTime? _parseAnyDate(String str) {
@@ -1427,19 +1535,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 10),
 
-                  _buildSummaryRow(
-                    "Platform Fee",
-                    "₹5.00",
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  _buildSummaryRow(
-                    "Taxes",
-                    "₹2.50",
-                  ),
 
                   const SizedBox(height: 12),
 

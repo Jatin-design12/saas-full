@@ -228,10 +228,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           const SizedBox(height: 12),
                           _buildPriceBreakdownRow("Rental Charges (2 Hours)", "₹58.00"),
                           const SizedBox(height: 8),
-                          _buildPriceBreakdownRow("Platform Fee", "₹5.00"),
-                          const SizedBox(height: 8),
-                          _buildPriceBreakdownRow("Taxes & GST", "₹2.50"),
-                          const SizedBox(height: 8),
                           _buildPriceBreakdownRow("GET100 discount applied", "-₹100.00", isDiscount: true),
                         ]
                       ],

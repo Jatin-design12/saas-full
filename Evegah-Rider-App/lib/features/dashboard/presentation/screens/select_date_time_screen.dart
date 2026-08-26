@@ -4,11 +4,13 @@ class SelectDateTimeScreen extends StatefulWidget {
   final bool initialIsPackageBased;
   final Map<String, dynamic>? pricing;
   final String? zoneName;
+  final Map<String, dynamic>? zoneData;
   const SelectDateTimeScreen({
     super.key,
     this.initialIsPackageBased = true,
     this.pricing,
     this.zoneName,
+    this.zoneData,
   });
 
   @override
@@ -974,99 +976,196 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
     );
   }
 
+  int _parseTimeToMinutes(String tStr, {bool isClose = false}) {
+    if (tStr.trim().isEmpty) return isClose ? (23 * 60 + 59) : (6 * 60);
+    final clean = tStr.trim().toUpperCase();
+    bool isPm = clean.contains("PM");
+    bool isAm = clean.contains("AM");
+
+    String timePart = clean.replaceAll("AM", "").replaceAll("PM", "").trim();
+    List<String> parts = timePart.split(":");
+    int hour = int.tryParse(parts[0]) ?? (isClose ? 23 : 6);
+    int minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+
+    if (isPm && hour < 12) hour += 12;
+    if (isAm && hour == 12) hour = 0;
+
+    return hour * 60 + minute;
+  }
+
+  int _getTimeInMinutes(String hourStr, String minStr, String periodStr) {
+    int h = int.tryParse(hourStr) ?? 10;
+    int m = int.tryParse(minStr) ?? 0;
+    if (periodStr == "PM" && h < 12) h += 12;
+    if (periodStr == "AM" && h == 12) h = 0;
+    return h * 60 + m;
+  }
+
+  String get zoneOperatingHoursText {
+    final zd = widget.zoneData ?? {};
+    if (zd['is_24_hours'] == true) return "24 Hours Open (24x7)";
+    final op = zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM';
+    final cl = zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM';
+    return "$op - $cl";
+  }
+
+  bool _isTimeWithinZoneHours(int timeInMinutes) {
+    final zd = widget.zoneData ?? {};
+    if (zd['is_24_hours'] == true) return true;
+    final opStr = (zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM').toString();
+    final clStr = (zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM').toString();
+    
+    int openMin = _parseTimeToMinutes(opStr, isClose: false);
+    int closeMin = _parseTimeToMinutes(clStr, isClose: true);
+
+    if (openMin <= closeMin) {
+      return timeInMinutes >= openMin && timeInMinutes <= closeMin;
+    } else {
+      return timeInMinutes >= openMin || timeInMinutes <= closeMin;
+    }
+  }
+
+  bool _validateAndClampTimes() {
+    int pMin = _getTimeInMinutes(pickupHour, pickupMinute, pickupPeriod);
+    int dMin = _getTimeInMinutes(dropHour, dropMinute, dropPeriod);
+
+    bool pValid = _isTimeWithinZoneHours(pMin);
+    bool dValid = _isTimeWithinZoneHours(dMin);
+
+    if (!pValid || !dValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Selected pickup/drop time is outside Zone Operating Hours ($zoneOperatingHoursText). Please choose a time within opening hours.",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
   // Pickup & Drop Time Pickers
   Widget _buildPickupDropTimePickers() {
-    return Row(
+    return Column(
       children: [
-        // Pickup Box
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: const [
-                    CircleAvatar(radius: 3, backgroundColor: Color(0xFF8CE600)),
-                    SizedBox(width: 6),
-                    Text(
-                      "Pickup Date & Time",
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(_formatDateShort(_startDate), style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
-                const SizedBox(height: 10),
-
-                // Time Spinner
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildTimeColumn(pickupHour, List.generate(12, (i) => (i + 1).toString().padLeft(2, '0')), (val) => setState(() => pickupHour = val)),
-                      const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      _buildTimeColumn(pickupMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => pickupMinute = val)),
-                      const SizedBox(width: 4),
-                      _buildPeriodDropdown(pickupPeriod, (val) => setState(() => pickupPeriod = val!)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        // Zone Operating Hours Banner
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3E8FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFDDD6FE)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.access_time_filled_rounded, size: 14, color: Color(0xFF4313B8)),
+              const SizedBox(width: 6),
+              Text(
+                "Zone Operating Hours: $zoneOperatingHoursText",
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 10),
+        Row(
+          children: [
+            // Pickup Box
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        CircleAvatar(radius: 3, backgroundColor: Color(0xFF8CE600)),
+                        SizedBox(width: 6),
+                        Text(
+                          "Pickup Date & Time",
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(_formatDateShort(_startDate), style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+                    const SizedBox(height: 10),
 
-        // Drop Box
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFF1F5F9)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: const [
-                    CircleAvatar(radius: 3, backgroundColor: Color(0xFF8CE600)),
-                    SizedBox(width: 6),
-                    Text(
-                      "Drop Date & Time",
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    // Time Spinner
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildTimeColumn(pickupHour, List.generate(12, (i) => (i + 1).toString().padLeft(2, '0')), (val) => setState(() => pickupHour = val)),
+                          const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          _buildTimeColumn(pickupMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => pickupMinute = val)),
+                          const SizedBox(width: 4),
+                          _buildPeriodDropdown(pickupPeriod, (val) => setState(() => pickupPeriod = val!)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(_formatDateShort(_endDate), style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
-                const SizedBox(height: 10),
-
-                // Time Spinner
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildTimeColumn(dropHour, List.generate(12, (i) => (i + 1).toString().padLeft(2, '0')), (val) => setState(() => dropHour = val)),
-                      const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      _buildTimeColumn(dropMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => dropMinute = val)),
-                      const SizedBox(width: 4),
-                      _buildPeriodDropdown(dropPeriod, (val) => setState(() => dropPeriod = val!)),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 10),
+
+            // Drop Box
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        CircleAvatar(radius: 3, backgroundColor: Color(0xFF8CE600)),
+                        SizedBox(width: 6),
+                        Text(
+                          "Drop Date & Time",
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(_formatDateShort(_endDate), style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
+                    const SizedBox(height: 10),
+
+                    // Time Spinner
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildTimeColumn(dropHour, List.generate(12, (i) => (i + 1).toString().padLeft(2, '0')), (val) => setState(() => dropHour = val)),
+                          const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          _buildTimeColumn(dropMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => dropMinute = val)),
+                          const SizedBox(width: 4),
+                          _buildPeriodDropdown(dropPeriod, (val) => setState(() => dropPeriod = val!)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

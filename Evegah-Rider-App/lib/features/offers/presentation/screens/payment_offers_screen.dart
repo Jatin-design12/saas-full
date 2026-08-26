@@ -7,6 +7,7 @@ import '../../../../core/utils/razorpay_stub.dart'
     if (dart.library.js) '../../../../core/utils/razorpay_web.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
+import '../../../profile/data/services/profile_service.dart';
 import '../../../dashboard/presentation/widgets/vehicle_360_viewer.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
 import 'offer_screen.dart';
@@ -49,8 +50,8 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
 
   double _basePrice = 0.0;
   double _discount = 0.0;
-  double _platformFee = 5.0;
-  double _taxes = 2.50;
+  double _platformFee = 0.0;
+  double _taxes = 0.0;
 
   double get _deliveryFee {
     if (widget.isFlexiDrop != true) {
@@ -63,7 +64,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
   }
 
   double get _totalPayable {
-    double total = _basePrice + _deliveryFee - _discount + _platformFee + _taxes;
+    double total = _basePrice + _deliveryFee - _discount;
     if (_depositOption == 'Pay Now') {
       total += widget.selectedVehicle["realDeposit"] ?? 500.0;
     }
@@ -121,22 +122,27 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
 
   /// Triggers Razorpay Checkout modal when rider taps Pay Now
   void _triggerRazorpayPayment({required bool payNow}) {
-    if (!payNow) {
-      _confirmBooking(payNow: false);
+    final double amountToPay = _totalPayable;
+
+    if (amountToPay <= 0) {
+      _confirmBooking(payNow: payNow);
       return;
     }
 
-    final double amountToPay = _totalPayable;
+    final profile = ProfileService();
+    final cleanPhone = profile.phoneNumber.replaceAll(RegExp(r'\D'), '');
+    final userContact = cleanPhone.isNotEmpty ? cleanPhone : (SessionService().userMobileSync?.replaceAll(RegExp(r'\D'), '') ?? '');
+    final userEmail = profile.email.isNotEmpty ? profile.email : 'contact@evegah.com';
 
     // Web Razorpay Checkout
     if (kIsWeb) {
       try {
         startRazorpayWebCheckout(
-          keyId: 'rzp_test_TCrlW614wYWVgA',
+          keyId: 'rzp_test_TUPu6tLfTa8qrh',
           amount: amountToPay,
           description: 'Evegah EV Rental Booking',
-          contact: '9876543210',
-          email: 'rider@evegah.com',
+          contact: userContact,
+          email: userEmail,
           orderId: '',
           onSuccess: (paymentId) {
             _confirmBooking(payNow: true);
@@ -162,14 +168,14 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     // Native Mobile Razorpay Checkout (Android/iOS)
     if (_razorpay != null) {
       var options = {
-        'key': 'rzp_test_TCrlW614wYWVgA',
+        'key': 'rzp_test_TUPu6tLfTa8qrh',
         'amount': (amountToPay * 100).toInt(),
         'name': 'EVegah Mobility',
         'description': 'EV Rental Reservation',
         'timeout': 180,
         'prefill': {
-          'contact': '9876543210',
-          'email': 'rider@evegah.com',
+          'contact': userContact,
+          'email': userEmail,
         },
         'external': {
           'wallets': ['paytm']
@@ -285,15 +291,50 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       // Dismiss loading
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
+      if (response.statusCode == 400) {
+        String errorMsg = "Active Ride In Progress! You already have an active ride. Please return your current ride before booking a new one.";
+        try {
+          final body = jsonDecode(response.body);
+          if (body['message'] != null) errorMsg = body['message'];
+        } catch (_) {}
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: const [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
+                  SizedBox(width: 8),
+                  Text("Active Ride Exists", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Text(errorMsg, style: const TextStyle(fontSize: 13, color: Color(0xFF334155))),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4313B8)),
+                  child: const Text("OK", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
       String reservationId = '';
       if (response.statusCode == 200 || response.statusCode == 201) {
         try {
           final body = jsonDecode(response.body);
-          reservationId = body['data']?['reservation_id'] ?? '';
+          if (body['reservation'] != null && body['reservation']['_id'] != null) {
+            reservationId = body['reservation']['_id'];
+          } else if (body['id'] != null) {
+            reservationId = body['id'];
+          }
         } catch (_) {}
       }
-
-      if (!mounted) return;
 
       final bookingDataMap = {
         "vehicleName": widget.selectedVehicle['evegah_model_name'] ?? widget.selectedVehicle['name'] ?? "Evegah City",
@@ -909,21 +950,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("Platform Fee:", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                      Text("₹${_platformFee.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("GST & Taxes (18%):", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                      Text("₹${_taxes.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                    ],
-                  ),
+
                   if (_discount > 0) ...[
                     const SizedBox(height: 8),
                     Row(

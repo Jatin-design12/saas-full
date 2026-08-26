@@ -1,12 +1,26 @@
 "use client";
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import Link from 'next/link';
+import { api } from '@/lib/api';
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.folder-container { display: flex; flex-direction: column; gap: 16px; padding: 18px; }
+.folder-card { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+.folder-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #FAFBFD; border-bottom: 1px solid #F1F5F9; cursor: pointer; }
+.folder-hdr-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13.5px; color: #0F172A; }
+.folder-badge { font-size: 11px; font-weight: 700; background: #EEF2FF; color: #4F46E5; padding: 2px 8px; border-radius: 20px; }
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; padding: 16px; background: #fff; }
+.doc-card { border: 1.5px solid #F1F5F9; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #FAFAFA; transition: all .15s; }
+.doc-card:hover { border-color: #6D28D9; background: #fff; box-shadow: 0 4px 12px rgba(109,40,217,0.06); }
+.doc-card-thumb { height: 110px; background: #EEF2FF; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+.doc-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.doc-card-tit { font-size: 12.5px; font-weight: 700; color: #1E293B; }
+.doc-card-sub { font-size: 11px; color: #64748B; }
 
 .rp-shell { display: flex; min-height: 100vh; background: #F8F9FC; font-family: 'Inter', sans-serif; }
 .rp-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
@@ -364,6 +378,44 @@ function RiderProfileContent() {
   const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCS);
   const [docStatusFilter, setDocStatusFilter] = useState('');
   const [docCatFilter, setDocCatFilter] = useState('');
+
+  const [folderData, setFolderData] = useState<any[]>([]);
+  const [kycStatus, setKycStatus] = useState<string>('Verified');
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; image?: string; details?: string } | null>(null);
+
+  const fetchFolderDocs = async () => {
+    setLoadingDocs(true);
+    try {
+      const res = await api.get(`/renters/documents?mobile=${encodeURIComponent(riderMobile)}`);
+      if (res.data && res.data.data && res.data.data.folders) {
+        setFolderData(res.data.data.folders);
+      }
+      const kycRes = await api.get(`/renters/kyc?mobile=${encodeURIComponent(riderMobile)}`);
+      if (kycRes.data && kycRes.data.data && kycRes.data.data.kyc_status) {
+        setKycStatus(kycRes.data.data.kyc_status);
+      }
+    } catch (e) {
+      console.error('Failed to fetch folder docs:', e);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFolderDocs();
+  }, [riderMobile]);
+
+  const handleApproveKyc = async () => {
+    try {
+      await api.post('/renters/kyc/verify', { mobile: riderMobile, status: 'Verified' });
+      setKycStatus('Verified');
+      triggerToast('Rider KYC successfully approved & verified! ✓');
+      fetchFolderDocs();
+    } catch (e) {
+      triggerToast('Failed to approve KYC');
+    }
+  };
 
   const [incidents, setIncidents] = useState<IncidentItem[]>(INITIAL_INCIDENTS);
   const [incidentStatusFilter, setIncidentStatusFilter] = useState('');
@@ -1611,93 +1663,90 @@ function RiderProfileContent() {
             )}
 
             {activeTab === 'Documents' && (
-              <div className="rp-card">
-                <div className="rp-list-filter-bar">
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <select className="rp-select" value={docCatFilter} onChange={(e) => { setDocCatFilter(e.target.value); setDocsPage(1); }}>
-                      <option value="">All Categories</option>
-                      <option value="Identity Proof">Identity Proof</option>
-                      <option value="License">License</option>
-                      <option value="Insurance">Insurance</option>
-                      <option value="Vehicle Document">Vehicle Document</option>
-                      <option value="Bank Document">Bank Document</option>
-                      <option value="Certificate">Certificate</option>
-                      <option value="Verification">Verification</option>
-                    </select>
-                    <select className="rp-select" value={docStatusFilter} onChange={(e) => { setDocStatusFilter(e.target.value); setDocsPage(1); }}>
-                      <option value="">All Statuses</option>
-                      <option value="Verified">Verified</option>
-                      <option value="Pending">Pending</option>
-                    </select>
+              <div className="rp-card" style={{ padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>Rider Verification & Folder Documents</h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748B' }}>Folder-wise KYC identity proofs, vehicle pre/post ride condition photos, and licenses.</p>
                   </div>
-                  <button className="rp-btn-primary" onClick={() => setModalType('uploadDoc')}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Upload Document
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', background: kycStatus === 'Verified' ? '#DCFCE7' : '#FEF3C7', color: kycStatus === 'Verified' ? '#15803D' : '#D97706', fontWeight: 700, fontSize: '12px' }}>
+                      {kycStatus === 'Verified' ? '✓ KYC Status: Verified' : '⌛ KYC Status: Under Review'}
+                    </div>
+                    {kycStatus !== 'Verified' && (
+                      <button className="rp-btn-primary" style={{ background: '#10B981', borderColor: '#10B981' }} onClick={handleApproveKyc}>
+                        ✓ Approve & Verify KYC
+                      </button>
+                    )}
+                    <button className="rp-btn-outline" onClick={fetchFolderDocs}>
+                      ↺ Refresh
+                    </button>
+                    <button className="rp-btn-primary" onClick={() => setModalType('uploadDoc')}>
+                      + Upload to Folder
+                    </button>
+                  </div>
                 </div>
 
-                <div className="rp-table-wrap" style={{ border: 'none', borderRadius: 0, marginTop: 0 }}>
-                  <table className="rp-table">
-                    <thead>
-                      <tr>
-                        <th>Document Name</th>
-                        <th>Category</th>
-                        <th>Document Number</th>
-                        <th>Issue Date</th>
-                        <th>Expiry Date</th>
-                        <th>Status</th>
-                        <th style={{ textAlign: 'center' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedDocs.map((doc, idx) => (
-                        <tr key={idx}>
-                          <td style={{ fontWeight: 700 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              📄 {doc.name}
-                            </div>
-                          </td>
-                          <td><span className="pill-badge pill-purple">{doc.category}</span></td>
-                          <td style={{ fontFamily: 'monospace' }}>{doc.number}</td>
-                          <td>{doc.issueDate}</td>
-                          <td>{doc.expiryDate}</td>
-                          <td>
-                            <span className={`status-tag ${doc.status === 'Verified' ? 'verified' : 'pending'}`}>
-                              {doc.status === 'Verified' ? '✓' : '⌛'} {doc.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Preview Document" onClick={() => alert(`Previewing: ${doc.name}\nDoc Number: ${doc.number}`)}>👁</button>
-                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Download Document" onClick={() => triggerToast(`${doc.name} downloaded successfully`)}>⬇</button>
-                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Verify Document" onClick={() => {
-                                if (doc.status === 'Verified') {
-                                  alert('Document is already verified.');
-                                  return;
-                                }
-                                const updated = documents.map(d => d.name === doc.name ? { ...d, status: 'Verified' as const } : d);
-                                setDocuments(updated);
-                                triggerToast(`${doc.name} verified successfully!`);
-                              }}>✓</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {loadingDocs ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>Loading folder documents...</div>
+                ) : folderData.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>No documents uploaded yet.</div>
+                ) : (
+                  <div className="folder-container" style={{ padding: 0 }}>
+                    {folderData.map((folder: any, fIdx: number) => (
+                      <div key={fIdx} className="folder-card" style={{ marginBottom: '16px' }}>
+                        <div className="folder-hdr">
+                          <div className="folder-hdr-left">
+                            <span style={{ fontSize: '18px' }}>📁</span>
+                            <span>{folder.folder_name}</span>
+                            <span className="folder-badge">{folder.documents?.length || 0} Files</span>
+                          </div>
+                          <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Active Folder</span>
+                        </div>
 
-                {/* Pagination */}
-                <div className="rp-footer-bar">
-                  <span>Showing {(docsPage - 1) * 5 + 1} to {Math.min(docsPage * 5, filteredDocs.length)} of {filteredDocs.length} documents</span>
-                  <div className="rp-pagination">
-                    <button className="rp-pg-btn" disabled={docsPage === 1} onClick={() => setDocsPage(p => p - 1)}>&lt;</button>
-                    {Array.from({ length: Math.ceil(filteredDocs.length / 5) }).map((_, i) => (
-                      <button key={i} className={`rp-pg-btn ${docsPage === (i + 1) ? 'active' : ''}`} onClick={() => setDocsPage(i + 1)}>{i + 1}</button>
+                        <div className="folder-grid">
+                          {folder.documents?.map((doc: any, dIdx: number) => (
+                            <div key={dIdx} className="doc-card">
+                              <div className="doc-card-thumb">
+                                {doc.file_path && doc.file_path.startsWith('http') ? (
+                                  <img src={doc.file_path} alt={doc.doc_name} />
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '32px' }}>
+                                      {doc.doc_name.toLowerCase().includes('selfie') ? '🤳' : doc.doc_name.toLowerCase().includes('license') ? '🪪' : doc.doc_name.toLowerCase().includes('vehicle') ? '🛵' : '📄'}
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Verified Asset</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="doc-card-tit">{doc.doc_name}</div>
+                                <div className="doc-card-sub">Uploaded on: {doc.date || 'Recent'}</div>
+                                {doc.ocr_aadhaar_no && (
+                                  <div style={{ fontSize: '10.5px', color: '#4F46E5', fontWeight: 700, marginTop: '2px' }}>
+                                    Aadhaar: {doc.ocr_aadhaar_no}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                <span className={`status-tag ${doc.status === 'Verified' ? 'verified' : 'pending'}`}>
+                                  {doc.status === 'Verified' ? '✓' : '⌛'} {doc.status || 'Verified'}
+                                </span>
+                                <button 
+                                  className="rp-pg-btn" 
+                                  style={{ width: 'auto', padding: '0 8px', fontSize: '11px', height: '24px' }}
+                                  onClick={() => alert(`Document: ${doc.doc_name}\nFolder: ${folder.folder_name}\nStatus: ${doc.status || 'Verified'}\nDate: ${doc.date || '2026-08-19'}`)}
+                                >
+                                  👁 View
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     ))}
-                    <button className="rp-pg-btn" disabled={docsPage === Math.ceil(filteredDocs.length / 5)} onClick={() => setDocsPage(p => p + 1)}>&gt;</button>
                   </div>
-                </div>
+                )}
               </div>
             )}
 

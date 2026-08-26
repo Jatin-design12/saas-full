@@ -3,12 +3,20 @@ import 'package:flutter/services.dart';
 import '../../../support/presentation/screens/help_screen.dart';
 
 class TransactionDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> transaction;
+  final Map<String, dynamic>? transaction;
 
-  const TransactionDetailScreen({super.key, required this.transaction});
+  const TransactionDetailScreen({super.key, this.transaction});
+
+  static const Map<String, dynamic> _defaultTx = {
+    "title": "Ride Reservation (Paid)",
+    "subtitle": "Evegah EV • Gotri Zone",
+    "amount": "- ₹307.50",
+    "date": "2026-08-26, 10:30 AM",
+    "isCredit": false,
+  };
 
   String _formatCleanDateTime(String rawDate) {
-    if (rawDate.isEmpty) return "2026-08-07, 10:30 AM";
+    if (rawDate.isEmpty) return "2026-08-26, 10:30 AM";
     
     // Replace hardcoded 00:00:00 with default active time 10:30 AM
     String cleaned = rawDate.replaceAll(", 00:00:00", ", 10:30 AM")
@@ -22,15 +30,16 @@ class TransactionDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isCredit = transaction['isCredit'] ?? false;
-    final String title = transaction['title'] ?? 'Ride Reservation (Paid)';
-    final String subtitle = transaction['subtitle'] ?? 'Evegah EV • Manjalpur Zone';
-    final String amount = transaction['amount'] ?? '- ₹757.50';
-    final String rawDate = transaction['date'] ?? '2026-08-07, 10:30 AM';
+    final tx = transaction ?? _defaultTx;
+    final bool isCredit = tx['isCredit'] ?? false;
+    final String title = tx['title'] ?? 'Ride Reservation (Paid)';
+    final String subtitle = tx['subtitle'] ?? 'Evegah EV • Manjalpur Zone';
+    final String amount = tx['amount'] ?? '- ₹307.50';
+    final String rawDate = tx['date'] ?? '2026-08-26, 10:30 AM';
     final String formattedDate = _formatCleanDateTime(rawDate);
 
-    final String txnId = transaction['txnId'] ?? 'EVG-TXN-89843909';
-    final String refOrder = transaction['refOrder'] ?? 'ORD-2026-9874';
+    final String txnId = tx['txnId'] ?? 'EVG-TXN-89843909';
+    final String refOrder = tx['refOrder'] ?? 'ORD-2026-9874';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFBFE),

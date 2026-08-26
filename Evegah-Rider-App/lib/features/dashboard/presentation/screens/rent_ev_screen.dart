@@ -473,6 +473,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                           initialIsPackageBased: isPackage,
                           pricing: selectedZoneData != null ? selectedZoneData!['pricing'] : null,
                           zoneName: selectedZoneData != null ? selectedZoneData!['name'] : selectedLocation.split(',').first,
+                          zoneData: selectedZoneData,
                         ),
                       ),
                     );
@@ -544,6 +545,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                           initialIsPackageBased: isPackage,
                           pricing: selectedZoneData != null ? selectedZoneData!['pricing'] : null,
                           zoneName: selectedZoneData != null ? selectedZoneData!['name'] : selectedLocation.split(',').first,
+                          zoneData: selectedZoneData,
                         ),
                       ),
                     );
@@ -1038,6 +1040,9 @@ class _RentEvScreenState extends State<RentEvScreen> {
     }
 
     String assetPath = src.trim();
+    while (assetPath.startsWith('/')) {
+      assetPath = assetPath.substring(1);
+    }
     if (!assetPath.startsWith('assets/')) {
       assetPath = 'assets/$assetPath';
     }
@@ -1047,7 +1052,25 @@ class _RentEvScreenState extends State<RentEvScreen> {
       width: width,
       height: height,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) => fallback,
+      errorBuilder: (context, error, stackTrace) {
+        // Fallback for asset image variations
+        String altPath = assetPath;
+        if (assetPath.contains('City-1.png')) altPath = 'assets/city.png';
+        if (assetPath.contains('fly-1.png')) altPath = 'assets/Fly.png';
+        if (assetPath.contains('Pro Banner.png')) altPath = 'assets/Pro_Banner.png';
+        if (assetPath.contains('mink banner.png')) altPath = 'assets/mink_banner.png';
+        
+        if (altPath != assetPath) {
+          return Image.asset(
+            altPath,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (context, err, stack) => fallback,
+          );
+        }
+        return fallback;
+      },
     );
   }
 
@@ -1055,12 +1078,42 @@ class _RentEvScreenState extends State<RentEvScreen> {
   Widget _buildZoneDetailsCard() {
     Map<String, dynamic> activeZone = selectedZoneData ?? {};
 
-    if (activeZone.isEmpty && _liveBackendZones.isNotEmpty) {
+    if (_liveBackendZones.isNotEmpty) {
+      final selectedName = (activeZone['name'] ?? selectedLocation).toString().toLowerCase();
       final matched = _liveBackendZones.firstWhere(
-        (z) => selectedLocation.toLowerCase().contains((z['name'] ?? '').toString().toLowerCase()),
-        orElse: () => _liveBackendZones.first,
+        (z) {
+          final zName = (z['name'] ?? '').toString().toLowerCase();
+          return zName.isNotEmpty && (selectedName.contains(zName) || zName.contains(selectedName.replaceAll(" zone", "").trim()));
+        },
+        orElse: () => activeZone.isNotEmpty ? activeZone : _liveBackendZones.first,
       );
-      activeZone = matched;
+
+      activeZone = {
+        ...matched,
+        ...activeZone,
+      };
+
+      if ((activeZone['image_url'] == null || activeZone['image_url'].toString().isEmpty) && matched['image_url'] != null) {
+        activeZone['image_url'] = matched['image_url'];
+      }
+      if ((activeZone['phone'] == null || activeZone['phone'].toString().isEmpty) && matched['phone'] != null) {
+        activeZone['phone'] = matched['phone'];
+      }
+      if ((activeZone['address'] == null || activeZone['address'].toString().isEmpty) && matched['address'] != null) {
+        activeZone['address'] = matched['address'];
+      }
+      if ((activeZone['map_link'] == null || activeZone['map_link'].toString().isEmpty) && matched['map_link'] != null) {
+        activeZone['map_link'] = matched['map_link'];
+      }
+      if ((activeZone['open_time'] == null || activeZone['open_time'].toString().isEmpty) && matched['open_time'] != null) {
+        activeZone['open_time'] = matched['open_time'];
+      }
+      if ((activeZone['close_time'] == null || activeZone['close_time'].toString().isEmpty) && matched['close_time'] != null) {
+        activeZone['close_time'] = matched['close_time'];
+      }
+      if (activeZone['is_24_hours'] == null && matched['is_24_hours'] != null) {
+        activeZone['is_24_hours'] = matched['is_24_hours'];
+      }
     }
 
     final zoneName = activeZone['name'] ?? 
@@ -1069,15 +1122,33 @@ class _RentEvScreenState extends State<RentEvScreen> {
             : "Gotri Zone");
 
     String zoneAddress = activeZone['address'] ?? activeZone['locality'] ?? "Office No-10, Royal Nandish, Gotri, Vadodara";
-    String phone = activeZone['phone'] ?? activeZone['contact_number'] ?? activeZone['contact'] ?? "+91 98765 43210";
+    String phone = (activeZone['phone'] != null && activeZone['phone'].toString().isNotEmpty)
+        ? activeZone['phone'].toString()
+        : (activeZone['contact_number'] != null && activeZone['contact_number'].toString().isNotEmpty)
+            ? activeZone['contact_number'].toString()
+            : "+91 98765 43210";
+            
     String mapLink = activeZone['map_link'] ?? "https://maps.google.com/?q=${activeZone['name'] ?? 'Gotri'},Vadodara";
-    String distance = activeZone['distance'] ?? "1.8 km away";
+    String distance = activeZone['distance'] ?? "1.8 km";
     if (!distance.contains("km")) {
       distance = "$distance km";
     }
-    String duration = activeZone['duration'] ?? "10 mins";
 
-    String zoneImage = activeZone['image_url'] ?? activeZone['image'] ?? "assets/ev_baroda.png";
+    String timing;
+    if (activeZone['is_24_hours'] == true || activeZone['hours'] == "Open 24x7") {
+      timing = "24 Hours Open";
+    } else if (activeZone['open_time'] != null &&
+        activeZone['close_time'] != null &&
+        activeZone['open_time'].toString().isNotEmpty &&
+        activeZone['close_time'].toString().isNotEmpty) {
+      timing = "${activeZone['open_time']} - ${activeZone['close_time']}";
+    } else if (activeZone['timing'] != null && activeZone['timing'].toString().isNotEmpty) {
+      timing = activeZone['timing'].toString();
+    } else {
+      timing = "06:00 AM - 11:00 PM";
+    }
+
+    String zoneImage = activeZone['image_url'] ?? activeZone['image'] ?? activeZone['imageUrl'] ?? "";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1178,7 +1249,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Distance & Duration Row + Map Direction Action
+                    // Distance & Timing Row + Map Direction Action
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1209,12 +1280,16 @@ class _RentEvScreenState extends State<RentEvScreen> {
                                 size: 12,
                               ),
                               const SizedBox(width: 3),
-                              Text(
-                                duration,
-                                style: const TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF64748B),
+                              Expanded(
+                                child: Text(
+                                  timing,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ),
                             ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/session_service.dart';
+import '../../features/profile/data/services/profile_service.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/dashboard/presentation/screens/rent_ev_screen.dart';
 import '../../features/dashboard/presentation/screens/select_location_screen.dart';
@@ -7,7 +8,6 @@ import '../../features/dashboard/presentation/screens/select_date_time_screen.da
 import '../../features/dashboard/presentation/screens/vehicle_list_screen.dart';
 import '../../features/offers/presentation/screens/offer_screen.dart';
 import '../../features/rides/presentation/screen/ride_history_screen.dart';
-import '../../features/wallet/presentation/screens/payment_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/kyc/presentation/screens/kyc_screen.dart';
@@ -71,10 +71,11 @@ class AppSidebarDrawer extends StatelessWidget {
                 FutureBuilder<Map<String, String>>(
                   future: SessionService().getUserProfile(),
                   builder: (context, snapshot) {
-                    final rawName = snapshot.data?['name'];
-                    final userName = (rawName != null && rawName.trim().isNotEmpty && rawName != "Evegah Rider")
+                    final rawName = snapshot.data?['name'] ?? ProfileService().userName;
+                    final mobile = snapshot.data?['mobile'] ?? ProfileService().phoneNumber;
+                    final userName = (rawName.trim().isNotEmpty)
                         ? rawName.trim()
-                        : "Himanshu Chavda";
+                        : (mobile.isNotEmpty ? mobile : "Rider");
                     final initials = _getInitials(userName);
 
                     return Material(

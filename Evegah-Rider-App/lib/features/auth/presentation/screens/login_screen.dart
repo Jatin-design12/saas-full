@@ -72,11 +72,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     await Future.delayed(const Duration(milliseconds: 800));
 
     final profile = await SessionService().getUserProfile();
-    final name = profile['name'] != null && profile['name']!.isNotEmpty ? profile['name']! : "Evegah Rider";
+    final name = profile['name'] != null && profile['name']!.isNotEmpty ? profile['name']! : "";
     await _handleLoginSuccess(
       name: name,
       dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
-      address: profile['address'] ?? "Vadodara, Gujarat",
+      address: profile['address'] ?? "",
       gender: profile['gender'] ?? "Male",
     );
   }
@@ -107,15 +107,76 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     setState(() => _isLoading = true);
 
-    // Generate random 4-digit OTP
+    final cleanMobile = input.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
+
+    // 1. Check if user is already registered in Backend API
+    try {
+      final checkUrls = [
+        '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
+        'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+      ];
+
+      for (final checkUrl in checkUrls) {
+        try {
+          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 2));
+          if (checkRes.statusCode == 200) {
+            final checkData = json.decode(checkRes.body);
+            if (checkData['status'] == 'success' && checkData['data'] != null) {
+              final List renters = checkData['data'];
+              if (renters.isNotEmpty) {
+                final existingUser = renters.first;
+                final String name = existingUser['rider_name'] ?? existingUser['name'] ?? existingUser['full_name'] ?? "";
+                final String email = existingUser['email'] ?? "";
+                final String address = existingUser['address'] ?? "";
+                final String dob = existingUser['date_of_birth'] ?? existingUser['dateOfBirth'] ?? existingUser['dob'] ?? "";
+                final String gender = existingUser['gender'] ?? "Male";
+
+                setState(() => _isLoading = false);
+                _showSnackBar("Welcome back${name.isNotEmpty ? ', $name' : ''}! Direct login verified ⚡", isSuccess: true);
+                
+                await _handleLoginSuccess(
+                  name: name,
+                  email: email,
+                  dateOfBirth: dob,
+                  address: address,
+                  gender: gender,
+                );
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint("Error checking backend user: $e");
+    }
+
+    // 2. Check local session if profile already exists for this number
+    final hasCompleted = await SessionService().hasCompletedProfile();
+    final savedMobile = await SessionService().getUserMobile();
+    if (hasCompleted && savedMobile != null && savedMobile.replaceAll(RegExp(r'\D'), '').contains(last10)) {
+      final profile = await SessionService().getUserProfile();
+      setState(() => _isLoading = false);
+      _showSnackBar("Welcome back! Direct login verified ⚡", isSuccess: true);
+      await _handleLoginSuccess(
+        name: profile['name'] ?? "",
+        dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
+        address: profile['address'] ?? "",
+        gender: profile['gender'] ?? "Male",
+      );
+      return;
+    }
+
+    // 3. New User Flow: Send OTP
     final rng = Random();
     _realGeneratedOtp = (1000 + rng.nextInt(9000)).toString();
 
-    final cleanMobile = input.replaceAll(RegExp(r'\D'), '');
     final url = "https://2factor.in/API/V1/7d84d134-26fe-11ed-9c12-0200cd936042/SMS/$cleanMobile/$_realGeneratedOtp/eVegah+SMS";
 
     try {
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
       debugPrint("2factor SMS response: ${res.body}");
       _showSnackBar("Real SMS OTP sent to $_selectedCountryCode $input 📲", isSuccess: true);
     } catch (e) {
@@ -141,14 +202,61 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       return;
     }
 
-    // Check if user has already completed their profile
+    final input = _phoneController.text.trim();
+    final cleanMobile = input.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
+
+    // Check backend API for existing registered rider by mobile number
+    try {
+      final checkUrls = [
+        '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
+        'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+      ];
+
+      for (final checkUrl in checkUrls) {
+        try {
+          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 2));
+          if (checkRes.statusCode == 200) {
+            final checkData = json.decode(checkRes.body);
+            if (checkData['status'] == 'success' && checkData['data'] != null) {
+              final List renters = checkData['data'];
+              if (renters.isNotEmpty) {
+                final existingUser = renters.first;
+                final String name = existingUser['rider_name'] ?? existingUser['name'] ?? existingUser['full_name'] ?? "";
+                final String email = existingUser['email'] ?? "";
+                final String address = existingUser['address'] ?? "";
+                final String dob = existingUser['date_of_birth'] ?? existingUser['dateOfBirth'] ?? existingUser['dob'] ?? "";
+                final String gender = existingUser['gender'] ?? "Male";
+
+                if (name.isNotEmpty) {
+                  await _handleLoginSuccess(
+                    name: name,
+                    email: email,
+                    dateOfBirth: dob,
+                    address: address,
+                    gender: gender,
+                  );
+                  return;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint("Error checking backend in step 2: $e");
+    }
+
+    // Check if user has already completed their profile locally
     final hasCompleted = await SessionService().hasCompletedProfile();
     if (hasCompleted) {
       final profile = await SessionService().getUserProfile();
       await _handleLoginSuccess(
-        name: profile['name'] ?? "Evegah Rider",
+        name: profile['name'] ?? "",
+        email: profile['email'] ?? "",
         dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
-        address: profile['address'] ?? "Vadodara, Gujarat",
+        address: profile['address'] ?? "",
         gender: profile['gender'] ?? "Male",
       );
     } else {
@@ -183,13 +291,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _handleLoginSuccess({
-    String name = "Evegah Rider",
+    String name = "",
+    String email = "",
     String dateOfBirth = "",
-    String address = "Vadodara, Gujarat",
+    String address = "",
     String gender = "Male",
   }) async {
     final session = SessionService();
-    final mobileStr = _phoneController.text.trim().isEmpty ? "+91 98765 43210" : "$_selectedCountryCode ${_phoneController.text.trim()}";
+    final mobileStr = _phoneController.text.trim().isNotEmpty
+        ? "$_selectedCountryCode ${_phoneController.text.trim()}"
+        : (SessionService().userMobileSync ?? "");
 
     await session.saveToken("mock_jwt_token_evegah", rememberMe: _rememberMe);
     await session.saveUserMobile(mobileStr);
@@ -198,6 +309,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       gender: gender,
       age: dateOfBirth,
       address: address,
+      email: email,
     );
 
     // Sync to ProfileService singleton for real-time UI update across app
@@ -207,14 +319,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     profileService.gender = gender;
     profileService.dateOfBirth = dateOfBirth;
     profileService.address = address;
+    if (email.isNotEmpty) {
+      profileService.email = email;
+    }
 
     try {
       await http.post(
         Uri.parse('${AppConstants.apiBaseUrl}/renters'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'name': name,
+          'rider_name': name,
           'mobile': mobileStr,
+          'email': email,
           'address': address,
           'dateOfBirth': dateOfBirth,
           'gender': gender,
@@ -278,11 +394,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   onPressed: () async {
                     Navigator.pop(ctx);
                     final profile = await SessionService().getUserProfile();
-                    final name = profile['name'] != null && profile['name']!.isNotEmpty ? profile['name']! : "Evegah Rider";
+                    final name = profile['name'] ?? "";
                     await _handleLoginSuccess(
                       name: name,
                       dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
-                      address: profile['address'] ?? "Vadodara, Gujarat",
+                      address: profile['address'] ?? "",
                       gender: profile['gender'] ?? "Male",
                     );
                   },
@@ -577,29 +693,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
         const SizedBox(height: 12),
 
-        // 4b. Biometric & Face ID Quick Login Button
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton.icon(
-            onPressed: _showBiometricAuthDialog,
-            icon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF4F2DA1), size: 22),
-            label: const Text(
-              "Biometric & Face ID Login",
-              style: TextStyle(
-                color: Color(0xFF4F2DA1),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF4F2DA1), width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          ),
-        ),
         const SizedBox(height: 22),
 
         // 5. Divider: "or continue with"
@@ -769,275 +862,366 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       key: const ValueKey<int>(3),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Center(
-          child: Text(
-            "Complete Profile",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Center(
-          child: Text(
-            "Required to confirm your EV ride booking",
-            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-          ),
-        ),
-        const SizedBox(height: 18),
-
-        // Full Name
-        const Text("Full Name", style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-        const SizedBox(height: 6),
-        _buildTextField(_nameController, "Enter your full name", Icons.person_outline_rounded),
-        const SizedBox(height: 12),
-
-        // Gender Selection Chips
-        const Text("Gender", style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-        const SizedBox(height: 6),
+        // Header Row with Title & Illustration (assets/profile_edit.png)
         Row(
-          children: ["Male", "Female", "Other"].map((g) {
-            final isSelected = _selectedGender == g;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedGender = g),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF4F2DA1) : const Color(0xFFFAFAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF4F2DA1) : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      g,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : const Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-
-        // Date of Birth
-        const Text(
-          "Date of Birth",
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(height: 6),
-        _buildDateOfBirthField(),
-        const SizedBox(height: 12),
-
-        // Address with Google Maps Autocomplete & GPS Fetch
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text("Address", style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-            GestureDetector(
-              onTap: _isFetchingGpsLocation ? null : _fetchGpsLocation,
-              child: Row(
-                children: [
-                  if (_isFetchingGpsLocation)
-                    const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F2DA1)))
-                  else
-                    const Icon(Icons.my_location_rounded, size: 13, color: Color(0xFF4F2DA1)),
-                  const SizedBox(width: 4),
-                  const Text(
-                    "Fetch from Google Map",
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4F2DA1)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    "Complete Profile",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "Required to confirm your\nEV ride booking",
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.3,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
             ),
+            Image.asset(
+              "assets/profile_edit.png",
+              height: 95,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox(),
+            ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 18),
+
+        // Main White Card Container
         Container(
-  height: 48,
-  decoration: BoxDecoration(
-    color: const Color(0xFFFAFAFC),
-    borderRadius: BorderRadius.circular(14),
-    border: Border.all(
-      color: const Color(0xFFE2E8F0),
-      width: 1,
-    ),
-  ),
-  child: Row(
-    children: [
-      const SizedBox(width: 12),
-
-      const Icon(
-        Icons.location_on_outlined,
-        color: Color(0xFF64748B),
-        size: 21,
-      ),
-
-      const SizedBox(width: 10),
-
-      Expanded(
-        child: TextField(
-          controller: _addressController,
-
-          keyboardType: TextInputType.streetAddress,
-          textInputAction: TextInputAction.done,
-
-          style: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF172033),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Full Name
+              const Text("Full Name", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 6),
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAFAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3EFFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.person_outline_rounded, color: Color(0xFF4313B8), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _nameController,
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                        decoration: const InputDecoration(
+                          hintText: "Enter your full name",
+                          hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
 
-          cursorColor: const Color(0xFF4F2DA1),
+              // Gender Selection Pills
+              const Text("Gender", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  {"label": "Male", "icon": Icons.male_rounded},
+                  {"label": "Female", "icon": Icons.female_rounded},
+                  {"label": "Other", "icon": Icons.transgender_rounded},
+                ].map((gMap) {
+                  final String g = gMap['label'] as String;
+                  final IconData iconData = gMap['icon'] as IconData;
+                  final isSelected = _selectedGender == g;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedGender = g),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFF3EFFF) : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0),
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              iconData,
+                              size: 16,
+                              color: const Color(0xFF4313B8),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              g,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? const Color(0xFF4313B8) : const Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
 
-          decoration: const InputDecoration(
-            hintText: 'Enter society name, area or city',
-            hintStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xFF94A3B8),
-            ),
+              // Date of Birth
+              const Text("Date of Birth", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: _selectDateOfBirth,
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3EFFF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.calendar_month_outlined, color: Color(0xFF4313B8), size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _dobController.text.isNotEmpty ? _dobController.text : "DD / MM / YYYY",
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: _dobController.text.isNotEmpty ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3EFFF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFF4313B8), size: 18),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
 
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
+              // Address Field with GPS & Autocomplete
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Address", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  GestureDetector(
+                    onTap: _isFetchingGpsLocation ? null : _fetchGpsLocation,
+                    child: Row(
+                      children: [
+                        if (_isFetchingGpsLocation)
+                          const SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4313B8)))
+                        else
+                          const Icon(Icons.my_location_rounded, size: 12, color: Color(0xFF4313B8)),
+                        const SizedBox(width: 4),
+                        const Text(
+                          "GPS Fetch",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAFAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3EFFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.location_on_outlined, color: Color(0xFF4313B8), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _addressController,
+                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                        decoration: const InputDecoration(
+                          hintText: "Enter your full address",
+                          hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (value) async {
+                          if (value.trim().isEmpty) {
+                            setState(() {
+                              _addressPredictions = [];
+                              _isSearchingAddress = false;
+                            });
+                            return;
+                          }
+                          setState(() => _isSearchingAddress = true);
+                          final predictions = await GooglePlacesService().searchPlaces(value);
+                          if (!mounted) return;
+                          setState(() {
+                            _addressPredictions = predictions;
+                            _isSearchingAddress = false;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-            filled: false,
-            fillColor: Colors.transparent,
-
-            isDense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-
-          onChanged: (value) async {
-            if (value.trim().isEmpty) {
-              setState(() {
-                _addressPredictions = [];
-                _isSearchingAddress = false;
-              });
-              return;
-            }
-
-            setState(() {
-              _isSearchingAddress = true;
-            });
-
-            final predictions =
-                await GooglePlacesService().searchPlaces(value);
-
-            if (!mounted) return;
-
-            setState(() {
-              _addressPredictions = predictions;
-              _isSearchingAddress = false;
-            });
-          },
-        ),
-      ),
-
-      if (_isSearchingAddress)
-        const Padding(
-          padding: EdgeInsets.only(right: 12),
-          child: SizedBox(
-            width: 15,
-            height: 15,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Color(0xFF4F2DA1),
-            ),
-          ),
-        )
-      else
-        IconButton(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(
-            minWidth: 44,
-            minHeight: 48,
-          ),
-          onPressed: _fetchGpsLocation,
-          icon: const Icon(
-            Icons.map_rounded,
-            color: Color(0xFF4F2DA1),
-            size: 21,
-          ),
-        ),
-    ],
-  ),
-),
-
-        // Floating Google Maps Autocomplete Predictions List
-        if (_addressPredictions.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Container(
-            constraints: const BoxConstraints(maxHeight: 180),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+              if (_addressPredictions.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _addressPredictions.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    itemBuilder: (context, idx) {
+                      final p = _addressPredictions[idx];
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.location_on, color: Color(0xFF4313B8), size: 16),
+                        title: Text(p.mainText, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        subtitle: Text(p.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+                        onTap: () {
+                          setState(() {
+                            _addressController.text = p.description;
+                            _addressPredictions = [];
+                          });
+                        },
+                      );
+                    },
+                  ),
                 ),
               ],
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _addressPredictions.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
-              itemBuilder: (context, idx) {
-                final p = _addressPredictions[idx];
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.location_on, color: Color(0xFF4F2DA1), size: 18),
-                  title: Text(
-                    p.mainText,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                  ),
-                  subtitle: Text(
-                    p.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                  ),
-                  onTap: () {
-                    setState(() {
-                      _addressController.text = p.description;
-                      _addressPredictions = [];
-                    });
-                  },
-                );
-              },
-            ),
+            ],
           ),
-        ],
-        const SizedBox(height: 20),
+        ),
+        const SizedBox(height: 14),
 
-        // Submit Button
+        // Security Information Card
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F3FF),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFEDE9FE)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4313B8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      "Your information is secure",
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "We use industry-standard security to protect your personal data.",
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // Save & Continue Button
         SizedBox(
           width: double.infinity,
-          height: 50,
+          height: 52,
           child: ElevatedButton(
             onPressed: _isLoading ? null : _handleStep3Submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F2DA1),
+              backgroundColor: const Color(0xFF4313B8),
+              elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             child: _isLoading
@@ -1046,11 +1230,30 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     height: 20,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : const Text(
-                    "Save Profile & Start Ride",
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text(
+                        "Save & Continue",
+                        style: TextStyle(color: Colors.white, fontSize: 15.5, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                    ],
                   ),
           ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.lock_outline_rounded, size: 12, color: Color(0xFF64748B)),
+            SizedBox(width: 4),
+            Text(
+              "Secure  •  Private  •  Trusted",
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+            ),
+          ],
         ),
       ],
     );

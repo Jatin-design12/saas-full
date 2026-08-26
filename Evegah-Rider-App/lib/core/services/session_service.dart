@@ -1,6 +1,34 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionService {
+  static final SessionService _instance = SessionService._internal();
+  factory SessionService() => _instance;
+  SessionService._internal();
+
+  static Map<String, String> _cachedProfile = {
+    "name": "",
+    "gender": "Male",
+    "age": "",
+    "address": "",
+    "email": "",
+  };
+  static String? _cachedMobile;
+
+  // INITIALIZE CACHE INSTANTLY (0ms)
+  Future<void> init() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      _cachedMobile = prefs.getString("user_mobile");
+      _cachedProfile = {
+        "name": prefs.getString("user_name") ?? "",
+        "gender": prefs.getString("user_gender") ?? "Male",
+        "age": prefs.getString("user_age") ?? "",
+        "address": prefs.getString("user_address") ?? "",
+        "email": prefs.getString("user_email") ?? "",
+      };
+    } catch (_) {}
+  }
+
   // SAVE TOKEN
   Future<void> saveToken(String token, {bool rememberMe = true}) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -13,7 +41,6 @@ class SessionService {
   // GET TOKEN
   Future<String?> getToken() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-
     return prefs.getString("access_token");
   }
 
@@ -39,8 +66,15 @@ class SessionService {
 
   // LOGOUT
   Future<void> logout() async {
+    _cachedProfile = {
+      "name": "",
+      "gender": "Male",
+      "age": "",
+      "address": "",
+      "email": "",
+    };
+    _cachedMobile = null;
     SharedPreferences prefs = await SharedPreferences.getInstance();
-
     await prefs.clear();
   }
 
@@ -58,17 +92,24 @@ class SessionService {
 
   // SAVE USER MOBILE
   Future<void> saveUserMobile(String mobile) async {
+    _cachedMobile = mobile;
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString("user_mobile", mobile);
   }
 
-  // GET USER MOBILE
+  // GET USER MOBILE (Instant from cache)
+  String? get userMobileSync => _cachedMobile;
+
   Future<String?> getUserMobile() async {
+    if (_cachedMobile != null && _cachedMobile!.isNotEmpty) {
+      return _cachedMobile;
+    }
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString("user_mobile");
+    _cachedMobile = prefs.getString("user_mobile");
+    return _cachedMobile;
   }
 
-  // SAVE USER PROFILE (Name, Gender, Age, Address, Email)
+  // SAVE USER PROFILE
   Future<void> saveUserProfile({
     required String name,
     required String gender,
@@ -76,33 +117,48 @@ class SessionService {
     required String address,
     String email = "",
   }) async {
+    _cachedProfile = {
+      "name": name,
+      "gender": gender,
+      "age": age,
+      "address": address,
+      "email": email,
+    };
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString("user_name", name);
     await prefs.setString("user_gender", gender);
     await prefs.setString("user_age", age);
     await prefs.setString("user_address", address);
-    if (email.isNotEmpty) {
-      await prefs.setString("user_email", email);
-    }
+    await prefs.setString("user_email", email);
   }
 
-  // GET USER PROFILE
+  // GET USER PROFILE (Instant from cache)
+  Map<String, String> get userProfileSync => _cachedProfile;
+
   Future<Map<String, String>> getUserProfile() async {
+    if (_cachedProfile["name"] != null && _cachedProfile["name"]!.isNotEmpty) {
+      return _cachedProfile;
+    }
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    return {
+    _cachedProfile = {
       "name": prefs.getString("user_name") ?? "",
-      "gender": prefs.getString("user_gender") ?? "",
+      "gender": prefs.getString("user_gender") ?? "Male",
       "age": prefs.getString("user_age") ?? "",
       "address": prefs.getString("user_address") ?? "",
-      "email": prefs.getString("user_email") ?? "rider@evegah.com",
+      "email": prefs.getString("user_email") ?? "",
     };
+    return _cachedProfile;
   }
 
   // CHECK HAS COMPLETED PROFILE (Name filled)
   Future<bool> hasCompletedProfile() async {
+    if (_cachedProfile["name"] != null && _cachedProfile["name"]!.trim().isNotEmpty) {
+      return true;
+    }
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? name = prefs.getString("user_name");
-    return name != null && name.trim().isNotEmpty && name != "Evegah Rider";
+    return name != null && name.trim().isNotEmpty;
   }
 
   // BIOMETRIC LOGIN PREFERENCE

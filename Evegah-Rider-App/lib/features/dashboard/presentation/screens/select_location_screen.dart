@@ -174,11 +174,22 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
             final List dbList = data['data'];
             if (dbList.isNotEmpty) {
               final mapped = dbList.map((z) => {
+                ...Map<String, dynamic>.from(z as Map),
                 "id": z['id'],
                 "name": z['name'] ?? '',
-                "distance": "1.5 km",
+                "distance": z['distance'] ?? "1.5 km",
                 "address": z['address'] ?? z['locality'] ?? '',
-                "hours": "Open 24x7",
+                "phone": z['phone'] ?? z['contact_number'] ?? z['contact'] ?? "+91 98765 43210",
+                "image_url": z['image_url'] ?? z['image'] ?? "",
+                "map_link": z['map_link'] ?? "",
+                "open_time": z['open_time'] ?? "",
+                "close_time": z['close_time'] ?? "",
+                "is_24_hours": z['is_24_hours'] ?? false,
+                "hours": (z['is_24_hours'] == true)
+                    ? "Open 24x7"
+                    : (z['open_time'] != null && z['close_time'] != null && z['open_time'].toString().isNotEmpty && z['close_time'].toString().isNotEmpty
+                        ? "${z['open_time']} - ${z['close_time']}"
+                        : "Open 24x7"),
                 "isPopular": true,
                 "color": const Color(0xFFF5F3FF),
                 "iconColor": const Color(0xFF4313B8),
@@ -250,8 +261,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                       );
                     }),
 
-                    // MORE ZONES CARD
-                    _buildMoreZonesCard(),
                     const SizedBox(height: 16),
 
                     // --- 5. GO GREEN WITH EVEGAH BANNER ---

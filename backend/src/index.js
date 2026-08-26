@@ -24,8 +24,12 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '150mb' }));
+app.use(express.urlencoded({ limit: '150mb', extended: true }));
+
+const path = require('path');
+app.use('/assets', express.static(path.join(__dirname, '../../frontend/public/assets')));
+app.use('/assets', express.static(path.join(__dirname, '../../frontend/public')));
 
 // Routes
 app.use('/api/stats', require('./routes/stats'));
@@ -47,6 +51,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/referral', require('./routes/referral'));
+app.use('/api/wallet', require('./routes/wallet'));
 
 
 // API endpoints for the Rider App
@@ -82,13 +87,13 @@ app.get('/api/v1/getzoneDetailWithBikeCountList', async (req, res) => {
         state: z.state,
         country: z.country,
         type: z.type,
-        status: z.status,
-        max_vehicles: z.max_vehicles,
-        bikeCount: bikeCount,
-        center: center,
-        points: pts,
-        address: z.address || '',
-        image_url: z.image_url || '',
+        address: z.address || z.locality || `${z.name}, Vadodara, Gujarat`,
+        image_url: z.image_url || 'assets/ev_vadodara.png',
+        phone: z.phone || z.contact_number || '+91 98765 43210',
+        map_link: z.map_link || `https://maps.google.com/?q=${encodeURIComponent(z.name + ', Vadodara')}`,
+        open_time: z.open_time || '06:00 AM',
+        close_time: z.close_time || '11:00 PM',
+        is_24_hours: z.is_24_hours ?? true,
         pricing: z.pricing || {}
       };
     }));
