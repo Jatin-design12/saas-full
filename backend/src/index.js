@@ -5,25 +5,12 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow mobile apps (no origin)
-    if (!origin) return callback(null, true);
-    
-    // Check if it's local or local network
-    const isLocal = origin.startsWith('http://localhost') || 
-                    origin.startsWith('http://127.0.0.1') ||
-                    origin.startsWith('http://192.168.') ||
-                    origin.startsWith('http://10.') ||
-                    origin.startsWith('http://172.');
-                    
-    if (isLocal || origin === process.env.FRONTEND_URL) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Fallback to allow in dev/local environments
-    }
-  },
-  credentials: true
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-mobile', 'x-requested-with', 'Accept']
 }));
+app.options('*', cors());
 app.use(express.json({ limit: '150mb' }));
 app.use(express.urlencoded({ limit: '150mb', extended: true }));
 

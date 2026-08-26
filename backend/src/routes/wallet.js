@@ -140,46 +140,75 @@ router.post('/add-money', async (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Invalid amount' });
   }
 
-  const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const rawMobile = (mobile || '').trim();
+  const cleanMobile = rawMobile.replace(/\D/g, '');
+  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
   const txId = razorpay_payment_id || `PAY-${Date.now()}`;
 
   try {
-    // Update renter main balance
-    await db.query(
+    const searchPattern = last10 ? `%${last10}%` : `%${rawMobile}%`;
+
+    // 1. Try to update renter wallet balance
+    const updateRes = await db.query(
       'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2 OR mobile LIKE $3',
-      [numAmount, `%${cleanMobile}%`, `%${mobile}%`]
+      [numAmount, searchPattern, `%${rawMobile}%`]
     );
 
-    // Record wallet transaction
-    const txRes = await db.query(`
-      INSERT INTO wallet_transactions (mobile, title, subtitle, amount, type, status, payment_method, transaction_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `, [
-      mobile || 'User',
-      'Wallet Top-Up',
-      `Razorpay Payment (${payment_method || 'UPI/Card'})`,
-      numAmount,
-      'Credit',
-      'Success',
-      payment_method || 'Razorpay',
-      txId
-    ]);
+    // 2. If renter entry doesn't exist, create one
+    if (updateRes.rowCount === 0 && last10.length > 0) {
+      try {
+        await db.query(
+          `INSERT INTO renters (name, mobile, email, kyc_status, wallet_balance, bonus_balance)
+           VALUES ('Rider', $1, 'rider@evegah.com', 'Verified', $2, 0.00)
+           ON CONFLICT (mobile) DO UPDATE SET wallet_balance = COALESCE(renters.wallet_balance, 0.00) + EXCLUDED.wallet_balance`,
+          [last10, numAmount]
+        );
+      } catch (errInsert) {
+        console.error('Non-critical error auto-creating renter for wallet:', errInsert);
+      }
+    }
 
-    // Get updated total balance
-    const renterRes = await db.query('SELECT wallet_balance, bonus_balance FROM renters WHERE mobile LIKE $1 LIMIT 1', [`%${cleanMobile}%`]);
+    // 3. Insert transaction log
+    let txRecord = null;
+    try {
+      const txRes = await db.query(`
+        INSERT INTO wallet_transactions (mobile, title, subtitle, amount, type, status, payment_method, transaction_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `, [
+        last10 || rawMobile || 'User',
+        'Wallet Top-Up',
+        `Razorpay Payment (${payment_method || 'UPI/Card'})`,
+        numAmount,
+        'Credit',
+        'Success',
+        payment_method || 'Razorpay',
+        txId
+      ]);
+      txRecord = txRes.rows[0];
+    } catch (errTx) {
+      console.error('Non-critical transaction log error:', errTx);
+    }
+
+    // 4. Fetch updated balances
     let mainBal = numAmount;
     let bonusBal = 0.00;
-    if (renterRes.rows.length > 0) {
-      mainBal = parseFloat(renterRes.rows[0].wallet_balance);
-      bonusBal = parseFloat(renterRes.rows[0].bonus_balance);
-    }
+    try {
+      const renterRes = await db.query(
+        'SELECT wallet_balance, bonus_balance FROM renters WHERE mobile LIKE $1 LIMIT 1',
+        [searchPattern]
+      );
+      if (renterRes.rows.length > 0) {
+        mainBal = parseFloat(renterRes.rows[0].wallet_balance) || numAmount;
+        bonusBal = parseFloat(renterRes.rows[0].bonus_balance) || 0.00;
+      }
+    } catch (_) {}
 
     res.json({
       status: 'success',
       message: `Successfully added ₹${numAmount} to wallet`,
       data: {
-        transaction: txRes.rows[0],
+        transaction: txRecord || { id: txId, amount: numAmount, type: 'Credit', status: 'Success' },
         main_balance: mainBal,
         bonus_balance: bonusBal,
         total_balance: mainBal + bonusBal

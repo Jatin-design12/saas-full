@@ -1005,7 +1005,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
     if (src.trim().isEmpty) return fallback;
 
     bool isBase64 = src.startsWith('data:image') ||
-        (!src.startsWith('http') && !src.startsWith('assets') && src.length > 100);
+        (!src.startsWith('http') && !src.startsWith('assets') && !src.startsWith('blob:') && src.length > 100);
 
     if (isBase64) {
       try {
@@ -1029,7 +1029,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
       }
     }
 
-    if (src.startsWith('http://') || src.startsWith('https://')) {
+    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('blob:')) {
       return Image.network(
         src,
         width: width,

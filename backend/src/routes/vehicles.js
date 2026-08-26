@@ -45,7 +45,7 @@ const initVehicleModelsTable = async () => {
         ('Evegah City', 'E-Vehicle', 'Stylish. Powerful. Eco-friendly.', 4.6, 128, 
          'Evegah City is built for the modern commuter. It combines performance, comfort and style with zero emissions. Perfect for daily rides in the city.',
          '90–110 km', '60 km/h', '2.3 kWh', 'Disc Brakes (Front & Rear)', '2500 W', 'Lithium-ion', '12 inch', 'IP67', '4 – 5 Hours', '150 kg', '1 Year Warranty',
-         'assets/City-1.png', '["assets/City-1.png", "assets/ev_baroda.png", "assets/mink_banner.png", "assets/Pro_Banner.png"]'::jsonb, 'assets/ev_video.mp4',
+         'assets/city.png', '["assets/city.png", "assets/ev_baroda.png", "assets/mink_banner.png", "assets/Pro_Banner.png"]'::jsonb, 'assets/ev_video.mp4',
          '[{"icon":"eco","title":"Eco Friendly","subtitle":"Zero Emission"},{"icon":"rupee","title":"Low Running Cost","subtitle":"Save more daily"},{"icon":"bolt","title":"Quick Charge","subtitle":"4–5 Hours"},{"icon":"display","title":"Smart Display","subtitle":"Digital Console"},{"icon":"seat","title":"Comfortable Seat","subtitle":"Long ride comfort"},{"icon":"light","title":"LED Lights","subtitle":"Bright & Clear"},{"icon":"tyre","title":"Tubeless Tyres","subtitle":"Better Grip"},{"icon":"shield","title":"Warranty","subtitle":"1 Year Warranty"}]'::jsonb),
 
         ('Evegah Pro', 'E-Scooter', 'High Speed Performance EV Scooter.', 4.8, 215,
@@ -65,6 +65,7 @@ const initVehicleModelsTable = async () => {
          '70–90 km', '45 km/h', '2.0 kWh', 'Dual Heavy Disc Brakes', '2000 W', 'High-Capacity Li-ion', '12 inch', 'IP67', '4 Hours', '220 kg', '2 Years Warranty',
          'assets/mink.png', '["assets/mink.png", "assets/mink_banner.png", "assets/MINK.png"]'::jsonb, 'assets/ev_video.mp4',
          '[{"icon":"box","title":"Heavy Cargo Deck","subtitle":"Up to 220kg"},{"icon":"shield","title":"Steel Reinforced","subtitle":"Heavy Duty Frame"},{"icon":"battery","title":"Dual Battery Bay","subtitle":"Double Range"}]'::jsonb);
+      `);
     } else {
       // Clean up any legacy or malformed image paths in existing database records
       await db.query(`
