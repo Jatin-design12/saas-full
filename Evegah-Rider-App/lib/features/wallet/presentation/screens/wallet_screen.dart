@@ -395,10 +395,12 @@ class _WalletScreenState extends State<WalletScreen> {
                         "Wallet",
 
                         style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 28,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.5,
+                          fontFamily: 'Roboto',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 24,
+                          height: 1.1,
+                          color: Color(0xFF111827),
+                          letterSpacing: -0.25,
                         ),
                       ),
 
@@ -408,9 +410,11 @@ class _WalletScreenState extends State<WalletScreen> {
                         "Manage your balance and payments",
 
                         style: TextStyle(
-                          fontSize: 13,
+                          fontFamily: 'Roboto',
+                          fontSize: 12,
+                          height: 1.35,
                           color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -523,10 +527,12 @@ class _WalletScreenState extends State<WalletScreen> {
                     "Quick Actions",
 
                     style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.3,
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: Color(0xFF1F2937),
+                      letterSpacing: -0.2,
                     ),
                   ),
 
@@ -540,7 +546,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           "More",
 
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 13,
                             fontWeight:
                                 FontWeight.w700,
                             color:
@@ -568,106 +574,75 @@ class _WalletScreenState extends State<WalletScreen> {
               // QUICK ACTION CARDS
               // =================================================
 
-              Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-
-                  Expanded(
-                    child: _buildQuickActionItem(
-                      title:
-                          "Transaction\nHistory",
-
-                      icon:
-                          Icons.description_outlined,
-
-                      iconBg:
-                          const Color(0xFFEFFBF3),
-
-                      iconColor:
-                          const Color(0xFF16A34A),
-
-                      onTap: () {},
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE9EDF3), width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.035),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: _buildQuickActionItem(
-                      title:
-                          "Promotions\n& Offers",
-
-                      icon:
-                          Icons.local_offer_outlined,
-
-                      iconBg:
-                          const Color(0xFFF3EEFF),
-
-                      iconColor:
-                          const Color(0xFF7C3AED),
-
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const OfferScreen(),
-                          ),
-                        );
-                      },
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildQuickActionItem(
+                        title: "Transaction\nHistory",
+                        icon: Icons.description_outlined,
+                        iconBg: const Color(0xFFEFFBF3),
+                        iconColor: const Color(0xFF16A34A),
+                        onTap: () {},
+                      ),
                     ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: _buildQuickActionItem(
-                      title:
-                          "Payment\nMethods",
-
-                      icon:
-                          Icons.credit_card_rounded,
-
-                      iconBg:
-                          const Color(0xFFEEF5FF),
-
-                      iconColor:
-                          const Color(0xFF2563EB),
-
-                      onTap: () {},
+                    Expanded(
+                      child: _buildQuickActionItem(
+                        title: "Promotions\n& Offers",
+                        icon: Icons.local_offer_outlined,
+                        iconBg: const Color(0xFFF3EEFF),
+                        iconColor: const Color(0xFF7C3AED),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OfferScreen(),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: _buildQuickActionItem(
-                      title:
-                          "Help &\nSupport",
-
-                      icon:
-                          Icons.headset_mic_outlined,
-
-                      iconBg:
-                          const Color(0xFFFFEEF6),
-
-                      iconColor:
-                          const Color(0xFFDB2777),
-
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const HelpScreen(),
-                          ),
-                        );
-                      },
+                    Expanded(
+                      child: _buildQuickActionItem(
+                        title: "Payment\nMethods",
+                        icon: Icons.credit_card_rounded,
+                        iconBg: const Color(0xFFEEF5FF),
+                        iconColor: const Color(0xFF2563EB),
+                        onTap: () {},
+                      ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: _buildQuickActionItem(
+                        title: "Help &\nSupport",
+                        icon: Icons.headset_mic_outlined,
+                        iconBg: const Color(0xFFFFEEF6),
+                        iconColor: const Color(0xFFDB2777),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HelpScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 32),
@@ -686,10 +661,12 @@ class _WalletScreenState extends State<WalletScreen> {
                     "Recent Transactions",
 
                     style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.3,
+                      fontFamily: 'Roboto',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: Color(0xFF1F2937),
+                      letterSpacing: -0.2,
                     ),
                   ),
 
@@ -703,7 +680,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           "View All",
 
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 13,
                             fontWeight:
                                 FontWeight.w700,
                             color:
@@ -811,279 +788,179 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _buildPurpleBalanceCard() {
     return Container(
       width: double.infinity,
-
-      padding: const EdgeInsets.all(22),
-
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1B0764),
-            Color(0xFF2C10A3),
-          ],
-
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFFE7EAF0),
         ),
-
-        borderRadius:
-            BorderRadius.circular(24),
-
         boxShadow: [
           BoxShadow(
-            color:
-                const Color(0xFF2C10A3)
-                    .withValues(alpha: 0.35),
-
-            blurRadius: 16,
-
-            offset:
-                const Offset(0, 8),
+            color: const Color(0xFF17213A).withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
           ),
         ],
       ),
-
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
-        mainAxisSize:
-            MainAxisSize.min,
-
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           Row(
-            mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
-
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-
             children: [
-
-              Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                mainAxisSize:
-                    MainAxisSize.min,
-
-                children: [
-
-                  Row(
-                    children: [
-
-                      const Text(
-                        "Total Balance",
-
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight:
-                              FontWeight.w600,
-                          color:
-                              Colors.white70,
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _showBalance =
-                                !_showBalance;
-                          });
-                        },
-
-                        child: Icon(
-                          _showBalance
-                              ? Icons
-                                  .visibility_outlined
-                              : Icons
-                                  .visibility_off_outlined,
-
-                          size: 18,
-
-                          color:
-                              Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    _showBalance
-                        ? "₹${_walletBalance.toStringAsFixed(2)}"
-                        : "₹ ••••••",
-
-                    style:
-                        const TextStyle(
-                      fontSize: 36,
-                      fontWeight:
-                          FontWeight.w900,
-                      color:
-                          Colors.white,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
+              const Text(
+                "Total Balance",
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                ),
               ),
-
-              // Wallet illustration
-              _build3DWalletGraphic(),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _showBalance = !_showBalance;
+                  });
+                },
+                child: Icon(
+                  _showBalance
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 16,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F3FF),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 18,
+                  color: Color(0xFF5B45E0),
+                ),
+              ),
             ],
           ),
-
-          const SizedBox(height: 14),
-
-          // Bonus Balance
+          const SizedBox(height: 5),
+          Text(
+            _showBalance
+                ? "₹${_walletBalance.toStringAsFixed(2)}"
+                : "₹ ••••••",
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 27,
+              fontWeight: FontWeight.w700,
+              height: 1.15,
+              color: Color(0xFF111827),
+              letterSpacing: -0.45,
+            ),
+          ),
+          const SizedBox(height: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 6,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 9,
+              vertical: 5,
             ),
-
             decoration: BoxDecoration(
-              color:
-                  Colors.white.withValues(
-                alpha: 0.15,
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: const Color(0xFFEFF2F6),
               ),
-
-              borderRadius:
-                  BorderRadius.circular(16),
             ),
-
             child: Row(
-              mainAxisSize:
-                  MainAxisSize.min,
-
+              mainAxisSize: MainAxisSize.min,
               children: [
-
                 const Icon(
                   Icons.card_giftcard_rounded,
-                  size: 14,
-                  color: Colors.white,
+                  size: 13,
+                  color: Color(0xFF7C3AED),
                 ),
-
-                const SizedBox(width: 6),
-
+                const SizedBox(width: 5),
                 Text(
                   "Bonus Balance: ₹${_bonusBalance.toStringAsFixed(2)}",
-
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight:
-                        FontWeight.bold,
-                    color: Colors.white,
+                    fontFamily: 'Roboto',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
                   ),
-                ),
-
-                const SizedBox(width: 4),
-
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 14,
-                  color: Colors.white70,
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 22),
-
-          // Buttons
+          const SizedBox(height: 14),
           Row(
             children: [
-
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed:
-                      () => _showAddMoneyDialog(),
-
-                  icon: const Icon(
-                    Icons.add_rounded,
-                    color:
-                        Color(0xFF0F172A),
-                    size: 20,
-                  ),
-
-                  label: const Text(
-                    "Add Money",
-
-                    style: TextStyle(
-                      fontWeight:
-                          FontWeight.w900,
-                      fontSize: 14.5,
-                      color:
-                          Color(0xFF0F172A),
+                child: SizedBox(
+                  height: 42,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showAddMoneyDialog(),
+                    icon: const Icon(
+                      Icons.add_rounded,
+                      color: Color(0xFF111827),
+                      size: 17,
                     ),
-                  ),
-
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFFD2FC00),
-
-                    elevation: 0,
-
-                    padding:
-                        const EdgeInsets.symmetric(
-                      vertical: 14,
+                    label: const Text(
+                      "Add Money",
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                        color: Color(0xFF111827),
+                      ),
                     ),
-
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        14,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD2FC00),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
                 ),
               ),
-
-              const SizedBox(width: 12),
-
+              const SizedBox(width: 10),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-
-                  icon: const Icon(
-                    Icons.north_east_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-
-                  label: const Text(
-                    "Withdraw",
-
-                    style: TextStyle(
-                      fontWeight:
-                          FontWeight.w800,
-                      fontSize: 14.5,
+                child: SizedBox(
+                  height: 42,
+                  child: ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(
+                      Icons.north_east_rounded,
                       color: Colors.white,
+                      size: 16,
                     ),
-                  ),
-
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFF5A44E5),
-
-                    elevation: 0,
-
-                    padding:
-                        const EdgeInsets.symmetric(
-                      vertical: 14,
+                    label: const Text(
+                      "Withdraw",
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                        color: Colors.white,
+                      ),
                     ),
-
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        14,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
@@ -1228,31 +1105,11 @@ class _WalletScreenState extends State<WalletScreen> {
     required Color iconColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
         onTap: onTap,
-        child: Container(
-          // Same compact height for all four cards.
-          height: 135,
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 2,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: const Color(0xFFE9EDF3),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.035),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1281,7 +1138,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFF1E293B),
                       height: 1.2,
                       letterSpacing: -0.1,

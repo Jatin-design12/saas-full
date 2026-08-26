@@ -136,6 +136,54 @@ export default function VehicleListPage() {
   // Multi-delete row selections
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
 
+  // Vehicle Models & Media Modal State
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  const [isSavingModel, setIsSavingModel] = useState(false);
+  const [modelFormData, setModelFormData] = useState({
+    name: 'Evegah City',
+    category: 'E-Vehicle',
+    tagline: 'Stylish. Powerful. Eco-friendly.',
+    rating: '4.6',
+    reviewsCount: '128',
+    description: 'Evegah City is built for the modern commuter. It combines performance, comfort and style with zero emissions.',
+    range: '90–110 km',
+    topSpeed: '60 km/h',
+    batteryCapacity: '2.3 kWh',
+    brakes: 'Disc Brakes (Front & Rear)',
+    motorPower: '2500 W',
+    batteryType: 'Lithium-ion',
+    wheelSize: '12 inch',
+    waterResistance: 'IP67',
+    chargingTime: '4 – 5 Hours',
+    loadCapacity: '150 kg',
+    warranty: '1 Year Warranty',
+    mainImage: 'assets/City-1.png',
+    videoUrl: 'assets/ev_video.mp4',
+    galleryImagesStr: 'assets/City-1.png, assets/ev_baroda.png, assets/mink_banner.png, assets/Pro_Banner.png',
+  });
+
+  const handleSaveModelData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingModel(true);
+    try {
+      const galleryList = modelFormData.galleryImagesStr
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      await api.post('/vehicles/models', {
+        ...modelFormData,
+        galleryImages: galleryList
+      });
+      alert(`Model specs & media for "${modelFormData.name}" updated successfully!`);
+      setIsModelModalOpen(false);
+    } catch (err: any) {
+      alert(`Failed to save model specs: ${err.message || err}`);
+    } finally {
+      setIsSavingModel(false);
+    }
+  };
+
   useEffect(() => {
     const updateZone = () => {
       if (typeof window !== 'undefined') {
@@ -268,6 +316,13 @@ export default function VehicleListPage() {
                     Delete Selected ({selectedCodes.length})
                   </button>
                 )}
+                <Link 
+                  href="/vehicles/models"
+                  className="vl-hdr-btn" 
+                  style={{ borderColor: '#8B5CF6', color: '#8B5CF6', background: '#F5F3FF', textDecoration: 'none' }}
+                >
+                  ⚡ Vehicle Models & Media
+                </Link>
                 <Link href="/vehicles/add" className="vl-hdr-btn primary" style={{ textDecoration: 'none' }}>
                   <IPlus/> Add Vehicle
                 </Link>
@@ -461,6 +516,304 @@ export default function VehicleListPage() {
 
           </div>
         </div>
+
+        {/* --- VEHICLE MODELS & MEDIA DETAILS MANAGER MODAL --- */}
+        {isModelModalOpen && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px'
+          }}>
+            <div style={{
+              background: '#fff',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '750px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #E2E8F0',
+              padding: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid #F1F5F9', paddingBottom: '14px' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0F172A' }}>
+                    ⚡ Vehicle Models & Media Manager
+                  </h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748B' }}>
+                    Configure specs, video URL, tagline, rating, and gallery images for each model.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setIsModelModalOpen(false)}
+                  style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveModelData} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Model Selection Dropdown */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Vehicle Model Name</label>
+                    <select 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px', fontWeight: 600 }}
+                      value={modelFormData.name}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        if (name === 'Evegah City') {
+                          setModelFormData({
+                            name: 'Evegah City',
+                            category: 'E-Vehicle',
+                            tagline: 'Stylish. Powerful. Eco-friendly.',
+                            rating: '4.6',
+                            reviewsCount: '128',
+                            description: 'Evegah City is built for the modern commuter. It combines performance, comfort and style with zero emissions.',
+                            range: '90–110 km',
+                            topSpeed: '60 km/h',
+                            batteryCapacity: '2.3 kWh',
+                            brakes: 'Disc Brakes (Front & Rear)',
+                            motorPower: '2500 W',
+                            batteryType: 'Lithium-ion',
+                            wheelSize: '12 inch',
+                            waterResistance: 'IP67',
+                            chargingTime: '4 – 5 Hours',
+                            loadCapacity: '150 kg',
+                            warranty: '1 Year Warranty',
+                            mainImage: 'assets/City-1.png',
+                            videoUrl: 'assets/ev_video.mp4',
+                            galleryImagesStr: 'assets/City-1.png, assets/ev_baroda.png, assets/mink_banner.png, assets/Pro_Banner.png'
+                          });
+                        } else if (name === 'Evegah Pro') {
+                          setModelFormData({
+                            name: 'Evegah Pro',
+                            category: 'E-Scooter',
+                            tagline: 'High Speed Performance EV Scooter.',
+                            rating: '4.8',
+                            reviewsCount: '215',
+                            description: 'Evegah Pro delivers ultimate power and range for highway and long-distance commuting.',
+                            range: '110–130 km',
+                            topSpeed: '75 km/h',
+                            batteryCapacity: '3.1 kWh',
+                            brakes: 'CBS Brakes (Front & Rear)',
+                            motorPower: '3200 W',
+                            batteryType: 'Advanced LiFePO4',
+                            wheelSize: '12 inch',
+                            waterResistance: 'IP68',
+                            chargingTime: '3 – 4 Hours',
+                            loadCapacity: '180 kg',
+                            warranty: '2 Years Warranty',
+                            mainImage: 'assets/Pro_Banner.png',
+                            videoUrl: 'assets/ev_video.mp4',
+                            galleryImagesStr: 'assets/Pro_Banner.png, assets/fleet_bg_pro.jpg, assets/city.png'
+                          });
+                        } else if (name === 'Evegah Fly') {
+                          setModelFormData({
+                            name: 'Evegah Fly',
+                            category: 'E-Moped',
+                            tagline: 'Lightweight & Agile City Moped.',
+                            rating: '4.5',
+                            reviewsCount: '94',
+                            description: 'Evegah Fly is engineered for effortless maneuverability and instant swappable battery support.',
+                            range: '40–60 km',
+                            topSpeed: '25 km/h',
+                            batteryCapacity: '1.2 kWh',
+                            brakes: 'Front Disc & Rear Drum',
+                            motorPower: '1200 W',
+                            batteryType: 'Swappable Li-ion',
+                            wheelSize: '10 inch',
+                            waterResistance: 'IP65',
+                            chargingTime: '2.5 – 3 Hours',
+                            loadCapacity: '120 kg',
+                            warranty: '1 Year Warranty',
+                            mainImage: 'assets/fly-1.png',
+                            videoUrl: 'assets/ev_video.mp4',
+                            galleryImagesStr: 'assets/fly-1.png, assets/fleet_bg_cycle.jpg, assets/city-white.png'
+                          });
+                        } else if (name === 'Evegah Mink') {
+                          setModelFormData({
+                            name: 'Evegah Mink',
+                            category: 'E-Cargo',
+                            tagline: 'Heavy-Duty Cargo & Delivery EV.',
+                            rating: '4.7',
+                            reviewsCount: '156',
+                            description: 'Evegah Mink is built for commercial delivery and cargo transport with high load capacity.',
+                            range: '70–90 km',
+                            topSpeed: '45 km/h',
+                            batteryCapacity: '2.0 kWh',
+                            brakes: 'Dual Heavy Disc Brakes',
+                            motorPower: '2000 W',
+                            batteryType: 'High-Capacity Li-ion',
+                            wheelSize: '12 inch',
+                            waterResistance: 'IP67',
+                            chargingTime: '4 Hours',
+                            loadCapacity: '220 kg',
+                            warranty: '2 Years Warranty',
+                            mainImage: 'assets/mink.png',
+                            videoUrl: 'assets/ev_video.mp4',
+                            galleryImagesStr: 'assets/mink.png, assets/mink_banner.png, assets/MINK.png'
+                          });
+                        }
+                      }}
+                    >
+                      <option value="Evegah City">Evegah City</option>
+                      <option value="Evegah Pro">Evegah Pro</option>
+                      <option value="Evegah Fly">Evegah Fly</option>
+                      <option value="Evegah Mink">Evegah Mink</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Category Badge</label>
+                    <input 
+                      type="text" 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                      value={modelFormData.category}
+                      onChange={(e) => setModelFormData({ ...modelFormData, category: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Tagline & Ratings */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Tagline</label>
+                    <input 
+                      type="text" 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                      value={modelFormData.tagline}
+                      onChange={(e) => setModelFormData({ ...modelFormData, tagline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Rating (★)</label>
+                    <input 
+                      type="text" 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                      value={modelFormData.rating}
+                      onChange={(e) => setModelFormData({ ...modelFormData, rating: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Reviews Count</label>
+                    <input 
+                      type="text" 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                      value={modelFormData.reviewsCount}
+                      onChange={(e) => setModelFormData({ ...modelFormData, reviewsCount: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Overview Description</label>
+                  <textarea 
+                    rows={2} 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px', fontFamily: 'inherit' }}
+                    value={modelFormData.description}
+                    onChange={(e) => setModelFormData({ ...modelFormData, description: e.target.value })}
+                  />
+                </div>
+
+                {/* Technical Specifications Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Range</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.range} onChange={(e) => setModelFormData({ ...modelFormData, range: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Top Speed</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.topSpeed} onChange={(e) => setModelFormData({ ...modelFormData, topSpeed: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Battery Capacity</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.batteryCapacity} onChange={(e) => setModelFormData({ ...modelFormData, batteryCapacity: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Brakes</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.brakes} onChange={(e) => setModelFormData({ ...modelFormData, brakes: e.target.value })} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Motor Power</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.motorPower} onChange={(e) => setModelFormData({ ...modelFormData, motorPower: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Charging Time</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.chargingTime} onChange={(e) => setModelFormData({ ...modelFormData, chargingTime: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Load Capacity</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.loadCapacity} onChange={(e) => setModelFormData({ ...modelFormData, loadCapacity: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '2px' }}>Warranty</label>
+                    <input type="text" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px' }} value={modelFormData.warranty} onChange={(e) => setModelFormData({ ...modelFormData, warranty: e.target.value })} />
+                  </div>
+                </div>
+
+                {/* Media Section: Images & Video */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '4px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Main Vehicle Graphic Path/URL</label>
+                    <input 
+                      type="text" 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                      value={modelFormData.mainImage}
+                      onChange={(e) => setModelFormData({ ...modelFormData, mainImage: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Video URL / Asset Path</label>
+                    <input 
+                      type="text" 
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                      value={modelFormData.videoUrl}
+                      onChange={(e) => setModelFormData({ ...modelFormData, videoUrl: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>Gallery Images (Comma Separated)</label>
+                  <input 
+                    type="text" 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #E2E8F0', fontSize: '13px' }}
+                    value={modelFormData.galleryImagesStr}
+                    onChange={(e) => setModelFormData({ ...modelFormData, galleryImagesStr: e.target.value })}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModelModalOpen(false)}
+                    style={{ padding: '10px 20px', borderRadius: '10px', border: '1px solid #CBD5E1', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSavingModel}
+                    style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: '#6366F1', color: '#fff', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}
+                  >
+                    {isSavingModel ? 'Saving...' : 'Save Model Specs & Media'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

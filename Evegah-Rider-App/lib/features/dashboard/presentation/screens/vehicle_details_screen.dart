@@ -1,120 +1,129 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../data/services/dashboard_service.dart';
-import 'select_date_time_screen.dart';
+import 'rent_ev_screen.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
-  final String vehicleId; 
+  final String vehicleId;
+  final String? modelName;
   final String? zone;
 
-  const VehicleDetailsScreen({super.key, required this.vehicleId, this.zone});
+  const VehicleDetailsScreen({
+    super.key,
+    required this.vehicleId,
+    this.modelName,
+    this.zone,
+  });
 
   @override
   State<VehicleDetailsScreen> createState() => _VehicleDetailsScreenState();
 }
 
-class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
+class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> with SingleTickerProviderStateMixin {
   final DashboardService _dashboardService = DashboardService();
 
-  bool _isLoading = true;
-  String? _errorMessage;
-  Map<String, dynamic>? _vehicleData;
-  int _sliderIndex = 0;
-  String _rideType = "Daily"; // Daily or Subscription
-  late String _currentZone;
+  bool _isLoading = false;
+  bool _isFavorite = false;
+  Map<String, dynamic>? _modelDetails;
+  int _activeGalleryIndex = 0;
+  int _currentTabIndex = 0;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    // Default to the passed zone, or check vehicle/defaults
-    _currentZone = widget.zone ?? "Koramangala Zone, Bangalore";
-    if (_currentZone == "Daman Zone") {
-      _rideType = "Hourly";
-    }
-    _fetchLiveVehicleDetails();
+    _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        if (_tabController.index != _currentTabIndex && mounted) {
+          setState(() {
+            _currentTabIndex = _tabController.index;
+          });
+        }
+      }
+    });
+    _loadLiveModelDetails();
   }
 
-  Future<void> _fetchLiveVehicleDetails() async {
-    Map<String, dynamic>? data;
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadLiveModelDetails() async {
+    final searchName = widget.modelName ?? widget.vehicleId;
     try {
-      data = await _dashboardService.fetchLiveVehicleDetails(widget.vehicleId);
-    } catch (e) {
-      debugPrint("Error fetching vehicle details: $e");
-    }
-
-    if (data == null) {
-      final String cleanId = widget.vehicleId.toUpperCase();
-      String modelName = 'EVegah E2';
-      int battery = 85;
-      int maxRange = 110;
-      double todaysRate = 20.00;
-      double rateAfter = 3.50;
-      double lat = 28.6290;
-      double lng = 77.2160;
-
-      if (cleanId.contains('E1')) {
-        modelName = 'EVegah E1';
-        battery = 92;
-        maxRange = 90;
-        todaysRate = 18.00;
-        rateAfter = 3.00;
-        lat = 28.6322;
-        lng = 77.2190;
-      } else if (cleanId.contains('E3')) {
-        modelName = 'EVegah E3';
-        battery = 78;
-        maxRange = 120;
-        todaysRate = 22.00;
-        rateAfter = 4.00;
-        lat = 28.6335;
-        lng = 77.2170;
-      } else if (cleanId.contains('E4')) {
-        modelName = 'EVegah E4';
-        battery = 63;
-        maxRange = 80;
-        todaysRate = 15.00;
-        rateAfter = 2.50;
-        lat = 28.6280;
-        lng = 77.2210;
-      } else if (cleanId.contains('MINK')) {
-        modelName = 'EVegah Mink';
-        battery = 90;
-        maxRange = 60;
-        todaysRate = 29.00;
-        rateAfter = 5.00;
-        lat = 28.6304;
-        lng = 77.2177;
+      final liveData = await _dashboardService.fetchLiveModelDetails(searchName);
+      if (liveData != null && mounted) {
+        setState(() {
+          _modelDetails = liveData;
+        });
       }
+    } catch (e) {
+      debugPrint("Error loading live model details: $e");
+    }
+  }
 
-      data = {
-        'vehicleId': widget.vehicleId,
-        'modelName': modelName,
-        'maxRangeOn100PercentageBatteryKM': maxRange.toString(),
-        'latitude': lat,
-        'longitude': lng,
-        'lockDetails': [
-          {
-            'battery': battery.toString(),
-            'latitude': lat.toString(),
-            'longitude': lng.toString(),
-          }
-        ],
-        'farePlanData': [
-          {
-            'todaysRate': todaysRate.toString(),
-            'minimumHireMinuts': '30',
-            'rateAfter': rateAfter.toString(),
-          }
-        ]
-      };
+  Widget _buildSmartImage(String src, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    final fallback = Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFF1F5F9),
+      child: const Center(
+        child: Icon(Icons.electric_scooter_rounded, size: 50, color: Color(0xFF4313B8)),
+      ),
+    );
+
+    if (src.trim().isEmpty) return fallback;
+
+    bool isBase64 = src.startsWith('data:image') ||
+        (!src.startsWith('http') && !src.startsWith('assets') && src.length > 100);
+
+    if (isBase64) {
+      try {
+        String base64Str = src;
+        final commaIdx = src.indexOf(',');
+        if (commaIdx != -1) {
+          base64Str = src.substring(commaIdx + 1);
+        }
+        base64Str = base64Str.replaceAll(RegExp(r'\s+'), '');
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => fallback,
+        );
+      } catch (e) {
+        debugPrint("Error decoding base64 image: $e");
+        return fallback;
+      }
     }
 
-    if (mounted) {
-      setState(() {
-        _vehicleData = data;
-        _errorMessage = null; // Prevent showing error screen
-        _isLoading = false;
-      });
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      return Image.network(
+        src,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => fallback,
+      );
     }
+
+    String assetPath = src.trim();
+    if (!assetPath.startsWith('assets/')) {
+      assetPath = 'assets/$assetPath';
+    }
+
+    return Image.asset(
+      assetPath,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
   }
 
   @override
@@ -122,689 +131,1282 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: const Color(0xFFFAFBFE),
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-        body: const Center(child: CircularProgressIndicator(color: Color(0xFF1E1452))),
-      );
-    }
-
-    if (_errorMessage != null || _vehicleData == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFAFBFE),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent, elevation: 0,
-          leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black87), onPressed: () => Navigator.pop(context)),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF4313B8)),
         ),
-        body: Center(child: Text(_errorMessage ?? "Something went wrong.", style: const TextStyle(color: Colors.red, fontSize: 16))),
       );
     }
 
-    final String model = _vehicleData!['modelName']?.toString() ?? "EVegah Scooter";
-    final int range = int.tryParse(_vehicleData!['maxRangeOn100PercentageBatteryKM']?.toString() ?? '0') ?? 0;
-    
-    final String modelLower = model.toLowerCase();
-    final List<String> vehicleImages = modelLower.contains("mink")
-        ? ["assets/v1.webp", "assets/city.png", "assets/v2.webp"]
-        : modelLower.contains("city")
-            ? ["assets/city.png", "assets/v1.webp", "assets/v2.webp"]
-            : ["assets/v2.webp", "assets/v1.webp", "assets/city.png"];
+    // Dynamic model data fallback map
+    final data = _modelDetails ?? {};
+    final String name = data['name'] ?? widget.modelName ?? "Evegah City";
+    final String category = data['category'] ?? "E-Vehicle";
+    final String tagline = data['tagline'] ?? "Stylish. Powerful. Eco-friendly.";
+    final String rating = "${data['rating'] ?? 4.6}";
+    final String reviewsCount = "${data['reviews_count'] ?? 128}";
+    final String description = data['description'] ??
+        "$name is built for the modern commuter. It combines performance, comfort and style with zero emissions. Perfect for daily rides in the city.";
+    final String range = data['range'] ?? "90–110 km";
+    final String topSpeed = data['top_speed'] ?? "60 km/h";
+    final String batteryCapacity = data['battery_capacity'] ?? "2.3 kWh";
+    final String brakes = data['brakes'] ?? "Disc Brakes (Front & Rear)";
+    final String motorPower = data['motor_power'] ?? "2500 W";
+    final String batteryType = data['battery_type'] ?? "Lithium-ion";
+    final String wheelSize = data['wheel_size'] ?? "12 inch";
+    final String waterResistance = data['water_resistance'] ?? "IP67";
+    final String chargingTime = data['charging_time'] ?? "4 – 5 Hours";
+    final String loadCapacity = data['load_capacity'] ?? "150 kg";
+    final String warranty = data['warranty'] ?? "1 Year Warranty";
 
+    String mainImage = data['main_image'] ?? "assets/city.png";
+    if (mainImage.trim().isEmpty) {
+      mainImage = "assets/city.png";
+    }
 
+    List<String> galleryImages = [];
+    if (data['gallery_images'] != null) {
+      try {
+        if (data['gallery_images'] is List) {
+          galleryImages = List<String>.from(data['gallery_images']);
+        }
+      } catch (e) {
+        debugPrint("Error parsing gallery images: $e");
+      }
+    }
+
+    if (galleryImages.isEmpty) {
+      galleryImages = [
+        mainImage,
+        "assets/ev_baroda.png",
+        "assets/mink_banner.png",
+        "assets/Pro_Banner.png",
+        "assets/city.png",
+        "assets/mink.png",
+      ];
+    }
+
+    Widget tabContent;
+    switch (_currentTabIndex) {
+      case 0:
+        tabContent = _buildOverviewTabContent(
+          description: description,
+          range: range,
+          topSpeed: topSpeed,
+          batteryCapacity: batteryCapacity,
+          brakes: brakes,
+          motorPower: motorPower,
+          batteryType: batteryType,
+          wheelSize: wheelSize,
+          waterResistance: waterResistance,
+          chargingTime: chargingTime,
+          loadCapacity: loadCapacity,
+          warranty: warranty,
+        );
+        break;
+      case 1:
+        tabContent = _buildSpecificationsTabContent(
+          motorPower: motorPower,
+          batteryCapacity: batteryCapacity,
+          batteryType: batteryType,
+          brakes: brakes,
+          range: range,
+          wheelSize: wheelSize,
+          topSpeed: topSpeed,
+          waterResistance: waterResistance,
+          chargingTime: chargingTime,
+          loadCapacity: loadCapacity,
+          warranty: warranty,
+        );
+        break;
+      case 2:
+        tabContent = _buildFeaturesTabContent();
+        break;
+      case 3:
+        tabContent = _buildReviewsTabContent(rating, reviewsCount);
+        break;
+      case 4:
+        tabContent = _buildFaqTabContent(name);
+        break;
+      default:
+        tabContent = _buildOverviewTabContent(
+          description: description,
+          range: range,
+          topSpeed: topSpeed,
+          batteryCapacity: batteryCapacity,
+          brakes: brakes,
+          motorPower: motorPower,
+          batteryType: batteryType,
+          wheelSize: wheelSize,
+          waterResistance: waterResistance,
+          chargingTime: chargingTime,
+          loadCapacity: loadCapacity,
+          warranty: warranty,
+        );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFBFE),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context), 
+      body: SafeArea(
+        child: Column(
+          children: [
+            // --- TOP APP BAR ---
+            _buildTopAppBar(name),
+
+            // --- MAIN SCROLLABLE BODY CONTENT ---
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- HERO VEHICLE HEADER ---
+                    _buildHeroHeaderSection(
+                      category: category,
+                      name: name,
+                      tagline: tagline,
+                      rating: rating,
+                      reviewsCount: reviewsCount,
+                      range: range,
+                      topSpeed: topSpeed,
+                      batteryCapacity: batteryCapacity,
+                      brakes: brakes,
+                      mainImage: mainImage,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // --- MEDIA GALLERY GRID (MAIN PHOTO + VIDEO & THUMBNAILS) ---
+                    _buildMediaGalleryGrid(galleryImages),
+
+                    const SizedBox(height: 20),
+
+                    // --- 5 TABS NAVIGATION BAR ---
+                    _buildTabBar(reviewsCount),
+
+                    const SizedBox(height: 16),
+
+                    // --- TAB CONTENT AREA WITH SMOOTH ANIMATION ---
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (Widget child, Animation<double> animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.03, 0.0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<int>(_currentTabIndex),
+                        child: tabContent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // --- STICKY BOTTOM BOOK NOW ACTION BAR ---
+            _buildStickyBottomActionBar(name),
+          ],
         ),
-        title: Text(model, style: const TextStyle(color: Color(0xFF1E1452), fontWeight: FontWeight.bold, fontSize: 20)),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.favorite_border, color: Colors.black87),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.share_outlined, color: Colors.black87),
-            onPressed: () {},
-          ),
-        ],
       ),
-      body: Column(
+    );
+  }
+
+  // --- 1. TOP APP BAR ---
+  Widget _buildTopAppBar(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: Colors.transparent,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- 100% INSURED BAR ---
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F3FF),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.verified_user, color: Color(0xFF4313B8), size: 16),
-                        SizedBox(width: 6),
-                        Text("100% Insured", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold, fontSize: 11)),
-                        SizedBox(width: 8),
-                        Text("•", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold)),
-                        SizedBox(width: 8),
-                        Text("Hassle-free", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold, fontSize: 11)),
-                        SizedBox(width: 8),
-                        Text("•", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold)),
-                        SizedBox(width: 8),
-                        Text("24x7 Roadside Assistance", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold, fontSize: 11)),
-                      ],
-                    ),
+          // Back Button
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
                   ),
-                  const SizedBox(height: 20),
-
-                  // --- VEHICLE IMAGE SLIDER ---
-                  Container(
-                    width: double.infinity,
-                    height: 210,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Container(
-                                width: 140,
-                                height: 140,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4313B8).withValues(alpha: 0.05),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              PageView.builder(
-                                onPageChanged: (index) {
-                                  setState(() {
-                                    _sliderIndex = index;
-                                  });
-                                },
-                                itemCount: vehicleImages.length,
-                                itemBuilder: (context, index) {
-                                  return Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: _RunningDetailVehicle(
-                                      imagePath: vehicleImages[index],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Dots Indicator
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              vehicleImages.length,
-                              (idx) => Container(
-                                width: _sliderIndex == idx ? 16 : 6,
-                                height: 6,
-                                margin: const EdgeInsets.symmetric(horizontal: 3),
-                                decoration: BoxDecoration(
-                                  color: _sliderIndex == idx ? const Color(0xFF4313B8) : Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // --- SPECS ROW GRID ---
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildSpecItem(Icons.speed, "$range km", "Range"),
-                      _buildSpecItem(Icons.bolt, "25 km/h", "Top Speed"),
-                      _buildSpecItem(Icons.airline_seat_recline_normal, "1 Seat", "Seating"),
-                      _buildSpecItem(Icons.battery_charging_full, "Removable", "Battery"),
-                      _buildSpecItem(Icons.circle_outlined, "Disc", "Brake"),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // --- ABOUT SECTION ---
-                  const Text("About vehicle", style: TextStyle(color: Color(0xFF1E293B), fontSize: 15, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Compact, stylish and perfect for short city rides. Easy to handle with zero emissions and extremely smooth performance.",
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // --- CHOOSE YOUR RIDE ---
-                  const Text("Choose your ride", style: TextStyle(color: Color(0xFF1E293B), fontSize: 15, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  _buildPackageSelectionWidget(),
-                  const SizedBox(height: 20),
-
-                  // --- SELECT DATE & TIME DISPLAY CARD ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today, color: Color(0xFF4313B8), size: 18),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text("Select Date & Time", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
-                              SizedBox(height: 4),
-                              Text(
-                                "17 June 2026, 05:00 PM - 08:00 AM",
-                                style: TextStyle(color: Color(0xFF1E293B), fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _openDatePicker,
-                          child: const Text("Change", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // --- PICKUP ZONE DISPLAY CARD ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, color: Color(0xFF4313B8), size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("Pickup Zone", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text(
-                                _currentZone,
-                                style: const TextStyle(color: Color(0xFF1E293B), fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _showZoneSelectionBottomSheet,
-                          child: const Text("Change", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold, fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                 ],
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF0F172A),
+                size: 20,
               ),
             ),
           ),
 
-          // --- BOTTOM PAYABLE CARD & CONTINUE BOOKING BUTTON ---
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
+          // Title
+          Flexible(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text("Total Payable", style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            _currentZone == "Daman Zone"
-                                ? "₹${_calculatedRate.toStringAsFixed(0)}/hr"
-                                : _currentZone == "Vadodara Gotri Zone"
-                                    ? "₹${_calculatedRate.toStringAsFixed(0)}${_rideType == 'Daily' ? '/day' : _rideType == 'Weekly' ? '/week' : '/month'}"
-                                    : "₹${_calculatedRate.toStringAsFixed(0)}${_rideType == 'Subscription' ? '/week' : '/hr'}",
-                            style: const TextStyle(color: Color(0xFF1E293B), fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.info_outline, color: Colors.grey, size: 14),
-                        ],
+          ),
+
+          // Right Actions: Favorite & Share
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isFavorite = !_isFavorite;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
                       ),
-                      const SizedBox(height: 2),
-                      const Text("Incl. of all taxes", style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.w600)),
                     ],
                   ),
+                  child: Icon(
+                    _isFavorite ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                    color: _isFavorite ? Colors.red : const Color(0xFF0F172A),
+                    size: 19,
+                  ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: SizedBox(
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _openDatePicker,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2B0B78), // Deep purple
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("🔗 Share link copied for $name!"),
+                      backgroundColor: const Color(0xFF4313B8),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Text("Continue Booking", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                          SizedBox(width: 6),
-                          Icon(Icons.arrow_forward, size: 16),
-                        ],
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.share_outlined,
+                    color: Color(0xFF0F172A),
+                    size: 19,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- 2. HERO VEHICLE HEADER SECTION ---
+  Widget _buildHeroHeaderSection({
+    required String category,
+    required String name,
+    required String tagline,
+    required String rating,
+    required String reviewsCount,
+    required String range,
+    required String topSpeed,
+    required String batteryCapacity,
+    required String brakes,
+    required String mainImage,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left Column: Text Info
+            Expanded(
+              flex: 6,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 100% Electric Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.bolt_rounded, color: Color(0xFF15803D), size: 13),
+                        SizedBox(width: 3),
+                        Text(
+                          "100% Electric",
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF15803D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Model Title
+                  Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Subtitle / Tagline
+                  Text(
+                    tagline,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Rating Row (★ 4.6 + (128 Reviews))
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF5B21B6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          "($reviewsCount Reviews)",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            // Right Column: Vehicle Cutout Image Blob
+            Expanded(
+              flex: 5,
+              child: SizedBox(
+                height: 150,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 135,
+                      height: 135,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF3E8FF),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    _buildSmartImage(
+                      mainImage,
+                      fit: BoxFit.contain,
+                      width: 160,
+                      height: 145,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 4 Spec Badges Row Across Full Width
+        Row(
+          children: [
+            Expanded(child: _buildHeroSpecItem(Icons.motorcycle_rounded, range, "Range")),
+            const SizedBox(width: 6),
+            Expanded(child: _buildHeroSpecItem(Icons.speed_rounded, topSpeed, "Top Speed")),
+            const SizedBox(width: 6),
+            Expanded(child: _buildHeroSpecItem(Icons.battery_charging_full_rounded, batteryCapacity, "Battery")),
+            const SizedBox(width: 6),
+            Expanded(child: _buildHeroSpecItem(Icons.disc_full_rounded, "Disc Brakes", "Brakes")),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroSpecItem(IconData icon, String title, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F3FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: const Color(0xFF5B21B6), size: 16),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 8.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- 3. MEDIA GALLERY GRID ---
+  Widget _buildMediaGalleryGrid(List<String> images) {
+    final mainImage = images[_activeGalleryIndex % images.length];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left 55%: Main Photo Carousel Box
+        Expanded(
+          flex: 6,
+          child: Container(
+            height: 175,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: _buildSmartImage(
+                    mainImage,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+
+                // Index Badge
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "${(_activeGalleryIndex % images.length) + 1}/${images.length}",
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Controls
+                Positioned(
+                  left: 6,
+                  top: 70,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _activeGalleryIndex =
+                            (_activeGalleryIndex - 1 + images.length) % images.length;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.chevron_left_rounded, size: 18, color: Color(0xFF0F172A)),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 6,
+                  top: 70,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _activeGalleryIndex = (_activeGalleryIndex + 1) % images.length;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFF0F172A)),
                     ),
                   ),
                 ),
               ],
             ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpecItem(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Container(
-          height: 44,
-          width: 44,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          child: Icon(icon, color: const Color(0xFF4313B8), size: 18),
         ),
-        const SizedBox(height: 6),
-        Text(value, style: const TextStyle(color: Color(0xFF1E293B), fontSize: 11, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)),
+
+        const SizedBox(width: 8),
+
+        // Right 45%: Video Preview + 2 Close-up Thumbnails
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              // Top Right: Video Preview Thumbnail
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: Colors.black,
+                      contentPadding: EdgeInsets.zero,
+                      content: SizedBox(
+                        width: 320,
+                        height: 200,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.play_circle_fill_rounded, color: Color(0xFFD2FC00), size: 60),
+                            SizedBox(height: 12),
+                            Text(
+                              "⚡ Evegah EV Promo Video",
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  height: 83,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: _buildSmartImage(
+                          images[1 % images.length],
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.play_circle_fill_rounded, color: Color(0xFF8B5CF6), size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                "Watch Video",
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Bottom 2 Side-by-Side Thumbnails
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _activeGalleryIndex = 2 % images.length;
+                        });
+                      },
+                      child: Container(
+                        height: 83,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: _buildSmartImage(
+                            images[2 % images.length],
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _activeGalleryIndex = 3 % images.length;
+                        });
+                      },
+                      child: Container(
+                        height: 83,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: _buildSmartImage(
+                                images[3 % images.length],
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  "+5",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  double get _calculatedRate {
-    if (_currentZone == "Daman Zone") {
-      return 100.0;
-    } else if (_currentZone == "Vadodara Gotri Zone") {
-      if (_rideType == "Weekly") {
-        return 1800.0;
-      } else if (_rideType == "Monthly") {
-        return 6000.0;
-      } else {
-        return 300.0; // Daily
-      }
-    } else {
-      double baseRate = 20.0;
-      if (_vehicleData != null && _vehicleData!['farePlanData'] != null && _vehicleData!['farePlanData'].isNotEmpty) {
-        baseRate = double.tryParse(_vehicleData!['farePlanData'][0]['todaysRate']?.toString() ?? '20') ?? 20.0;
-      }
-      if (_rideType == "Subscription") {
-        return 1500.0;
-      } else {
-        return baseRate;
-      }
-    }
-  }
-
-  void _showZoneSelectionBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Select Pickup Zone",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-            ),
-            const SizedBox(height: 16),
-            _buildZoneOption("Vadodara Gotri Zone", "Akshar Chowk, Vadodara, Gujarat"),
-            const Divider(),
-            _buildZoneOption("Daman Zone", "Devka Beach Road, Daman"),
-            const Divider(),
-            _buildZoneOption("Koramangala Zone, Bangalore", "80 Feet Road, Koramangala, Bengaluru"),
-          ],
+  // --- 4. TAB NAVIGATION BAR ---
+  Widget _buildTabBar(String reviewsCount) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1.5),
         ),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        indicatorColor: const Color(0xFF5B21B6),
+        indicatorWeight: 3,
+        labelColor: const Color(0xFF5B21B6),
+        unselectedLabelColor: const Color(0xFF64748B),
+        labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+        unselectedLabelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+        tabs: [
+          const Tab(text: "Overview"),
+          const Tab(text: "Specifications"),
+          const Tab(text: "Features"),
+          Tab(text: "Reviews ($reviewsCount)"),
+          const Tab(text: "FAQ"),
+        ],
       ),
     );
   }
 
-  Widget _buildZoneOption(String zoneName, String address) {
-    final isSelected = _currentZone == zoneName;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _currentZone = zoneName;
-          if (zoneName == "Daman Zone") {
-            _rideType = "Hourly";
-          } else if (zoneName == "Vadodara Gotri Zone") {
-            _rideType = "Daily";
-          } else {
-            _rideType = "Daily";
-          }
-        });
-        Navigator.pop(context);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
+  // --- TAB 1: OVERVIEW ---
+  Widget _buildOverviewTabContent({
+    required String description,
+    required String range,
+    required String topSpeed,
+    required String batteryCapacity,
+    required String brakes,
+    required String motorPower,
+    required String batteryType,
+    required String wheelSize,
+    required String waterResistance,
+    required String chargingTime,
+    required String loadCapacity,
+    required String warranty,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          description,
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: Color(0xFF475569),
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 8 Feature Highlight Cards
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.location_on, color: isSelected ? const Color(0xFF4313B8) : Colors.grey, size: 20),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(zoneName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isSelected ? const Color(0xFF4313B8) : const Color(0xFF1E293B))),
-                  const SizedBox(height: 2),
-                  Text(address, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                children: const [
+                  _OverviewFeatureCard(Icons.eco_rounded, "Eco Friendly", "Zero Emission", Color(0xFFF0FDF4), Color(0xFF16A34A)),
+                  SizedBox(height: 8),
+                  _OverviewFeatureCard(Icons.currency_rupee_rounded, "Low Running Cost", "Save more daily", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
+                  SizedBox(height: 8),
+                  _OverviewFeatureCard(Icons.chair_rounded, "Comfortable Seat", "Long ride comfort", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
+                  SizedBox(height: 8),
+                  _OverviewFeatureCard(Icons.lightbulb_rounded, "LED Lights", "Bright & Clear", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
                 ],
               ),
             ),
-            if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFF4313B8), size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                children: const [
+                  _OverviewFeatureCard(Icons.bolt_rounded, "Quick Charge", "4–5 Hours", Color(0xFFFEF3C7), Color(0xFFD97706)),
+                  SizedBox(height: 8),
+                  _OverviewFeatureCard(Icons.desktop_windows_rounded, "Smart Display", "Digital Console", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
+                  SizedBox(height: 8),
+                  _OverviewFeatureCard(Icons.disc_full_rounded, "Tubeless Tyres", "Better Grip", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
+                  SizedBox(height: 8),
+                  _OverviewFeatureCard(Icons.verified_user_rounded, "Warranty", "1 Year Warranty", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
+
+        const SizedBox(height: 18),
+      ],
     );
   }
 
-  Widget _buildPackageSelectionWidget() {
-    if (_currentZone == "Daman Zone") {
-      return GestureDetector(
-        onTap: () => setState(() => _rideType = "Hourly"),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+  // --- TAB 2: SPECIFICATIONS ---
+  Widget _buildSpecificationsTabContent({
+    required String motorPower,
+    required String batteryCapacity,
+    required String batteryType,
+    required String brakes,
+    required String range,
+    required String wheelSize,
+    required String topSpeed,
+    required String waterResistance,
+    required String chargingTime,
+    required String loadCapacity,
+    required String warranty,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Technical Specifications",
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF4313B8), width: 1.5),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
           ),
-          child: Row(
+          child: Column(
             children: [
-              const Icon(Icons.bolt, color: Color(0xFF4313B8), size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("Hourly package", style: TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 2),
-                    Text("₹100/hr flat rate", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
-                  ],
-                ),
+              Row(
+                children: [
+                  Expanded(child: _SpecGridRowItem(Icons.bolt_rounded, "Motor Power", motorPower)),
+                  Expanded(child: _SpecGridRowItem(Icons.battery_charging_full_rounded, "Battery Capacity", batteryCapacity)),
+                ],
               ),
-              const Icon(Icons.check_circle, color: Color(0xFF4313B8), size: 18),
+              const Divider(height: 14, color: Color(0xFFF1F5F9)),
+              Row(
+                children: [
+                  Expanded(child: _SpecGridRowItem(Icons.battery_full_rounded, "Battery Type", batteryType)),
+                  Expanded(child: _SpecGridRowItem(Icons.disc_full_rounded, "Brakes", brakes)),
+                ],
+              ),
+              const Divider(height: 14, color: Color(0xFFF1F5F9)),
+              Row(
+                children: [
+                  Expanded(child: _SpecGridRowItem(Icons.motorcycle_rounded, "Range", range)),
+                  Expanded(child: _SpecGridRowItem(Icons.tire_repair_rounded, "Wheel Size", wheelSize)),
+                ],
+              ),
+              const Divider(height: 14, color: Color(0xFFF1F5F9)),
+              Row(
+                children: [
+                  Expanded(child: _SpecGridRowItem(Icons.speed_rounded, "Top Speed", topSpeed)),
+                  Expanded(child: _SpecGridRowItem(Icons.water_drop_rounded, "Water Resistance", waterResistance)),
+                ],
+              ),
+              const Divider(height: 14, color: Color(0xFFF1F5F9)),
+              Row(
+                children: [
+                  Expanded(child: _SpecGridRowItem(Icons.power_rounded, "Charging Time", chargingTime)),
+                  Expanded(child: _SpecGridRowItem(Icons.lock_rounded, "Load Capacity", loadCapacity)),
+                ],
+              ),
             ],
           ),
         ),
-      );
-    } else if (_currentZone == "Vadodara Gotri Zone") {
-      return Column(
+      ],
+    );
+  }
+
+  Widget _buildSpecDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              _buildGotriPackageCard("Daily", "Daily Pack", "₹300/day"),
-              const SizedBox(width: 12),
-              _buildGotriPackageCard("Weekly", "Weekly Pack", "₹1,800/week"),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildGotriPackageCard("Monthly", "Monthly Pack", "₹6,000/month"),
-              const SizedBox(width: 12),
-              const Spacer(),
-            ],
-          ),
-        ],
-      );
-    } else {
-      return Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _rideType = "Daily"),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _rideType == "Daily" ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0), width: 1.5),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.access_time, color: _rideType == "Daily" ? const Color(0xFF4313B8) : Colors.grey, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text("Daily Drive", style: TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 2),
-                          Text("24+ Hours (Ideal)", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                    if (_rideType == "Daily")
-                      const Icon(Icons.check_circle, color: Color(0xFF4313B8), size: 18),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _rideType = "Subscription"),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _rideType == "Subscription" ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0), width: 1.5),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_month, color: _rideType == "Subscription" ? const Color(0xFF4313B8) : Colors.grey, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text("Subscription", style: TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 2),
-                          Text("7+ Days bookings", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                    if (_rideType == "Subscription")
-                      const Icon(Icons.check_circle, color: Color(0xFF4313B8), size: 18),
-                  ],
-                ),
-              ),
+          Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // --- TAB 3: FEATURES ---
+  Widget _buildFeaturesTabContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Text("Highlight Features", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        SizedBox(height: 10),
+        _OverviewFeatureCard(Icons.bluetooth_rounded, "Bluetooth BMS", "Live Telemetry & Battery Monitoring", Color(0xFFF5F3FF), Color(0xFF5B21B6)),
+        SizedBox(height: 8),
+        _OverviewFeatureCard(Icons.lock_rounded, "Smart Remote Lock", "Keyless Anti-Theft Protection", Color(0xFFF0FDF4), Color(0xFF16A34A)),
+        SizedBox(height: 8),
+        _OverviewFeatureCard(Icons.lightbulb_rounded, "Full LED Headlamp", "Bright Day & Night Visibility", Color(0xFFFEF3C7), Color(0xFFD97706)),
+        SizedBox(height: 8),
+        _OverviewFeatureCard(Icons.verified_rounded, "Roadside Assistance", "24/7 On-Demand Rider Support", Color(0xFFE0F2FE), Color(0xFF0284C7)),
+      ],
+    );
+  }
+
+  // --- TAB 4: REVIEWS ---
+  Widget _buildReviewsTabContent(String rating, String reviewsCount) {
+    final int count = int.tryParse(reviewsCount) ?? 10;
+    final int displayCount = count.clamp(1, 20); // Show up to 20 reviews for list layout sanity
+
+    const List<String> indianNames = [
+      "Aarav Sharma", "Priya Patel", "Rohit Verma", "Amit Gupta", "Sneha Reddy",
+      "Rohan Das", "Ananya Iyer", "Vikram Malhotra", "Meera Nair", "Deepak Joshi",
+      "Siddharth Rao", "Kirti Singh", "Abhishek Kumar", "Neha Choudhury", "Aditya Mishra",
+      "Tanvi Sen", "Suresh Pillai", "Arjun Mehta", "Shreya Bhat", "Manish Saxena"
+    ];
+
+    const List<String> reviewsTexts = [
+      "Amazing EV! Super smooth acceleration and range is completely accurate.",
+      "Extremely comfortable seat for daily commuting across Vadodara.",
+      "Affordable daily rate and very quick charging. Highly recommended!",
+      "Excellent build quality. The digital display console is very responsive.",
+      "Zero vibrations, quiet and powerful ride. Best scooter in this segment.",
+      "Smooth suspension handles Indian city roads beautifully. Very happy with the performance.",
+      "Extremely cost-effective for my college commute. Safe and steady handling.",
+      "Battery backup is superb. Got almost 100km range on a single charge!",
+      "Easy pickup from the station hub and staff was extremely helpful.",
+      "Saves me so much money on petrol. Best switch I've made this year!",
+      "Great braking power and the tubeless tires offer excellent grip on wet roads.",
+      "IP67 water resistance is great for monsoon rides. Value for money."
+    ];
+
+    const List<double> reviewRatings = [5.0, 4.8, 4.9, 4.7, 5.0, 4.6, 4.8, 5.0, 4.7, 4.9];
+
+    final List<Widget> reviewCards = [];
+    for (int i = 0; i < displayCount; i++) {
+      final name = indianNames[i % indianNames.length];
+      final text = reviewsTexts[i % reviewsTexts.length];
+      final double rVal = reviewRatings[i % reviewRatings.length];
+      
+      reviewCards.add(
+        _ReviewCard(name, rVal.toStringAsFixed(1), text),
       );
-    }
-  }
-
-  Widget _buildGotriPackageCard(String type, String title, String subtitle) {
-    final isSelected = _rideType == type;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _rideType = type),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isSelected ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0), width: 1.5),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                type == "Daily"
-                    ? Icons.today
-                    : type == "Weekly"
-                        ? Icons.date_range
-                        : Icons.calendar_month,
-                color: isSelected ? const Color(0xFF4313B8) : Colors.grey,
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-              if (isSelected)
-                const Icon(Icons.check_circle, color: Color(0xFF4313B8), size: 18),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openDatePicker() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SelectDateTimeScreen()),
-    );
-  }
-}
-
-class _RunningDetailVehicle extends StatefulWidget {
-  final String imagePath;
-  const _RunningDetailVehicle({required this.imagePath});
-
-  @override
-  State<_RunningDetailVehicle> createState() => _RunningDetailVehicleState();
-}
-
-class _RunningDetailVehicleState extends State<_RunningDetailVehicle>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _driveIn;
-  late Animation<double> _vibrate;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    );
-
-    _driveIn = Tween<Offset>(begin: const Offset(-1.2, 0.0), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
-      ),
-    );
-
-    _vibrate = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween<double>(begin: 0.0, end: -1.0), weight: 25),
-      TweenSequenceItem(tween: Tween<double>(begin: -1.0, end: 1.0), weight: 25),
-      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: -0.5), weight: 25),
-      TweenSequenceItem(tween: Tween<double>(begin: -0.5, end: 0.0), weight: 25),
-    ]).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 1.0, curve: Curves.linear),
-      ),
-    );
-
-    _controller.forward();
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _controller.repeat(reverse: true);
+      if (i < displayCount - 1) {
+        reviewCards.add(const SizedBox(height: 8));
       }
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant _RunningDetailVehicle oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imagePath != widget.imagePath) {
-      _controller.forward(from: 0.0);
     }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(rating, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: List.generate(
+                    5,
+                    (i) => const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text("Based on $reviewsCount verified rider reviews", style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        ...reviewCards,
+      ],
+    );
   }
+
+  // --- TAB 5: FAQ ---
+  Widget _buildFaqTabContent(String name) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FaqTile("What documents are required to rent $name?", "You only need a valid Driving License and Aadhaar KYC completion."),
+        _FaqTile("How do I charge the battery?", "You can plug into any standard 5A home socket or visit Evegah Charging Hubs."),
+        _FaqTile("Is helmet provided with the vehicle?", "Yes! Complimentary sanitized helmet is provided at the pickup zone."),
+      ],
+    );
+  }
+
+  // --- 6. STICKY BOTTOM ACTION BAR (FULL-WIDTH BOOK NOW BUTTON) ---
+  Widget _buildStickyBottomActionBar(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const RentEvScreen(),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF4313B8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            elevation: 3,
+            shadowColor: const Color(0xFF4313B8).withValues(alpha: 0.3),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text(
+                "⚡ Book Now",
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- HELPER WIDGETS ---
+class _OverviewFeatureCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color bgColor;
+  final Color iconColor;
+
+  const _OverviewFeatureCard(this.icon, this.title, this.subtitle, this.bgColor, this.iconColor);
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final offset = _driveIn.value;
-        final dy = _vibrate.value;
-        return FractionalTranslation(
-          translation: offset,
-          child: Transform.translate(
-            offset: Offset(0.0, dy),
-            child: child,
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: iconColor, size: 15),
           ),
-        );
-      },
-      child: Image.asset(
-        widget.imagePath,
-        fit: BoxFit.contain,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpecGridRowItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+
+  const _SpecGridRowItem(this.icon, this.title, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF5B21B6), size: 14),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  final String name;
+  final String rating;
+  final String comment;
+
+  const _ReviewCard(this.name, this.rating, this.comment);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(name, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 12),
+                  const SizedBox(width: 3),
+                  Text(rating, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(comment, style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569))),
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqTile extends StatelessWidget {
+  final String question;
+  final String answer;
+
+  const _FaqTile(this.question, this.answer);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: ExpansionTile(
+        title: Text(question, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: Text(answer, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.35)),
+          ),
+        ],
       ),
     );
   }

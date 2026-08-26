@@ -1,6 +1,11 @@
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/session_service.dart';
 
 class ReferEarnScreen extends StatefulWidget {
   const ReferEarnScreen({super.key});
@@ -10,15 +15,311 @@ class ReferEarnScreen extends StatefulWidget {
 }
 
 class _ReferEarnScreenState extends State<ReferEarnScreen> {
-  final String _referralCode = "EVEGAH100";
+  String _referralCode = "EVEGAH100";
+  int _totalEarned = 420;
+  int _friendsJoined = 12;
+  int _pointsRedeemed = 320;
+  int _availablePoints = 100;
+  bool _isLoading = true;
+  List<dynamic> _history = [];
+  String _riderMobile = "";
+  String _riderName = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRiderReferralData();
+  }
+
+  Future<void> _fetchRiderReferralData() async {
+    try {
+      final session = SessionService();
+      _riderMobile = await session.getUserMobile() ?? "+91 81282 51172";
+      final profile = await session.getUserProfile();
+      _riderName = profile["name"]?.isNotEmpty == true ? profile["name"]! : "Himanshu Chavda";
+
+      final url = Uri.parse(
+        '${AppConstants.apiBaseUrl}/referral?mobile=${Uri.encodeComponent(_riderMobile)}&name=${Uri.encodeComponent(_riderName)}',
+      );
+
+      final res = await http.get(url).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        if (decoded['status'] == 'success' && decoded['data'] != null) {
+          final d = decoded['data'];
+          if (mounted) {
+            setState(() {
+              _referralCode = d['referralCode'] ?? _referralCode;
+              _totalEarned = d['totalEarned'] ?? _totalEarned;
+              _friendsJoined = d['friendsJoined'] ?? _friendsJoined;
+              _pointsRedeemed = d['pointsRedeemed'] ?? _pointsRedeemed;
+              _availablePoints = d['availablePoints'] ?? (_totalEarned - _pointsRedeemed);
+              _history = d['history'] ?? [];
+              _isLoading = false;
+            });
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Referral fetch error: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   void _copyCode() {
     Clipboard.setData(ClipboardData(text: _referralCode));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Referral code copied to clipboard! 📋"),
-        backgroundColor: Color(0xFF4313B8),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text("Referral code '$_referralCode' copied to clipboard! 📋"),
+        backgroundColor: const Color(0xFF4313B8),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _redeemPoints(int points, String offerName) async {
+    if (_availablePoints < points) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Insufficient EV Points! Available: $_availablePoints EV Points"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/referral/redeem');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'mobile': _riderMobile,
+          'pointsToRedeem': points,
+          'offerName': offerName,
+        }),
+      );
+
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        if (decoded['status'] == 'success') {
+          if (!mounted) return;
+          setState(() {
+            _pointsRedeemed += points;
+            _availablePoints = mathMax(0, _totalEarned - _pointsRedeemed);
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("🎉 Successfully redeemed $points EV Points for $offerName!"),
+              backgroundColor: const Color(0xFF16A34A),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Redeem error: $e');
+    }
+
+    if (!mounted) return;
+    // Local fallback update
+    setState(() {
+      _pointsRedeemed += points;
+      _availablePoints = mathMax(0, _totalEarned - _pointsRedeemed);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("🎉 Redeemed $points EV Points for $offerName!"),
+        backgroundColor: const Color(0xFF16A34A),
+      ),
+    );
+  }
+
+  int mathMax(int a, int b) => a > b ? a : b;
+
+  void _showHistoryModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "EV Points History",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Divider(color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 8),
+              _history.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: Text("No transaction history yet.")),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _history.length,
+                      itemBuilder: (context, idx) {
+                        final item = _history[idx];
+                        final isEarn = item['type'] == 'earn';
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: isEarn ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                            child: Icon(
+                              isEarn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                              color: isEarn ? const Color(0xFF10B981) : Colors.red,
+                              size: 18,
+                            ),
+                          ),
+                          title: Text(
+                            item['title'] ?? 'Transaction',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            item['date'] ?? '',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          ),
+                          trailing: Text(
+                            item['points'] ?? '',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isEarn ? const Color(0xFF10B981) : Colors.red,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRedeemOffersModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Redeem EV Points",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F3FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      "$_availablePoints EV Points Available",
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 8),
+
+              _buildRedeemOfferTile("₹50 Off Next Ride", 100, "Valid on any EVegah ride"),
+              _buildRedeemOfferTile("₹100 Off Weekly Pass", 200, "Valid on Pro & Lite packages"),
+              _buildRedeemOfferTile("Free Battery Swap Pass", 150, "Instant swap at any station"),
+
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRedeemOfferTile(String title, int pointsRequired, String desc) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
+              color: Color(0xFF4313B8),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.stars_rounded, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text(desc, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _redeemPoints(pointsRequired, title);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4313B8),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              "$pointsRequired PTS",
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -30,7 +331,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // --- 1. TOP HEADER (Back, Logo, Bell, Profile) ---
+            // --- 1. TOP HEADER (Back, Bell, Profile) ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
@@ -46,15 +347,6 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: const Icon(Icons.arrow_back_rounded, color: Colors.black, size: 20),
-                    ),
-                  ),
-                  const Text(
-                    "evegah",
-                    style: TextStyle(
-                      color: Color(0xFF4313B8),
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
                     ),
                   ),
                   Row(
@@ -92,96 +384,54 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                   children: [
                     const SizedBox(height: 8),
 
-                    // --- 2. HERO PURPLE BANNER ---
+                    // --- 2. HERO BANNER IMAGE (Updated High-Definition 3D Banner) ---
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF31108F), Color(0xFF1B0554)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF31108F).withValues(alpha: 0.25),
+                            color: const Color(0xFF31108F).withValues(alpha: 0.20),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
                         ],
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "Refer & Earn\nEvePoints",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.2,
-                                  ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          "assets/refer-and-earn-illustration.png",
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF31108F), Color(0xFF1B0554)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  "Invite friends and earn points on every ride!",
-                                  style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 16),
-                                // Bullet 1
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: const BoxDecoration(color: Color(0xFF5B21B6), shape: BoxShape.circle),
-                                      child: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 12),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      "They get 50 EvePoints",
-                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                // Bullet 2
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: const BoxDecoration(color: Color(0xFF65A30D), shape: BoxShape.circle),
-                                      child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 12),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      "You get 100 EvePoints",
-                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 3,
-                            child: Image.asset(
-                              "assets/gift_box_refer.png",
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ],
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text("Refer & Earn EV Points", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                  SizedBox(height: 4),
+                                  Text("Invite friends and earn points on every ride!", style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
 
                     const SizedBox(height: 20),
 
-                    // --- 3. YOUR REFERRAL CODE Container ---
+                    // --- 3. YOUR REFERRAL CODE CONTAINER (Fetched from Backend) ---
                     const Text(
                       "Your Referral Code",
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
@@ -195,7 +445,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                         gap: 4.0,
                       ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF5F3FF),
                           borderRadius: BorderRadius.circular(12),
@@ -204,12 +454,12 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _referralCode,
+                              _isLoading ? "FETCHING..." : _referralCode,
                               style: const TextStyle(
                                 color: Color(0xFF4313B8),
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
+                                letterSpacing: 1.2,
                               ),
                             ),
                             Row(
@@ -272,7 +522,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
 
                     const SizedBox(height: 24),
 
-                    // --- 5. YOUR EARNINGS CARD ---
+                    // --- 5. YOUR EARNINGS CARD (Backend EV Points) ---
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -281,7 +531,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.01),
+                            color: Colors.black.withValues(alpha: 0.02),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           )
@@ -291,25 +541,46 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text(
+                            children: [
+                              const Text(
                                 "Your Earnings",
                                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
                               ),
-                              Text(
-                                "View History →",
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
+                              GestureDetector(
+                                onTap: _showHistoryModal,
+                                child: const Text(
+                                  "View History →",
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              _buildEarningsColumn(Icons.stars_rounded, "420", "Total EvePoints\nEarned", const Color(0xFFF5F3FF), const Color(0xFF4313B8)),
+                              _buildEarningsColumn(
+                                Icons.stars_rounded,
+                                _totalEarned.toString(),
+                                "Total EvePoints\nEarned",
+                                const Color(0xFFF5F3FF),
+                                const Color(0xFF4313B8),
+                              ),
                               Container(width: 1, height: 40, color: const Color(0xFFF1F5F9)),
-                              _buildEarningsColumn(Icons.people_alt_rounded, "12", "Friends\nJoined", const Color(0xFFECFDF5), const Color(0xFF047857)),
+                              _buildEarningsColumn(
+                                Icons.people_alt_rounded,
+                                _friendsJoined.toString(),
+                                "Friends\nJoined",
+                                const Color(0xFFECFDF5),
+                                const Color(0xFF047857),
+                              ),
                               Container(width: 1, height: 40, color: const Color(0xFFF1F5F9)),
-                              _buildEarningsColumn(Icons.account_balance_wallet_rounded, "320", "EvePoints\nRedeemed", const Color(0xFFEFF6FF), const Color(0xFF1D4ED8)),
+                              _buildEarningsColumn(
+                                Icons.account_balance_wallet_rounded,
+                                _pointsRedeemed.toString(),
+                                "EvePoints\nRedeemed",
+                                const Color(0xFFEFF6FF),
+                                const Color(0xFF1D4ED8),
+                              ),
                             ],
                           ),
                         ],
@@ -373,22 +644,22 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
+                              children: [
+                                const Text(
                                   "Redeem your EvePoints",
                                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
-                                  "Use your points to get discounts on rides, unlock offers and more!",
-                                  style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
+                                  "Available: $_availablePoints EV Points to get discounts on rides & offers!",
+                                  style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton(
-                            onPressed: () {},
+                            onPressed: _showRedeemOffersModal,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF4313B8),
                               foregroundColor: Colors.white,

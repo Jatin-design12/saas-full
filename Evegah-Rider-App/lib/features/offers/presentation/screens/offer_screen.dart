@@ -352,7 +352,7 @@ class _OfferScreenState extends State<OfferScreen> {
 
                     style: TextStyle(
                       color: darkText,
-                      fontSize: 26,
+                      fontSize: 20,
                       fontWeight:
                           FontWeight.w800,
                       letterSpacing: -0.5,

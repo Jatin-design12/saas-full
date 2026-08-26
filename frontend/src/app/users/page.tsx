@@ -829,25 +829,31 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                   <tbody>
                     {[
                       'Dashboard (Auto-Assigned)',
+                      'Users & System Roles',
+                      'Registrations & Returns',
                       'Vehicles Catalog & Active Rides',
                       'Riders & Reserved Rides',
-                      'Zone Management & Pricing',
+                      'Zone Management & Geofence',
+                      'Franchise & Subscriptions',
                       'Battery Inventory & BMS',
-                      'Fleet Maintenance & Logs',
-                      'Users & System Roles',
-                      'Financials & Earnings',
+                      'Fleet Maintenance & Service Logs',
+                      'IoT Devices & GPS Telemetry',
+                      'Financials & Payments Ledger',
+                      'Staff Attendance & Shifts',
                       'Analytics & Reports',
                       'System Alerts Telemetry',
-                      'Announcements'
+                      'Announcements & Broadcasts',
+                      'Co2 Saving & Carbon Credits',
+                      'System Settings & Preferences'
                     ].map((mod, idx) => {
-                      const isFullAdmin = selectedRoleMatrix.code === 'SUPER_ADMIN' || selectedRoleMatrix.code === 'ADMIN';
+                      const isFullAdmin = selectedRoleMatrix.code === 'SUPER_ADMIN' || selectedRoleMatrix.code === 'ADMIN' || selectedRoleMatrix.code === 'SF_001';
                       const isDash = idx === 0;
                       return (
                         <tr key={mod} style={{ borderBottom: '1px solid #F1F5F9', background: isDash ? '#F5F3FF' : 'transparent' }}>
                           <td style={{ padding: '10px 14px', fontWeight: '700', color: isDash ? '#6366F1' : '#0F172A' }}>{mod}</td>
                           <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={true} disabled={isDash || isFullAdmin} /></td>
                           <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin || idx % 2 === 0} disabled={isDash || isFullAdmin} /></td>
-                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin || idx < 5} disabled={isDash || isFullAdmin} /></td>
+                          <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin || idx < 8} disabled={isDash || isFullAdmin} /></td>
                           <td style={{ textAlign: 'center' }}><input type="checkbox" defaultChecked={isDash || isFullAdmin} disabled={isDash || isFullAdmin} /></td>
                         </tr>
                       );

@@ -1,6 +1,6 @@
 $primary-brand: #2a195d;
 $text-main: #1c1c1c;
-$text-muted: #696969;
+$text-muted: #ffffff;
 
 .main-content {
   --background: #ffffff !important;
@@ -30,12 +30,10 @@ $text-muted: #696969;
   .overlay-gradient {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.1) 0%,
-      rgba(0, 0, 0, 0.65) 62%,
-      rgba(0, 0, 0, 0.88) 100%
-    );
+    background: linear-gradient(to bottom,
+        rgba(0, 0, 0, 0.1) 0%,
+        rgba(0, 0, 0, 0.65) 62%,
+        rgba(0, 0, 0, 0.88) 100%);
   }
 
   .brand-content {

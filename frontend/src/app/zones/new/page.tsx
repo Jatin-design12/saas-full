@@ -602,6 +602,7 @@ export default function AddZonePage() {
     map_link: 'https://maps.google.com/?q=22.3129,73.1674',
     address: 'Alkapuri, Vadodara, Gujarat 390007',
     image_url: '',
+    phone: '+91 98765 43210',
     open_time: '06:00',
     close_time: '23:00',
     is_24_hours: false
@@ -1638,6 +1639,17 @@ export default function AddZonePage() {
                         <span className="zn-input-counter">{formData.code.length} / 50</span>
                       </div>
                       {formErrors.code && <span className="zn-error">{formErrors.code}</span>}
+                    </div>
+
+                    <div className="zn-form-group">
+                      <label className="zn-label">Zone Contact Number <span>*</span></label>
+                      <input
+                        type="text"
+                        className="zn-input"
+                        placeholder="e.g. +91 98765 43210"
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                      />
                     </div>
 
                     <div className="zn-form-group">

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/app_sidebar_drawer.dart';
 import '../../../kyc/presentation/screens/kyc_screen.dart';
 import 'rent_ev_screen.dart';
+import 'vehicle_details_screen.dart';
 import 'vehicle_list_screen.dart';
 import 'select_location_screen.dart';
 import 'select_date_time_screen.dart';
@@ -37,9 +38,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _carouselTimer;
 
   final List<String> _carouselBanners = [
+    "assets/Rakshabandhan.png",
     "assets/offer.png",
     "assets/Rent EV.png",
-    "assets/Ride More Spend Less.png",
     "assets/Ride More.png",
   ];
 
@@ -49,7 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       "category": "E-Vehicle",
       "tagColor": const Color(0xFFF5F3FF),
       "tagTextColor": const Color(0xFF4313B8),
-      "image": "assets/city.png",
+      "image": "assets/Pro_Banner.png",
       "range": "80–100 km",
       "speed": "45 km/h",
       "features": ["👥 2 Seater", "🔒 Smart Lock"],
@@ -58,34 +59,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {
       "name": "Evegah Pro",
       "category": "E-Scooter",
-      "tagColor": const Color(0xFFDCFCE7),
-      "tagTextColor": const Color(0xFF15803D),
-      "image": "assets/pro-1.png",
-      "range": "90–120 km",
-      "speed": "20 km/h",
-      "features": ["👥 2 Seater", "⚡ Fast Charge"],
+      "tagColor": const Color(0xFFF5F3FF),
+      "tagTextColor": const Color(0xFF4313B8),
+      "image": "assets/fleet_bg_pro.jpg",
+      "range": "10–12 km",
+      "speed": "10 km/h",
+      "features": ["👥 1 Seater", "⚡ Fast Charge"],
+      "isFavorite": false,
+    },
+    {
+      "name": "Evegah Fly",
+      "category": "E-Moped",
+      "tagColor": const Color(0xFFF5F3FF),
+      "tagTextColor": const Color(0xFF4313B8),
+      "image": "assets/fleet_bg_cycle.jpg",
+      "range": "10–20 km",
+      "speed": "15 km/h",
+      "features": ["👥 1 Seater"],
       "isFavorite": false,
     },
     {
       "name": "Evegah Mink",
-      "category": "E-Moped",
-      "tagColor": const Color(0xFFE0F2FE),
-      "tagTextColor": const Color(0xFF0369A1),
-      "image": "assets/mink.png",
-      "range": "60–80 km",
+      "category": "E-Cargo",
+      "tagColor": const Color(0xFFF5F3FF),
+      "tagTextColor": const Color(0xFF4313B8),
+      "image": "assets/mink_banner.png",
+      "range": "70–90 km",
       "speed": "30 km/h",
-      "features": ["👥 2 Seater", "🔒 Smart Lock"],
-      "isFavorite": false,
-    },
-    {
-      "name": "Evegah Cycle",
-      "category": "E-Cycle",
-      "tagColor": const Color(0xFFFFEDD5),
-      "tagTextColor": const Color(0xFFC2410C),
-      "image": "assets/Fly.png",
-      "range": "15–20 km",
-      "speed": "25 km/h",
-      "features": ["👤 Single Seat", "🚲 Pedal Assist"],
+      "features": ["👥 2 Seater", "📦 Heavy Duty"],
       "isFavorite": false,
     },
   ];
@@ -543,7 +544,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 12),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
 
                       // Bottom Health Row
                       Row(
@@ -848,14 +849,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- 8. HOST YOUR EV & EARN BANNER ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildHostYourEvBanner(),
-              ),
-              const SizedBox(height: 16),
-
-              // --- 9. TRUST BADGES ROW ---
+              // --- 8. TRUST BADGES ROW ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildTrustBadgesRow(),
@@ -868,7 +862,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Header with Location Pill & Bell Icon
+  // Header with Location Pill & Bell Icon (Border Removed)
   Widget _buildTopHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -915,10 +909,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1167,7 +1160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 155,
+          height: 195,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -1190,7 +1183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         // Dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1214,7 +1207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Quick Actions Section
+  // Quick Actions Section (Single Box Container)
   Widget _buildQuickActionsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1255,69 +1248,84 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // 1. Rent Now -> Navigates to Rent Your EV page!
-            _buildActionItem(
-              icon: Icons.electric_scooter_rounded,
-              title: "Rent Now",
-              subtitle: "Book a vehicle",
-              bgColor: const Color(0xFFF5F3FF),
-              iconColor: const Color(0xFF4313B8),
-              hasPlusBadge: true,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RentEvScreen()),
-                );
-              },
-            ),
-            // 2. Ride History
-            _buildActionItem(
-              icon: Icons.access_time_rounded,
-              title: "Ride History",
-              subtitle: "Your trips",
-              bgColor: const Color(0xFFF5F3FF),
-              iconColor: const Color(0xFF4313B8),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const RideHistoryScreen(),
-                  ),
-                );
-              },
-            ),
-            // 3. Scan QR
-            _buildActionItem(
-              icon: Icons.qr_code_scanner_rounded,
-              title: "Scan QR",
-              subtitle: "Unlock vehicle",
-              bgColor: const Color(0xFFF5F3FF),
-              iconColor: const Color(0xFF4313B8),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ScanQrScreen()),
-                );
-              },
-            ),
-            // 4. My Wallet
-            _buildActionItem(
-              icon: Icons.account_balance_wallet_outlined,
-              title: "My Wallet",
-              subtitle: "₹1,250.00",
-              bgColor: const Color(0xFFF5F3FF),
-              iconColor: const Color(0xFF4313B8),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const WalletScreen()),
-                );
-              },
-            ),
-          ],
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              // 1. Rent Now -> Navigates to Rent Your EV page!
+              _buildActionItem(
+                icon: Icons.electric_scooter_rounded,
+                title: "Rent Now",
+                subtitle: "Book a vehicle",
+                bgColor: const Color(0xFFF5F3FF),
+                iconColor: const Color(0xFF4313B8),
+                hasPlusBadge: true,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const RentEvScreen()),
+                  );
+                },
+              ),
+              // 2. Ride History
+              _buildActionItem(
+                icon: Icons.access_time_rounded,
+                title: "Ride History",
+                subtitle: "Your trips",
+                bgColor: const Color(0xFFF5F3FF),
+                iconColor: const Color(0xFF4313B8),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RideHistoryScreen(),
+                    ),
+                  );
+                },
+              ),
+              // 3. Scan QR
+              _buildActionItem(
+                icon: Icons.qr_code_scanner_rounded,
+                title: "Scan QR",
+                subtitle: "Unlock vehicle",
+                bgColor: const Color(0xFFF5F3FF),
+                iconColor: const Color(0xFF4313B8),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ScanQrScreen()),
+                  );
+                },
+              ),
+              // 4. My Wallet
+              _buildActionItem(
+                icon: Icons.account_balance_wallet_outlined,
+                title: "My Wallet",
+                subtitle: "₹1,250.00",
+                bgColor: const Color(0xFFF5F3FF),
+                iconColor: const Color(0xFF4313B8),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const WalletScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1334,82 +1342,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 80,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: iconColor, size: 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
                 ),
-                if (hasPlusBadge)
-                  Positioned(
-                    bottom: 0,
-                    right: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF16A34A),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 9,
-                      ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              if (hasPlusBadge)
+                Positioned(
+                  bottom: 0,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF16A34A),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 9,
                     ),
                   ),
-              ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
             ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 8.5,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // Choose Your Rental Section with 100000% 3D Perspective Rotation
+  // Choose Your Rental Section (Clean Solid Colors with 3D Cutout Scooter Graphics)
   Widget _buildChooseYourRentalSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1417,14 +1410,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const Text(
           "Choose Your Rental",
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             color: Color(0xFF0F172A),
           ),
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 185,
+          height: 198,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
@@ -1432,7 +1425,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 const SizedBox(width: 4),
 
-                // Card 1: Daily Drive (3D tilted counter-clockwise -0.035 rad)
+                // Card 1: Daily Drive (3D tilted)
                 _build3DRentalCard(
                   rotationAngle: 0.045,
                   title: "Daily Drive",
@@ -1441,7 +1434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   desc: "Perfect for short\ndaily rides",
                   bgColor: const Color(0xFFF4F0FF),
                   btnColor: const Color(0xFF4313B8),
-                  shadowColor: const Color(0xFF4313B8).withOpacity(0.14),
+                  shadowColor: const Color(0xFF4313B8).withValues(alpha: 0.14),
                   badgeIcon: Icons.bolt_rounded,
                   badgeBg: const Color(0xFF4313B8),
                   image: "assets/city.png",
@@ -1457,7 +1450,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(width: 14),
 
-                // Card 2: Monthly Subscription (Upright / 0.0 rad)
+                // Card 2: Monthly Drive
                 _build3DRentalCard(
                   rotationAngle: 0.045,
                   title: "Monthly Drive",
@@ -1466,10 +1459,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   desc: "Best for regular\nriders",
                   bgColor: const Color(0xFFF0FDF4),
                   btnColor: const Color(0xFF16A34A),
-                  shadowColor: const Color(0xFF16A34A).withOpacity(0.14),
+                  shadowColor: const Color(0xFF16A34A).withValues(alpha: 0.14),
                   badgeIcon: Icons.card_giftcard_rounded,
                   badgeBg: const Color(0xFF16A34A),
-                  image: "assets/mink.png",
+                  image: "assets/mink-1.png",
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1482,7 +1475,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(width: 14),
 
-                // Card 3: Weekday Pass (3D tilted clockwise 0.035 rad)
+                // Card 3: Weekday Pass
                 _build3DRentalCard(
                   rotationAngle: 0.045,
                   title: "Weekday Pass",
@@ -1491,10 +1484,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   desc: "Ride more for\nless",
                   bgColor: const Color(0xFFFFFBEB),
                   btnColor: const Color(0xFFEA580C),
-                  shadowColor: const Color(0xFFEA580C).withOpacity(0.14),
+                  shadowColor: const Color(0xFFEA580C).withValues(alpha: 0.14),
                   badgeIcon: Icons.percent_rounded,
                   badgeBg: const Color(0xFFEA580C),
-                  image: "assets/v2.webp",
+                  image: "assets/city-white.png",
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1533,8 +1526,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 165,
-          height: 170,
+          width: 175,
+          height: 185,
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(24),
@@ -1596,7 +1589,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: badgeBg.withOpacity(0.3),
+                        color: badgeBg.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -1606,18 +1599,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              // 3D Scooter Graphic (Overflowing Bottom Right)
+              // 3D Scooter Graphic (Overflowing Bottom Right - ENLARGED)
               Positioned(
-                bottom: -8,
-                right: -8,
-                width: 105,
-                height: 100,
+                bottom: -10,
+                right: -10,
+                width: 125,
+                height: 115,
                 child: Image.asset(
                   image,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
+                  errorBuilder: (context, error, stackTrace) => const Icon(
                     Icons.electric_scooter,
-                    size: 50,
+                    size: 55,
                     color: Color(0xFF4313B8),
                   ),
                 ),
@@ -1634,7 +1627,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: btnColor.withOpacity(0.3),
+                        color: btnColor.withValues(alpha: 0.3),
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),
@@ -1654,8 +1647,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Our EV Fleet Section
-  // REQUIREMENT: "when we click on any vehicle navigate to the Rent Your EV page"
+  // Premium Our EV Fleet Section
+  // Our EV Fleet Section - Premium layout with large vehicle stage
   Widget _buildOurEvFleetSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1680,207 +1673,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 );
               },
-              child: Row(
-                children: const [
-                  Text(
-                    "View All",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+              borderRadius: BorderRadius.circular(12),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  children: [
+                    Text(
+                      "View All",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4313B8),
+                      ),
+                    ),
+                    SizedBox(width: 3),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 14,
                       color: Color(0xFF4313B8),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 14,
-                    color: Color(0xFF4313B8),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         SizedBox(
-          height:
-              215, // 🚨 Increased height slightly to accommodate wrapped feature badges safely
-          child: ListView.builder(
+          height: 340,
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
             itemCount: _evFleet.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 15),
             itemBuilder: (context, index) {
               final item = _evFleet[index];
-              return GestureDetector(
+              return _buildPremiumFleetCard(
+                item: item,
                 onTap: () {
-                  // 🟢 WIRED UP: Navigate directly to Rent Your EV page when clicking ANY vehicle!
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const RentEvScreen(),
+                      builder: (context) => VehicleDetailsScreen(
+                        vehicleId: item["name"]?.toString() ?? "Evegah City",
+                        modelName: item["name"]?.toString() ?? "Evegah City",
+                      ),
                     ),
                   );
                 },
-                child: Container(
-                  width: 145,
-                  margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.01),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: item["tagColor"],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item["category"],
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                color: item["tagTextColor"],
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                item["isFavorite"] =
-                                    !(item["isFavorite"] as bool);
-                              });
-                            },
-                            child: Icon(
-                              item["isFavorite"]
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_outline_rounded,
-                              size: 14,
-                              color: item["isFavorite"]
-                                  ? Colors.red
-                                  : const Color(0xFF94A3B8),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-
-                      // Image
-                      Expanded(
-                        child: Center(
-                          child: Image.asset(
-                            item["image"],
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.electric_scooter,
-                              size: 45,
-                              color: Color(0xFF4313B8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-
-                      Text(
-                        item["name"],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-
-                      // Specs
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.bolt_rounded,
-                            size: 10,
-                            color: Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            item["range"],
-                            style: const TextStyle(
-                              fontSize: 8,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.speed_rounded,
-                            size: 10,
-                            color: Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            item["speed"],
-                            style: const TextStyle(
-                              fontSize: 8,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Feature Pills
-                      // 🚨 FIX: Swapped out Row for Wrap to dynamically stack tightly bound cards safely
-                      // Feature Pills
-                      // 🟢 FittedBox forces them onto one single line and scales down safely if needed
-                      SizedBox(
-                        width: double.infinity,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: (item["features"] as List<String>).map((
-                              f,
-                            ) {
-                              return Container(
-                                margin: const EdgeInsets.only(right: 4),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F3FF),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  f,
-                                  style: const TextStyle(
-                                    fontSize: 7,
-                                    color: Color(0xFF4313B8),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               );
             },
           ),
@@ -1889,163 +1729,444 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Environmental Impact Bar
-  Widget _buildEnvironmentalImpactBar() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBEF), // Soft green
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: const [
-            _ImpactColumn(
-              Icons.eco_rounded,
-              "CO₂ Saved",
-              "12.4 kg",
-              "This Month",
-              Color(0xFF16A34A),
+  Widget _buildPremiumFleetCard({
+    required Map<String, dynamic> item,
+    required VoidCallback onTap,
+  }) {
+    final features =
+        List<String>.from(item["features"] as List).take(2).toList();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 190,
+        height: 250,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFCFCFE),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xFFE3E7EF)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF17213A).withValues(alpha: 0.07),
+              blurRadius: 22,
+              offset: const Offset(0, 9),
             ),
-            SizedBox(width: 24),
-            _ImpactColumn(
-              Icons.park_rounded,
-              "Green Rides",
-              "8",
-              "This Month",
-              Color(0xFF16A34A),
-            ),
-            SizedBox(width: 24),
-            _ImpactColumn(
-              Icons.bolt_rounded,
-              "Energy Saved",
-              "18.6 kWh",
-              "This Month",
-              Color(0xFF16A34A),
-            ),
-            SizedBox(width: 24),
-            _ImpactColumn(
-              Icons.spa_rounded,
-              "Together We Save",
-              "",
-              "For a Better Tomorrow",
-              Color(0xFF16A34A),
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 2,
+              offset: const Offset(0, -1),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 218,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xFFF9FAFD),
+                            Color(0xFFF0F3F8),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Image.asset(
+                        item["image"],
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(
+                              Icons.electric_scooter_rounded,
+                              size: 82,
+                              color: Color(0xFF303A94),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: IgnorePointer(
+                        child: Container(
+                          height: 14,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0x00FCFCFE),
+                                Color(0xFFFCFCFE),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 13,
+                      left: 13,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.94),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(
+                            color: const Color(0xFFF1F3F7),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF17213A)
+                                  .withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          item["category"],
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF303A94),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 11,
+                      right: 11,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            item["isFavorite"] =
+                                !(item["isFavorite"] as bool);
+                          });
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.96),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFE4E8F0),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF17213A)
+                                    .withValues(alpha: 0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            item["isFavorite"]
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            size: 22,
+                            color: item["isFavorite"]
+                                ? const Color(0xFFE85A6A)
+                                : const Color(0xFF1F2A44),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item["name"],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF17213A),
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildFleetSpec(
+                              icon: Icons.bolt_rounded,
+                              value: item["range"],
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 16,
+                            margin: const EdgeInsets.symmetric(horizontal: 7),
+                            color: const Color(0xFFE4E8F0),
+                          ),
+                          Expanded(
+                            child: _buildFleetSpec(
+                              icon: Icons.speed_rounded,
+                              value: item["speed"],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 11),
+                      Row(
+                        children: [
+                          for (int i = 0; i < features.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 7),
+                            Expanded(
+                              child: _buildFleetFeatureChip(
+                                feature: features[i],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Host Your EV & Earn Banner
-  Widget _buildHostYourEvBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // EV icon
-          Container(
-            width: 52,
-            height: 52,
-            alignment: Alignment.center,
-            child: Image.asset(
-              "assets/MINK.png",
-              width: 44,
-              height: 44,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.directions_car_rounded,
-                size: 34,
-                color: Color(0xFF4313B8),
-              ),
+  Widget _buildFleetSpec({
+    required IconData icon,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: const Color(0xFF64748B),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF64748B),
             ),
           ),
-          const SizedBox(width: 10),
+        ),
+      ],
+    );
+  }
 
-          // Text + button area
+  Widget _buildFleetFeatureChip({
+    required String feature,
+  }) {
+    IconData icon = Icons.check_circle_outline_rounded;
+    String label = feature;
+
+    if (feature.contains("Seater")) {
+      icon = Icons.people_alt_rounded;
+      label = feature.replaceAll("👥", "").trim();
+    } else if (feature.contains("Lock")) {
+      icon = Icons.lock_rounded;
+      label = feature.replaceAll("🔒", "").trim();
+    } else if (feature.contains("Charge")) {
+      icon = Icons.bolt_rounded;
+      label = feature.replaceAll("⚡", "").trim();
+    } else if (feature.contains("Heavy")) {
+      icon = Icons.inventory_2_rounded;
+      label = feature.replaceAll("📦", "").trim();
+    }
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFF7F8FC),
+            Color(0xFFECEEF8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: const Color(0xFFE5E7F2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 15,
+            color: const Color(0xFF303A94),
+          ),
+          const SizedBox(width: 5),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Host Your EV Fleet & Earn",
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF200F54),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  "Earn extra income by sharing your EV with trusted riders.",
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 8.5,
-                    height: 1.2,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Button gets its own row, so it never collides with text.
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF200F54),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 7,
-                      ),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "Become a Host",
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(width: 3),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 13,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF303A94),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  // Environmental Impact Bar (Light Theme Eco Card)
+  Widget _buildEnvironmentalImpactBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.park_rounded, color: Color(0xFF15803D), size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Your Green Impact",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF14532D),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: const Text(
+                  "🌱 THIS MONTH",
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF15803D),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _buildEcoMetricItem(
+                  icon: Icons.eco_rounded,
+                  value: "12.4 kg",
+                  label: "CO₂ Saved",
+                  color: const Color(0xFF16A34A),
+                ),
+              ),
+              Container(width: 1, height: 32, color: const Color(0xFFBBF7D0)),
+              Expanded(
+                child: _buildEcoMetricItem(
+                  icon: Icons.electric_scooter_rounded,
+                  value: "8 Rides",
+                  label: "Zero Emission",
+                  color: const Color(0xFF15803D),
+                ),
+              ),
+              Container(width: 1, height: 32, color: const Color(0xFFBBF7D0)),
+              Expanded(
+                child: _buildEcoMetricItem(
+                  icon: Icons.bolt_rounded,
+                  value: "18.6 kWh",
+                  label: "Clean Energy",
+                  color: const Color(0xFFD97706),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEcoMetricItem({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF14532D),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9,
+            color: Color(0xFF166534),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+
 
   // Trust Badges Row
   Widget _buildTrustBadgesRow() {

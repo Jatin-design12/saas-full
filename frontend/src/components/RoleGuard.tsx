@@ -12,12 +12,15 @@ interface RoleGuardProps {
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   super_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
   platform_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
-  zone_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance'],
-  zone_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance'],
-  operations_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance'],
-  employee: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance'],
-  franchise_manager: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings'],
-  admin: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings'],
+  sf_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
+  sf_001: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
+  zone_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+  zone_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+  zone_employee: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+  operations_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+  employee: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+  franchise_manager: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings', 'Users & Roles'],
+  admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
   battery_technician: ['Dashboard', 'Battery', 'IoT Devices', 'Maintenance', 'Alerts'],
   technician: ['Dashboard', 'Battery', 'IoT Devices', 'Maintenance', 'Alerts'],
   support_executive: ['Dashboard', 'Registrations', 'Riders', 'Alerts', 'Announcements'],
@@ -37,10 +40,22 @@ export default function RoleGuard({ children, moduleName }: RoleGuardProps) {
     if (typeof window === 'undefined') return;
 
     const rawRole = localStorage.getItem('evegah_role') || 'super_admin';
-    const roleNameVal = localStorage.getItem('evegah_user_role_name') || 'Super Admin';
+    const roleNameVal = localStorage.getItem('evegah_user_role_name') || (rawRole === 'super_admin' ? 'Super Admin' : rawRole);
     setRoleName(roleNameVal);
 
-    if (rawRole === 'super_admin' || rawRole === 'Super Admin') {
+    const normRole = rawRole.toLowerCase().replace(/[\s_-]+/g, '_');
+    const normName = roleNameVal.toLowerCase().replace(/[\s_-]+/g, '_');
+
+    if (
+      normRole === 'super_admin' || 
+      normName === 'super_admin' || 
+      normRole === 'platform_admin' || 
+      normName === 'sf_admin' || 
+      normRole === 'sf_admin' || 
+      normName === 'sf_001' || 
+      normRole === 'sf_001' || 
+      normRole === 'admin'
+    ) {
       setIsAllowed(true);
       return;
     }

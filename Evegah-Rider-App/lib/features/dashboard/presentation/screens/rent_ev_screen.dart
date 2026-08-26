@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/widgets/app_sidebar_drawer.dart';
 import 'select_location_screen.dart';
 import 'select_date_time_screen.dart';
@@ -27,6 +32,79 @@ class _RentEvScreenState extends State<RentEvScreen> {
   String? dropRaw;
   bool isDifferentDropZone = false;
   double flexiDropFee = 49.0;
+  List<Map<String, dynamic>> _liveBackendZones = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLiveBackendZones();
+  }
+
+  Future<void> _loadLiveBackendZones() async {
+    final urls = [
+      AppConstants.getLiveZones,
+      'http://192.168.1.4:5000/api/zones',
+      'http://localhost:5000/api/zones',
+      'http://10.0.2.2:5000/api/zones',
+    ];
+
+    for (final url in urls) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['status'] == 'success' && data['data'] != null && (data['data'] as List).isNotEmpty) {
+            final List list = data['data'];
+            if (!mounted) return;
+            setState(() {
+              _liveBackendZones = List<Map<String, dynamic>>.from(list);
+              if (selectedZoneData == null && _liveBackendZones.isNotEmpty) {
+                selectedZoneData = _liveBackendZones.first;
+                selectedLocation = "${_liveBackendZones.first['name']}, Vadodara";
+              }
+            });
+            break;
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching backend zones: $e");
+      }
+    }
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleanPhone.isEmpty) return;
+    final Uri launchUri = Uri(scheme: 'tel', path: cleanPhone);
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint("Error making phone call: $e");
+    }
+  }
+
+  Future<void> _openMapDirections(String address, String? mapLink) async {
+    Uri googleMapsUri;
+    if (mapLink != null && mapLink.startsWith('http')) {
+      googleMapsUri = Uri.parse(mapLink);
+    } else {
+      final encodedAddress = Uri.encodeComponent(address);
+      googleMapsUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
+    }
+    try {
+      if (await canLaunchUrl(googleMapsUri)) {
+        await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(googleMapsUri);
+      }
+    } catch (e) {
+      debugPrint("Error launching directions: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,20 +139,16 @@ class _RentEvScreenState extends State<RentEvScreen> {
                     _buildBookingSearchCard(),
                     const SizedBox(height: 16),
 
-                    // --- ZONE BASED PRICING BANNER ---
-                    _buildZonePricingBanner(),
-                    const SizedBox(height: 12),
+                    // --- ZONE BASED PRICING & FLEXI PICKUP BANNER ROW (2-COLUMN GRID) ---
+                    _buildPricingAndFlexiRow(),
+                    const SizedBox(height: 16),
 
-                    // --- FLEXI PICKUP & DROP BANNER ---
-                    _buildFlexiPickupBanner(),
+                    // --- ZONE DETAILS CARD (DYNAMIC PER SELECTED ZONE) ---
+                    _buildZoneDetailsCard(),
                     const SizedBox(height: 20),
 
                     // --- WHY CHOOSE EVEGAH SECTION ---
                     _buildWhyChooseEvegahSection(),
-                    const SizedBox(height: 20),
-
-                    // --- GO ELECTRIC BOTTOM BANNER ---
-                    _buildGoElectricBottomBanner(),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -86,7 +160,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
     );
   }
 
-  // Top App Bar (Menu Icon, Title & Bell Notification)
+  // Top App Bar (Title & Bell Notification - Left icon removed)
   Widget _buildTopAppBar() {
     final unreadCount = NotificationService().unreadCount;
 
@@ -95,28 +169,8 @@ class _RentEvScreenState extends State<RentEvScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F0FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: const Icon(
-              Icons.electric_scooter_rounded,
-              color: Color(0xFF200F54),
-              size: 22,
-            ),
-          ),
-          const Text(
-            "Rent Your EV",
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF200F54),
-            ),
-          ),
+          const SizedBox(width: 40), // Left placeholder space (left icon removed)
+
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -178,73 +232,86 @@ class _RentEvScreenState extends State<RentEvScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            "Ride Green, Ride Smart",
+            "Ride Green, Choose Green",
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.w900,
               color: Color(0xFF200F54),
               letterSpacing: -0.4,
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 2),
+          Column(
             children: [
-              const Icon(
-                Icons.eco_rounded,
-                color: Color(0xFF16A34A),
-                size: 18,
+              const Text(
+                "INDIA'S SMARTEST EV RENTAL MOBILITY",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1E1B4B),
+                  letterSpacing: 1.1,
+                ),
               ),
-              const SizedBox(width: 6),
-              Column(
+              const SizedBox(height: 4),
+              Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      children: [
-                        TextSpan(
-                          text: "Anywhere",
-                          style: TextStyle(
-                            color: Color(0xFF16A34A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        TextSpan(
-                          text: " • ",
-                          style: TextStyle(
-                            color: Color(0xFF200F54),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        TextSpan(
-                          text: "Anytime",
-                          style: TextStyle(
-                            color: Color(0xFF16A34A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
+                children: const [
+                  Icon(Icons.bolt_rounded, color: Color(0xFF6366F1), size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    "ELECTRIC",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF4F46E5),
+                      letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  CustomPaint(
-                    size: const Size(140, 5),
-                    painter: _GreenCurvePainter(),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      "|",
+                      style: TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.eco_rounded, color: Color(0xFF84CC16), size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    "SUSTAINABLE",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF65A30D),
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      "|",
+                      style: TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.sensors_rounded, color: Color(0xFF6366F1), size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    "SMART",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF4F46E5),
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(width: 6),
-              Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.rotationY(math.pi),
-                child: const Icon(
-                  Icons.eco_rounded,
-                  color: Color(0xFF16A34A),
-                  size: 18,
-                ),
               ),
             ],
           ),
@@ -769,142 +836,463 @@ class _RentEvScreenState extends State<RentEvScreen> {
     );
   }
 
-  // Zone Based Pricing Banner
-  Widget _buildZonePricingBanner() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBEF), // Light green tint
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
+  // Zone Based Pricing & Flexi Pickup Banner Row (2-Column Grid matching media_1787648369515.png)
+  Widget _buildPricingAndFlexiRow() {
+    return Row(
+      children: [
+        // Left Column: Zone Based Pricing
+        Expanded(
+          child: Container(
+            height: 110,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFDCFCE7)),
             ),
-            child: const Icon(
-              Icons.delivery_dining_rounded,
-              color: Color(0xFF16A34A),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Zone based pricing",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF16A34A),
-                  ),
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.electric_scooter_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 2),
-                Text(
-                  "Prices & packages may vary based on vehicle and zone.",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      "Zone based pricing",
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF15803D),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "Prices & packages may vary based on vehicle and zone.",
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        color: Color(0xFF166534),
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: const [
+                    Text(
+                      "Learn More",
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF16A34A),
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 10,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
-                  "Learn More",
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF475569),
+        ),
+
+        const SizedBox(width: 12),
+
+        // Right Column: Flexi Pickup & Drop
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                isDifferentDropZone = true;
+              });
+            },
+            child: Container(
+              height: 110,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F3FF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFDDD6FE)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4313B8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: Color(0xFF4313B8),
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(width: 2),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 14,
-                  color: Color(0xFF475569),
-                ),
-              ],
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        "Flexi Pickup & Drop",
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4313B8),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        "Now pick up and drop off the vehicle from any zone you prefer.",
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          color: Color(0xFF5B21B6),
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Flexi Pickup & Drop Banner
-  Widget _buildFlexiPickupBanner() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF), // Light purple tint
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDDD6FE).withOpacity(0.5)),
+  Widget _buildSmartImage(String src, {double? width, double? height, BoxFit fit = BoxFit.cover}) {
+    final fallback = Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFF1F5F9),
+      child: const Center(
+        child: Icon(Icons.location_city_rounded, size: 40, color: Color(0xFF4313B8)),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.wrong_location_rounded,
-              color: Color(0xFF4313B8),
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+    );
+
+    if (src.trim().isEmpty) return fallback;
+
+    bool isBase64 = src.startsWith('data:image') ||
+        (!src.startsWith('http') && !src.startsWith('assets') && src.length > 100);
+
+    if (isBase64) {
+      try {
+        String base64Str = src;
+        final commaIdx = src.indexOf(',');
+        if (commaIdx != -1) {
+          base64Str = src.substring(commaIdx + 1);
+        }
+        base64Str = base64Str.replaceAll(RegExp(r'\s+'), '');
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => fallback,
+        );
+      } catch (e) {
+        debugPrint("Error decoding base64 image: $e");
+        return fallback;
+      }
+    }
+
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      return Image.network(
+        src,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => fallback,
+      );
+    }
+
+    String assetPath = src.trim();
+    if (!assetPath.startsWith('assets/')) {
+      assetPath = 'assets/$assetPath';
+    }
+
+    return Image.asset(
+      assetPath,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
+  }
+
+  // Live Backend Zone Details Card (Connected to /api/zones, with Operational Call & Map Directions)
+  Widget _buildZoneDetailsCard() {
+    Map<String, dynamic> activeZone = selectedZoneData ?? {};
+
+    if (activeZone.isEmpty && _liveBackendZones.isNotEmpty) {
+      final matched = _liveBackendZones.firstWhere(
+        (z) => selectedLocation.toLowerCase().contains((z['name'] ?? '').toString().toLowerCase()),
+        orElse: () => _liveBackendZones.first,
+      );
+      activeZone = matched;
+    }
+
+    final zoneName = activeZone['name'] ?? 
+        (selectedLocation != "Select pickup zone" && selectedLocation.isNotEmpty
+            ? selectedLocation.split(',').first
+            : "Gotri Zone");
+
+    String zoneAddress = activeZone['address'] ?? activeZone['locality'] ?? "Office No-10, Royal Nandish, Gotri, Vadodara";
+    String phone = activeZone['phone'] ?? activeZone['contact_number'] ?? activeZone['contact'] ?? "+91 98765 43210";
+    String mapLink = activeZone['map_link'] ?? "https://maps.google.com/?q=${activeZone['name'] ?? 'Gotri'},Vadodara";
+    String distance = activeZone['distance'] ?? "1.8 km away";
+    if (!distance.contains("km")) {
+      distance = "$distance km";
+    }
+    String duration = activeZone['duration'] ?? "10 mins";
+
+    String zoneImage = activeZone['image_url'] ?? activeZone['image'] ?? "assets/ev_baroda.png";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Title: Zone Details with purple underline bar
+        Row(
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Flexi Pickup & Drop",
+              children: [
+                const Text(
+                  "Zone Details",
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF200F54),
+                    color: Color(0xFF0F172A),
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  "Now pick up and drop off the vehicle from any zone you prefer.",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
+                const SizedBox(height: 4),
+                Container(
+                  width: 32,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4313B8),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Zone Details Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFF475569),
-            size: 18,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left: Zone Image
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  width: 125,
+                  height: 115,
+                  child: _buildSmartImage(zoneImage),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Right: Details & Operational Action Buttons
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: Color(0xFF4313B8),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            zoneName.contains("Zone") ? zoneName : "$zoneName Zone",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      zoneAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF64748B),
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Distance & Duration Row + Map Direction Action
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.navigation_rounded,
+                                color: Color(0xFF4313B8),
+                                size: 12,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                distance,
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4),
+                                child: Text("|", style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 10)),
+                              ),
+                              const Icon(
+                                Icons.access_time_rounded,
+                                color: Color(0xFF64748B),
+                                size: 12,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                duration,
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // OPERATIONAL DIRECTION BUTTON
+                        GestureDetector(
+                          onTap: () => _openMapDirections(zoneAddress, mapLink),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFBFDBFE), width: 1),
+                            ),
+                            child: const Icon(
+                              Icons.directions_rounded,
+                              color: Color(0xFF2563EB),
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 8),
+
+                    // OPERATIONAL CALL BUTTON & PHONE DISPLAY
+                    GestureDetector(
+                      onTap: () => _makePhoneCall(phone),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFC8E6C9)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.phone_in_talk_rounded,
+                              color: Color(0xFF2E7D32),
+                              size: 13,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              phone,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Color(0xFF2E7D32),
+                              size: 9,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
+
+
 
   // Why Choose Evegah Section (4 Cards Grid)
   Widget _buildWhyChooseEvegahSection() {
@@ -912,16 +1300,16 @@ class _RentEvScreenState extends State<RentEvScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "Why Choose Evegah?",
+          "Why Choose Evegah",
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Color(0xFF0F172A),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -931,28 +1319,28 @@ class _RentEvScreenState extends State<RentEvScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: const [
               _FeatureCardItem(
-                Icons.eco_outlined,
-                "Eco Friendly",
-                "Zero Emission\nRide",
-                Color(0xFFDCFCE7),
-                Color(0xFF16A34A),
-              ),
-              _FeatureCardItem(
-                Icons.security_outlined,
-                "Safe & Secure",
-                "Smart Lock &\nInsurance",
+                Icons.battery_charging_full_rounded,
+                "Long Range",
+                "Up to 120km\nper charge",
                 Color(0xFFF5F3FF),
                 Color(0xFF4313B8),
               ),
               _FeatureCardItem(
-                Icons.sell_outlined,
-                "Best Prices",
-                "Zone Based\nPricing",
-                Color(0xFFFFF7ED),
-                Color(0xFFEA580C),
+                Icons.currency_rupee_rounded,
+                "Affordable",
+                "Starting at\n₹99/day",
+                Color(0xFFF0FDF4),
+                Color(0xFF16A34A),
               ),
               _FeatureCardItem(
-                Icons.headset_mic_outlined,
+                Icons.eco_rounded,
+                "Zero Emission",
+                "100% Eco\nfriendly",
+                Color(0xFFFEF3C7),
+                Color(0xFFD97706),
+              ),
+              _FeatureCardItem(
+                Icons.headset_mic_rounded,
                 "24/7 Support",
                 "We're here\nfor you",
                 Color(0xFFE0F2FE),
@@ -965,57 +1353,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
     );
   }
 
-  // Bottom Banner
-  Widget _buildGoElectricBottomBanner() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Go Electric, Go Smart",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF200F54),
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  "Join the green revolution today!",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            width: 70,
-            height: 50,
-            child: Image.asset(
-              "assets/city.png",
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.electric_scooter,
-                color: Color(0xFF4313B8),
-                size: 36,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 }
 
 class _FeatureCardItem extends StatelessWidget {
@@ -1076,8 +1414,8 @@ class MotionAnimatedCityBanner extends StatefulWidget {
 class _MotionAnimatedCityBannerState extends State<MotionAnimatedCityBanner>
     with TickerProviderStateMixin {
   late AnimationController _motionController;
-  late AnimationController _spotlightController;
   int _activeSlideIndex = 0;
+  Timer? _autoSlideTimer;
 
   final List<String> _sliderImages = const [
     "assets/slider.png",
@@ -1085,7 +1423,6 @@ class _MotionAnimatedCityBannerState extends State<MotionAnimatedCityBanner>
     "assets/ev_vadodara.png",
     "assets/ev_daman.png",
     "assets/ev_aatapi.png",
-    "assets/Ride More Spend Less.png",
   ];
 
   @override
@@ -1098,28 +1435,20 @@ class _MotionAnimatedCityBannerState extends State<MotionAnimatedCityBanner>
       duration: const Duration(milliseconds: 10000),
     )..repeat(reverse: true);
 
-    // 2. Slider Auto Change Loop (every 3.5 seconds)
-    _spotlightController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3500),
-    )..repeat();
-
-    _spotlightController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        if (mounted) {
-          setState(() {
-            _activeSlideIndex = (_activeSlideIndex + 1) % _sliderImages.length;
-          });
-          _spotlightController.forward(from: 0);
-        }
+    // 2. Slider Auto Change Loop (every 3 seconds)
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted) {
+        setState(() {
+          _activeSlideIndex = (_activeSlideIndex + 1) % _sliderImages.length;
+        });
       }
     });
   }
 
   @override
   void dispose() {
+    _autoSlideTimer?.cancel();
     _motionController.dispose();
-    _spotlightController.dispose();
     super.dispose();
   }
 
@@ -1199,35 +1528,7 @@ class _MotionAnimatedCityBannerState extends State<MotionAnimatedCityBanner>
               ),
             ),
 
-            // 3. Motion Floating Eco Particles / Glinting Light Effect
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _motionController,
-                builder: (context, child) {
-                  return Stack(
-                    children: List.generate(5, (index) {
-                      final pValue = (_motionController.value + index * 0.20) % 1.0;
-                      final pX = (index * 0.20 + pValue * 0.15) * 320.0;
-                      final pY = 130.0 - (pValue * 90.0);
-                      final opacity = (1.0 - pValue) * 0.75;
-
-                      return Positioned(
-                        left: pX,
-                        top: pY,
-                        child: Opacity(
-                          opacity: opacity.clamp(0.0, 1.0),
-                          child: const Icon(
-                            Icons.eco_rounded,
-                            color: Color(0xFF86EFAC),
-                            size: 12,
-                          ),
-                        ),
-                      );
-                    }),
-                  );
-                },
-              ),
-            ),
+           
 
             // 4. Centered Bottom Slider Dots Indicator
             Positioned(
@@ -1265,160 +1566,4 @@ class _MotionAnimatedCityBannerState extends State<MotionAnimatedCityBanner>
   }
 }
 
-// --- GREEN CURVE UNDERLINE PAINTER ---
-class _GreenCurvePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF16A34A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
 
-    final path = Path();
-    path.moveTo(0, size.height * 0.2);
-    path.quadraticBezierTo(
-      size.width * 0.5,
-      size.height * 1.3,
-      size.width,
-      size.height * 0.2,
-    );
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// --- TREE & CITY LANDSCAPE BACKGROUND PAINTER ---
-class _HeaderTreeBackgroundPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final width = size.width;
-    final height = size.height;
-
-    // 1. Soft Gradient Sky Background
-    final bgPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          const Color(0xFFF1F9F5),
-          const Color(0xFFFFFFFF),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, width, height));
-    canvas.drawRect(Rect.fromLTWH(0, 0, width, height), bgPaint);
-
-    // 2. Distant Horizon / City Line Silhouette
-    final distantPaint = Paint()
-      ..color = const Color(0xFFCBD5E1).withValues(alpha: 0.4)
-      ..style = PaintingStyle.fill;
-
-    final distantPath = Path();
-    distantPath.moveTo(0, height * 0.72);
-    distantPath.quadraticBezierTo(width * 0.15, height * 0.62, width * 0.3, height * 0.72);
-    distantPath.quadraticBezierTo(width * 0.45, height * 0.58, width * 0.6, height * 0.70);
-    distantPath.quadraticBezierTo(width * 0.75, height * 0.60, width * 0.9, height * 0.72);
-    distantPath.quadraticBezierTo(width * 0.95, height * 0.66, width, height * 0.72);
-    distantPath.lineTo(width, height);
-    distantPath.lineTo(0, height);
-    distantPath.close();
-    canvas.drawPath(distantPath, distantPaint);
-
-    // 3. Ground Terrain Line
-    final groundPaint = Paint()
-      ..color = const Color(0xFFDCFCE7).withValues(alpha: 0.7)
-      ..style = PaintingStyle.fill;
-
-    final groundPath = Path();
-    groundPath.moveTo(0, height * 0.80);
-    groundPath.quadraticBezierTo(width * 0.25, height * 0.76, width * 0.5, height * 0.81);
-    groundPath.quadraticBezierTo(width * 0.75, height * 0.86, width, height * 0.79);
-    groundPath.lineTo(width, height);
-    groundPath.lineTo(0, height);
-    groundPath.close();
-    canvas.drawPath(groundPath, groundPaint);
-
-    // Baseline Accent Line
-    final linePaint = Paint()
-      ..color = const Color(0xFF86EFAC)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawLine(
-      Offset(0, height * 0.80),
-      Offset(width, height * 0.79),
-      linePaint,
-    );
-
-    // 4. Eco Trees (Left, Middle, Right)
-    _drawTree(canvas, Offset(width * 0.07, height * 0.80), 24, const Color(0xFF86EFAC), const Color(0xFF22C55E));
-    _drawPineTree(canvas, Offset(width * 0.25, height * 0.78), 28, const Color(0xFF4ADE80));
-    _drawTree(canvas, Offset(width * 0.43, height * 0.80), 22, const Color(0xFFA7F3D0), const Color(0xFF16A34A));
-    _drawPineTree(canvas, Offset(width * 0.69, height * 0.79), 27, const Color(0xFF86EFAC));
-    _drawTree(canvas, Offset(width * 0.92, height * 0.79), 26, const Color(0xFF4ADE80), const Color(0xFF15803D));
-
-    // 5. Small Bushes
-    _drawBush(canvas, Offset(width * 0.16, height * 0.82), 8, const Color(0xFF86EFAC));
-    _drawBush(canvas, Offset(width * 0.56, height * 0.83), 10, const Color(0xFF4ADE80));
-    _drawBush(canvas, Offset(width * 0.83, height * 0.81), 9, const Color(0xFFA7F3D0));
-  }
-
-  void _drawTree(Canvas canvas, Offset root, double radius, Color lightColor, Color darkColor) {
-    // Trunk
-    final trunkPaint = Paint()
-      ..color = const Color(0xFF64748B)
-      ..style = PaintingStyle.fill;
-    final trunkPath = Path();
-    trunkPath.moveTo(root.dx - 2.5, root.dy);
-    trunkPath.lineTo(root.dx + 2.5, root.dy);
-    trunkPath.lineTo(root.dx + 2, root.dy - radius * 1.1);
-    trunkPath.lineTo(root.dx - 2, root.dy - radius * 1.1);
-    trunkPath.close();
-    canvas.drawPath(trunkPath, trunkPaint);
-
-    // Foliage
-    final canopyCenter = Offset(root.dx, root.dy - radius * 1.2);
-    final darkPaint = Paint()..color = darkColor.withValues(alpha: 0.75);
-    final lightPaint = Paint()..color = lightColor.withValues(alpha: 0.9);
-
-    canvas.drawCircle(Offset(canopyCenter.dx - radius * 0.4, canopyCenter.dy + radius * 0.2), radius * 0.6, darkPaint);
-    canvas.drawCircle(Offset(canopyCenter.dx + radius * 0.4, canopyCenter.dy + radius * 0.2), radius * 0.6, darkPaint);
-    canvas.drawCircle(canopyCenter, radius * 0.75, lightPaint);
-    canvas.drawCircle(Offset(canopyCenter.dx - radius * 0.2, canopyCenter.dy - radius * 0.2), radius * 0.4, lightPaint);
-  }
-
-  void _drawPineTree(Canvas canvas, Offset root, double treeHeight, Color leafColor) {
-    // Trunk
-    final trunkPaint = Paint()..color = const Color(0xFF64748B);
-    canvas.drawRect(Rect.fromLTWH(root.dx - 1.5, root.dy - treeHeight * 0.4, 3, treeHeight * 0.4), trunkPaint);
-
-    // Pine layers
-    final leafPaint = Paint()..color = leafColor.withValues(alpha: 0.85);
-    double topY = root.dy - treeHeight;
-    double bottomY = root.dy - treeHeight * 0.25;
-    double width = treeHeight * 0.5;
-
-    for (int i = 0; i < 3; i++) {
-      double layerTop = topY + (i * treeHeight * 0.22);
-      double layerBottom = bottomY - ((2 - i) * treeHeight * 0.15);
-      double layerWidth = width * (0.5 + i * 0.25);
-
-      final path = Path();
-      path.moveTo(root.dx, layerTop);
-      path.lineTo(root.dx - layerWidth / 2, layerBottom);
-      path.lineTo(root.dx + layerWidth / 2, layerBottom);
-      path.close();
-      canvas.drawPath(path, leafPaint);
-    }
-  }
-
-  void _drawBush(Canvas canvas, Offset center, double radius, Color color) {
-    final paint = Paint()..color = color.withValues(alpha: 0.8);
-    canvas.drawCircle(center, radius, paint);
-    canvas.drawCircle(Offset(center.dx - radius * 0.5, center.dy + radius * 0.2), radius * 0.7, paint);
-    canvas.drawCircle(Offset(center.dx + radius * 0.5, center.dy + radius * 0.2), radius * 0.7, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

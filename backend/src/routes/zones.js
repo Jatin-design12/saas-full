@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Ensure phone column exists
+(async () => {
+  try {
+    await db.query('ALTER TABLE zones ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT \'+91 98765 43210\'');
+  } catch (e) {
+    console.error('Migration error for zones.phone:', e);
+  }
+})();
+
 // GET /api/zones
 router.get('/', async (req, res) => {
   try {
@@ -41,15 +50,16 @@ router.post('/', async (req, res) => {
     points,
     address,
     image_url,
+    phone,
     pricing
   } = req.body;
 
   try {
     const result = await db.query(`
-      INSERT INTO zones (name, code, country, state, city, locality, type, priority, status, timezone, description, start_date, end_date, max_vehicles, notes, map_link, points, address, image_url, pricing)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      INSERT INTO zones (name, code, country, state, city, locality, type, priority, status, timezone, description, start_date, end_date, max_vehicles, notes, map_link, points, address, image_url, phone, pricing)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       RETURNING *
-    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', image_url || '', JSON.stringify(pricing || {})]);
+    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', image_url || '', phone || '+91 98765 43210', JSON.stringify(pricing || {})]);
 
     res.json({
       status: 'success',
@@ -88,16 +98,17 @@ router.put('/:id', async (req, res) => {
     points,
     address,
     image_url,
+    phone,
     pricing
   } = req.body;
 
   try {
     const result = await db.query(`
       UPDATE zones 
-      SET name = $1, code = $2, country = $3, state = $4, city = $5, locality = $6, type = $7, priority = $8, status = $9, timezone = $10, description = $11, start_date = $12, end_date = $13, max_vehicles = $14, notes = $15, map_link = $16, points = $17, address = $18, image_url = $19, pricing = $20
-      WHERE id = $21
+      SET name = $1, code = $2, country = $3, state = $4, city = $5, locality = $6, type = $7, priority = $8, status = $9, timezone = $10, description = $11, start_date = $12, end_date = $13, max_vehicles = $14, notes = $15, map_link = $16, points = $17, address = $18, image_url = $19, phone = $20, pricing = $21
+      WHERE id = $22
       RETURNING *
-    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', image_url || '', JSON.stringify(pricing || {}), id]);
+    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', image_url || '', phone || '+91 98765 43210', JSON.stringify(pricing || {}), id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({

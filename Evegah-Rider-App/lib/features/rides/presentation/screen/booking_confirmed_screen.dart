@@ -79,6 +79,104 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
     );
   }
 
+  void _showDepositPaymentModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "⚡ Refundable Security Deposit",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text("Security Deposit Amount", style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                    Text("₹500.00", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF4313B8))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text("Select Payment Method", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFF4313B8)),
+                ),
+                leading: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF4313B8)),
+                title: const Text("Evegah Wallet Balance", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: const Text("Sufficient balance available", style: TextStyle(fontSize: 11, color: Colors.green)),
+                trailing: const Icon(Icons.check_circle_rounded, color: Color(0xFF4313B8)),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    if (mounted) {
+                      setState(() {
+                        _depositPaid = true;
+                      });
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("✅ Security Deposit paid successfully via Evegah Wallet!"),
+                        backgroundColor: Color(0xFF16A34A),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4313B8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text(
+                    "Confirm & Pay ₹500 Deposit",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   DateTime? _parseAnyDate(String str) {
     if (str.trim().isEmpty) return null;
 
@@ -474,15 +572,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const PaymentScreen(),
-                          ),
-                        );
-                      },
+                      onPressed: _showDepositPaymentModal,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF15803D),
                         foregroundColor: Colors.white,
@@ -1472,15 +1562,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                 child: OutlinedButton(
                   onPressed: _depositPaid
                       ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const PaymentScreen(),
-                            ),
-                          );
-                        },
+                      : _showDepositPaymentModal,
                   style: OutlinedButton.styleFrom(
                     foregroundColor:
                         const Color(0xFF4313B8),

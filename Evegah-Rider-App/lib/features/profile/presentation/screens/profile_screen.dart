@@ -37,7 +37,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   static const Color brandPurple = Color(0xFF4313B8);
-  static const Color brandPurpleDark = Color(0xFF32108A);
   static const Color brandPurpleLight = Color(0xFFF1EDFF);
 
   static const Color backgroundColor = Color(0xFFF7F8FC);
@@ -325,17 +324,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
 
                   _buildActivityCard(),
-
-                  const SizedBox(height: 28),
-
-                  _buildSectionHeader(
-                    "Quick Actions",
-                    null,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  _buildQuickActions(),
 
                   const SizedBox(height: 28),
 
@@ -1137,11 +1125,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
 
   Widget _buildMembershipCard() {
-    final double progress =
-        (_evePointsVal / 1000).clamp(0.0, 1.0);
+    String tierName = "Bronze Member";
+    String nextTierName = "Silver";
+    int targetPts = 500;
 
-    final int remaining =
-        _evePointsVal >= 1000 ? 0 : 1000 - _evePointsVal;
+    if (_totalRidesCount >= 50 || _evePointsVal >= 5000) {
+      tierName = "Platinum Member";
+      nextTierName = "Max Tier";
+      targetPts = 5000;
+    } else if (_totalRidesCount >= 20 || _evePointsVal >= 2000) {
+      tierName = "Gold Member";
+      nextTierName = "Platinum";
+      targetPts = 5000;
+    } else if (_totalRidesCount >= 5 || _evePointsVal >= 500) {
+      tierName = "Silver Member";
+      nextTierName = "Gold";
+      targetPts = 2000;
+    } else {
+      tierName = "Bronze Member";
+      nextTierName = "Silver";
+      targetPts = 500;
+    }
+
+    final double progress = (_evePointsVal / targetPts).clamp(0.0, 1.0);
+    final int remaining = _evePointsVal >= targetPts ? 0 : targetPts - _evePointsVal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1196,12 +1203,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(width: 12),
 
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
-                    Text(
+                    const Text(
                       "EveClub",
 
                       style: TextStyle(
@@ -1212,12 +1219,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
 
                     Text(
-                      "Silver Member",
+                      tierName,
 
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: darkText,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1255,10 +1262,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
             children: [
-              const Text(
-                "Progress to Gold",
+              Text(
+                nextTierName == "Max Tier" ? "Platinum Unlocked!" : "Progress to $nextTierName",
 
-                style: TextStyle(
+                style: const TextStyle(
                   color: darkText,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -1267,7 +1274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               Text(
                 remaining == 0
-                    ? "Gold unlocked!"
+                    ? "Tier unlocked!"
                     : "$remaining pts to go",
 
                 style: const TextStyle(
@@ -1381,12 +1388,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           _buildAccountTile(
-            title: "Payment Methods",
-            subtitle: "Cards & payment options",
-            icon: Icons.credit_card_rounded,
+            title: "Refer & Earn",
+            subtitle: "Invite friends & earn free ride points",
+            icon: Icons.card_giftcard_rounded,
             iconColor: const Color(0xFF2563EB),
             iconBackground: const Color(0xFFEFF6FF),
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ReferEarnScreen(),
+                ),
+              );
+            },
             isFirst: true,
           ),
 

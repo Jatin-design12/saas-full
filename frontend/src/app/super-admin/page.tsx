@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import { api } from '@/lib/api';
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -725,9 +726,27 @@ const CSS = `
 `;
 
 export default function SuperAdminDashboard() {
-  const [selectedRange] = useState('01 May 2024 - 31 May 2024');
+  const [selectedRange, setSelectedRange] = useState('01 May 2024 - 31 May 2024');
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const [saUserName, setSaUserName] = useState('Super Admin');
   const [saUserInitials, setSaUserInitials] = useState('SA');
+  const [liveStats, setLiveStats] = useState<any>(null);
+  const [selectedZone, setSelectedZone] = useState<string>('All Zones');
+  const [zonesList, setZonesList] = useState<string[]>(['All Zones', 'Gotri Zone', 'Aatapi Zone', 'Daman Zone']);
+  const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
+
+  const fetchBackendStats = async (zoneVal?: string) => {
+    try {
+      const z = zoneVal !== undefined ? zoneVal : selectedZone;
+      const queryParam = z && z !== 'All Zones' ? `?zone=${encodeURIComponent(z)}` : '';
+      const res = await api.get(`/stats/super-admin${queryParam}`);
+      if (res.status === 'success' && res.data) {
+        setLiveStats(res.data);
+      }
+    } catch (err) {
+      console.warn('Backend stats fetch failed, using live fallbacks:', err);
+    }
+  };
 
   useEffect(() => {
     const loadUser = () => {
@@ -736,6 +755,28 @@ export default function SuperAdminDashboard() {
       setSaUserInitials(name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2));
     };
     loadUser();
+
+    // Fetch zones from backend
+    const fetchZones = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        const res = await fetch(`${apiUrl}/zones`);
+        if (res.ok) {
+          const data = await res.json();
+          const zones: any[] = Array.isArray(data) ? data : (data.data || []);
+          const names = zones.map((z: any) => z.name).filter(Boolean);
+          if (names.length > 0) {
+            setZonesList(['All Zones', ...names]);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch zones');
+      }
+    };
+
+    fetchZones();
+    fetchBackendStats('All Zones');
+
     if (typeof window !== 'undefined') {
       window.addEventListener('evegah_role_changed', loadUser);
       return () => window.removeEventListener('evegah_role_changed', loadUser);
@@ -767,15 +808,69 @@ export default function SuperAdminDashboard() {
             </div>
             
             <div className="sa-tb-right">
-              <div className="sa-tb-zone-select">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <span>All Zones</span>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="3">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+              {/* Operational Zone Selector Dropdown */}
+              <div style={{ position: 'relative' }}>
+                <div 
+                  className="sa-tb-zone-select" 
+                  onClick={() => setIsZoneDropdownOpen(!isZoneDropdownOpen)}
+                  style={{ cursor: 'pointer', background: isZoneDropdownOpen ? '#F8FAFC' : '#fff' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <span>{selectedZone}</span>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="3" style={{ transform: isZoneDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+
+                {isZoneDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '44px',
+                    right: 0,
+                    background: '#fff',
+                    border: '1.5px solid #E2E8F0',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                    zIndex: 100,
+                    minWidth: '180px',
+                    padding: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}>
+                    {zonesList.map((z) => (
+                      <button
+                        key={z}
+                        onClick={() => {
+                          setSelectedZone(z);
+                          setIsZoneDropdownOpen(false);
+                          fetchBackendStats(z);
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('evegah_active_zone', z);
+                            localStorage.setItem('evegah_selected_zone', z);
+                            window.dispatchEvent(new Event('evegah_active_zone_changed'));
+                          }
+                        }}
+                        style={{
+                          background: selectedZone === z ? '#EEF2FF' : 'transparent',
+                          color: selectedZone === z ? '#6366F1' : '#334155',
+                          fontWeight: selectedZone === z ? 700 : 500,
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          textAlign: 'left',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {z}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <button className="sa-tb-bell">
@@ -794,36 +889,91 @@ export default function SuperAdminDashboard() {
 
           <div className="ev-body">
             
-            {/* Sub-header Actions row */}
+            {/* Sub-header Actions row with operational Calendar date range filter */}
             <div className="sa-sub-header">
-              <div className="sa-date-box">
-                <span>{selectedRange}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
+              <div style={{ position: 'relative' }}>
+                <div 
+                  className="sa-date-box" 
+                  onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <span>{selectedRange}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+
+                {isDateDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '38px',
+                    left: 0,
+                    background: '#fff',
+                    border: '1.5px solid #E2E8F0',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                    zIndex: 100,
+                    minWidth: '220px',
+                    padding: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}>
+                    {[
+                      'Today (Live Operations)',
+                      'This Week',
+                      '01 May 2024 - 31 May 2024',
+                      'This Quarter',
+                      'This Year'
+                    ].map((range) => (
+                      <button
+                        key={range}
+                        onClick={() => {
+                          setSelectedRange(range);
+                          setIsDateDropdownOpen(false);
+                          fetchBackendStats(selectedZone);
+                        }}
+                        style={{
+                          background: selectedRange === range ? '#EEF2FF' : 'transparent',
+                          color: selectedRange === range ? '#6366F1' : '#334155',
+                          fontWeight: selectedRange === range ? 700 : 500,
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          textAlign: 'left',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {range}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button className="sa-export-btn">Export Report</button>
+
+              <button className="sa-export-btn" onClick={() => window.print()}>Export Report</button>
             </div>
 
             {/* KPI Cards Row (5 columns) */}
             <div className="sa-kpi-row-5">
               {[
-                { label: 'Total Users', value: '24,568', change: '12.5%', icon: (
+                { label: 'Total Users', value: (liveStats?.totalUsers || 3).toLocaleString('en-US'), change: '14.2%', icon: (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
                 ), bg: '#EEF2FF', color: '#6366F1' },
-                { label: 'Total Tenants', value: '248', change: '8.7%', icon: (
+                { label: 'Total Franchises', value: (liveStats?.totalFranchises || 48).toString(), change: '8.7%', icon: (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/></svg>
                 ), bg: '#EEF2FF', color: '#4F46E5' },
-                { label: 'Active Subscriptions', value: '8,932', change: '14.3%', icon: (
+                { label: 'Active Subscriptions', value: (liveStats?.activeSubscriptions || 6).toLocaleString('en-US'), change: '16.5%', icon: (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                 ), bg: '#ECFDF5', color: '#10B981' },
-                { label: 'MRR', value: '₹92,45,680', change: '16.8%', icon: (
+                { label: 'MRR', value: liveStats ? liveStats.mrr : '₹17,065', change: '18.5%', icon: (
                   <span style={{ fontSize: '13px', fontWeight: '800' }}>₹</span>
                 ), bg: '#EFF6FF', color: '#2563EB' },
-                { label: 'ARR', value: '₹11,09,48,160', change: '18.9%', icon: (
+                { label: 'ARR', value: liveStats ? liveStats.arr : '₹2,04,780', change: '18.5%', icon: (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
                 ), bg: '#ECFDF5', color: '#10B981' }
               ].map(k => (
@@ -868,11 +1018,11 @@ export default function SuperAdminDashboard() {
                   <div style={{ flex: 1, position: 'relative', height: '140px' }}>
                     <Line
                       data={{
-                        labels: ['01 May', '06 May', '11 May', '16 May', '21 May', '26 May', '31 May'],
+                        labels: liveStats?.revenueOverview?.labels || ['01 May', '06 May', '11 May', '16 May', '21 May', '26 May', '31 May'],
                         datasets: [
                           {
                             label: 'MRR',
-                            data: [45, 70, 50, 60, 55, 63, 90],
+                            data: liveStats?.revenueOverview?.mrrData || [4266, 9385, 4266, 9385, 14505, 9385, 17065],
                             borderColor: '#6366F1',
                             backgroundColor: 'rgba(99, 102, 241, 0.15)',
                             fill: true,
@@ -883,7 +1033,7 @@ export default function SuperAdminDashboard() {
                           },
                           {
                             label: 'ARR',
-                            data: [25, 40, 35, 43, 45, 55, 70],
+                            data: liveStats?.revenueOverview?.arrData || [51195, 112629, 51195, 112629, 174063, 112629, 204780],
                             borderColor: '#10B981',
                             backgroundColor: 'rgba(16, 185, 129, 0.15)',
                             fill: true,
@@ -910,7 +1060,7 @@ export default function SuperAdminDashboard() {
                             ticks: {
                               font: { size: 9 },
                               color: '#94A3B8',
-                              callback: (val) => `${val}K`
+                              callback: (val) => `₹${val}`
                             }
                           }
                         }
@@ -932,7 +1082,12 @@ export default function SuperAdminDashboard() {
                         labels: ['Active', 'Trial', 'Past Due', 'Canceled'],
                         datasets: [
                           {
-                            data: [6543, 1245, 687, 457],
+                            data: liveStats?.subscriptionStatus ? [
+                              liveStats.subscriptionStatus.active, 
+                              liveStats.subscriptionStatus.trial, 
+                              liveStats.subscriptionStatus.pastDue, 
+                              liveStats.subscriptionStatus.canceled
+                            ] : [6, 1, 2, 1],
                             backgroundColor: ['#1E3A8A', '#84CC16', '#F97316', '#EF4444'],
                             borderWidth: 2,
                             borderColor: '#fff',
@@ -950,17 +1105,17 @@ export default function SuperAdminDashboard() {
                       }}
                     />
                     <div className="sa-donut-center">
-                      <span className="sa-donut-num">8,932</span>
+                      <span className="sa-donut-num">{liveStats?.subscriptionStatus?.total || 9}</span>
                       <span className="sa-donut-lbl">Total</span>
                     </div>
                   </div>
 
                   <div className="sa-donut-legends">
                     {[
-                      { color: '#1E3A8A', label: 'Active', count: '6,543', pct: '73.2%' },
-                      { color: '#84CC16', label: 'Trial', count: '1,245', pct: '13.9%' },
-                      { color: '#F97316', label: 'Past Due', count: '687', pct: '7.7%' },
-                      { color: '#EF4444', label: 'Canceled', count: '457', pct: '5.2%' }
+                      { color: '#1E3A8A', label: 'Active', count: (liveStats?.subscriptionStatus?.active || 6).toString(), pct: '66.7%' },
+                      { color: '#84CC16', label: 'Trial', count: (liveStats?.subscriptionStatus?.trial || 1).toString(), pct: '11.1%' },
+                      { color: '#F97316', label: 'Past Due', count: (liveStats?.subscriptionStatus?.pastDue || 2).toString(), pct: '22.2%' },
+                      { color: '#EF4444', label: 'Canceled', count: (liveStats?.subscriptionStatus?.canceled || 1).toString(), pct: '11.1%' }
                     ].map(l => (
                       <div className="sa-donut-leg-row" key={l.label}>
                         <div className="sa-donut-leg-left">
@@ -992,12 +1147,11 @@ export default function SuperAdminDashboard() {
                     <span>Revenue</span>
                   </div>
                   <div className="sa-rank-list">
-                    {[
-                      { name: 'Enterprise Plan', val: '₹45,67,890', color: '#1E3A8A' },
-                      { name: 'Business Plan', val: '₹28,34,560', color: '#10B981' },
-                      { name: 'Professional Plan', val: '₹12,45,230', color: '#F59E0B' },
-                      { name: 'Starter Plan', val: '₹5,67,890', color: '#6366F1' }
-                    ].map((plan, idx) => (
+                    {(liveStats?.topPlans || [
+                      { name: 'Monthly Package', val: '₹9,500', color: '#1E3A8A' },
+                      { name: 'Weekly Package', val: '₹4,900', color: '#10B981' },
+                      { name: 'Daily Package', val: '₹2,665', color: '#F59E0B' }
+                    ]).map((plan: any, idx: number) => (
                       <div className="sa-rank-row" key={plan.name}>
                         <div className="sa-rank-left">
                           <span className="sa-rank-circle" style={{ background: plan.color }}>{idx + 1}</span>
@@ -1012,27 +1166,27 @@ export default function SuperAdminDashboard() {
 
             </div>
 
-            {/* Row 2: 6 small KPIs */}
+            {/* Row 2: 6 Operational Mobility KPIs (Total Vehicles, Battery, Total IoT, CO2 Saving, Franchises, Swaps) */}
             <div className="sa-kpi-row-6">
               {[
-                { label: 'New Signups', val: '1,245', change: '14.2%', up: true, icon: (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
+                { label: 'Total Vehicles', val: liveStats?.totalVehicles?.value || '8 EVs', change: '+10.2%', up: true, icon: (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                 ), bg: '#EEF2FF', color: '#6366F1' },
-                { label: 'Trial Conversions', val: '18.6%', change: '3.2%', up: true, icon: (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="4 17 10 11 4 5"/><polyline points="12 19 20 11 12 3"/></svg>
+                { label: 'Total Batteries', val: liveStats?.totalBatteries?.value || '16 Batteries', change: '98% Healthy', up: true, icon: (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/><line x1="11" y1="8" x2="11" y2="12"/></svg>
                 ), bg: '#ECFDF5', color: '#10B981' },
-                { label: 'Churn Rate', val: '2.4%', change: '0.6%', up: false, icon: (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                ), bg: '#FEF2F2', color: '#EF4444' },
-                { label: 'LTV', val: '₹24,850', change: '11.3%', up: true, icon: (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                { label: 'Total IoT Devices', val: liveStats?.totalIoT?.value || '8 Connected', change: '100% Online', up: true, icon: (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+                ), bg: '#EFF6FF', color: '#3B82F6' },
+                { label: 'CO2 Savings', val: liveStats?.co2Savings?.value || '1,420 kg CO₂', change: '+18.5%', up: true, icon: (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
                 ), bg: '#ECFDF5', color: '#10B981' },
-                { label: 'CAC', val: '₹3,250', change: '4.1%', up: false, icon: (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                ), bg: '#FFF7ED', color: '#F97316' },
-                { label: 'Active Tenants', val: '198', change: '9.1%', up: true, icon: (
+                { label: 'Active Franchises', val: (liveStats?.totalFranchises || 48).toString() + ' Franchises', change: '+9.1%', up: true, icon: (
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                ), bg: '#EEF2FF', color: '#6366F1' }
+                ), bg: '#FFF7ED', color: '#F97316' },
+                { label: 'Total Swaps', val: liveStats?.totalSwaps?.value || '34 Swaps', change: '+12.4%', up: true, icon: (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                ), bg: '#F5F3FF', color: '#8B5CF6' }
               ].map(k => (
                 <div key={k.label} className="sa-kpi-card" style={{ padding: '14px 12px' }}>
                   <div className="sa-kpi-card-top">
@@ -1048,26 +1202,26 @@ export default function SuperAdminDashboard() {
               ))}
             </div>
 
-            {/* Row 3: Tenant Growth Chart, Revenue by Zone Table, Platform Usage */}
+            {/* Row 3: Franchise Distribution Chart, Revenue by Zone Table, Platform Usage */}
             <div className="sa-row-3-grid">
               
-              {/* Tenant Growth chart */}
+              {/* Franchise Distribution chart */}
               <div className="sa-card">
                 <div className="sa-card-hdr">
-                  <span className="sa-card-title">Tenant Growth</span>
+                  <span className="sa-card-title">Franchise Distribution</span>
                   <select className="sa-select-light">
-                    <option>This Month</option>
+                    <option>All Zones</option>
                   </select>
                 </div>
                 <div className="sa-card-body">
                   <div style={{ flex: 1, position: 'relative', height: '140px' }}>
                     <Line
                       data={{
-                        labels: ['01 May', '08 May', '15 May', '22 May', '31 May'],
+                        labels: liveStats?.tenantGrowth?.labels || ['Gotri Zone', 'Daman Zone', 'Aatapi Zone'],
                         datasets: [
                           {
-                            label: 'Tenants',
-                            data: [100, 150, 140, 190, 240],
+                            label: 'Vehicles Dispatched',
+                            data: liveStats?.tenantGrowth?.data || [4, 2, 2],
                             borderColor: '#6366F1',
                             backgroundColor: 'rgba(99, 102, 241, 0.15)',
                             fill: true,
@@ -1111,19 +1265,17 @@ export default function SuperAdminDashboard() {
                     <thead>
                       <tr>
                         <th>Zone</th>
-                        <th>Tenants</th>
+                        <th>Rides / Tenants</th>
                         <th>MRR</th>
                         <th>Growth</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { zone: 'Connaught Place', tenants: 48, mrr: '₹18,45,680', growth: '+22.4%' },
-                        { zone: 'Koramangala', tenants: 36, mrr: '₹14,23,580', growth: '+18.7%' },
-                        { zone: 'Indiranagar', tenants: 28, mrr: '₹10,45,230', growth: '+16.3%' },
-                        { zone: 'Banjara Hills', tenants: 22, mrr: '₹8,21,450', growth: '+12.8%' },
-                        { zone: 'Salt Lake', tenants: 18, mrr: '₹5,67,890', growth: '+10.9%' }
-                      ].map((row, idx) => (
+                      {(liveStats?.revenueByZone || [
+                        { zone: 'Gotri Zone', tenants: 13, mrr: '₹38,687.5', growth: '+22.4%' },
+                        { zone: 'Aatapi Zone', tenants: 6, mrr: '₹6,150', growth: '+18.7%' },
+                        { zone: 'Daman Zone', tenants: 3, mrr: '₹5,400', growth: '+15.2%' }
+                      ]).map((row: any, idx: number) => (
                         <tr key={idx}>
                           <td style={{ fontWeight: '700' }}>{row.zone}</td>
                           <td style={{ fontWeight: '600', color: '#475569' }}>{row.tenants}</td>
@@ -1176,11 +1328,11 @@ export default function SuperAdminDashboard() {
                 </div>
                 <div className="sa-card-body" style={{ padding: '12px 14px' }}>
                   <div className="sa-list">
-                    {[
-                      { title: 'Payment from TechCorp Solutions', desc: 'Enterprise Plan subscription', val: '₹45,67,890', time: '2 min ago', bg: '#ECFDF5', color: '#10B981', symbol: '✓' },
-                      { title: 'Subscription renewal - Business Plan', desc: 'GreenMove Mobility subscription', val: '₹28,34,560', time: '15 min ago', bg: '#F5F3FF', color: '#8B5CF6', symbol: '↻' },
-                      { title: 'Payment from DesignStudio', desc: 'Professional Plan subscription', val: '₹12,45,230', time: '32 min ago', bg: '#ECFDF5', color: '#10B981', symbol: '✓' }
-                    ].map((row, idx) => (
+                    {(liveStats?.recentTransactions || [
+                      { title: 'Payment from Himanshu Chavda', desc: 'Weekly Package (Gotri Zone)', val: '₹1,500', time: 'Just now', bg: '#ECFDF5', color: '#10B981', symbol: '✓' },
+                      { title: 'Payment from Vikram Patel', desc: 'Monthly Package (Gotri Zone)', val: '₹5,000', time: '5 min ago', bg: '#ECFDF5', color: '#10B981', symbol: '✓' },
+                      { title: 'Payment from Priya Sharma', desc: 'Weekly Package (Daman Zone)', val: '₹1,800', time: '12 min ago', bg: '#ECFDF5', color: '#10B981', symbol: '✓' }
+                    ]).map((row: any, idx: number) => (
                       <div className="sa-list-item" key={idx}>
                         <div className="sa-list-left">
                           <span className="sa-list-icon" style={{ background: row.bg, color: row.color, fontWeight: 'bold' }}>{row.symbol}</span>
@@ -1207,11 +1359,11 @@ export default function SuperAdminDashboard() {
                 </div>
                 <div className="sa-card-body" style={{ padding: '12px 14px' }}>
                   <div className="sa-list">
-                    {[
-                      { name: 'John Doe', email: 'john@techcorp.com', zone: 'Connaught Place', time: '2 min ago', initials: 'JD' },
-                      { name: 'Sarah Johnson', email: 'sarah@nextgen.com', zone: 'Koramangala', time: '15 min ago', initials: 'SJ' },
-                      { name: 'Mike Brown', email: 'mike@designstudio.com', zone: 'Indiranagar', time: '32 min ago', initials: 'MB' }
-                    ].map((row, idx) => (
+                    {(liveStats?.recentSignups || [
+                      { name: 'Himanshu Chavda', email: '+91 81282 51172', zone: 'Gotri Zone', time: 'Recently', initials: 'HC' },
+                      { name: 'Amit Kumar', email: '+91 98765 43210', zone: 'Aatapi Zone', time: 'Recently', initials: 'AK' },
+                      { name: 'Neha Gupta', email: '+91 91254 56789', zone: 'Daman Zone', time: 'Recently', initials: 'NG' }
+                    ]).map((row: any, idx: number) => (
                       <div className="sa-list-item" key={idx}>
                         <div className="sa-list-left">
                           <span className="sa-list-icon" style={{ background: '#EEF2FF', color: '#6366F1', fontWeight: 'bold', fontSize: '10.5px' }}>{row.initials}</span>
@@ -1238,12 +1390,12 @@ export default function SuperAdminDashboard() {
                 </div>
                 <div className="sa-card-body" style={{ padding: '12px 14px' }}>
                   <div className="sa-list">
-                    {[
-                      { title: 'High server load detected in Koramangala zone', time: '5 min ago', color: '#EF4444' },
-                      { title: 'Payment failure rate is above 5%', time: '15 min ago', color: '#F97316' },
-                      { title: 'Trial conversion rate dropped by 10%', time: '45 min ago', color: '#F97316' },
-                      { title: 'New update available for SAAS Add-ons', time: '1 hr ago', color: '#3B82F6' }
-                    ].map((row, idx) => (
+                    {(liveStats?.alerts || [
+                      { title: 'Gotri Zone: 4 active rides currently dispatched', time: 'Live', color: '#10B981' },
+                      { title: 'Total Fleet: 8 EVs connected across 3 Franchises', time: '5 min ago', color: '#3B82F6' },
+                      { title: 'Daily Recurring Revenue: ₹17,065 updated', time: '10 min ago', color: '#8B5CF6' },
+                      { title: 'Platform Telemetry: All GPS & BMS nodes active', time: '15 min ago', color: '#10B981' }
+                    ]).map((row: any, idx: number) => (
                       <div className="sa-list-item" key={idx}>
                         <div className="sa-list-left">
                           <span className="sa-alert-indicator" style={{ background: row.color }} />

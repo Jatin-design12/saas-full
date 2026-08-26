@@ -24,7 +24,8 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
 app.use('/api/stats', require('./routes/stats'));
@@ -45,6 +46,7 @@ app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/maintenance', require('./routes/maintenance'));
+app.use('/api/referral', require('./routes/referral'));
 
 
 // API endpoints for the Rider App

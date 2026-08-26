@@ -431,22 +431,44 @@ export default function LoginPage() {
         const matchedUser = usersList.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
         
         if (matchedUser) {
-          const userRole = matchedUser.role;
-          let evegahRole = 'employee';
+          const userRole = matchedUser.role || 'Zone Employee';
+          let evegahRole = 'operations_manager';
+          let defaultAssignedDash = 'Operations Dashboard';
           
-          if (userRole === 'Super Admin') {
+          const normR = userRole.toLowerCase().replace(/[\s_-]+/g, '_');
+          if (normR.includes('super_admin') || normR === 'super_admin') {
             evegahRole = 'super_admin';
-          } else if (userRole === 'Platform Admin') {
-            evegahRole = 'admin';
-          } else if (userRole === 'Zone Admin' || userRole === 'Operations Manager') {
+            defaultAssignedDash = 'Super Admin Dashboard';
+          } else if (normR.includes('platform_admin') || normR === 'platform_admin') {
+            evegahRole = 'super_admin';
+            defaultAssignedDash = 'Super Admin Dashboard';
+          } else if (normR.includes('franchise')) {
+            evegahRole = 'franchise_manager';
+            defaultAssignedDash = 'Franchise Dashboard';
+          } else if (normR.includes('zone_admin') || normR === 'zone_manager') {
             evegahRole = 'zone_manager';
-          } else if (userRole === 'Franchise Manager') {
-            evegahRole = 'first_time_franchise';
+            defaultAssignedDash = 'Zone Admin Dashboard';
+          } else if (normR.includes('sf_admin') || normR.includes('sf_001') || normR.includes('operation') || normR.includes('employee')) {
+            evegahRole = 'operations_manager';
+            defaultAssignedDash = 'Operations Dashboard';
+          } else if (normR.includes('battery') || normR.includes('technician')) {
+            evegahRole = 'battery_technician';
+            defaultAssignedDash = 'BMS Battery Dashboard';
+          } else if (normR.includes('finance')) {
+            evegahRole = 'finance_manager';
+            defaultAssignedDash = 'Finance & Accounts';
           }
           
           localStorage.setItem("evegah_role", evegahRole);
+          localStorage.setItem("evegah_user_role_name", userRole);
+          localStorage.setItem("evegah_assigned_dashboard", defaultAssignedDash);
           localStorage.setItem("evegah_user_name", matchedUser.name);
           localStorage.setItem("evegah_user_email", matchedUser.email);
+          if (matchedUser.zone) {
+            localStorage.setItem("evegah_user_zone", matchedUser.zone);
+            localStorage.setItem("evegah_active_zone", matchedUser.zone);
+            localStorage.setItem("evegah_selected_zone", matchedUser.zone);
+          }
           if (matchedUser.avatar_url) {
             localStorage.setItem("evegah_user_avatar", matchedUser.avatar_url);
           }
@@ -457,9 +479,12 @@ export default function LoginPage() {
             if (resRoles.ok) {
               const rolesResult = await resRoles.json();
               const matchedRole = rolesResult.data?.find((r: any) => 
-                r.name.toLowerCase() === matchedUser.role.toLowerCase() || 
-                r.code.toLowerCase() === matchedUser.role.toLowerCase()
+                r.name.toLowerCase() === userRole.toLowerCase() || 
+                r.code.toLowerCase() === userRole.toLowerCase()
               );
+              if (matchedRole?.assigned_dashboard_view && matchedRole.assigned_dashboard_view !== 'Auto-Detect from Role') {
+                localStorage.setItem("evegah_assigned_dashboard", matchedRole.assigned_dashboard_view);
+              }
               const perms = matchedRole?.permissions ? { ...matchedRole.permissions } : {};
               if (!perms.Dashboard || perms.Dashboard.access === false) {
                 perms.Dashboard = defaultDashPerm;

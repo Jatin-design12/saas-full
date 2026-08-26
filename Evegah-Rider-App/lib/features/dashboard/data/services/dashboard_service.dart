@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../../core/constants/app_constants.dart';
 
 class DashboardService {
   // --- 1. FETCH LIVE ZONES ---
@@ -135,7 +138,35 @@ class DashboardService {
     };
   }
 
-  // --- 3. FETCH WALLET BALANCE ---
+  // --- 3. FETCH LIVE MODEL DETAILS FROM BACKEND API ---
+  Future<Map<String, dynamic>?> fetchLiveModelDetails(String modelName) async {
+    final cleanName = Uri.encodeComponent(modelName);
+    final urls = [
+      'http://localhost:5000/api/vehicles/models/$cleanName',
+      'http://127.0.0.1:5000/api/vehicles/models/$cleanName',
+      'http://10.0.2.2:5000/api/vehicles/models/$cleanName',
+      '${AppConstants.apiBaseUrl}/vehicles/models/$cleanName',
+    ];
+
+    for (final url in urls) {
+      try {
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(milliseconds: 600));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            return Map<String, dynamic>.from(data['data']);
+          }
+        }
+      } catch (e) {
+        // Continue to fallback or next url
+      }
+    }
+    return null;
+  }
+
+  // --- 4. FETCH WALLET BALANCE ---
   Future<double> fetchWalletBalance() async {
     await Future.delayed(const Duration(milliseconds: 300));
     return 250.00;

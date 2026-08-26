@@ -66,6 +66,7 @@ const NAV: NavGroup[] = [
   ]},
   { key: 'vehicles', icon: 'vehicle', label: 'Vehicles', children: [
     { label: 'Vehicle List', href: '/vehicles/all' },
+    { label: 'Vehicle Models', href: '/vehicles/models' },
     { label: 'Map', href: '/vehicles/map' },
     { label: 'Active Rides', href: '/vehicles/active' },
     { label: 'History', href: '/vehicles/history' },
@@ -155,6 +156,7 @@ const SUPER_ADMIN_NAV: NavGroup[] = [
   ]},
   { key: 'vehicles', icon: 'vehicle', label: 'Vehicles', children: [
     { label: 'Vehicle List', href: '/vehicles/all' },
+    { label: 'Vehicle Models', href: '/vehicles/models' },
     { label: 'Map', href: '/vehicles/map' },
     { label: 'Active Rides', href: '/vehicles/active' },
     { label: 'History', href: '/vehicles/history' },
@@ -456,12 +458,15 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     super_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
     platform_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
-    zone_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance'],
-    zone_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance'],
-    operations_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance'],
-    employee: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance'],
-    franchise_manager: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings'],
-    admin: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings'],
+    sf_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
+    sf_001: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
+    zone_admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+    zone_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Zone Management', 'Maintenance', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+    zone_employee: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+    operations_manager: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+    employee: ['Dashboard', 'Registrations', 'Vehicles', 'Battery', 'Maintenance', 'IoT Devices', 'Reports', 'Alerts', 'Attendance', 'Users & Roles', 'Settings'],
+    franchise_manager: ['Dashboard', 'Franchise', 'Riders', 'Vehicles', 'Payments', 'Reports', 'Settings', 'Users & Roles'],
+    admin: ['Dashboard', 'Registrations', 'Vehicles', 'Riders', 'Battery', 'Maintenance', 'IoT Devices', 'Payments', 'Reports', 'Alerts', 'Zone Management', 'Franchise', 'Settings', 'Users & Roles', 'Announcements', 'Co2 Saving', 'Attendance'],
     battery_technician: ['Dashboard', 'Battery', 'IoT Devices', 'Maintenance', 'Alerts'],
     technician: ['Dashboard', 'Battery', 'IoT Devices', 'Maintenance', 'Alerts'],
     support_executive: ['Dashboard', 'Registrations', 'Riders', 'Alerts', 'Announcements'],
@@ -474,26 +479,46 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   const isSuperAdmin = rawRole === 'super_admin' || userRole === 'Super Admin';
   const activeNav = isSuperAdmin ? SUPER_ADMIN_NAV : NAV;
 
-  const filteredNav = activeNav.filter(g => {
-    if (isSuperAdmin) return true;
-    if (g.isHeader) return true;
+  const rawFilteredNav = activeNav.map(g => {
+    if (isSuperAdmin) return g;
+    if (g.isHeader) return g;
     
     const permKey = KEY_MAP[g.key];
-    if (!permKey || permKey === 'Dashboard') return true;
+    if (!permKey || permKey === 'Dashboard') return g;
 
     if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0) {
       const permObj = permissions[permKey];
       if (permObj && permObj.access === false) {
-        return false;
+        return null;
       }
-      return true;
+      return g;
     }
 
     const allowedModules = DEFAULT_ROLE_PERMISSIONS[userRoleCode.toLowerCase()] || 
                            DEFAULT_ROLE_PERMISSIONS[rawRole.toLowerCase()] || 
+                           DEFAULT_ROLE_PERMISSIONS['operations_manager'] ||
                            ['Dashboard'];
-    return allowedModules.includes(permKey);
-  });
+    return allowedModules.includes(permKey) ? g : null;
+  }).filter(Boolean) as NavGroup[];
+
+  // Remove empty header groups (MANAGEMENT, OPERATIONS, SYSTEM) when no sub-links are visible
+  const filteredNav: NavGroup[] = [];
+  for (let i = 0; i < rawFilteredNav.length; i++) {
+    const item = rawFilteredNav[i];
+    if (item.isHeader) {
+      let hasVisibleChild = false;
+      for (let j = i + 1; j < rawFilteredNav.length; j++) {
+        if (rawFilteredNav[j].isHeader) break;
+        hasVisibleChild = true;
+        break;
+      }
+      if (hasVisibleChild) {
+        filteredNav.push(item);
+      }
+    } else {
+      filteredNav.push(item);
+    }
+  }
 
   const checkSubActive = (href: string, activePathStr: string) => {
     if (!activePathStr) return false;
