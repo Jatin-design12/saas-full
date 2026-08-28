@@ -59,8 +59,12 @@ class WalletService {
         if (res.statusCode == 200) {
           final data = json.decode(res.body);
           if (data['status'] == 'success' && data['data'] != null) {
-            _mainBalance = double.tryParse("${data['data']['main_balance']}") ?? 0.0;
-            _bonusBalance = double.tryParse("${data['data']['bonus_balance']}") ?? 0.0;
+            final fetchedMain = double.tryParse("${data['data']['main_balance']}") ?? 0.0;
+            final fetchedBonus = double.tryParse("${data['data']['bonus_balance']}") ?? 0.0;
+            if (fetchedMain > 0 || _mainBalance == 0) {
+              _mainBalance = fetchedMain;
+            }
+            _bonusBalance = fetchedBonus;
             return {
               "main": _mainBalance,
               "bonus": _bonusBalance,
@@ -79,11 +83,27 @@ class WalletService {
     };
   }
 
+  final List<Map<String, dynamic>> _localTransactions = [];
+
   // --- 2. ADD MONEY (RAZORPAY TOP-UP) ---
   Future<bool> addMoney(double amount, {String paymentMethod = "Razorpay", String? paymentId}) async {
     final mobile = await _getEffectiveMobile();
     final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
     final last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+
+    final txRecord = {
+      "id": paymentId ?? 'PAY_${DateTime.now().millisecondsSinceEpoch}',
+      "title": "Wallet Top-Up",
+      "subtitle": "Razorpay Payment ($paymentMethod)",
+      "amount": amount,
+      "type": "Credit",
+      "status": "Success",
+      "payment_method": paymentMethod,
+      "transaction_id": paymentId ?? 'PAY_${DateTime.now().millisecondsSinceEpoch}',
+      "created_at": DateTime.now().toIso8601String(),
+    };
+    _localTransactions.removeWhere((t) => t['transaction_id'] == txRecord['transaction_id']);
+    _localTransactions.insert(0, txRecord);
 
     final endpoints = _getEndpoints('/wallet/add-money');
 
@@ -164,6 +184,7 @@ class WalletService {
 
     final endpoints = _getEndpoints('/wallet/transactions?mobile=${Uri.encodeComponent(last10.isNotEmpty ? last10 : mobile)}');
 
+    List<Map<String, dynamic>> remoteList = [];
     for (final url in endpoints) {
       try {
         final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
@@ -171,7 +192,8 @@ class WalletService {
           final data = json.decode(res.body);
           if (data['status'] == 'success' && data['data'] != null) {
             final List list = data['data'];
-            return List<Map<String, dynamic>>.from(list);
+            remoteList = List<Map<String, dynamic>>.from(list);
+            break;
           }
         }
       } catch (e) {
@@ -179,7 +201,20 @@ class WalletService {
       }
     }
 
-    return [];
+    // Merge local and remote avoiding duplicate IDs
+    final Map<String, Map<String, dynamic>> merged = {};
+    for (final tx in _localTransactions) {
+      final key = "${tx['transaction_id'] || tx['id']}";
+      merged[key] = tx;
+    }
+    for (final tx in remoteList) {
+      final key = "${tx['transaction_id'] || tx['id'] || tx['_id']}";
+      if (!merged.containsKey(key)) {
+        merged[key] = tx;
+      }
+    }
+
+    return merged.values.toList();
   }
 }
 

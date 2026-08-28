@@ -148,27 +148,54 @@ router.post('/add-money', async (req, res) => {
   try {
     const searchPattern = last10 ? `%${last10}%` : `%${rawMobile}%`;
 
-    // 1. Try to update renter wallet balance
-    const updateRes = await db.query(
-      'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2 OR mobile LIKE $3',
-      [numAmount, searchPattern, `%${rawMobile}%`]
+    // 1. Try to find existing renter
+    let targetRenterId = null;
+    const matchRes = await db.query(
+      `SELECT id, mobile, wallet_balance FROM renters 
+       WHERE mobile LIKE $1 OR mobile LIKE $2 OR REPLACE(REPLACE(mobile, '+', ''), ' ', '') LIKE $3
+       LIMIT 1`,
+      [searchPattern, `%${rawMobile}%`, `%${cleanMobile}%`]
     );
 
-    // 2. If renter entry doesn't exist, create one
-    if (updateRes.rowCount === 0 && last10.length > 0) {
+    if (matchRes.rows.length > 0) {
+      targetRenterId = matchRes.rows[0].id;
+      await db.query(
+        `UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE id = $2`,
+        [numAmount, targetRenterId]
+      );
+    } else {
+      // Check users table as fallback
+      let riderName = 'Rider';
+      let riderMob = last10 || rawMobile;
       try {
-        await db.query(
-          `INSERT INTO renters (name, mobile, email, kyc_status, wallet_balance, bonus_balance)
-           VALUES ('Rider', $1, 'rider@evegah.com', 'Verified', $2, 0.00)
-           ON CONFLICT (mobile) DO UPDATE SET wallet_balance = COALESCE(renters.wallet_balance, 0.00) + EXCLUDED.wallet_balance`,
-          [last10, numAmount]
+        const userMatch = await db.query(
+          `SELECT name, mobile, phone FROM users 
+           WHERE mobile LIKE $1 OR phone LIKE $1 OR REPLACE(REPLACE(mobile, '+', ''), ' ', '') LIKE $2
+           LIMIT 1`,
+          [searchPattern, `%${cleanMobile}%`]
         );
+        if (userMatch.rows.length > 0) {
+          riderName = userMatch.rows[0].name || riderName;
+          riderMob = userMatch.rows[0].mobile || userMatch.rows[0].phone || riderMob;
+        }
+      } catch (_) {}
+
+      try {
+        const insertRes = await db.query(
+          `INSERT INTO renters (name, mobile, email, kyc_status, wallet_balance, bonus_balance)
+           VALUES ($1, $2, 'rider@evegah.com', 'Verified', $3, 0.00)
+           RETURNING id`,
+          [riderName, riderMob, numAmount]
+        );
+        if (insertRes.rows.length > 0) {
+          targetRenterId = insertRes.rows[0].id;
+        }
       } catch (errInsert) {
         console.error('Non-critical error auto-creating renter for wallet:', errInsert);
       }
     }
 
-    // 3. Insert transaction log
+    // 2. Insert transaction log into wallet_transactions
     let txRecord = null;
     try {
       const txRes = await db.query(`
@@ -190,13 +217,13 @@ router.post('/add-money', async (req, res) => {
       console.error('Non-critical transaction log error:', errTx);
     }
 
-    // 4. Fetch updated balances
+    // 3. Fetch updated balance
     let mainBal = numAmount;
     let bonusBal = 0.00;
     try {
       const renterRes = await db.query(
-        'SELECT wallet_balance, bonus_balance FROM renters WHERE mobile LIKE $1 LIMIT 1',
-        [searchPattern]
+        'SELECT wallet_balance, bonus_balance FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2 LIMIT 1',
+        [searchPattern, `%${rawMobile}%`]
       );
       if (renterRes.rows.length > 0) {
         mainBal = parseFloat(renterRes.rows[0].wallet_balance) || numAmount;
@@ -443,6 +470,58 @@ router.post('/create-payment-link', async (req, res) => {
       status: 'success',
       payment_url: `https://checkout.razorpay.com/v1/checkout.html?key=${RAZORPAY_KEY_ID}&amount=${Math.round(numAmount * 100)}&name=Evegah%20Mobility&description=Wallet%20Top-Up`
     });
+  }
+});
+
+// GET /api/wallet/payment-history - Admin list of all transactions
+router.get('/payment-history', async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM wallet_transactions ORDER BY created_at DESC LIMIT 200');
+    res.json({
+      status: 'success',
+      total: result.rows.length,
+      data: result.rows
+    });
+  } catch (err) {
+    console.error('Failed to get payment history:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// GET /api/wallet/payment-user-wallet - Admin view of user wallets and transaction history
+router.get('/payment-user-wallet', async (req, res) => {
+  const { search } = req.query;
+  try {
+    let query = `
+      SELECT 
+        r.id,
+        COALESCE(r.rider_name, r.name, 'Rider') AS name,
+        r.mobile,
+        COALESCE(r.wallet_balance, 0.00) AS wallet_balance,
+        COALESCE(r.bonus_balance, 0.00) AS bonus_balance,
+        (COALESCE(r.wallet_balance, 0.00) + COALESCE(r.bonus_balance, 0.00)) AS total_balance
+      FROM renters r
+    `;
+    const params = [];
+    if (search && search.trim().length > 0) {
+      query += ` WHERE r.rider_name ILIKE $1 OR r.name ILIKE $1 OR r.mobile ILIKE $1`;
+      params.push(`%${search.trim()}%`);
+    }
+    query += ` ORDER BY total_balance DESC LIMIT 100`;
+
+    const usersRes = await db.query(query, params);
+    const txRes = await db.query('SELECT * FROM wallet_transactions ORDER BY created_at DESC LIMIT 100');
+
+    res.json({
+      status: 'success',
+      data: {
+        users: usersRes.rows,
+        recent_transactions: txRes.rows
+      }
+    });
+  } catch (err) {
+    console.error('Failed to get user wallet payment data:', err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

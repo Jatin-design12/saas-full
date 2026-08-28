@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/session_service.dart';
 
 class SelectDateTimeScreen extends StatefulWidget {
   final bool initialIsPackageBased;
@@ -1470,6 +1474,86 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
     );
   }
 
+  Future<bool> _checkDateTimeOverlapWithExistingRides() async {
+    try {
+      final userMobile = await SessionService().getUserMobile() ?? '';
+      final cleanMobile = userMobile.replaceAll(RegExp(r'\D'), '');
+      final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
+
+      if (last10.isEmpty) return true;
+
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/reservations?mobile=${Uri.encodeComponent(last10)}');
+      final res = await http.get(url).timeout(const Duration(seconds: 4));
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final List reservations = body['data'] ?? body['reservations'] ?? [];
+
+        int pMin = _getTimeInMinutes(pickupHour, pickupMinute, pickupPeriod);
+        int dMin = _getTimeInMinutes(dropHour, dropMinute, dropPeriod);
+
+        DateTime reqStart = DateTime(_startDate.year, _startDate.month, _startDate.day, pMin ~/ 60, pMin % 60);
+        DateTime reqEnd = DateTime(_endDate.year, _endDate.month, _endDate.day, dMin ~/ 60, dMin % 60);
+        if (reqEnd.isBefore(reqStart) || reqEnd.isAtSameMomentAs(reqStart)) {
+          reqEnd = reqStart.add(const Duration(hours: 24));
+        }
+
+        for (final item in reservations) {
+          final status = (item['status'] ?? '').toString();
+          if (['Confirmed', 'Ongoing', 'Active', 'Active Ride', 'Upcoming'].contains(status)) {
+            final resId = item['reservation_id'] ?? item['_id'] ?? 'Ride';
+            String startStr = item['pickup_datetime'] ?? "${item['reservation_date']} ${item['reservation_time']}";
+            String endStr = item['drop_datetime'] ?? startStr;
+
+            DateTime? exStart = DateTime.tryParse(startStr);
+            DateTime? exEnd = DateTime.tryParse(endStr);
+
+            if (exStart != null) {
+              exEnd ??= exStart.add(const Duration(hours: 24));
+              if (exEnd.isBefore(exStart) || exEnd.isAtSameMomentAs(exStart)) {
+                exEnd = exStart.add(const Duration(hours: 24));
+              }
+
+              // Overlap check
+              if (reqStart.isBefore(exEnd) && reqEnd.isAfter(exStart)) {
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      title: Row(
+                        children: const [
+                          Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
+                          SizedBox(width: 8),
+                          Text("Time Conflict", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      content: Text(
+                        "You already have a booked ride ($resId) during this selected date and time range. Please choose a different date or time slot.",
+                        style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4313B8)),
+                          child: const Text("OK", style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return false;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Date overlap check error: $e");
+    }
+    return true;
+  }
+
   // Bottom Continue Button
   Widget _buildBottomActionButton() {
     return Container(
@@ -1488,11 +1572,16 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
         width: double.infinity,
         height: 50,
         child: InkWell(
-          onTap: () {
+          onTap: () async {
+            if (!_validateAndClampTimes()) return;
+            final canProceed = await _checkDateTimeOverlapWithExistingRides();
+            if (!canProceed) return;
+
             final monthName = _getMonthName(_startDate).split(' ')[0].substring(0, 3);
             final endMonthName = _getMonthName(_endDate).split(' ')[0].substring(0, 3);
             final pickupStr = "${_startDate.day} $monthName ${_startDate.year} $pickupHour:$pickupMinute $pickupPeriod";
             final dropStr = "${_endDate.day} $endMonthName ${_endDate.year} $dropHour:$dropMinute $dropPeriod";
+            if (!context.mounted) return;
             Navigator.pop(context, {
               "pickup": pickupStr,
               "drop": dropStr,

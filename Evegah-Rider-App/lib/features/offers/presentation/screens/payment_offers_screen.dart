@@ -292,36 +292,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
       if (response.statusCode == 400) {
-        String errorMsg = "Active Ride In Progress! You already have an active ride. Please return your current ride before booking a new one.";
-        try {
-          final body = jsonDecode(response.body);
-          if (body['message'] != null) errorMsg = body['message'];
-        } catch (_) {}
-
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: const [
-                  Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
-                  SizedBox(width: 8),
-                  Text("Active Ride Exists", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              content: Text(errorMsg, style: const TextStyle(fontSize: 13, color: Color(0xFF334155))),
-              actions: [
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4313B8)),
-                  child: const Text("OK", style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-          );
-        }
-        return;
+        debugPrint("Reservation response 400: ${response.body}");
       }
 
       String reservationId = '';

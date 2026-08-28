@@ -382,7 +382,7 @@ function RiderProfileContent() {
   const [folderData, setFolderData] = useState<any[]>([]);
   const [kycStatus, setKycStatus] = useState<string>('Verified');
   const [loadingDocs, setLoadingDocs] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<{ title: string; image?: string; details?: string } | null>(null);
+  const [riderRides, setRiderRides] = useState<any[]>([]);
 
   const fetchFolderDocs = async () => {
     setLoadingDocs(true);
@@ -402,8 +402,47 @@ function RiderProfileContent() {
     }
   };
 
+  const fetchRiderRides = async () => {
+    try {
+      const cleanMob = riderMobile.replace(/\D/g, '').slice(-10);
+      const res: any = await api.get(`/reservations?mobile=${encodeURIComponent(cleanMob || riderMobile)}`);
+      if (res && (res.data || res.reservations)) {
+        const list = res.data || res.reservations || [];
+        setRiderRides(list);
+      }
+    } catch (e) {
+      console.error('Failed to fetch rider rides:', e);
+    }
+  };
+
+  const formatCleanDateTime = (datetimeStr: string | null, timeStr?: string) => {
+    if (!datetimeStr) return '-';
+    try {
+      const isoMatch = datetimeStr.match(/\d{4}-\d{2}-\d{2}T[\d:\.Z]+/);
+      const cleanInput = isoMatch ? isoMatch[0] : datetimeStr.split(' ')[0];
+      const d = new Date(cleanInput);
+      if (isNaN(d.getTime())) {
+        return `${datetimeStr} ${timeStr || ''}`.trim();
+      }
+      const formattedDate = d.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+      const formattedTime = timeStr || d.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      return `${formattedDate}, ${formattedTime}`;
+    } catch (_) {
+      return datetimeStr;
+    }
+  };
+
   useEffect(() => {
     fetchFolderDocs();
+    fetchRiderRides();
   }, [riderMobile]);
 
   const handleApproveKyc = async () => {
@@ -756,7 +795,7 @@ function RiderProfileContent() {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                         </div>
                         <div>
-                          <span className="rp-summary-lbl">Deliveries</span>
+                          <span className="rp-summary-lbl">Total Rides</span>
                           <div className="rp-summary-num">126</div>
                           <span className="rp-summary-pct green">↑ 12.5%</span>
                         </div>
@@ -960,7 +999,7 @@ function RiderProfileContent() {
 
             {/* Tab Swi Bar */}
             <div className="rp-tabs">
-              {['Overview', 'Documents', 'Vehicles', 'Activity', 'Earnings', 'Performance', 'Incidents', 'Reviews'].map((tab) => (
+              {['Overview', 'Documents', 'Ride History', 'Activity', 'Earnings', 'Performance', 'Incidents', 'Reviews'].map((tab) => (
                 <div key={tab} className={`rp-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => switchTab(tab)}>
                   {tab}
                 </div>
@@ -1036,14 +1075,14 @@ function RiderProfileContent() {
                       <span className="rp-info-val">{riderZone}</span>
                     </div>
                     <div className="rp-info-row">
-                      <span className="rp-info-lbl">Deliveries Completed</span>
+                      <span className="rp-info-lbl">Rides Completed</span>
                       <span className="rp-info-val" style={{ fontWeight: 800 }}>14</span>
                     </div>
                     <div className="rp-info-row" style={{ alignItems: 'flex-start' }}>
-                      <span className="rp-info-lbl" style={{ marginTop: '2px' }}>Next Delivery</span>
+                      <span className="rp-info-lbl" style={{ marginTop: '2px' }}>Next Booking</span>
                       <span className="rp-info-val" style={{ textAlign: 'right', fontSize: '11.5px', maxWidth: '140px' }}>
-                        <span style={{ color: '#6D28D9', fontWeight: 800 }}>#ORD-124578</span>
-                        <br />Shivaji Stadium, Delhi
+                        <span style={{ color: '#6D28D9', fontWeight: 800 }}>#RID-2026-723138</span>
+                        <br />Aatapi Zone, Vadodara
                       </span>
                     </div>
                   </div>
@@ -1066,7 +1105,7 @@ function RiderProfileContent() {
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot blue" />
                       <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Delivery Completed</span>
+                        <span className="rp-tl-txt">Ride Completed</span>
                         <span className="rp-tl-time">20 May 2024, 10:15 AM</span>
                       </div>
                     </div>
@@ -1080,7 +1119,7 @@ function RiderProfileContent() {
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot blue" />
                       <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Delivery Completed</span>
+                        <span className="rp-tl-txt">Ride Completed</span>
                         <span className="rp-tl-time">20 May 2024, 11:25 AM</span>
                       </div>
                     </div>
@@ -1844,116 +1883,58 @@ function RiderProfileContent() {
               </div>
             )}
 
-            {activeTab === 'Vehicles' && (
+            {activeTab === 'Ride History' && (
               <div className="rp-card">
-                <div className="rp-list-filter-bar">
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div className="rp-search-wrapper">
-                      <span className="rp-search-ic">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                      </span>
-                      <input
-                        type="text"
-                        className="rp-search-inp"
-                        placeholder="Search plate, battery, model..."
-                        value={vehicleSearchQuery}
-                        onChange={(e) => { setVehicleSearchQuery(e.target.value); setVehiclesPage(1); }}
-                      />
-                    </div>
-                    <select className="rp-select" value={vehicleStatusFilter} onChange={(e) => { setVehicleStatusFilter(e.target.value); setVehiclesPage(1); }}>
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                    <select className="rp-select" value={vehicleTypeFilter} onChange={(e) => { setVehicleTypeFilter(e.target.value); setVehiclesPage(1); }}>
-                      <option value="">All Types</option>
-                      <option value="Electric Scooter">Electric Scooter</option>
-                      <option value="Electric 3 Wheeler">Electric 3 Wheeler</option>
-                    </select>
+                <div className="rp-card-hdr">
+                  <div>
+                    <h3 className="rp-card-tit">Ride History & Booking Logs</h3>
+                    <p className="rp-sub" style={{ fontSize: '11.5px', margin: '2px 0 0' }}>All historical vehicle rentals and ride bookings for this rider</p>
                   </div>
-                  <button className="rp-btn-outline" onClick={() => { setVehicleSearchQuery(''); setVehicleStatusFilter(''); setVehicleTypeFilter(''); setVehiclesPage(1); }}>
-                    ↺ Reset Filters
-                  </button>
                 </div>
 
                 <div className="rp-table-wrap" style={{ border: 'none', borderRadius: 0, marginTop: 0 }}>
                   <table className="rp-table">
                     <thead>
                       <tr>
-                        <th>Vehicle Name & Type</th>
-                        <th>Plate Number</th>
-                        <th>Battery ID</th>
+                        <th>Booking ID</th>
+                        <th>Vehicle Model</th>
+                        <th>Pickup Zone</th>
+                        <th>Pickup Datetime</th>
+                        <th>Drop Datetime</th>
+                        <th>Fare Paid</th>
+                        <th>Deposit Option</th>
                         <th>Status</th>
-                        <th>Assigned On</th>
-                        <th>Last Ride</th>
-                        <th>Distance</th>
-                        <th style={{ textAlign: 'center' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedVehicles.length === 0 ? (
+                      {riderRides.length === 0 ? (
                         <tr>
-                          <td colSpan={8} style={{ textAlign: 'center', padding: '24px', color: '#64748B' }}>
-                            No vehicles found matching the filters.
+                          <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: '#64748B' }}>
+                            <div>No ride booking records found for this rider.</div>
                           </td>
                         </tr>
                       ) : (
-                        paginatedVehicles.map((v, idx) => (
+                        riderRides.map((r, idx) => (
                           <tr key={idx}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '20px' }}>{v.img}</span>
-                                <div>
-                                  <div style={{ fontWeight: 700, color: '#0F172A' }}>{v.name}</div>
-                                  <div style={{ fontSize: '10.5px', color: '#64748B' }}>{v.type}</div>
-                                </div>
-                              </div>
+                            <td style={{ fontWeight: 700, fontFamily: 'monospace', color: '#6366F1' }}>
+                              {r.reservation_id || r._id || `RID-${idx + 101}`}
                             </td>
-                            <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{v.plate}</td>
-                            <td style={{ fontFamily: 'monospace' }}>{v.batteryId}</td>
+                            <td style={{ fontWeight: 700 }}>{r.vehicle_id || r.vehicle_model || 'EVM102501'}</td>
+                            <td>{r.pickup_zone || riderZone}</td>
+                            <td style={{ fontSize: '12px', fontWeight: 600 }}>{formatCleanDateTime(r.pickup_datetime || r.reservation_date, r.reservation_time)}</td>
+                            <td style={{ fontSize: '12px', color: '#64748B' }}>{formatCleanDateTime(r.drop_datetime)}</td>
+                            <td style={{ fontWeight: 800, color: '#0F172A' }}>₹{r.total_price || r.fare || '1,497.00'}</td>
+                            <td style={{ fontSize: '11.5px', color: '#475569' }}>{r.deposit_option || 'Pay Later'}</td>
                             <td>
-                              <span className={`pill-badge ${v.status === 'Active' ? 'pill-green' : 'pill-orange'}`}>
-                                {v.status}
+                              <span className={`pill-badge ${(r.status === 'Active Ride' || r.status === 'Ongoing') ? 'pill-green' : 'pill-purple'}`}>
+                                {r.status || 'Confirmed'}
                               </span>
-                            </td>
-                            <td>{v.assignedOn}</td>
-                            <td>{v.lastRide}</td>
-                            <td style={{ fontWeight: 600 }}>{v.lastRideDist || '-'}</td>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="View Details" onClick={() => alert(`Vehicle Details:\nName: ${v.name}\nType: ${v.type}\nPlate: ${v.plate}\nBattery ID: ${v.batteryId}\nStatus: ${v.status}\nAssigned On: ${v.assignedOn}\nLast Ride: ${v.lastRide}\nLast Ride Distance: ${v.lastRideDist}`)}>👁</button>
-                                <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Toggle Status" onClick={() => {
-                                  const updatedStatus = (v.status === 'Active' ? 'Inactive' : 'Active') as 'Active' | 'Inactive';
-                                  const updated = vehicles.map(x => x.plate === v.plate ? { ...x, status: updatedStatus } : x);
-                                  setVehicles(updated);
-                                  triggerToast(`${v.plate} status changed to ${updatedStatus}.`);
-                                }}>🔄</button>
-                                <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Unassign Vehicle" onClick={() => {
-                                  if (confirm(`Are you sure you want to unassign vehicle ${v.name} (${v.plate})?`)) {
-                                    const updated = vehicles.filter(x => x.plate !== v.plate);
-                                    setVehicles(updated);
-                                    triggerToast(`Vehicle ${v.plate} unassigned successfully.`);
-                                  }
-                                }}>✕</button>
-                              </div>
                             </td>
                           </tr>
                         ))
                       )}
                     </tbody>
                   </table>
-                </div>
-
-                {/* Pagination */}
-                <div className="rp-footer-bar">
-                  <span>Showing {(vehiclesPage - 1) * 5 + 1} to {Math.min(vehiclesPage * 5, filteredVehicles.length)} of {filteredVehicles.length} vehicles</span>
-                  <div className="rp-pagination">
-                    <button className="rp-pg-btn" disabled={vehiclesPage === 1} onClick={() => setVehiclesPage(p => p - 1)}>&lt;</button>
-                    {Array.from({ length: Math.ceil(filteredVehicles.length / 5) }).map((_, i) => (
-                      <button key={i} className={`rp-pg-btn ${vehiclesPage === (i + 1) ? 'active' : ''}`} onClick={() => setVehiclesPage(i + 1)}>{i + 1}</button>
-                    ))}
-                    <button className="rp-pg-btn" disabled={vehiclesPage === Math.ceil(filteredVehicles.length / 5)} onClick={() => setVehiclesPage(p => p + 1)}>&gt;</button>
-                  </div>
                 </div>
               </div>
             )}

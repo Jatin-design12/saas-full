@@ -114,15 +114,13 @@ export default function PaymentWalletPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const resUsers = await api.get('/wallet/users');
-      if (resUsers.data && resUsers.data.data) {
-        setUsers(resUsers.data.data);
-      }
+      const resUsers: any = await api.get('/wallet/users');
+      const userData = resUsers?.data || (Array.isArray(resUsers) ? resUsers : []);
+      setUsers(userData);
 
-      const resTxs = await api.get('/wallet/transactions');
-      if (resTxs.data && resTxs.data.data) {
-        setTransactions(resTxs.data.data);
-      }
+      const resTxs: any = await api.get('/wallet/transactions');
+      const txData = resTxs?.data || (Array.isArray(resTxs) ? resTxs : []);
+      setTransactions(txData);
     } catch (e) {
       console.error('Failed to load wallet data:', e);
     } finally {

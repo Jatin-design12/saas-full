@@ -8,7 +8,6 @@ import 'vehicle_list_screen.dart';
 import 'select_location_screen.dart';
 import 'select_date_time_screen.dart';
 import '../../../notifications/presentation/screens/notification_screen.dart';
-import '../../../offers/presentation/screens/payment_offers_screen.dart';
 import '../../../rides/presentation/screen/ride_history_screen.dart';
 import '../../../wallet/presentation/screens/wallet_screen.dart';
 import '../../../unlock/presentation/screens/scan_qr_screen.dart';
@@ -926,7 +925,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       size: 18,
                     ),
                     const SizedBox(width: 6),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         selectedLocation,
                         maxLines: 1,

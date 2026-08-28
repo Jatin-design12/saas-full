@@ -1,7 +1,8 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 const CSS = `
 .ph-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Inter', sans-serif; }
@@ -211,10 +212,36 @@ export default function PaymentHistoryPage() {
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [methodFilter, setMethodFilter] = useState('All');
+  const [liveRecords, setLiveRecords] = useState<RecordRow[]>([]);
+
+  useEffect(() => {
+    api.get('/wallet/payment-history')
+      .then((res: any) => {
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (list.length > 0) {
+          const formatted = list.map((t: any) => ({
+            rider: { name: t.mobile || 'Rider', code: `RDR-${(t.mobile || '101').slice(-4)}`, avatar: '/rohit_avatar.png' },
+            dateTime: new Date(t.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + new Date(t.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            txId: t.transaction_id || `TXN-${t.id}`,
+            type: (t.type === 'Credit' ? 'Rental' : t.type === 'Withdrawal' ? 'Refund' : 'Swap') as 'Rental' | 'Swap' | 'Refund',
+            refId: t.transaction_id || `REF-${t.id}`,
+            pm: { name: t.payment_method || 'Razorpay', sub: 'Razorpay UPI/Online', logoType: 'upi' },
+            amount: parseFloat(t.amount || 0),
+            status: (t.status === 'Success' ? 'Successful' : (t.status || 'Successful')) as 'Successful' | 'Refunded' | 'Failed'
+          }));
+          setLiveRecords(formatted);
+        }
+      })
+      .catch((e) => console.error('Payment history API error:', e));
+  }, []);
+
+  const allRecords = useMemo(() => {
+    return [...liveRecords, ...INITIAL_RECORDS];
+  }, [liveRecords]);
 
   // Filter logic
   const filteredRecords = useMemo(() => {
-    return INITIAL_RECORDS.filter(r => {
+    return allRecords.filter(r => {
       const matchSearch =
         r.rider.name.toLowerCase().includes(search.toLowerCase()) ||
         r.rider.code.toLowerCase().includes(search.toLowerCase()) ||
@@ -226,13 +253,13 @@ export default function PaymentHistoryPage() {
       
       let matchMethod = true;
       if (methodFilter !== 'All') {
-        if (methodFilter === 'UPI') matchMethod = r.pm.name === 'UPI' || r.pm.sub.includes('Pay');
+        if (methodFilter === 'UPI') matchMethod = r.pm.name === 'UPI' || r.pm.sub.includes('Pay') || r.pm.sub.includes('UPI');
         else if (methodFilter === 'Card') matchMethod = r.pm.name === 'Card' || r.pm.sub.includes('Visa') || r.pm.sub.includes('Mastercard');
       }
 
       return matchSearch && matchType && matchStatus && matchMethod;
     });
-  }, [search, typeFilter, statusFilter, methodFilter]);
+  }, [allRecords, search, typeFilter, statusFilter, methodFilter]);
 
   const pmLogo = (type: string) => {
     switch (type) {

@@ -204,22 +204,42 @@ router.post('/', async (req, res) => {
 
   const cleanMobile = (mobile || '').replace(/\D/g, '');
 
-  // 🚨 VALIDATION: Block new reservation if rider ALREADY has an active/ongoing ride!
-  if (cleanMobile.length > 0) {
+  // 🚨 VALIDATION: Block new reservation ONLY IF its date/time slot overlaps with an active/confirmed ride!
+  const reqStartRaw = req.body.pickup_datetime || req.body.start_datetime || `${reservation_date || ''} ${reservation_time || ''}`.trim();
+  const reqEndRaw = req.body.drop_datetime || req.body.end_datetime || reqStartRaw;
+
+  if (cleanMobile.length > 0 && reqStartRaw) {
     try {
       const activeCheck = await db.query(
-        "SELECT reservation_id, status FROM reservations WHERE (mobile LIKE $1 OR mobile LIKE $2) AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride') LIMIT 1",
+        "SELECT reservation_id, status, reservation_date, reservation_time, pickup_datetime, drop_datetime FROM reservations WHERE (mobile LIKE $1 OR mobile LIKE $2) AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride', 'Upcoming')",
         [`%${cleanMobile}%`, `%${mobile}%`]
       );
-      if (activeCheck.rows.length > 0) {
-        return res.status(400).json({
-          status: 'error',
-          has_active_ride: true,
-          message: `Active Ride In Progress! You already have an active ride (${activeCheck.rows[0].reservation_id}). Please return or end your current ride before booking a new one.`
-        });
+
+      const reqStartMs = new Date(reqStartRaw).getTime();
+      const reqEndMs = reqEndRaw ? new Date(reqEndRaw).getTime() : (reqStartMs + 86400000);
+
+      if (!isNaN(reqStartMs)) {
+        for (const existing of activeCheck.rows) {
+          const exStartRaw = existing.pickup_datetime || `${existing.reservation_date || ''} ${existing.reservation_time || ''}`.trim();
+          const exEndRaw = existing.drop_datetime || exStartRaw;
+          let exStartMs = new Date(exStartRaw).getTime();
+          let exEndMs = new Date(exEndRaw).getTime();
+
+          if (isNaN(exStartMs)) continue;
+          if (isNaN(exEndMs) || exEndMs <= exStartMs) exEndMs = exStartMs + 86400000;
+
+          // Overlap condition: reqStart < exEnd AND reqEnd > exStart
+          if (reqStartMs < exEndMs && (isNaN(reqEndMs) ? reqStartMs : reqEndMs) > exStartMs) {
+            return res.status(400).json({
+              status: 'error',
+              has_active_ride: true,
+              message: `Time Conflict! You already have an active/booked ride (${existing.reservation_id}) during this selected date and time.`
+            });
+          }
+        }
       }
     } catch (e) {
-      console.warn('Active ride check error:', e.message);
+      console.warn('Active ride date overlap check error:', e.message);
     }
   }
 
