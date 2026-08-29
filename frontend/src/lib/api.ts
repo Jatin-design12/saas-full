@@ -63,10 +63,15 @@ export const api = {
     return response.json();
   },
 
-  async delete(endpoint: string) {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+  async delete(endpoint: string, data?: any) {
+    const options: RequestInit = {
       method: 'DELETE',
-    });
+    };
+    if (data) {
+      options.headers = { 'Content-Type': 'application/json' };
+      options.body = JSON.stringify(data);
+    }
+    const response = await fetch(`${BASE_URL}${endpoint}`, options);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

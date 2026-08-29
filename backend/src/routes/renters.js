@@ -120,6 +120,7 @@ router.get('/', async (req, res) => {
 // POST /api/renters (create or update renter profile)
 router.post('/', async (req, res) => {
   const {
+    id,
     rider_name,
     name,
     mobile,
@@ -139,26 +140,44 @@ router.post('/', async (req, res) => {
     total
   } = req.body;
 
-  const fullName = rider_name || name || 'Evegah Rider';
+  const fullName = rider_name || name || '';
   const dobVal = date_of_birth || dateOfBirth || '';
   const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
 
   try {
-    // Check if renter with this mobile exists
-    const checkRes = await db.query('SELECT * FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2 LIMIT 1', [`%${cleanMobile}%`, `%${mobile}%`]);
+    // Check if renter with this id or mobile exists
+    let checkRes = { rows: [] };
+    if (id) {
+      checkRes = await db.query('SELECT * FROM renters WHERE id::text = $1 LIMIT 1', [id.toString()]);
+    }
+    if (checkRes.rows.length === 0 && last10.length >= 5) {
+      checkRes = await db.query('SELECT * FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2 LIMIT 1', [`%${last10}%`, `%${cleanMobile}%`]);
+    }
 
     if (checkRes.rows.length > 0) {
       // Update existing renter profile
+      const targetId = checkRes.rows[0].id;
       const updated = await db.query(`
         UPDATE renters 
-        SET rider_name = $1, 
+        SET rider_name = COALESCE(NULLIF($1, ''), rider_name), 
             email = COALESCE(NULLIF($2, ''), email), 
             address = COALESCE(NULLIF($3, ''), address), 
             date_of_birth = COALESCE(NULLIF($4, ''), date_of_birth), 
-            gender = COALESCE(NULLIF($5, ''), gender)
-        WHERE mobile LIKE $6 OR mobile LIKE $7
+            gender = COALESCE(NULLIF($5, ''), gender),
+            vehicle_id = COALESCE(NULLIF($6, ''), vehicle_id),
+            battery_id = COALESCE(NULLIF($7, ''), battery_id),
+            status = COALESCE(NULLIF($8, ''), status)
+        WHERE id = $9
         RETURNING *
-      `, [fullName, email || '', address || '', dobVal, gender || '', `%${cleanMobile}%`, `%${mobile}%`]);
+      `, [fullName, email || '', address || '', dobVal, gender || '', vehicle_id || '', battery_id || '', status || '', targetId]);
+
+      // If vehicle_id updated, mark vehicle as rented in DB
+      if (vehicle_id && vehicle_id !== 'EV-DEFAULT') {
+        try {
+          await db.query(`UPDATE vehicles SET vehicle_status = 'Rented', renter_name = $1 WHERE code = $2 OR vehicle_number = $2`, [fullName || checkRes.rows[0].rider_name, vehicle_id]);
+        } catch (_) {}
+      }
 
       return res.json({ status: 'success', message: 'Renter profile updated successfully', data: updated.rows[0] });
     }
@@ -169,7 +188,7 @@ router.post('/', async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `, [
-      fullName,
+      fullName || 'Rider',
       mobile,
       email || '',
       address || '',
@@ -190,6 +209,32 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Failed to add/update renter in DB:', err);
     res.json({ status: 'success', message: 'Renter processed', data: req.body });
+  }
+});
+
+// DELETE /api/renters - Delete single or multiple renters by id/mobile
+router.delete('/', async (req, res) => {
+  const { ids, mobiles } = req.body || {};
+  const targetIds = Array.isArray(ids) ? ids : (req.query.ids ? req.query.ids.split(',') : []);
+  const targetMobiles = Array.isArray(mobiles) ? mobiles : (req.query.mobiles ? req.query.mobiles.split(',') : []);
+
+  try {
+    if (targetIds.length > 0) {
+      await db.query('DELETE FROM renters WHERE id::text = ANY($1::text[])', [targetIds]);
+    }
+    if (targetMobiles.length > 0) {
+      for (const m of targetMobiles) {
+        const clean = m.replace(/\D/g, '');
+        const last10 = clean.length >= 10 ? clean.slice(-10) : clean;
+        if (last10) {
+          await db.query('DELETE FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2', [`%${last10}%`, `%${clean}%`]);
+        }
+      }
+    }
+    res.json({ status: 'success', message: 'Selected renter(s) deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting renters:', err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

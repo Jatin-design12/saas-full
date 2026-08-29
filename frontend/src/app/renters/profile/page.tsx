@@ -324,7 +324,8 @@ function RiderProfileContent() {
   const riderId = searchParams.get('id') || 'RID-2026-001';
   const initialTab = searchParams.get('tab') || 'Overview';
   const rawParamName = searchParams.get('name') || '';
-  const riderName = (!rawParamName || rawParamName === 'Guest Rider' || rawParamName === 'Evegah Rider') ? 'jatin rohit' : rawParamName;
+  const initialRiderName = (!rawParamName || rawParamName === 'Guest Rider' || rawParamName === 'Evegah Rider') ? 'jatin rohit' : rawParamName;
+  const [riderName, setRiderName] = useState(initialRiderName);
   const riderMobile = searchParams.get('mobile') || '+91 8128251172';
   const riderVehicle = searchParams.get('vehicle') || 'EVM1024001';
   const riderBattery = searchParams.get('battery') || 'BAT-GOTRI-01';
@@ -339,7 +340,7 @@ function RiderProfileContent() {
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: '' });
 
   // Dialog Modals state
-  const [modalType, setModalType] = useState<'editContact' | 'uploadDoc' | 'message' | 'addVehicle' | null>(null);
+  const [modalType, setModalType] = useState<'editContact' | 'uploadDoc' | 'message' | 'addVehicle' | 'updateKyc' | null>(null);
 
   // Dynamic Contact support details
   const [contactName, setContactName] = useState('Suresh Kumar');
@@ -384,6 +385,19 @@ function RiderProfileContent() {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [riderRides, setRiderRides] = useState<any[]>([]);
 
+  const [kycDetails, setKycDetails] = useState<{ dob: string; gender: string; address: string; aadhaar: string }>({
+    dob: '12 Mar 1998',
+    gender: 'Male',
+    address: 'Station Road, Gotri Zone, Vadodara',
+    aadhaar: 'XXXX XXXX 4492'
+  });
+
+  const [kycEditName, setKycEditName] = useState('');
+  const [kycEditDob, setKycEditDob] = useState('12/03/1998');
+  const [kycEditGender, setKycEditGender] = useState('Male');
+  const [kycEditAddress, setKycEditAddress] = useState('Station Road, Gotri Zone, Vadodara');
+  const [kycEditAadhaar, setKycEditAadhaar] = useState('5091 2280 4492');
+
   const fetchFolderDocs = async () => {
     setLoadingDocs(true);
     try {
@@ -392,8 +406,24 @@ function RiderProfileContent() {
         setFolderData(res.data.data.folders);
       }
       const kycRes = await api.get(`/renters/kyc?mobile=${encodeURIComponent(riderMobile)}`);
-      if (kycRes.data && kycRes.data.data && kycRes.data.data.kyc_status) {
-        setKycStatus(kycRes.data.data.kyc_status);
+      if (kycRes.data && kycRes.data.data) {
+        const kData = kycRes.data.data;
+        if (kData.kyc_status) setKycStatus(kData.kyc_status);
+        if (kData.rider_name && kData.rider_name !== 'Rider') {
+          setRiderName(kData.rider_name);
+          setKycEditName(kData.rider_name);
+        }
+        if (kData.ocr_details) {
+          const dob = kData.ocr_details.dob || '12 Mar 1998';
+          const gender = kData.ocr_details.gender || 'Male';
+          const address = kData.ocr_details.address || `Station Road, ${riderZone}, Vadodara`;
+          const aadhaar = kData.ocr_details.aadhaar_number || 'XXXX XXXX 4492';
+          setKycDetails({ dob, gender, address, aadhaar });
+          setKycEditDob(dob);
+          setKycEditGender(gender);
+          setKycEditAddress(address);
+          setKycEditAadhaar(aadhaar);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch folder docs:', e);
@@ -584,6 +614,47 @@ function RiderProfileContent() {
     triggerToast('Emergency contact details updated successfully!');
   };
 
+  // Handle KYC Update via Aadhaar
+  const handleUpdateKyc = async () => {
+    try {
+      await api.post('/renters/kyc', {
+        mobile: riderMobile,
+        rider_name: kycEditName || riderName,
+        kyc_status: 'Verified',
+        ocr_details: {
+          name: kycEditName || riderName,
+          dob: kycEditDob,
+          gender: kycEditGender,
+          address: kycEditAddress,
+          aadhaar_number: kycEditAadhaar
+        }
+      });
+
+      await api.post('/renters', {
+        mobile: riderMobile,
+        rider_name: kycEditName || riderName,
+        date_of_birth: kycEditDob,
+        gender: kycEditGender,
+        address: kycEditAddress,
+        status: 'Active'
+      });
+
+      if (kycEditName) setRiderName(kycEditName);
+      setKycStatus('Verified');
+      setKycDetails({
+        dob: kycEditDob,
+        gender: kycEditGender,
+        address: kycEditAddress,
+        aadhaar: kycEditAadhaar
+      });
+
+      setModalType(null);
+      triggerToast('Rider profile & Aadhaar KYC updated successfully! ✓');
+    } catch (e) {
+      triggerToast('Failed to update KYC details');
+    }
+  };
+
   // Handle add document submission
   const handleUploadDoc = () => {
     if (!docNameInput || !docNumInput) {
@@ -661,6 +732,7 @@ function RiderProfileContent() {
 
                 {menuOpen && (
                   <div className="rp-actions-dropdown">
+                    <button onClick={() => { setMenuOpen(false); setModalType('updateKyc'); }}>Update Aadhaar KYC</button>
                     <button onClick={() => { setMenuOpen(false); alert('Rider suspended successfully'); }}>Suspend Rider</button>
                     <button onClick={() => { setMenuOpen(false); alert('Package changes initialized'); }}>Change Package</button>
                     <button onClick={() => { setMenuOpen(false); setModalType('editContact'); }}>Edit Contacts</button>
@@ -757,7 +829,7 @@ function RiderProfileContent() {
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Date of Birth</div>
-                      <div className="rp-mid-val">12 Mar 1998</div>
+                      <div className="rp-mid-val">{kycDetails.dob || '12 Mar 1998'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item">
@@ -771,14 +843,14 @@ function RiderProfileContent() {
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a5 5 0 0 0-5 5v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a5 5 0 0 0-5-5z"/><path d="M19 21v-2a4 4 0 0 0-3-3.87"/><path d="M5 21v-2a4 4 0 0 1 3-3.87"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Gender</div>
-                      <div className="rp-mid-val">Male</div>
+                      <div className="rp-mid-val">{kycDetails.gender || 'Male'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item" style={{ gridColumn: 'span 2' }}>
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Address</div>
-                      <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>Station Road, {riderZone}, Vadodara</div>
+                      <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>{kycDetails.address || `Station Road, ${riderZone}, Vadodara`}</div>
                     </div>
                   </div>
                 </div>
@@ -2132,6 +2204,47 @@ function RiderProfileContent() {
             <div className="rp-modal-ft">
               <button className="rp-btn-outline" onClick={() => setModalType(null)}>Cancel</button>
               <button className="rp-btn-primary" onClick={handleAddVehicle}>Assign Vehicle</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalType === 'updateKyc' && (
+        <div className="rp-modal-overlay">
+          <div className="rp-modal-box">
+            <div className="rp-modal-hdr">
+              <h3 className="rp-modal-tit">Update Aadhaar KYC & Profile</h3>
+              <button className="rp-modal-close" onClick={() => setModalType(null)}>×</button>
+            </div>
+            <div className="rp-modal-body">
+              <div className="rp-form-group">
+                <label className="rp-form-lbl">Full Name (from Aadhaar)</label>
+                <input type="text" className="rp-form-inp" value={kycEditName} onChange={(e) => setKycEditName(e.target.value)} placeholder="Full Name" />
+              </div>
+              <div className="rp-form-group">
+                <label className="rp-form-lbl">Date of Birth</label>
+                <input type="text" className="rp-form-inp" value={kycEditDob} onChange={(e) => setKycEditDob(e.target.value)} placeholder="e.g. 12/03/1998" />
+              </div>
+              <div className="rp-form-group">
+                <label className="rp-form-lbl">Gender</label>
+                <select className="rp-select" style={{ width: '100%' }} value={kycEditGender} onChange={(e) => setKycEditGender(e.target.value)}>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="rp-form-group">
+                <label className="rp-form-lbl">Address</label>
+                <textarea className="rp-form-inp" style={{ minHeight: '60px', resize: 'vertical' }} value={kycEditAddress} onChange={(e) => setKycEditAddress(e.target.value)} placeholder="Full residential address" />
+              </div>
+              <div className="rp-form-group">
+                <label className="rp-form-lbl">Aadhaar Number</label>
+                <input type="text" className="rp-form-inp" value={kycEditAadhaar} onChange={(e) => setKycEditAadhaar(e.target.value)} placeholder="12-digit Aadhaar Number" />
+              </div>
+            </div>
+            <div className="rp-modal-ft">
+              <button className="rp-btn-outline" onClick={() => setModalType(null)}>Cancel</button>
+              <button className="rp-btn-primary" onClick={handleUpdateKyc}>Save & Sync Profile</button>
             </div>
           </div>
         </div>
