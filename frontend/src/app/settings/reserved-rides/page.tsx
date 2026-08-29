@@ -150,8 +150,13 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [zoneFilter, setZoneFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Multi-select & Permanent Delete tracking states
+  const [selectedResIds, setSelectedResIds] = useState<string[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
 
   // Modals & Calendar state
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -216,34 +221,36 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
 
         const sampleTimes = ['10:48 AM', '10:24 AM', '10:22 AM', '02:35 PM', '08:53 PM', '01:41 AM', '01:32 PM', '11:25 PM', '10:59 PM'];
 
-        const mapped = (body.data || []).map((r: any, idx: number) => {
-          const isGenericName = !r.customer_name || r.customer_name.trim() === '' || r.customer_name === 'Guest Rider' || r.customer_name === 'Evegah Rider' || r.customer_name.toLowerCase() === 'customer';
-          const matchedProfile = realRiderProfiles[idx % realRiderProfiles.length];
-          
-          let formattedTime = r.reservation_time;
-          if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
-            if (r.created_at) {
-              const d = new Date(r.created_at);
-              if (!isNaN(d.getTime())) {
-                formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const mapped = (body.data || [])
+          .filter((r: any) => !deletedIds.includes(r.id) && !deletedIds.includes(r.reservation_id))
+          .map((r: any, idx: number) => {
+            const isGenericName = !r.customer_name || r.customer_name.trim() === '' || r.customer_name === 'Guest Rider' || r.customer_name === 'Evegah Rider' || r.customer_name.toLowerCase() === 'customer';
+            const matchedProfile = realRiderProfiles[idx % realRiderProfiles.length];
+            
+            let formattedTime = r.reservation_time;
+            if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
+              if (r.created_at) {
+                const d = new Date(r.created_at);
+                if (!isNaN(d.getTime())) {
+                  formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                }
+              }
+              if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
+                formattedTime = sampleTimes[idx % sampleTimes.length];
               }
             }
-            if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
-              formattedTime = sampleTimes[idx % sampleTimes.length];
-            }
-          }
 
-          let fareAmount = parseFloat(r.fare || '0');
-          if (fareAmount <= 0) fareAmount = 1407.50;
+            let fareAmount = parseFloat(r.fare || '0');
+            if (fareAmount <= 0) fareAmount = 1407.50;
 
-          return {
-            ...r,
-            customer_name: isGenericName ? matchedProfile.name : r.customer_name,
-            mobile: isGenericName ? matchedProfile.phone : (r.mobile || matchedProfile.phone),
-            reservation_time: formattedTime,
-            fare: fareAmount.toFixed(2)
-          };
-        });
+            return {
+              ...r,
+              customer_name: isGenericName ? matchedProfile.name : r.customer_name,
+              mobile: isGenericName ? matchedProfile.phone : (r.mobile || matchedProfile.phone),
+              reservation_time: formattedTime,
+              fare: fareAmount.toFixed(2)
+            };
+          });
 
         setList(mapped);
         setTotalPages(body.pagination?.totalPages || 1);
@@ -259,28 +266,30 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
   };
 
   const confirmDeleteReservation = async () => {
-    if (!resToDelete) return;
-    const targetId = resToDelete.id;
-    const targetResId = resToDelete.reservation_id;
+    const idsToDelete = resToDelete ? [resToDelete.id, resToDelete.reservation_id].filter(Boolean) : selectedResIds;
+    if (idsToDelete.length === 0) return;
 
-    // Optimistically delete from UI list and update stats
-    setList(prev => prev.filter(r => r.id !== targetId && r.reservation_id !== targetResId));
+    setDeletedIds(prev => [...prev, ...idsToDelete]);
+    setList(prev => prev.filter(r => !idsToDelete.includes(r.id) && !idsToDelete.includes(r.reservation_id)));
+    setSelectedResIds(prev => prev.filter(id => !idsToDelete.includes(id)));
     setStats(prev => ({
       ...prev,
-      total: Math.max(0, prev.total - 1),
-      upcoming: Math.max(0, prev.upcoming - 1)
+      total: Math.max(0, prev.total - idsToDelete.length),
+      upcoming: Math.max(0, prev.upcoming - idsToDelete.length)
     }));
     setIsDeleteModalOpen(false);
     setResToDelete(null);
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      await fetch(`${apiUrl}/reservations/${targetId}`, { method: 'DELETE' });
+      await fetch(`${apiUrl}/reservations`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: idsToDelete })
+      });
     } catch (err) {
       console.warn('Backend delete notification error (non-fatal):', err);
     }
-
-    alert(`🗑️ Reservation ${targetResId} deleted successfully.`);
   };
 
   useEffect(() => {
@@ -548,13 +557,13 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
             </div>
 
             {/* Filter Bar Row */}
-            <div className="rr-filter-bar">
-              <div className="rr-search-box">
+            <div className="rr-filter-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="rr-search-box" style={{ flex: '1 1 200px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input 
                   type="text" 
                   className="rr-search-inp" 
-                  placeholder="Search by customer, mobile..." 
+                  placeholder="Search by customer, mobile, ID..." 
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 />
@@ -567,14 +576,32 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               >
                 <option value="">All Statuses</option>
                 <option value="Upcoming">Upcoming</option>
+                <option value="Confirmed">Confirmed</option>
                 <option value="Completed">Completed</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
 
-              <button className="rr-btn" style={{ padding: '0 12px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                Filters
-              </button>
+              <select 
+                className="rr-select"
+                value={zoneFilter}
+                onChange={(e) => { setZoneFilter(e.target.value); setPage(1); }}
+              >
+                <option value="">All Zones</option>
+                <option value="Gotri Zone">Gotri Zone</option>
+                <option value="Aatapi Zone">Aatapi Zone</option>
+                <option value="Alkapuri Zone">Alkapuri Zone</option>
+              </select>
+
+              {selectedResIds.length > 0 && (
+                <button 
+                  className="rr-btn" 
+                  style={{ background: '#EF4444', color: '#FFF', borderColor: '#EF4444', fontWeight: 600 }}
+                  onClick={() => setIsDeleteModalOpen(true)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  Delete Selected ({selectedResIds.length})
+                </button>
+              )}
 
               <button className="rr-btn" onClick={() => alert('Exporting reservation logs to Excel/CSV...')}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -587,6 +614,19 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               <table className="rr-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '36px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={list.length > 0 && selectedResIds.length === list.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedResIds(list.map(r => r.id));
+                          } else {
+                            setSelectedResIds([]);
+                          }
+                        }}
+                      />
+                    </th>
                     <th>Ride ID</th>
                     <th>Customer</th>
                     <th>Ride Details</th>
@@ -602,132 +642,139 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
+                      <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
                         Loading reservations telemetry...
                       </td>
                     </tr>
-                  ) : displayList.length === 0 ? (
+                  ) : list.length === 0 ? (
                     <tr>
-                      <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
+                      <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
                         No pending reservations found. Confirmed rides have been moved to the Riders catalog.
                       </td>
                     </tr>
                   ) : (
-                    displayList.map((res, idx) => {
-                      const statLower = res.status.toLowerCase();
-                      const payLower = (res.payment_status || '').toLowerCase();
-                      return (
-                        <tr key={res.id}>
-                          <td style={{ fontWeight: '750', color: '#2A195C', fontFamily: 'monospace' }}>
-                            {res.reservation_id}
-                          </td>
-                          <td>
-                            <div className="rider-info">
-                              <div className="rider-av" style={{ background: getAvatarColor(idx) }}>
-                                {res.customer_name.split(' ').map(n => n[0]).join('')}
-                              </div>
-                              <div>
-                                <span className="rider-name">{res.customer_name}</span>
-                                <span className="rider-phone">{res.mobile}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="vehicle-cat">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                              {res.vehicle_category}
-                            </div>
-                            <span className="vehicle-plate">{res.vehicle_number || 'Pending Allocation'}</span>
-                          </td>
-                          <td>
-                            <div className="pickup-drop">
-                              <div className="zone-item">
-                                <span style={{ color: '#10B981' }}>●</span> {res.pickup_zone || 'CP Zone'}
-                              </div>
-                              <div className="zone-item">
-                                <span style={{ color: '#EF4444' }}>▲</span> {res.drop_zone || 'Indira Gandhi Airport'}
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="date-time">
-                              <div className="dt-item">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                                {formatDate(res.reservation_date)}
-                              </div>
-                              <div className="dt-item" style={{ color: '#64748B', fontWeight: '600' }}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                {res.reservation_time}
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`status-badge ${
-                              statLower === 'upcoming' ? 'badge-upcoming' :
-                              statLower === 'confirmed' ? 'badge-confirmed' :
-                              statLower === 'completed' ? 'badge-completed' : 'badge-cancelled'
-                            }`}>
-                              {res.status}
-                            </span>
-                          </td>
-                          <td style={{ fontWeight: '800', color: '#0F172A' }}>
-                            ₹{Number(res.fare).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td>
-                            <span className={`pay-badge ${
-                              payLower === 'paid' ? 'pay-paid' : 'pay-refunded'
-                            }`}>
-                              {payLower === 'paid' ? 'Paid' : 'Refunded'}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '11px', color: '#64748B' }}>
-                            {formatDateTime(res.created_at)}
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <button 
-                                className="rr-pag-btn" 
-                                style={{ width: '28px', height: '28px', color: '#2A195C', borderColor: '#C7D2FE', background: '#EEF2FF' }}
-                                onClick={() => router.push(`/renters/profile?id=${res.id}`)}
-                                title="View rider profile & details"
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                              </button>
-                              {(statLower === 'confirmed' || statLower === 'upcoming') && (
-                                <button 
-                                  className="rr-pag-btn" 
-                                  style={{ width: '28px', height: '28px', color: '#16A34A', borderColor: '#BBF7D0', background: '#DCFCE7' }}
-                                  onClick={() => handleReturnRide(res.id)}
-                                  title="End / Return Ride"
-                                >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                                </button>
-                              )}
-                              <button 
-                                className="rr-pag-btn" 
-                                style={{ width: '28px', height: '28px', color: '#EF4444', borderColor: '#FCA5A5', background: '#FEF2F2' }}
-                                onClick={async () => {
-                                  if (confirm(`Are you sure you want to delete reservation ${res.reservation_id}?`)) {
-                                    try {
-                                      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-                                      await fetch(`${apiUrl}/reservations/${res.id}`, { method: 'DELETE' });
-                                      alert('Reservation deleted successfully.');
-                                      fetchReservations();
-                                    } catch (_) {
-                                      alert('Reservation deleted.');
-                                      fetchReservations();
-                                    }
+                    list
+                      .filter(r => !zoneFilter || (r.pickup_zone || '').includes(zoneFilter))
+                      .map((res, idx) => {
+                        const statLower = res.status.toLowerCase();
+                        const payLower = (res.payment_status || '').toLowerCase();
+                        const isChecked = selectedResIds.includes(res.id);
+                        return (
+                          <tr key={res.id}>
+                            <td>
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedResIds(prev => [...prev, res.id]);
+                                  } else {
+                                    setSelectedResIds(prev => prev.filter(id => id !== res.id));
                                   }
                                 }}
-                                title="Delete reservation"
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
+                              />
+                            </td>
+                            <td style={{ fontWeight: '750', color: '#2A195C', fontFamily: 'monospace' }}>
+                              {res.reservation_id}
+                            </td>
+                            <td>
+                              <div className="rider-info">
+                                <div className="rider-av" style={{ background: getAvatarColor(idx) }}>
+                                  {res.customer_name.split(' ').map(n => n[0]).join('')}
+                                </div>
+                                <div>
+                                  <span className="rider-name">{res.customer_name}</span>
+                                  <span className="rider-phone">{res.mobile}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="vehicle-cat">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h4l-3 4.5"/><path d="M12 17.5V11l-3-4H5"/><path d="M16.5 11H9"/></svg>
+                                {res.vehicle_category}
+                              </div>
+                              <span className="vehicle-plate">{res.vehicle_number || 'Pending Allocation'}</span>
+                            </td>
+                            <td>
+                              <div className="pickup-drop">
+                                <div className="zone-item">
+                                  <span style={{ color: '#10B981' }}>●</span> {res.pickup_zone || 'CP Zone'}
+                                </div>
+                                <div className="zone-item">
+                                  <span style={{ color: '#EF4444' }}>▲</span> {res.drop_zone || 'Indira Gandhi Airport'}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="date-time">
+                                <div className="dt-item">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                  {formatDate(res.reservation_date)}
+                                </div>
+                                <div className="dt-item" style={{ color: '#64748B', fontWeight: '600' }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                  {res.reservation_time}
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`status-badge ${
+                                statLower === 'upcoming' ? 'badge-upcoming' :
+                                statLower === 'confirmed' ? 'badge-confirmed' :
+                                statLower === 'completed' ? 'badge-completed' : 'badge-cancelled'
+                              }`}>
+                                {res.status}
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: '800', color: '#0F172A' }}>
+                              ₹{Number(res.fare).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td>
+                              <span className={`pay-badge ${
+                                payLower === 'paid' ? 'pay-paid' : 'pay-refunded'
+                              }`}>
+                                {payLower === 'paid' ? 'Paid' : 'Refunded'}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '11px', color: '#64748B' }}>
+                              {formatDateTime(res.created_at)}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                <button 
+                                  className="rr-pag-btn" 
+                                  style={{ width: '28px', height: '28px', color: '#2A195C', borderColor: '#C7D2FE', background: '#EEF2FF' }}
+                                  onClick={() => openDetailsModal(res)}
+                                  title="View allocation & reservation popup"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                                {(statLower === 'confirmed' || statLower === 'upcoming') && (
+                                  <button 
+                                    className="rr-pag-btn" 
+                                    style={{ width: '28px', height: '28px', color: '#16A34A', borderColor: '#BBF7D0', background: '#DCFCE7' }}
+                                    onClick={() => handleReturnRide(res.id)}
+                                    title="End / Return Ride"
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                  </button>
+                                )}
+                                <button 
+                                  className="rr-pag-btn" 
+                                  style={{ width: '28px', height: '28px', color: '#EF4444', borderColor: '#FCA5A5', background: '#FEF2F2' }}
+                                  onClick={() => {
+                                    setResToDelete(res);
+                                    setIsDeleteModalOpen(true);
+                                  }}
+                                  title="Delete reservation"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                   )}
                 </tbody>
               </table>
@@ -1034,18 +1081,28 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               )}
 
             </div>
-            <div className="rr-modal-ftr" style={{ justifyContent: 'space-between' }}>
-              {selectedRes.status.toLowerCase() === 'upcoming' ? (
+            <div className="rr-modal-ftr" style={{ justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
-                  className="rr-btn" 
-                  style={{ color: '#EF4444', borderColor: '#FCA5A5', background: '#FEF2F2' }}
-                  onClick={() => handleCancelBooking(selectedRes.id)}
+                  className="rr-btn"
+                  style={{ color: '#2A195C', borderColor: '#C7D2FE', background: '#EEF2FF' }}
+                  onClick={() => {
+                    setIsDetailsOpen(false);
+                    router.push(`/renters/profile?id=${selectedRes.id}&name=${encodeURIComponent(selectedRes.customer_name)}&mobile=${encodeURIComponent(selectedRes.mobile)}`);
+                  }}
                 >
-                  Cancel Booking & Refund
+                  👤 View Full Rider Profile
                 </button>
-              ) : (
-                <div />
-              )}
+                {selectedRes.status.toLowerCase() === 'upcoming' && (
+                  <button 
+                    className="rr-btn" 
+                    style={{ color: '#EF4444', borderColor: '#FCA5A5', background: '#FEF2F2' }}
+                    onClick={() => handleCancelBooking(selectedRes.id)}
+                  >
+                    Cancel Booking & Refund
+                  </button>
+                )}
+              </div>
               <button 
                 className="rr-btn" 
                 onClick={() => { setIsDetailsOpen(false); setSelectedRes(null); setAllocVehicle(''); setAllocBattery(''); }}

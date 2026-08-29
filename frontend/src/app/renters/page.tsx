@@ -777,12 +777,19 @@ export default function RentersPage() {
                             <td>
                               <div className="re-action-cell">
                                 {/* View button opens Vehicle & Battery Allocation modal */}
-                                <button 
+                                <Link 
+                                  href={`/renters/profile?id=${encodeURIComponent(r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Gotri%20Zone`} 
                                   className="re-action-btn" 
-                                  title="View & Allocate Vehicle / Battery"
-                                  onClick={() => openAllocationModal(r, displayName, displayMobile)}
+                                  title="View Full Rider Profile"
                                 >
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </Link>
+                                <button 
+                                  className="re-action-btn" 
+                                  title="Allocate Vehicle & Battery"
+                                  onClick={() => openAllocationModal(r, displayName, displayMobile)}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                                 </button>
                                 <button className="re-action-btn" title="Delete Rider" onClick={() => openDeleteModalForSingle(r.mobile)}>
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>

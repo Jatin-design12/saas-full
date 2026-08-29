@@ -542,6 +542,36 @@ router.post('/:id/allocate', async (req, res) => {
   }
 });
 
+// DELETE /api/reservations (Bulk delete reservations)
+router.delete('/', async (req, res) => {
+  const { ids } = req.body || {};
+  const targetIds = Array.isArray(ids) ? ids : (req.query.ids ? req.query.ids.split(',') : []);
+
+  try {
+    if (targetIds.length > 0) {
+      try {
+        await db.query('DELETE FROM reservations WHERE id::text = ANY($1::text[]) OR reservation_id = ANY($1::text[])', [targetIds]);
+      } catch (dbErr) {
+        console.warn('DB delete reservations failed:', dbErr.message);
+      }
+      mockList = mockList.filter(r => !targetIds.includes(r.id) && !targetIds.includes(r.reservation_id));
+      for (let i = MOCK_RESERVATIONS.length - 1; i >= 0; i--) {
+        if (targetIds.includes(MOCK_RESERVATIONS[i].id) || targetIds.includes(MOCK_RESERVATIONS[i].reservation_id)) {
+          MOCK_RESERVATIONS.splice(i, 1);
+        }
+      }
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Selected reservation(s) deleted successfully.'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 // DELETE /api/reservations/:id (Delete reservation from system)
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
@@ -553,9 +583,11 @@ router.delete('/:id', async (req, res) => {
       console.warn('DB delete reservation failed, fallback to memory:', dbErr.message);
     }
 
-    const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
-    if (idx !== -1) {
-      mockList.splice(idx, 1);
+    mockList = mockList.filter(r => r.id !== id && r.reservation_id !== id);
+    for (let i = MOCK_RESERVATIONS.length - 1; i >= 0; i--) {
+      if (MOCK_RESERVATIONS[i].id === id || MOCK_RESERVATIONS[i].reservation_id === id) {
+        MOCK_RESERVATIONS.splice(i, 1);
+      }
     }
 
     res.json({
