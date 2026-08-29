@@ -1,5 +1,4 @@
 import 'dart:js' as js;
-import 'package:js/js.dart' as pjs;
 
 void startRazorpayWebCheckout({
   required String keyId,
@@ -22,12 +21,12 @@ void startRazorpayWebCheckout({
         'contact': contact,
         'email': email,
       }),
-      pjs.allowInterop((paymentId) {
+      (paymentId) {
         onSuccess(paymentId ?? "PAY_SUCCESS_WEB");
-      }),
-      pjs.allowInterop((error) {
+      },
+      (error) {
         onFailure(error ?? "Unknown Web Error");
-      })
+      }
     ]);
   } catch (e) {
     onFailure(e.toString());

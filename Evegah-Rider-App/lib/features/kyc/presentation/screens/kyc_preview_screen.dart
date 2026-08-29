@@ -148,6 +148,7 @@ class _KycPreviewScreenState
         nextStep = KycStep.aadhaarFront;
         _kycService.updateStepStatus("Selfie", "Captured", filePath: widget.imagePath);
         ProfileService().profileImagePath = widget.imagePath;
+        await SessionService().saveUserProfileImage(widget.imagePath);
         break;
 
       case KycStep.aadhaarFront:
@@ -158,8 +159,9 @@ class _KycPreviewScreenState
           _kycService.ocrName = frontOcr['name']!;
           ProfileService().userName = frontOcr['name']!;
         }
-        if (frontOcr['aadhaarNumber'] != null) {
+        if (frontOcr['aadhaarNumber'] != null && frontOcr['aadhaarNumber']!.isNotEmpty) {
           _kycService.ocrAadhaarNumber = frontOcr['aadhaarNumber']!;
+          ProfileService().aadhaarNumber = frontOcr['aadhaarNumber']!;
         }
         if (frontOcr['dob'] != null && frontOcr['dob']!.isNotEmpty) {
           _kycService.ocrDob = frontOcr['dob']!;
@@ -175,6 +177,7 @@ class _KycPreviewScreenState
           age: ProfileService().dateOfBirth,
           address: ProfileService().address,
           email: ProfileService().email,
+          aadhaar: ProfileService().aadhaarNumber,
         );
         break;
 

@@ -1,27 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../data/services/wallet_service.dart';
 import '../../../support/presentation/screens/help_screen.dart';
 
-class TransactionDetailScreen extends StatelessWidget {
+class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic>? transaction;
 
   const TransactionDetailScreen({super.key, this.transaction});
 
-  static const Map<String, dynamic> _defaultTx = {
-    "title": "Ride Reservation (Paid)",
-    "subtitle": "Evegah EV • Gotri Zone",
-    "amount": "- ₹307.50",
-    "date": "2026-08-26, 10:30 AM",
-    "isCredit": false,
-  };
+  @override
+  State<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
+}
+
+class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
+  int _selectedTab = 0; // 0 = All, 1 = Add & Deposit, 2 = Rides & Deductions
+  List<Map<String, dynamic>> _allTransactions = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.transaction == null) {
+      _loadTransactions();
+    } else {
+      _isLoading = false;
+    }
+  }
+
+  Future<void> _loadTransactions() async {
+    final list = await WalletService().fetchRecentTransactions();
+    if (mounted) {
+      setState(() {
+        _allTransactions = list;
+        _isLoading = false;
+      });
+    }
+  }
 
   String _formatCleanDateTime(String rawDate) {
     if (rawDate.isEmpty) return "2026-08-26, 10:30 AM";
-    
-    // Replace hardcoded 00:00:00 with default active time 10:30 AM
-    String cleaned = rawDate.replaceAll(", 00:00:00", ", 10:30 AM")
-                             .replaceAll(" 00:00:00", ", 10:30 AM")
-                             .replaceAll("00:00", "10:30 AM");
+    String cleaned = rawDate
+        .replaceAll(", 00:00:00", ", 10:30 AM")
+        .replaceAll(" 00:00:00", ", 10:30 AM")
+        .replaceAll("00:00", "10:30 AM");
     if (!cleaned.contains("AM") && !cleaned.contains("PM")) {
       cleaned = "$cleaned, 10:30 AM";
     }
@@ -30,14 +51,260 @@ class TransactionDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tx = transaction ?? _defaultTx;
+    if (widget.transaction != null) {
+      return _buildIndividualReceiptView(context, widget.transaction!);
+    }
+    return _buildFullTransactionHistoryPage(context);
+  }
+
+  Widget _buildFullTransactionHistoryPage(BuildContext context) {
+    List<Map<String, dynamic>> filteredList = List.from(_allTransactions);
+    if (_selectedTab == 1) {
+      filteredList = _allTransactions.where((t) => t['type'] == 'Credit' || (t['title'] ?? '').toString().toLowerCase().contains('add') || (t['title'] ?? '').toString().toLowerCase().contains('deposit')).toList();
+    } else if (_selectedTab == 2) {
+      filteredList = _allTransactions.where((t) => t['type'] != 'Credit' && !(t['title'] ?? '').toString().toLowerCase().contains('deposit')).toList();
+    }
+
+    double totalAdded = 0.0;
+    for (var t in _allTransactions) {
+      if (t['type'] == 'Credit' || (t['title'] ?? '').toString().toLowerCase().contains('deposit')) {
+        totalAdded += double.tryParse("${t['amount'] ?? 0}") ?? 0.0;
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFBFE),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: const Color(0xFFFAFBFE),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "Transaction History",
+          style: TextStyle(color: Color(0xFF0F172A), fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: false,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadTransactions,
+        color: const Color(0xFF4313B8),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4313B8), Color(0xFF24105E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF5B21B6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Total Money Added & Deposited",
+                            style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 11, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "₹${totalAdded.toStringAsFixed(2)}",
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  _buildFilterTab(0, "All (${_allTransactions.length})"),
+                  const SizedBox(width: 8),
+                  _buildFilterTab(1, "Add & Deposit"),
+                  const SizedBox(width: 8),
+                  _buildFilterTab(2, "Rides & Deductions"),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_isLoading)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: CircularProgressIndicator(color: Color(0xFF4313B8))))
+              else if (filteredList.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: const [
+                      Icon(Icons.history_rounded, size: 48, color: Color(0xFFCBD5E1)),
+                      SizedBox(height: 12),
+                      Text("No transactions found", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+                      SizedBox(height: 4),
+                      Text("Your wallet top-ups, deposits, and ride payments will appear here.", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredList.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final tx = filteredList[index];
+                    final bool isCredit = tx['type'] == 'Credit' || (tx['title'] ?? '').toString().toLowerCase().contains('deposit');
+                    final double amt = double.tryParse("${tx['amount'] ?? 0}") ?? 0.0;
+                    final String title = tx['title'] ?? (isCredit ? 'Wallet Top-Up' : 'EV Ride Payment');
+                    final String subtitle = tx['subtitle'] ?? tx['payment_method'] ?? 'Evegah Wallet';
+                    final String dateStr = tx['created_at'] != null ? tx['created_at'].toString().split('T').first : 'Recent';
+                    final String status = tx['status'] ?? 'Success';
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: ListTile(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TransactionDetailScreen(
+                                transaction: {
+                                  "title": title,
+                                  "subtitle": subtitle,
+                                  "amount": "${isCredit ? '+' : '-'} ₹${amt.toStringAsFixed(2)}",
+                                  "date": dateStr,
+                                  "isCredit": isCredit,
+                                  "txnId": tx['transaction_id'] ?? tx['id'] ?? "EVG-TXN-$index",
+                                  "status": status,
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isCredit ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isCredit ? Icons.arrow_downward_rounded : Icons.electric_scooter_rounded,
+                            color: isCredit ? const Color(0xFF16A34A) : const Color(0xFF4313B8),
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          title,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                        subtitle: Text(
+                          "$subtitle • $dateStr",
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              "${isCredit ? '+' : '-'} ₹${amt.toStringAsFixed(2)}",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isCredit ? const Color(0xFF16A34A) : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                status,
+                                style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterTab(int index, String label) {
+    final bool isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTab = index;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF4313B8) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isSelected ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0)),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isSelected ? Colors.white : const Color(0xFF475569),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIndividualReceiptView(BuildContext context, Map<String, dynamic> tx) {
     final bool isCredit = tx['isCredit'] ?? false;
     final String title = tx['title'] ?? 'Ride Reservation (Paid)';
     final String subtitle = tx['subtitle'] ?? 'Evegah EV • Manjalpur Zone';
     final String amount = tx['amount'] ?? '- ₹307.50';
     final String rawDate = tx['date'] ?? '2026-08-26, 10:30 AM';
     final String formattedDate = _formatCleanDateTime(rawDate);
-
     final String txnId = tx['txnId'] ?? 'EVG-TXN-89843909';
     final String refOrder = tx['refOrder'] ?? 'ORD-2026-9874';
 
@@ -46,19 +313,9 @@ class TransactionDetailScreen extends StatelessWidget {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 18),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 18),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           "Transaction Details",
@@ -69,12 +326,6 @@ class TransactionDetailScreen extends StatelessWidget {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF0F172A)),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -83,53 +334,32 @@ class TransactionDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- 1. TOP PURPLE GRADIENT BANNER CARD ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF3E8FF), Color(0xFFEEF2FF)],
+                  gradient: LinearGradient(
+                    colors: isCredit ? [const Color(0xFFDCFCE7), const Color(0xFFF0FDF4)] : [const Color(0xFFF3E8FF), const Color(0xFFEEF2FF)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE9D5FF), width: 1.2),
+                  border: Border.all(color: isCredit ? const Color(0xFFBBF7D0) : const Color(0xFFE9D5FF), width: 1.2),
                 ),
                 child: Row(
                   children: [
-                    Stack(
-                      children: [
-                        Container(
-                          width: 58,
-                          height: 58,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFDDD6FE),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.electric_scooter_rounded,
-                            color: Color(0xFF4313B8),
-                            size: 28,
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.check_circle_rounded,
-                              color: Color(0xFF16A34A),
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: isCredit ? const Color(0xFF86EFAC) : const Color(0xFFDDD6FE),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isCredit ? Icons.account_balance_wallet_rounded : Icons.electric_scooter_rounded,
+                        color: isCredit ? const Color(0xFF15803D) : const Color(0xFF4313B8),
+                        size: 28,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -147,28 +377,11 @@ class TransactionDetailScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Text(
-                                "Evegah EV",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF4313B8),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified_rounded, size: 13, color: Color(0xFF4313B8)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "• ${subtitle.split('•').last.trim()}",
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -177,11 +390,6 @@ class TransactionDetailScreen extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text(
-                          "Amount Paid",
-                          style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 2),
                         Text(
                           amount,
                           style: TextStyle(
@@ -190,110 +398,19 @@ class TransactionDetailScreen extends StatelessWidget {
                             color: isCredit ? const Color(0xFF16A34A) : const Color(0xFF0F172A),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDCFCE7),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF86EFAC)),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.check_rounded, size: 12, color: Color(0xFF15803D)),
-                              SizedBox(width: 3),
-                              Text(
-                                "COMPLETED",
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF15803D),
-                                ),
-                              ),
-                            ],
+                          child: const Text(
+                            "COMPLETED",
+                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // --- 2. DARK BLUE 3-COLUMN INFO STRIP ---
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161248),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today_rounded, size: 16, color: Color(0xFFA78BFA)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  formattedDate.split(',').first,
-                                  maxLines: 1,
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  formattedDate.contains(',') ? formattedDate.split(',').last.trim() : "10:30 AM",
-                                  style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 10),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(height: 24, width: 1, color: Colors.white24),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("Transaction ID", style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 10)),
-                            const SizedBox(height: 2),
-                            Text(
-                              txnId,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Container(height: 24, width: 1, color: Colors.white24),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 8),
-                          const Icon(Icons.receipt_long_rounded, size: 16, color: Color(0xFFA78BFA)),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text("Payment via", style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 10)),
-                                SizedBox(height: 2),
-                                Text("Evegah Wallet", style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),

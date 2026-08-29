@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import 'kyc_preview_screen.dart';
@@ -232,6 +233,25 @@ class _KycCameraScreenState
   // CAPTURE PHOTO
   // =========================================================
 
+  Future<String> _processAndUnmirrorSelfie(String capturedPath) async {
+    try {
+      final bytes = await File(capturedPath).readAsBytes();
+      img.Image? decoded = img.decodeImage(bytes);
+      if (decoded != null) {
+        img.Image unmirrored = img.flipHorizontal(decoded);
+        final unmirroredBytes = img.encodeJpg(unmirrored, quality: 92);
+        final newPath = capturedPath.replaceAll('.jpg', '_unmirrored.jpg').replaceAll('.jpeg', '_unmirrored.jpeg');
+        final outPath = newPath.contains('_unmirrored') ? newPath : '${capturedPath}_unmirrored.jpg';
+        final outFile = File(outPath);
+        await outFile.writeAsBytes(unmirroredBytes);
+        return outFile.path;
+      }
+    } catch (e) {
+      debugPrint("Selfie unmirroring error: $e");
+    }
+    return capturedPath;
+  }
+
   Future<void> _capturePhoto() async {
     final CameraController? controller =
         _cameraController;
@@ -254,8 +274,15 @@ class _KycCameraScreenState
         return;
       }
 
+      String finalPath = capturedImage.path;
+      if (widget.step == KycStep.selfie &&
+          _cameras.isNotEmpty &&
+          _cameras[_selectedCameraIndex].lensDirection == CameraLensDirection.front) {
+        finalPath = await _processAndUnmirrorSelfie(capturedImage.path);
+      }
+
       await _openPreview(
-        capturedImage.path,
+        finalPath,
       );
     } catch (error) {
       if (mounted) {

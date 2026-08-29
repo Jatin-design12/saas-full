@@ -21,7 +21,7 @@ class _KycUploadScreenState extends State<KycUploadScreen> {
   String selfieFile = "";
 
   Future<void> pickFile(String type) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    FilePickerResult? result = await FilePicker.instance.pickFiles();
 
     if (result != null) {
       String fileName = result.files.single.name;

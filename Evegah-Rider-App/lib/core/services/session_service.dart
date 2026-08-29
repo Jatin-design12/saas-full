@@ -116,6 +116,7 @@ class SessionService {
     required String age,
     required String address,
     String email = "",
+    String aadhaar = "",
   }) async {
     _cachedProfile = {
       "name": name,
@@ -123,6 +124,7 @@ class SessionService {
       "age": age,
       "address": address,
       "email": email,
+      "aadhaar": aadhaar.isNotEmpty ? aadhaar : (_cachedProfile["aadhaar"] ?? ""),
     };
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -131,6 +133,9 @@ class SessionService {
     await prefs.setString("user_age", age);
     await prefs.setString("user_address", address);
     await prefs.setString("user_email", email);
+    if (aadhaar.isNotEmpty) {
+      await prefs.setString("user_aadhaar", aadhaar);
+    }
   }
 
   // GET USER PROFILE (Instant from cache)
@@ -143,15 +148,30 @@ class SessionService {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     _cachedProfile = {
       "name": prefs.getString("user_name") ?? "",
-      "gender": prefs.getString("user_gender") ?? "Male",
+      "gender": prefs.getString("user_gender") ?? "",
       "age": prefs.getString("user_age") ?? "",
       "address": prefs.getString("user_address") ?? "",
       "email": prefs.getString("user_email") ?? "",
+      "aadhaar": prefs.getString("user_aadhaar") ?? "",
     };
     return _cachedProfile;
   }
 
-  // CHECK HAS COMPLETED PROFILE (Name filled)
+  Future<void> saveUserProfileImage(String path) async {
+    _cachedProfile["profile_image"] = path;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString("user_profile_image", path);
+  }
+
+  Future<String?> getUserProfileImage() async {
+    if (_cachedProfile["profile_image"] != null && _cachedProfile["profile_image"]!.isNotEmpty) {
+      return _cachedProfile["profile_image"];
+    }
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final img = prefs.getString("user_profile_image");
+    if (img != null) _cachedProfile["profile_image"] = img;
+    return img;
+  }
   Future<bool> hasCompletedProfile() async {
     if (_cachedProfile["name"] != null && _cachedProfile["name"]!.trim().isNotEmpty) {
       return true;

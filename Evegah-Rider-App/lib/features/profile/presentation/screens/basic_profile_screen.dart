@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/services/profile_service.dart';
+import '../../../kyc/presentation/screens/kyc_screen.dart';
 
 class BasicProfileScreen extends StatefulWidget {
   const BasicProfileScreen({super.key});
@@ -23,6 +24,7 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _aadhaarController = TextEditingController();
 
   String _selectedGender = "Male";
   bool _isSaving = false;
@@ -49,6 +51,10 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
           ? _profileService.userAddress
           : "";
 
+      _aadhaarController.text = _profileService.aadhaarNumber.isNotEmpty
+          ? _profileService.aadhaarNumber
+          : "";
+
       _selectedGender = _profileService.userGender.isNotEmpty
           ? _profileService.userGender
           : "Male";
@@ -60,6 +66,7 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
     _nameController.dispose();
     _dobController.dispose();
     _addressController.dispose();
+    _aadhaarController.dispose();
     super.dispose();
   }
 
@@ -492,6 +499,81 @@ class _BasicProfileScreenState extends State<BasicProfileScreen> {
                             controller: _addressController,
                             maxLines: 3,
                           ),
+
+                          // AADHAAR NUMBER FIELD - AVAILABLE AFTER KYC DONE
+                          if (_profileService.kycStatus == "Approved" ||
+                              _profileService.kycStatus == "Verified" ||
+                              _profileService.aadhaarNumber.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildLabel("Aadhaar Number"),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFDCFCE7),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.verified_user_rounded, size: 12, color: Color(0xFF16A34A)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        "KYC Verified",
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            _buildTextField(
+                              hint: "XXXX XXXX XXXX",
+                              prefixIcon: Icons.badge_outlined,
+                              controller: _aadhaarController,
+                              readOnly: true,
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 24),
+                            _buildLabel("Aadhaar Number"),
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.lock_outline_rounded, color: Color(0xFF94A3B8), size: 20),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Text(
+                                      "Available after KYC completion",
+                                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(context, MaterialPageRoute(builder: (_) => const KycScreen()));
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF4313B8),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: const Text("Do KYC", style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

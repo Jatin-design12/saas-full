@@ -27,6 +27,14 @@ class _BmsScreenState extends State<BmsScreen> {
   void initState() {
     super.initState();
     _fetchActiveBooking();
+    _triggerAutoConnect();
+  }
+
+  void _triggerAutoConnect() {
+    final ble = BleBatteryService.instance;
+    if (ble.connectionState.value == BleBatteryState.disconnected) {
+      ble.autoConnectLastDevice();
+    }
   }
 
   Future<void> _fetchActiveBooking() async {
@@ -120,169 +128,330 @@ class _BmsScreenState extends State<BmsScreen> {
                 const SizedBox(height: 20),
 
                 // 2. Telemetry Details
-                if (isConnected) ...[
-                  // Battery Percentage & Core Metrics
-                  ValueListenableBuilder<double>(
-                    valueListenable: BleBatteryService.instance.batteryPercentage,
-                    builder: (context, pct, _) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4)),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            // Circular Progress
-                            Stack(
-                              alignment: Alignment.center,
+                ValueListenableBuilder<DateTime?>(
+                  valueListenable: BleBatteryService.instance.lastUpdatedTimestamp,
+                  builder: (context, lastSeen, _) {
+                    final showTelemetry = isConnected || lastSeen != null;
+
+                    if (showTelemetry) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Timestamp / Connection Status Header
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isConnected ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isConnected ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A),
+                              ),
+                            ),
+                            child: Row(
                               children: [
-                                SizedBox(
-                                  width: 130,
-                                  height: 130,
-                                  child: CircularProgressIndicator(
-                                    value: pct / 100.0,
-                                    strokeWidth: 9,
-                                    backgroundColor: const Color(0xFFF1F5F9),
-                                    color: const Color(0xFF10B981),
+                                Icon(
+                                  isConnected ? Icons.sensors_rounded : Icons.history_rounded,
+                                  size: 18,
+                                  color: isConnected ? const Color(0xFF059669) : const Color(0xFFD97706),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isConnected ? "LIVE TELEMETRY ACTIVE" : "OFFLINE • PRESERVED LAST DATA",
+                                        style: TextStyle(
+                                          color: isConnected ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      Text(
+                                        lastSeen != null
+                                            ? "Last updated: ${lastSeen.hour.toString().padLeft(2, '0')}:${lastSeen.minute.toString().padLeft(2, '0')}:${lastSeen.second.toString().padLeft(2, '0')}"
+                                            : "Receiving BLE telemetry packets...",
+                                        style: TextStyle(
+                                          color: isConnected ? const Color(0xFF047857) : const Color(0xFFB45309),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
+                              ],
+                            ),
+                          ),
+
+                          // Battery Percentage & Core Metrics
+                          ValueListenableBuilder<double>(
+                            valueListenable: BleBatteryService.instance.batteryPercentage,
+                            builder: (context, pct, _) {
+                              return Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4)),
+                                  ],
+                                ),
+                                child: Column(
                                   children: [
-                                    Text(
-                                      "${pct.toStringAsFixed(0)}%",
-                                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                                    // Circular Progress
+                                    Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 130,
+                                          height: 130,
+                                          child: CircularProgressIndicator(
+                                            value: pct / 100.0,
+                                            strokeWidth: 9,
+                                            backgroundColor: const Color(0xFFF1F5F9),
+                                            color: isConnected ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                          ),
+                                        ),
+                                        Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              "${pct.toStringAsFixed(0)}%",
+                                              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                                            ),
+                                            Text(
+                                              isConnected ? "State of Charge" : "Last Known SOC",
+                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                    const Text(
-                                      "SOC STATUS",
-                                      style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                    const SizedBox(height: 24),
+                                    // Row 1: Voltage, Current, Temp
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ValueListenableBuilder<double>(
+                                            valueListenable: BleBatteryService.instance.voltage,
+                                            builder: (context, v, _) => _buildMetricTile("Voltage", "${v.toStringAsFixed(1)} V", Icons.electric_bolt_rounded, const Color(0xFF3B82F6)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: ValueListenableBuilder<double>(
+                                            valueListenable: BleBatteryService.instance.current,
+                                            builder: (context, c, _) => _buildMetricTile("Current", "${c.toStringAsFixed(1)} A", Icons.speed_rounded, const Color(0xFFF59E0B)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: ValueListenableBuilder<double>(
+                                            valueListenable: BleBatteryService.instance.temperature,
+                                            builder: (context, t, _) => _buildMetricTile("Temp", "${t.toStringAsFixed(0)} °C", Icons.thermostat_rounded, const Color(0xFFEF4444)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Row 2: Health, Cycles, Capacity
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ValueListenableBuilder<int>(
+                                            valueListenable: BleBatteryService.instance.health,
+                                            builder: (context, h, _) => _buildMetricTile("Health (SOH)", "$h %", Icons.favorite_rounded, const Color(0xFF10B981)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: ValueListenableBuilder<int>(
+                                            valueListenable: BleBatteryService.instance.cycles,
+                                            builder: (context, cy, _) => _buildMetricTile("Cycles", "$cy", Icons.autorenew_rounded, const Color(0xFF8B5CF6)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: ValueListenableBuilder<double>(
+                                            valueListenable: BleBatteryService.instance.remainingCapacity,
+                                            builder: (context, cap, _) => _buildMetricTile("Capacity", "${cap.toStringAsFixed(1)} Ah", Icons.battery_charging_full_rounded, const Color(0xFF06B6D4)),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            // Metrics Grid
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _buildSpecItem("Voltage", "72.4 V", Icons.bolt_rounded, const Color(0xFFEAB308)),
-                                _buildSpecItem("Current", "-1.8 A", Icons.offline_bolt_rounded, const Color(0xFF3B82F6)),
-                                _buildSpecItem("Temp", "32°C", Icons.thermostat_rounded, const Color(0xFFEF4444)),
-                                _buildSpecItem("Health", "98% SOH", Icons.favorite_rounded, const Color(0xFFEC4899)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
 
-                  // BMS Safety Indicators
-                  const Text("BMS Status Indicators", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        _buildStatusRow("Overvoltage Protection", "Normal", true),
-                        const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                        _buildStatusRow("Undervoltage Protection", "Normal", true),
-                        const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                        _buildStatusRow("Overcurrent Protection", "Normal", true),
-                        const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                        _buildStatusRow("Overtemperature Protection", "Normal", true),
-                        const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                        _buildStatusRow("Cell Balancing", "Active", true, highlightColor: const Color(0xFF10B981)),
-                        const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                        _buildStatusRow("BMS Chip State", "Running OK", true),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                          // MOS Protection States
+                          ValueListenableBuilder<bool>(
+                            valueListenable: BleBatteryService.instance.chargeMos,
+                            builder: (context, chgMos, _) {
+                              return ValueListenableBuilder<bool>(
+                                valueListenable: BleBatteryService.instance.dischargeMos,
+                                builder: (context, disMos, _) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                chgMos ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                                                color: chgMos ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "Charge MOS: ${chgMos ? 'ON' : 'OFF'}",
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                disMos ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                                                color: disMos ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "Discharge MOS: ${disMos ? 'ON' : 'OFF'}",
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
 
-                  // 16S Cells
-                  const Text("Cell Voltage Monitor (16S)", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                  const SizedBox(height: 10),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 1.6,
-                    ),
-                    itemCount: _cellVoltages.length,
-                    itemBuilder: (context, index) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Cell ${index + 1}",
-                              style: const TextStyle(fontSize: 8, color: Color(0xFF94A3B8), fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              "${_cellVoltages[index].toStringAsFixed(2)}V",
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF200F54)),
-                            ),
-                          ],
-                        ),
+                          // 16S Cell Voltages Grid
+                          ValueListenableBuilder<List<double>>(
+                            valueListenable: BleBatteryService.instance.cellVoltages,
+                            builder: (context, cells, _) {
+                              if (cells.isEmpty) return const SizedBox.shrink();
+                              return Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(18),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          "CELL VOLTAGES",
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF4313B8), letterSpacing: 0.8),
+                                        ),
+                                        Text(
+                                          "${cells.length} Cells Active",
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    GridView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 4,
+                                        childAspectRatio: 1.8,
+                                        crossAxisSpacing: 6,
+                                        mainAxisSpacing: 6,
+                                      ),
+                                      itemCount: cells.length,
+                                      itemBuilder: (context, index) {
+                                        final cellV = cells[index];
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                "C${index + 1}",
+                                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                "${cellV.toStringAsFixed(3)}V",
+                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       );
-                    },
-                  ),
-                ] else ...[
-                  // Disconnected Fallback Instructions
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.bluetooth_searching_rounded, size: 54, color: const Color(0xFF94A3B8).withOpacity(0.5)),
-                        const SizedBox(height: 16),
-                        const Text(
-                          "BMS Telemetry Offline",
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "Please tap 'Scan & Connect Battery' in the card above to scan for and connect to your smart battery.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), height: 1.4),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                    }
+
+                    return Container(
+                      width: double.infinity,
+                      height: 180,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.bluetooth_searching_rounded, size: 54, color: const Color(0xFF94A3B8).withOpacity(0.5)),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "BMS Telemetry Offline",
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "Please tap 'Scan & Connect Battery' in the card above to scan for and connect to your DL-BMS smart battery.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), height: 1.4),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           );
@@ -479,26 +648,72 @@ class _BmsScreenState extends State<BmsScreen> {
               ),
             )
           else
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const BluetoothScanDialog(),
-                  );
-                },
-                icon: const Icon(Icons.bluetooth_searching_rounded, size: 16),
-                label: const Text("Scan & Connect Battery", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF200F54),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      BleBatteryService.instance.autoConnectLastDevice();
+                    },
+                    icon: const Icon(Icons.flash_on_rounded, size: 16),
+                    label: const Text("⚡ Auto-Connect / Reconnect BMS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF200F54),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const BluetoothScanDialog(),
+                      );
+                    },
+                    icon: const Icon(Icons.bluetooth_searching_rounded, size: 16, color: Color(0xFF475569)),
+                    label: const Text("Scan New DL- Series BMS", style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+          ),
         ],
       ),
     );

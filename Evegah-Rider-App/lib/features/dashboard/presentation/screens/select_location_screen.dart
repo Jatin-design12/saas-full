@@ -121,13 +121,18 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       double zoneLat = 22.3072;
       double zoneLng = 73.1812;
       
-      if (zone['center'] != null) {
+      if (zone['center'] != null && zone['center']['lat'] != null && zone['center']['lng'] != null) {
         zoneLat = (zone['center']['lat'] as num).toDouble();
         zoneLng = (zone['center']['lng'] as num).toDouble();
       } else if (zone['points'] != null && (zone['points'] as List).isNotEmpty) {
         final firstPt = zone['points'][0];
-        zoneLat = (firstPt['lat'] as num).toDouble();
-        zoneLng = (firstPt['lng'] as num).toDouble();
+        if (firstPt != null && firstPt['lat'] != null && firstPt['lng'] != null) {
+          zoneLat = (firstPt['lat'] as num).toDouble();
+          zoneLng = (firstPt['lng'] as num).toDouble();
+        }
+      } else if (zone['lat'] != null && zone['lng'] != null) {
+        zoneLat = (zone['lat'] as num).toDouble();
+        zoneLng = (zone['lng'] as num).toDouble();
       }
 
       double distanceMeters = Geolocator.distanceBetween(
@@ -138,10 +143,13 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       );
 
       double distanceKm = distanceMeters / 1000.0;
+      String formattedDist = distanceKm < 1.0
+          ? "${(distanceKm * 1000).round()} m away"
+          : "${distanceKm.toStringAsFixed(1)} km away";
       
       updated.add({
         ...zone,
-        "distance": "${distanceKm.toStringAsFixed(1)} km",
+        "distance": formattedDist,
         "distanceVal": distanceKm,
       });
     }
@@ -177,7 +185,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 ...Map<String, dynamic>.from(z as Map),
                 "id": z['id'],
                 "name": z['name'] ?? '',
-                "distance": z['distance'] ?? "1.5 km",
+                "distance": z['distance'] != null ? z['distance'].toString() : "-- km",
                 "address": z['address'] ?? z['locality'] ?? '',
                 "phone": z['phone'] ?? z['contact_number'] ?? z['contact'] ?? "+91 98765 43210",
                 "image_url": z['image_url'] ?? z['image'] ?? "",

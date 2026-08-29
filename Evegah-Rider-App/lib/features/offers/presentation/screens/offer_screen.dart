@@ -486,7 +486,7 @@ class _OfferScreenState extends State<OfferScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: Image.asset(
-                          'promotion.png',
+                          'assets/promotion.png',
                           fit: BoxFit.cover,
                           width: double.infinity,
                         ),

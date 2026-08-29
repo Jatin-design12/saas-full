@@ -1129,8 +1129,8 @@ class _RentEvScreenState extends State<RentEvScreen> {
             : "+91 98765 43210";
             
     String mapLink = activeZone['map_link'] ?? "https://maps.google.com/?q=${activeZone['name'] ?? 'Gotri'},Vadodara";
-    String distance = activeZone['distance'] ?? "1.8 km";
-    if (!distance.contains("km")) {
+    String distance = activeZone['distance'] != null ? activeZone['distance'].toString() : "Nearby";
+    if (!distance.contains("km") && !distance.contains("m") && !distance.contains("Nearby")) {
       distance = "$distance km";
     }
 

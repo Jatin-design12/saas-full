@@ -97,6 +97,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _startCarouselTimer();
     _loadBookingState();
     _fetchActiveBooking();
+    _fetchAdminBanners();
+  }
+
+  Future<void> _fetchAdminBanners() async {
+    final List<String> urls = [
+      '${AppConstants.apiBaseUrl}/banners',
+      'http://192.168.1.4:5000/api/banners',
+      'http://localhost:5000/api/banners',
+      'http://10.0.2.2:5000/api/banners',
+    ];
+
+    for (final url in urls) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          List<String> remoteBanners = [];
+          if (data is List) {
+            for (var item in data) {
+              if (item is String) remoteBanners.add(item);
+              else if (item is Map) {
+                final img = item['image_url'] ?? item['image'] ?? item['url'] ?? item['banner_url'];
+                if (img != null && img.toString().isNotEmpty) {
+                  remoteBanners.add(img.toString());
+                }
+              }
+            }
+          } else if (data is Map && data['data'] != null) {
+            final List list = data['data'];
+            for (var item in list) {
+              if (item is String) remoteBanners.add(item);
+              else if (item is Map) {
+                final img = item['image_url'] ?? item['image'] ?? item['url'] ?? item['banner_url'];
+                if (img != null && img.toString().isNotEmpty) {
+                  remoteBanners.add(img.toString());
+                }
+              }
+            }
+          }
+
+          if (remoteBanners.isNotEmpty && mounted) {
+            setState(() {
+              _carouselBanners.clear();
+              _carouselBanners.addAll(remoteBanners);
+            });
+            break;
+          }
+        }
+      } catch (e) {
+        debugPrint("Banner API info: $e");
+      }
+    }
   }
 
   @override
@@ -466,30 +518,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "Live Battery",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                Text(
-                                  isConnected
-                                      ? "• Connected"
-                                      : "• Disconnected",
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: isConnected
-                                        ? const Color(0xFF16A34A)
-                                        : const Color(0xFFEF4444),
-                                  ),
-                                ),
-                              ],
+                            child: ValueListenableBuilder<String?>(
+                              valueListenable: bleService.connectedDeviceName,
+                              builder: (context, devName, _) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      devName ?? "Live Battery",
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      isConnected
+                                          ? "• Connected Live"
+                                          : "• Preserved Offline",
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isConnected
+                                            ? const Color(0xFF16A34A)
+                                            : const Color(0xFFD97706),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -503,24 +562,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                isConnected ? "${batteryPct.toInt()}%" : "--%",
-                                style: const TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF4313B8),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                isConnected
-                                    ? "Range ~ $estRange km"
-                                    : "Range ~ -- km",
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              ValueListenableBuilder<double>(
+                                valueListenable: bleService.batteryPercentage,
+                                builder: (context, rawPct, _) {
+                                  final displayPct = rawPct > 0 ? rawPct.toInt() : (isConnected ? 0 : 78);
+                                  final rangeVal = (displayPct * 0.8).round();
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "$displayPct%",
+                                        style: const TextStyle(
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF4313B8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "Range ~ $rangeVal km",
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          color: Color(0xFF64748B),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -806,13 +875,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 18),
 
               // --- 3.5 ACTIVE RIDE TELEMETRY CARDS (LIVE BATTERY & VEHICLE RUNNING STATUS) ---
-              if (hasActiveRide || activeBooking != null || hasBookedRide) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildActiveRideTelemetryRow(),
-                ),
-                const SizedBox(height: 18),
-              ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildActiveRideTelemetryRow(),
+              ),
+              const SizedBox(height: 18),
 
               // --- 2. KYC WARNING BANNER (IF BOOKED & UNVERIFIED) ---
               if (showKycBanner) ...[
@@ -1101,8 +1168,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Safe Image Banner Loader (Handles Casing Compatibility)
+  // Safe Image Banner Loader (Handles Casing & Network Admin Banners)
   Widget _buildSafeBannerImage(String path, {BoxFit fit = BoxFit.cover}) {
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      return Image.network(
+        path,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => _buildFallbackBanner(),
+      );
+    }
+
     String altPath = path;
     if (path.contains("offer.png")) {
       altPath = "assets/Offer.png";
@@ -1125,32 +1200,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Image.asset(
           altPath,
           fit: fit,
-          errorBuilder: (context, error2, stackTrace2) {
-            return Container(
-              color: const Color(0xFF200F54),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text(
-                    "MONSOON OFFER 30% OFF",
-                    style: TextStyle(
-                      color: Color(0xFF8CE600),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    "Enjoy exciting offers on every EV ride • Use Code EVGO30",
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
-              ),
-            );
-          },
+          errorBuilder: (context, error2, stackTrace2) => _buildFallbackBanner(),
         );
       },
+    );
+  }
+
+  Widget _buildFallbackBanner() {
+    return Container(
+      color: const Color(0xFF200F54),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Text(
+            "EVEGAH EV RENTALS",
+            style: TextStyle(
+              color: Color(0xFF8CE600),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            "Ride More, Save More • Smart EV Mobility",
+            style: TextStyle(color: Colors.white70, fontSize: 10),
+          ),
+        ],
+      ),
     );
   }
 

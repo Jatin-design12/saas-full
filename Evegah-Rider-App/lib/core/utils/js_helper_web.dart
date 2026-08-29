@@ -1,3 +1,1 @@
-import 'dart:js' as js;
-
-dynamic allowInterop(Function f) => js.allowInterop(f);
+dynamic allowInterop(Function f) => f;

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -436,13 +437,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               width: 2,
                             ),
                           ),
-                          child: Text(
-                            _getInitials(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                            ),
+                          child: ClipOval(
+                            child: _profileService.profileImagePath != null &&
+                                    _profileService.profileImagePath!.isNotEmpty &&
+                                    File(_profileService.profileImagePath!).existsSync()
+                                ? Image.file(
+                                    File(_profileService.profileImagePath!),
+                                    width: 78,
+                                    height: 78,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Text(
+                                    _getInitials(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
                           ),
                         ),
                         Positioned(

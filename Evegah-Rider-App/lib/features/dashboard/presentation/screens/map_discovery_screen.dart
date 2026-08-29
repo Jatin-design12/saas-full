@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import 'vehicle_details_screen.dart';
@@ -89,6 +90,35 @@ class _MapDiscoveryScreenState extends State<MapDiscoveryScreen> {
   void initState() {
     super.initState();
     _initMarkers();
+    _getUserLocationAndCalculateDistances();
+  }
+
+  Future<void> _getUserLocationAndCalculateDistances() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition().timeout(const Duration(seconds: 3));
+      final List<Map<String, dynamic>> updated = [];
+      for (var z in _allZones) {
+        final double zLat = (z['lat'] as num).toDouble();
+        final double zLng = (z['lng'] as num).toDouble();
+        final double distMeters = Geolocator.distanceBetween(pos.latitude, pos.longitude, zLat, zLng);
+        final double distKm = distMeters / 1000.0;
+        final String distStr = distKm < 1.0 ? "${(distKm * 1000).round()} m away" : "${distKm.toStringAsFixed(1)} km away";
+        updated.add({
+          ...z,
+          'distance': distStr,
+          'distanceVal': distKm,
+        });
+      }
+      updated.sort((a, b) => (a['distanceVal'] as double).compareTo(b['distanceVal'] as double));
+      if (mounted) {
+        setState(() {
+          _allZones.clear();
+          _allZones.addAll(updated);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error calculating map discovery zone distances: $e");
+    }
   }
 
   void _initMarkers() {

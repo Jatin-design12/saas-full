@@ -31,6 +31,7 @@ class ProfileService {
   String dateOfBirth = "";
 
   String address = "";
+  String aadhaarNumber = "";
 
   String kycStatus = "Verified";
 
@@ -68,6 +69,10 @@ class ProfileService {
     if (profile['address'] != null && profile['address']!.isNotEmpty) {
       address = profile['address']!;
     }
+    if (profile['aadhaar'] != null && profile['aadhaar']!.isNotEmpty) {
+      aadhaarNumber = profile['aadhaar']!;
+    }
+    profileImagePath = await session.getUserProfileImage();
   }
 
   // =========================================================

@@ -410,7 +410,7 @@ class _KycScreenState extends State<KycScreen> {
                       child: Stack(
                         children: [
                           Image.asset(
-                            'kyc_banner.png',
+                            'assets/kyc_banner.png',
                             fit: BoxFit.cover,
                             width: double.infinity,
                             errorBuilder: (context, error, stackTrace) => Container(
