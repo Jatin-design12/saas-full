@@ -15,15 +15,15 @@ const db = require('../db');
 })();
 
 // Fallback static mock data representing exact schema
-const MOCK_RENTERS = [
-  { rider_name: 'Amit Kumar', mobile: '+91 98765 43210', vehicle_id: 'EV-450X-202401', battery_id: 'BAT-450X-12340001', package_name: 'Weekly Pro', rental_start_date: '2026-06-10T00:00:00.000Z', return_date: '2026-06-17T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
-  { rider_name: 'Neha Gupta', mobile: '+91 91254 56789', vehicle_id: 'EV-450X-202402', battery_id: 'BAT-450X-12340002', package_name: 'Monthly Starter', rental_start_date: '2026-05-15T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Retain Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' },
-  { rider_name: 'Rohit Singh', mobile: '+91 99876 54321', vehicle_id: 'EV-450X-202403', battery_id: 'BAT-450X-12340003', package_name: 'Daily Lite', rental_start_date: '2026-06-13T00:00:00.000Z', return_date: '2026-06-14T00:00:00.000Z', status: 'Return', rent: '500.00', deposit: '500.00', total: '1000.00' },
-  { rider_name: 'Sneha Reddy', mobile: '+91 87654 32109', vehicle_id: 'EV-450X-202404', battery_id: 'BAT-450X-12340004', package_name: 'Weekly Pro', rental_start_date: '2026-06-01T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Extend', rent: '3000.00', deposit: '1000.00', total: '4000.00' },
-  { rider_name: 'Vikram Patel', mobile: '+91 78945 61230', vehicle_id: 'EV-450X-202405', battery_id: 'BAT-450X-12340005', package_name: 'Monthly Business', rental_start_date: '2026-06-05T00:00:00.000Z', return_date: '2026-07-05T00:00:00.000Z', status: 'Active Ride', rent: '8000.00', deposit: '3000.00', total: '11000.00' },
-  { rider_name: 'Priya Sharma', mobile: '+91 91234 56789', vehicle_id: 'EV-450X-202406', battery_id: 'BAT-450X-12340006', package_name: 'Weekly Pro', rental_start_date: '2026-06-08T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
-  { rider_name: 'Rahul Verma', mobile: '+91 98123 45678', vehicle_id: 'EV-450X-202407', battery_id: 'BAT-450X-12340007', package_name: 'Daily Lite', rental_start_date: '2026-06-12T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Extend', rent: '1000.00', deposit: '500.00', total: '1500.00' },
-  { rider_name: 'Pooja Patel', mobile: '+91 99123 45678', vehicle_id: 'EV-450X-202408', battery_id: 'BAT-450X-12340008', package_name: 'Monthly Starter', rental_start_date: '2026-05-20T00:00:00.000Z', return_date: '2026-06-20T00:00:00.000Z', status: 'Active Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' }
+let MOCK_RENTERS = [
+  { id: '1', rider_name: 'Amit Kumar', mobile: '+91 98765 43210', vehicle_id: 'EV-450X-202401', battery_id: 'BAT-450X-12340001', package_name: 'Weekly Pro', rental_start_date: '2026-06-10T00:00:00.000Z', return_date: '2026-06-17T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
+  { id: '2', rider_name: 'Neha Gupta', mobile: '+91 91254 56789', vehicle_id: 'EV-450X-202402', battery_id: 'BAT-450X-12340002', package_name: 'Monthly Starter', rental_start_date: '2026-05-15T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Retain Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' },
+  { id: '3', rider_name: 'Rohit Singh', mobile: '+91 99876 54321', vehicle_id: 'EV-450X-202403', battery_id: 'BAT-450X-12340003', package_name: 'Daily Lite', rental_start_date: '2026-06-13T00:00:00.000Z', return_date: '2026-06-14T00:00:00.000Z', status: 'Return', rent: '500.00', deposit: '500.00', total: '1000.00' },
+  { id: '4', rider_name: 'Sneha Reddy', mobile: '+91 87654 32109', vehicle_id: 'EV-450X-202404', battery_id: 'BAT-450X-12340004', package_name: 'Weekly Pro', rental_start_date: '2026-06-01T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Extend', rent: '3000.00', deposit: '1000.00', total: '4000.00' },
+  { id: '5', rider_name: 'Vikram Patel', mobile: '+91 78945 61230', vehicle_id: 'EV-450X-202405', battery_id: 'BAT-450X-12340005', package_name: 'Monthly Business', rental_start_date: '2026-06-05T00:00:00.000Z', return_date: '2026-07-05T00:00:00.000Z', status: 'Active Ride', rent: '8000.00', deposit: '3000.00', total: '11000.00' },
+  { id: '6', rider_name: 'Priya Sharma', mobile: '+91 91234 56789', vehicle_id: 'EV-450X-202406', battery_id: 'BAT-450X-12340006', package_name: 'Weekly Pro', rental_start_date: '2026-06-08T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
+  { id: '7', rider_name: 'Rahul Verma', mobile: '+91 98123 45678', vehicle_id: 'EV-450X-202407', battery_id: 'BAT-450X-12340007', package_name: 'Daily Lite', rental_start_date: '2026-06-12T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Extend', rent: '1000.00', deposit: '500.00', total: '1500.00' },
+  { id: '8', rider_name: 'Pooja Patel', mobile: '+91 99123 45678', vehicle_id: 'EV-450X-202408', battery_id: 'BAT-450X-12340008', package_name: 'Monthly Starter', rental_start_date: '2026-05-20T00:00:00.000Z', return_date: '2026-06-20T00:00:00.000Z', status: 'Active Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' }
 ];
 
 // GET /api/renters
@@ -35,46 +35,75 @@ router.get('/', async (req, res) => {
     const search = req.query.search || '';
     const status = req.query.status || '';
 
+    // Fetch existing renters
     let query = 'SELECT * FROM renters WHERE 1=1';
-    let countQuery = 'SELECT COUNT(*) as total FROM renters WHERE 1=1';
     const params = [];
-    const countParams = [];
     let pIdx = 1;
 
     if (search) {
       query += ` AND (rider_name ILIKE $${pIdx} OR mobile ILIKE $${pIdx} OR vehicle_id ILIKE $${pIdx} OR battery_id ILIKE $${pIdx})`;
-      countQuery += ` AND (rider_name ILIKE $${pIdx} OR mobile ILIKE $${pIdx} OR vehicle_id ILIKE $${pIdx} OR battery_id ILIKE $${pIdx})`;
       params.push(`%${search}%`);
-      countParams.push(`%${search}%`);
       pIdx++;
     }
 
     if (status) {
       query += ` AND status = $${pIdx}`;
-      countQuery += ` AND status = $${pIdx}`;
       params.push(status);
-      countParams.push(status);
       pIdx++;
     }
 
-    query += ` ORDER BY rental_start_date DESC LIMIT $${pIdx} OFFSET $${pIdx + 1}`;
-    params.push(limit, offset);
+    query += ` ORDER BY rental_start_date DESC`;
+    const rentersRes = await db.query(query, params);
+    let combinedRenters = [...rentersRes.rows];
 
-    const [rowsResult, countResult] = await Promise.all([
-      db.query(query, params),
-      db.query(countQuery, countParams)
-    ]);
+    // Fetch reserved riders from reservations table to merge into renters view
+    try {
+      let resvQuery = `SELECT id, reservation_id, customer_name, mobile, vehicle_number, battery_id, package_type, fare, deposit, status, created_at FROM reservations WHERE status != 'Cancelled'`;
+      const resvParams = [];
+      if (search) {
+        resvQuery += ` AND (customer_name ILIKE $1 OR mobile ILIKE $1 OR reservation_id ILIKE $1)`;
+        resvParams.push(`%${search}%`);
+      }
+      resvQuery += ` ORDER BY created_at DESC`;
+      const resvRes = await db.query(resvQuery, resvParams);
 
-    const total = parseInt(countResult.rows[0].total);
+      // Add reserved riders if mobile/name not already in renters
+      const existingMobiles = new Set(combinedRenters.map(r => (r.mobile || '').replace(/\D/g, '').slice(-10)));
+      for (const resv of resvRes.rows) {
+        const cleanMob = (resv.mobile || '').replace(/\D/g, '').slice(-10);
+        if (cleanMob && !existingMobiles.has(cleanMob)) {
+          existingMobiles.add(cleanMob);
+          combinedRenters.push({
+            id: resv.id,
+            rider_name: resv.customer_name || 'Reserved Rider',
+            mobile: resv.mobile,
+            vehicle_id: resv.vehicle_number || 'Reserved (Pending)',
+            battery_id: resv.battery_id || 'BAT-PENDING',
+            package_name: resv.package_type || 'Reserved Ride',
+            rental_start_date: resv.created_at || new Date(),
+            return_date: null,
+            status: resv.status === 'Confirmed' ? 'Active Ride' : (resv.status || 'Active Ride'),
+            rent: (parseFloat(resv.fare) || 1500).toFixed(2),
+            deposit: (parseFloat(resv.deposit) || 1000).toFixed(2),
+            total: ((parseFloat(resv.fare) || 1500) + (parseFloat(resv.deposit) || 1000)).toFixed(2)
+          });
+        }
+      }
+    } catch (resvErr) {
+      console.warn('Could not merge reservations into renters:', resvErr.message);
+    }
+
+    const total = combinedRenters.length;
+    const paginated = combinedRenters.slice(offset, offset + limit);
 
     res.json({
       status: 'success',
-      data: rowsResult.rows,
+      data: paginated,
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit) || 1
       }
     });
   } catch (err) {
@@ -111,7 +140,7 @@ router.get('/', async (req, res) => {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit) || 1
       }
     });
   }
@@ -199,13 +228,16 @@ router.post('/', async (req, res) => {
       package_name || 'Rider Plan',
       rental_start_date || new Date(),
       return_date || null,
-      status || 'Active',
-      rent || 0,
-      deposit || 0,
-      total || 0
+      status || 'Active Ride',
+      parseFloat(rent) || 1500.00,
+      parseFloat(deposit) || 1000.00,
+      parseFloat(total) || 2500.00
     ]);
 
-    res.json({ status: 'success', message: 'Renter registered successfully', data: result.rows[0] });
+    // Keep mock list in sync
+    MOCK_RENTERS.unshift(result.rows[0]);
+
+    res.json({ status: 'success', message: 'Renter created successfully', data: result.rows[0] });
   } catch (err) {
     console.error('Failed to add/update renter in DB:', err);
     res.json({ status: 'success', message: 'Renter processed', data: req.body });
@@ -220,17 +252,34 @@ router.delete('/', async (req, res) => {
 
   try {
     if (targetIds.length > 0) {
-      await db.query('DELETE FROM renters WHERE id::text = ANY($1::text[])', [targetIds]);
+      try {
+        await db.query('DELETE FROM renters WHERE id::text = ANY($1::text[])', [targetIds]);
+        await db.query('DELETE FROM reservations WHERE id::text = ANY($1::text[]) OR reservation_id = ANY($1::text[])', [targetIds]);
+      } catch (e) {}
+
+      // Remove from MOCK_RENTERS
+      MOCK_RENTERS = MOCK_RENTERS.filter(r => !targetIds.includes(r.id));
     }
+
     if (targetMobiles.length > 0) {
       for (const m of targetMobiles) {
         const clean = m.replace(/\D/g, '');
         const last10 = clean.length >= 10 ? clean.slice(-10) : clean;
         if (last10) {
-          await db.query('DELETE FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2', [`%${last10}%`, `%${clean}%`]);
+          try {
+            await db.query('DELETE FROM renters WHERE mobile LIKE $1 OR mobile LIKE $2', [`%${last10}%`, `%${clean}%`]);
+            await db.query('DELETE FROM reservations WHERE mobile LIKE $1 OR mobile LIKE $2', [`%${last10}%`, `%${clean}%`]);
+          } catch (e) {}
+
+          // Remove from MOCK_RENTERS
+          MOCK_RENTERS = MOCK_RENTERS.filter(r => {
+            const rClean = (r.mobile || '').replace(/\D/g, '');
+            return !rClean.includes(last10) && !rClean.includes(clean);
+          });
         }
       }
     }
+
     res.json({ status: 'success', message: 'Selected renter(s) deleted successfully' });
   } catch (err) {
     console.error('Error deleting renters:', err);

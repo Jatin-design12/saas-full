@@ -381,10 +381,12 @@ export default function RentersPage() {
   const confirmDeleteRiders = async () => {
     setDeleting(true);
     try {
-      await api.delete('/renters', { mobiles: mobilesToDelete });
-      setRenters(prev => prev.filter(r => !mobilesToDelete.includes(r.mobile)));
+      const idsToDelete = renters.filter(r => mobilesToDelete.includes(r.mobile) || (r.id && mobilesToDelete.includes(r.id))).map(r => r.id).filter(Boolean);
+      await api.delete('/renters', { mobiles: mobilesToDelete, ids: idsToDelete });
+      setRenters(prev => prev.filter(r => !mobilesToDelete.includes(r.mobile) && !idsToDelete.includes(r.id)));
       setSelectedMobiles(prev => prev.filter(m => !mobilesToDelete.includes(m)));
       showToast(`Selected rider(s) deleted successfully. 🗑️`);
+      fetchRenters();
     } catch (e) {
       console.error('Delete renters error:', e);
       // Optimistic local deletion fallback

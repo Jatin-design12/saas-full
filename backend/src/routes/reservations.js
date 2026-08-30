@@ -35,6 +35,7 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const search = req.query.search || '';
     const status = req.query.status || '';
+    const mobile = req.query.mobile || '';
 
     let query = 'SELECT * FROM reservations WHERE 1=1';
     let countQuery = 'SELECT COUNT(*) as total FROM reservations WHERE 1=1';
@@ -48,6 +49,18 @@ router.get('/', async (req, res) => {
       params.push(`%${search}%`);
       countParams.push(`%${search}%`);
       pIdx++;
+    }
+
+    if (mobile) {
+      const cleanMobile = mobile.replace(/\D/g, '');
+      const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+      if (last10) {
+        query += ` AND (mobile LIKE $${pIdx} OR mobile LIKE $${pIdx + 1})`;
+        countQuery += ` AND (mobile LIKE $${pIdx} OR mobile LIKE $${pIdx + 1})`;
+        params.push(`%${last10}%`, `%${cleanMobile}%`);
+        countParams.push(`%${last10}%`, `%${cleanMobile}%`);
+        pIdx += 2;
+      }
     }
 
     if (status) {
@@ -102,6 +115,7 @@ router.get('/', async (req, res) => {
     let filtered = [...mockList];
     const search = (req.query.search || '').toLowerCase();
     const status = (req.query.status || '');
+    const mobile = (req.query.mobile || '');
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -111,6 +125,15 @@ router.get('/', async (req, res) => {
         r.mobile.includes(search) ||
         r.reservation_id.toLowerCase().includes(search)
       );
+    }
+
+    if (mobile) {
+      const cleanMobile = mobile.replace(/\D/g, '');
+      const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+      filtered = filtered.filter(r => {
+        const rClean = r.mobile.replace(/\D/g, '');
+        return rClean.includes(last10) || rClean.includes(cleanMobile);
+      });
     }
 
     if (status) {
