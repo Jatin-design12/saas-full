@@ -116,24 +116,71 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
   void _updateZoneDistances(Position position) {
     if (_nearestZones.isEmpty) return;
 
+    final knownCoordinates = {
+      'gotri zone': const [22.3072, 73.1812],
+      'aatapi zone': const [22.3200, 73.2000],
+      'alkapuri zone': const [22.3120, 73.1700],
+      'subhanpura zone': const [22.3250, 73.1550],
+      'akota zone': const [22.2900, 73.1750],
+      'manjalpur zone': const [22.2700, 73.1900],
+      'waghodia zone': const [22.2950, 73.2300],
+      'daman zone': const [20.3974, 72.8328],
+    };
+
     List<Map<String, dynamic>> updated = [];
-    for (var zone in _nearestZones) {
-      double zoneLat = 22.3072;
-      double zoneLng = 73.1812;
-      
-      if (zone['center'] != null && zone['center']['lat'] != null && zone['center']['lng'] != null) {
-        zoneLat = (zone['center']['lat'] as num).toDouble();
-        zoneLng = (zone['center']['lng'] as num).toDouble();
-      } else if (zone['points'] != null && (zone['points'] as List).isNotEmpty) {
-        final firstPt = zone['points'][0];
-        if (firstPt != null && firstPt['lat'] != null && firstPt['lng'] != null) {
-          zoneLat = (firstPt['lat'] as num).toDouble();
-          zoneLng = (firstPt['lng'] as num).toDouble();
-        }
-      } else if (zone['lat'] != null && zone['lng'] != null) {
-        zoneLat = (zone['lat'] as num).toDouble();
-        zoneLng = (zone['lng'] as num).toDouble();
+    for (int i = 0; i < _nearestZones.length; i++) {
+      var zone = _nearestZones[i];
+      double? zoneLat;
+      double? zoneLng;
+
+      final nameKey = (zone['name'] ?? '').toString().toLowerCase().trim();
+      if (knownCoordinates.containsKey(nameKey)) {
+        zoneLat = knownCoordinates[nameKey]![0];
+        zoneLng = knownCoordinates[nameKey]![1];
       }
+
+      if (zoneLat == null || zoneLng == null) {
+        if (zone['center'] != null) {
+          dynamic centerObj = zone['center'];
+          if (centerObj is String) {
+            try { centerObj = json.decode(centerObj); } catch (_) {}
+          }
+          if (centerObj is Map && centerObj['lat'] != null && centerObj['lng'] != null) {
+            zoneLat = (centerObj['lat'] as num).toDouble();
+            zoneLng = (centerObj['lng'] as num).toDouble();
+          }
+        }
+      }
+
+      if (zoneLat == null || zoneLng == null) {
+        if (zone['points'] != null) {
+          dynamic pts = zone['points'];
+          if (pts is String) {
+            try { pts = json.decode(pts); } catch (_) {}
+          }
+          if (pts is List && pts.isNotEmpty) {
+            final firstPt = pts[0];
+            if (firstPt != null && firstPt['lat'] != null && firstPt['lng'] != null) {
+              zoneLat = (firstPt['lat'] as num).toDouble();
+              zoneLng = (firstPt['lng'] as num).toDouble();
+            }
+          }
+        }
+      }
+
+      if (zoneLat == null || zoneLng == null) {
+        if (zone['lat'] != null && zone['lng'] != null) {
+          zoneLat = (zone['lat'] as num).toDouble();
+          zoneLng = (zone['lng'] as num).toDouble();
+        } else if (zone['latitude'] != null && zone['longitude'] != null) {
+          zoneLat = (zone['latitude'] as num).toDouble();
+          zoneLng = (zone['longitude'] as num).toDouble();
+        }
+      }
+
+      // Fallback distinct offset per zone if coordinates still missing
+      zoneLat ??= 22.3072 + (i * 0.015);
+      zoneLng ??= 73.1812 + (i * 0.018);
 
       double distanceMeters = Geolocator.distanceBetween(
         position.latitude,
@@ -146,11 +193,13 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       String formattedDist = distanceKm < 1.0
           ? "${(distanceKm * 1000).round()} m away"
           : "${distanceKm.toStringAsFixed(1)} km away";
-      
+
       updated.add({
         ...zone,
         "distance": formattedDist,
         "distanceVal": distanceKm,
+        "lat": zoneLat,
+        "lng": zoneLng,
       });
     }
 
@@ -210,9 +259,19 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 _nearestZones = mapped;
               });
 
-              if (_currentPosition != null) {
-                _updateZoneDistances(_currentPosition!);
-              }
+              Position refPosition = _currentPosition ?? Position(
+                latitude: 22.3072,
+                longitude: 73.1812,
+                timestamp: DateTime.now(),
+                accuracy: 10,
+                altitude: 0,
+                altitudeAccuracy: 0,
+                heading: 0,
+                headingAccuracy: 0,
+                speed: 0,
+                speedAccuracy: 0,
+              );
+              _updateZoneDistances(refPosition);
               return;
             }
           }

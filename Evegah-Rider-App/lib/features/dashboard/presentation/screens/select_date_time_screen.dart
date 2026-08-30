@@ -103,44 +103,115 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
     _initializeDynamicPackages();
   }
 
-  void _initializeDynamicPackages() {
-    if (widget.pricing != null && widget.pricing!['packages'] != null) {
-      final List rawPkgs = widget.pricing!['packages'];
-      if (rawPkgs.isNotEmpty) {
-        packageList = [];
-        final Set<String> seenNames = {};
-        for (var pkg in rawPkgs) {
-          final name = pkg['name'] ?? '${pkg['duration']} Days';
-          final titleKey = name.toString().toLowerCase().trim();
-          if (seenNames.contains(titleKey)) {
-            continue; // Skip duplicate packages
-          }
-          seenNames.add(titleKey);
+  void _initializeDynamicPackages() async {
+    dynamic pricingObj = widget.pricing;
+    if (pricingObj is String) {
+      try { pricingObj = json.decode(pricingObj); } catch (_) {}
+    }
 
-          final durationDays = pkg['duration'] != null ? pkg['duration'].toString() : '3';
-          final price = pkg['price'] != null ? pkg['price'].toString() : '0';
-          final double priceVal = double.tryParse(price) ?? 0.0;
-          final double dailyRate = double.parse(durationDays) > 0 ? priceVal / double.parse(durationDays) : priceVal;
-          final double originalVal = priceVal * 1.3;
-          
-          packageList.add({
-            "title": name,
-            "subtitle": pkg['model'] ?? "",
-            "price": "₹${priceVal.toStringAsFixed(0)}",
-            "originalPrice": "₹${originalVal.toStringAsFixed(0)}",
-            "perDay": "₹${dailyRate.toStringAsFixed(0)} / day",
-            "savings": "Save ₹${(originalVal - priceVal).toStringAsFixed(0)}",
-            "isPopular": false,
-            "isBestValue": false,
-            "duration": int.tryParse(durationDays) ?? 3,
-          });
+    if (pricingObj == null && widget.zoneData != null) {
+      if (widget.zoneData!['pricing'] != null) {
+        pricingObj = widget.zoneData!['pricing'];
+        if (pricingObj is String) {
+          try { pricingObj = json.decode(pricingObj); } catch (_) {}
         }
-        if (packageList.isNotEmpty) {
+      } else if (widget.zoneData!['packages'] != null) {
+        pricingObj = {'packages': widget.zoneData!['packages']};
+      }
+    }
+
+    List rawPkgs = [];
+    if (pricingObj is Map && pricingObj['packages'] is List && (pricingObj['packages'] as List).isNotEmpty) {
+      rawPkgs = pricingObj['packages'];
+      if (pricingObj['pricingModel'] != null) {
+        isPackageBased = pricingObj['pricingModel'] == 'Package Based';
+      }
+    }
+
+    // If still empty, try to fetch zone pricing dynamically from backend API for widget.zoneName
+    if (rawPkgs.isEmpty && widget.zoneName != null && widget.zoneName!.isNotEmpty) {
+      try {
+        final urls = [
+          AppConstants.getLiveZones,
+          'http://192.168.1.4:5000/api/zones',
+          'http://localhost:5000/api/zones',
+        ];
+        for (final url in urls) {
+          try {
+            final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+            if (response.statusCode == 200) {
+              final data = json.decode(response.body);
+              if (data['status'] == 'success' && data['data'] is List) {
+                final List zones = data['data'];
+                final matched = zones.firstWhere(
+                  (z) => z['name'] != null && z['name'].toString().toLowerCase().trim() == widget.zoneName!.toLowerCase().trim(),
+                  orElse: () => zones.firstWhere(
+                    (z) => z['name'] != null && z['name'].toString().toLowerCase().contains(widget.zoneName!.toLowerCase()),
+                    orElse: () => null,
+                  ),
+                );
+                if (matched != null && matched['pricing'] != null) {
+                  dynamic p = matched['pricing'];
+                  if (p is String) {
+                    try { p = json.decode(p); } catch (_) {}
+                  }
+                  if (p is Map && p['packages'] is List && (p['packages'] as List).isNotEmpty) {
+                    rawPkgs = p['packages'];
+                    if (p['pricingModel'] != null) {
+                      isPackageBased = p['pricingModel'] == 'Package Based';
+                    }
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint("Failed to fetch zone dynamic packages: $e");
+      }
+    }
+
+    if (rawPkgs.isNotEmpty) {
+      List<Map<String, dynamic>> dynamicList = [];
+      final Set<String> seenNames = {};
+      for (int i = 0; i < rawPkgs.length; i++) {
+        var pkg = rawPkgs[i];
+        final name = pkg['name'] ?? '${pkg['duration'] ?? 3} Days';
+        final titleKey = name.toString().toLowerCase().trim();
+        if (seenNames.contains(titleKey)) {
+          continue;
+        }
+        seenNames.add(titleKey);
+
+        final durationDays = pkg['duration'] != null ? pkg['duration'].toString() : '3';
+        final price = pkg['price'] != null ? pkg['price'].toString() : '0';
+        final double priceVal = double.tryParse(price) ?? 0.0;
+        final double durationVal = double.tryParse(durationDays) ?? 3.0;
+        final double dailyRate = durationVal > 0 ? priceVal / durationVal : priceVal;
+        final double originalVal = priceVal * 1.3;
+
+        dynamicList.add({
+          "title": name,
+          "subtitle": pkg['model'] ?? (i == 0 ? "Most Popular" : (i == rawPkgs.length - 1 ? "Best Value" : "")),
+          "price": "₹${priceVal.toStringAsFixed(0)}",
+          "originalPrice": "₹${originalVal.toStringAsFixed(0)}",
+          "perDay": "₹${dailyRate.toStringAsFixed(0)} / day",
+          "savings": "Save ₹${(originalVal - priceVal).toStringAsFixed(0)}",
+          "isPopular": i == 0,
+          "isBestValue": i == rawPkgs.length - 1,
+          "duration": int.tryParse(durationDays) ?? 3,
+        });
+      }
+
+      if (dynamicList.isNotEmpty) {
+        setState(() {
+          packageList = dynamicList;
           selectedDurationChip = packageList[0]['title'];
           selectedPackageIndex = 0;
           final int duration = packageList[0]['duration'] ?? 3;
           _endDate = _startDate.add(Duration(days: duration));
-        }
+        });
       }
     }
   }

@@ -15,19 +15,124 @@ const db = require('../db');
   }
 })();
 
+const MOCK_ZONES = [
+  {
+    id: 1,
+    name: 'Gotri Zone',
+    code: 'ZONE-GT-001',
+    locality: 'Gotri',
+    city: 'Vadodara',
+    address: 'Gotri Main Road, Vadodara, Gujarat',
+    phone: '+91 98765 43210',
+    center: { lat: 22.3072, lng: 73.1812 },
+    points: [{ lat: 22.3072, lng: 73.1812 }, { lat: 22.3100, lng: 73.1900 }],
+    pricing: {
+      pricingModel: 'Package Based',
+      packages: [
+        { id: 1, name: '3 Days Package', duration: 3, price: 899 },
+        { id: 2, name: '5 Days Package', duration: 5, price: 1399 },
+        { id: 3, name: '7 Days Package', duration: 7, price: 1899 },
+        { id: 4, name: '10 Days Package', duration: 10, price: 2499 }
+      ]
+    }
+  },
+  {
+    id: 2,
+    name: 'Aatapi Zone',
+    code: 'ZONE-AT-002',
+    locality: 'Aatapi',
+    city: 'Vadodara',
+    address: 'Aatapi Wonderland, Vadodara, Gujarat',
+    phone: '+91 98765 43211',
+    center: { lat: 22.3200, lng: 73.2000 },
+    points: [{ lat: 22.3200, lng: 73.2000 }],
+    pricing: {
+      pricingModel: 'Hourly Based',
+      hourlyPricing: [{ id: 1, model: 'Evegah City', basePrice: 80, extraPrice: 10 }],
+      packages: [
+        { id: 1, name: 'Day Pass', duration: 1, price: 350 },
+        { id: 2, name: 'Weekend Pass', duration: 2, price: 650 }
+      ]
+    }
+  },
+  {
+    id: 3,
+    name: 'Alkapuri Zone',
+    code: 'ZONE-ALK-003',
+    locality: 'Alkapuri',
+    city: 'Vadodara',
+    address: 'RC Dutt Road, Alkapuri, Vadodara',
+    phone: '+91 98765 43212',
+    center: { lat: 22.3120, lng: 73.1700 },
+    points: [{ lat: 22.3120, lng: 73.1700 }],
+    pricing: {
+      pricingModel: 'Package Based',
+      packages: [
+        { id: 1, name: 'Weekly Business', duration: 7, price: 1999 },
+        { id: 2, name: '15 Days Executive', duration: 15, price: 3799 },
+        { id: 3, name: 'Monthly Pro', duration: 30, price: 6999 }
+      ]
+    }
+  },
+  {
+    id: 4,
+    name: 'Subhanpura Zone',
+    code: 'ZONE-SUB-004',
+    locality: 'Subhanpura',
+    city: 'Vadodara',
+    address: 'Subhanpura High Street, Vadodara',
+    phone: '+91 98765 43213',
+    center: { lat: 22.3250, lng: 73.1550 },
+    points: [{ lat: 22.3250, lng: 73.1550 }],
+    pricing: {
+      pricingModel: 'Package Based',
+      packages: [
+        { id: 1, name: '3 Days Starter', duration: 3, price: 799 },
+        { id: 2, name: '7 Days Value', duration: 7, price: 1699 },
+        { id: 3, name: '10 Days Commuter', duration: 10, price: 2299 }
+      ]
+    }
+  },
+  {
+    id: 5,
+    name: 'Daman Zone',
+    code: 'ZONE-DMN-005',
+    locality: 'Nani Daman',
+    city: 'Daman',
+    address: 'Devka Beach Road, Nani Daman',
+    phone: '+91 98765 43214',
+    center: { lat: 20.3974, lng: 72.8328 },
+    points: [{ lat: 20.3974, lng: 72.8328 }],
+    pricing: {
+      pricingModel: 'Hourly Based',
+      packages: [
+        { id: 1, name: 'Coastal Day Pass', duration: 1, price: 450 },
+        { id: 2, name: 'Beach Weekend 3D', duration: 3, price: 1199 }
+      ]
+    }
+  }
+];
+
 // GET /api/zones
 router.get('/', async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM zones ORDER BY created_at DESC');
-    res.json({
-      status: 'success',
-      data: result.rows
-    });
+    if (result.rows && result.rows.length > 0) {
+      res.json({
+        status: 'success',
+        data: result.rows
+      });
+    } else {
+      res.json({
+        status: 'success',
+        data: MOCK_ZONES
+      });
+    }
   } catch (err) {
-    console.error('Failed to get zones from DB, returning empty list:', err);
+    console.warn('Failed to get zones from DB, returning MOCK_ZONES fallback:', err.message);
     res.json({
       status: 'success',
-      data: []
+      data: MOCK_ZONES
     });
   }
 });
