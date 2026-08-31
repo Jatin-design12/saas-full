@@ -1353,7 +1353,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                 if (!isLoggedIn) {
                   final loginSuccess = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
                   );
                   if (loginSuccess != true) return;
                 }

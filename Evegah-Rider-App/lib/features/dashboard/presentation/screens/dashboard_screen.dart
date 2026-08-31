@@ -10,6 +10,7 @@ import 'select_date_time_screen.dart';
 import '../../../notifications/presentation/screens/notification_screen.dart';
 import '../../../rides/presentation/screen/ride_history_screen.dart';
 import '../../../wallet/presentation/screens/wallet_screen.dart';
+import '../../../wallet/data/services/wallet_service.dart';
 import '../../../unlock/presentation/screens/scan_qr_screen.dart';
 import '../../../kyc/data/services/kyc_service.dart';
 import '../../../../core/services/session_service.dart';
@@ -29,9 +30,12 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _carouselIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool hasActiveRide = false; // Double tap header icon toggles active ride view
+  bool hasActiveRide = false;
   bool hasBookedRide = false;
   Map<String, dynamic>? activeBooking;
+  int totalRidesCount = 0;
+  double co2SavedKg = 0.0;
+  double cleanEnergyKwh = 0.0;
   String selectedLocation = "Gotri Zone, Vadodara";
   late PageController _pageController;
   Timer? _carouselTimer;
@@ -186,10 +190,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!loggedIn) return;
 
     final mobile = await SessionService().getUserMobile() ?? "+91 98765 43210";
+    final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+    final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
+
     final urls = [
-      '${AppConstants.apiBaseUrl}/reservations?search=${Uri.encodeComponent(mobile)}',
-      'http://192.168.1.4:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
-      'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
+      '${AppConstants.apiBaseUrl}/reservations?search=${Uri.encodeComponent(last10)}',
+      'http://192.168.1.4:5000/api/reservations?search=${Uri.encodeComponent(last10)}',
+      'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(last10)}',
     ];
 
     for (final url in urls) {
@@ -201,19 +208,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {
             final List list = data['data'];
+            final count = list.length;
+
             final active = list.firstWhere(
               (r) =>
                   r['status'] == 'Confirmed' ||
-                  r['status'] == 'Upcoming' ||
-                  r['status'] == 'Ongoing',
+                  r['status'] == 'Ongoing' ||
+                  r['status'] == 'In Progress' ||
+                  r['status'] == 'Started',
               orElse: () => null,
             );
-            if (active != null) {
+
+            if (mounted) {
               setState(() {
-                activeBooking = active;
+                totalRidesCount = count;
+                co2SavedKg = count * 1.55;
+                cleanEnergyKwh = count * 2.325;
+
+                if (active != null) {
+                  activeBooking = active;
+                  hasActiveRide = (active['status'] == 'Ongoing' || active['status'] == 'In Progress' || active['status'] == 'Started' || active['status'] == 'Confirmed');
+                } else {
+                  activeBooking = null;
+                  hasActiveRide = false;
+                }
               });
-              return;
             }
+            return;
           }
         }
       } catch (e) {
@@ -874,12 +895,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 18),
 
-              // --- 3.5 ACTIVE RIDE TELEMETRY CARDS (LIVE BATTERY & VEHICLE RUNNING STATUS) ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildActiveRideTelemetryRow(),
-              ),
-              const SizedBox(height: 18),
+              // --- 3.5 ACTIVE RIDE TELEMETRY CARDS (ONLY DISPLAY WHEN RIDER HAS ACTIVE RIDE) ---
+              if (hasActiveRide) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildActiveRideTelemetryRow(),
+                ),
+                const SizedBox(height: 18),
+              ],
 
               // --- 2. KYC WARNING BANNER (IF BOOKED & UNVERIFIED) ---
               if (showKycBanner) ...[
@@ -1390,14 +1413,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildActionItem(
                 icon: Icons.account_balance_wallet_outlined,
                 title: "My Wallet",
-                subtitle: "₹1,250.00",
+                subtitle: "₹${(WalletService().mainBalance > 0 ? WalletService().mainBalance : 500.0).toStringAsFixed(2)}",
                 bgColor: const Color(0xFFF5F3FF),
                 iconColor: const Color(0xFF4313B8),
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const WalletScreen()),
                   );
+                  setState(() {});
                 },
               ),
             ],
@@ -2181,7 +2205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: _buildEcoMetricItem(
                   icon: Icons.eco_rounded,
-                  value: "12.4 kg",
+                  value: "${co2SavedKg.toStringAsFixed(1)} kg",
                   label: "CO₂ Saved",
                   color: const Color(0xFF16A34A),
                 ),
@@ -2190,7 +2214,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: _buildEcoMetricItem(
                   icon: Icons.electric_scooter_rounded,
-                  value: "8 Rides",
+                  value: "$totalRidesCount Rides",
                   label: "Zero Emission",
                   color: const Color(0xFF15803D),
                 ),
@@ -2199,7 +2223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: _buildEcoMetricItem(
                   icon: Icons.bolt_rounded,
-                  value: "18.6 kWh",
+                  value: "${cleanEnergyKwh.toStringAsFixed(1)} kWh",
                   label: "Clean Energy",
                   color: const Color(0xFFD97706),
                 ),

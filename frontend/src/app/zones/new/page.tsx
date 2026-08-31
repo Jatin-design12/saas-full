@@ -1533,7 +1533,13 @@ export default function AddZonePage() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                handleInputChange('image_url', URL.createObjectURL(file));
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  if (typeof reader.result === 'string') {
+                                    handleInputChange('image_url', reader.result);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
                               }
                             }}
                           />

@@ -48,6 +48,17 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
 
   List<Map<String, dynamic>> packageList = [
     {
+      "title": "1 Day",
+      "subtitle": "Daily Pass",
+      "price": "₹349",
+      "originalPrice": "₹450",
+      "perDay": "₹349 / day",
+      "savings": "Save ₹101",
+      "isPopular": false,
+      "isBestValue": false,
+      "duration": 1,
+    },
+    {
       "title": "3 Days",
       "subtitle": "Most Popular",
       "price": "₹899",
@@ -1078,10 +1089,52 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
 
   String get zoneOperatingHoursText {
     final zd = widget.zoneData ?? {};
-    if (zd['is_24_hours'] == true) return "24 Hours Open (24x7)";
+    if (zd['is_24_hours'] == true) return "06:00 AM - 11:00 PM (Open 24x7)";
+    if (zd['hours'] != null && zd['hours'].toString().isNotEmpty && !zd['hours'].toString().contains('Open 24x7')) {
+      return zd['hours'].toString();
+    }
     final op = zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM';
     final cl = zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM';
     return "$op - $cl";
+  }
+
+  List<String> _getOperatingHoursList(String period) {
+    final zd = widget.zoneData ?? {};
+    if (zd['is_24_hours'] == true) {
+      return List.generate(12, (i) => (i + 1).toString().padLeft(2, '0'));
+    }
+
+    final opStr = (zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM').toString();
+    final clStr = (zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM').toString();
+
+    int openMin = _parseTimeToMinutes(opStr, isClose: false);
+    int closeMin = _parseTimeToMinutes(clStr, isClose: true);
+
+    List<String> validHours = [];
+    for (int h = 1; h <= 12; h++) {
+      int hour24 = h;
+      if (period == "PM" && h < 12) hour24 += 12;
+      if (period == "AM" && h == 12) hour24 = 0;
+
+      int totalMinStart = hour24 * 60;
+      int totalMinEnd = hour24 * 60 + 59;
+
+      bool isValid = false;
+      if (openMin <= closeMin) {
+        isValid = totalMinEnd >= openMin && totalMinStart <= closeMin;
+      } else {
+        isValid = totalMinEnd >= openMin || totalMinStart <= closeMin;
+      }
+
+      if (isValid) {
+        validHours.add(h.toString().padLeft(2, '0'));
+      }
+    }
+
+    if (validHours.isEmpty) {
+      return List.generate(12, (i) => (i + 1).toString().padLeft(2, '0'));
+    }
+    return validHours;
   }
 
   bool _isTimeWithinZoneHours(int timeInMinutes) {
@@ -1125,6 +1178,9 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
 
   // Pickup & Drop Time Pickers
   Widget _buildPickupDropTimePickers() {
+    final validPickupHours = _getOperatingHoursList(pickupPeriod);
+    final validDropHours = _getOperatingHoursList(dropPeriod);
+
     return Column(
       children: [
         // Zone Operating Hours Banner
@@ -1182,11 +1238,33 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildTimeColumn(pickupHour, List.generate(12, (i) => (i + 1).toString().padLeft(2, '0')), (val) => setState(() => pickupHour = val)),
+                          _buildTimeColumn(pickupHour, validPickupHours, (val) {
+                            setState(() {
+                              pickupHour = val;
+                              dropHour = val;
+                            });
+                          }),
                           const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          _buildTimeColumn(pickupMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => pickupMinute = val)),
+                          _buildTimeColumn(pickupMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) {
+                            setState(() {
+                              pickupMinute = val;
+                              dropMinute = val;
+                            });
+                          }),
                           const SizedBox(width: 4),
-                          _buildPeriodDropdown(pickupPeriod, (val) => setState(() => pickupPeriod = val!)),
+                          _buildPeriodDropdown(pickupPeriod, (val) {
+                            if (val != null) {
+                              setState(() {
+                                pickupPeriod = val;
+                                dropPeriod = val; // AUTO SYNC DROP AM/PM
+                                final newValid = _getOperatingHoursList(pickupPeriod);
+                                if (!newValid.contains(pickupHour)) {
+                                  pickupHour = newValid.first;
+                                  dropHour = pickupHour;
+                                }
+                              });
+                            }
+                          }),
                         ],
                       ),
                     ),
@@ -1228,11 +1306,21 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildTimeColumn(dropHour, List.generate(12, (i) => (i + 1).toString().padLeft(2, '0')), (val) => setState(() => dropHour = val)),
+                          _buildTimeColumn(dropHour, validDropHours, (val) => setState(() => dropHour = val)),
                           const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           _buildTimeColumn(dropMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => dropMinute = val)),
                           const SizedBox(width: 4),
-                          _buildPeriodDropdown(dropPeriod, (val) => setState(() => dropPeriod = val!)),
+                          _buildPeriodDropdown(dropPeriod, (val) {
+                            if (val != null) {
+                              setState(() {
+                                dropPeriod = val;
+                                final newValid = _getOperatingHoursList(dropPeriod);
+                                if (!newValid.contains(dropHour)) {
+                                  dropHour = newValid.first;
+                                }
+                              });
+                            }
+                          }),
                         ],
                       ),
                     ),
@@ -1367,6 +1455,12 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
 
   // Package Mode Selection Summary
   Widget _buildPackageSelectionSummary() {
+    final String pkgTitle = selectedDurationChip.toLowerCase().contains("package")
+        ? selectedDurationChip
+        : "$selectedDurationChip Package";
+    final String dateRangeText =
+        "${_formatDateShort(_startDate)} $pickupHour:$pickupMinute $pickupPeriod → ${_formatDateShort(_endDate)} $dropHour:$dropMinute $dropPeriod";
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1388,19 +1482,19 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   "Your Selection",
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  "3 Days Package",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  pkgTitle,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                 ),
                 Text(
-                  "21 May 10:00 AM → 25 May 06:00 PM",
-                  style: TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                  dateRangeText,
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
                 ),
               ],
             ),

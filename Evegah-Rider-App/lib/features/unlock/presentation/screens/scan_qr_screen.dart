@@ -553,7 +553,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> with SingleTickerProviderSt
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const MapDiscoveryScreen()));
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => MapDiscoveryScreen()));
                             },
                             child: Container(
                               padding: const EdgeInsets.all(12),

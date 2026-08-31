@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import '../../../../core/services/franchise_service.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/google_places_service.dart';
@@ -26,6 +27,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   int _selectedZoneIndex = 0;
+  String? _selectedZoneName;
   List<Map<String, dynamic>> _nearestZones = [];
   Position? _currentPosition;
   String _currentAddress = "Locating your position...";
@@ -113,32 +115,41 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     }
   }
 
-  void _updateZoneDistances(Position position) {
+  Future<void> _updateZoneDistances(Position position) async {
     if (_nearestZones.isEmpty) return;
 
     final knownCoordinates = {
-      'gotri zone': const [22.3072, 73.1812],
-      'aatapi zone': const [22.3200, 73.2000],
-      'alkapuri zone': const [22.3120, 73.1700],
-      'subhanpura zone': const [22.3250, 73.1550],
-      'akota zone': const [22.2900, 73.1750],
-      'manjalpur zone': const [22.2700, 73.1900],
-      'waghodia zone': const [22.2950, 73.2300],
-      'daman zone': const [20.3974, 72.8328],
+      'gotri': const [22.3168, 73.1415],
+      'manjalpur': const [22.2684, 73.1952],
+      'aatapi': const [22.3615, 73.3524],
+      'kpgu': const [22.2510, 73.2140],
+      'subhanpura': const [22.3250, 73.1550],
+      'alkapuri': const [22.3100, 73.1700],
+      'akota': const [22.2900, 73.1750],
+      'waghodia': const [22.2950, 73.2300],
+      'moti daman': const [20.4075, 72.8335],
+      'nani daman': const [20.4180, 72.8350],
+      'daman': const [20.4075, 72.8335],
     };
 
     List<Map<String, dynamic>> updated = [];
+    List<LatLng> destCoords = [];
+
     for (int i = 0; i < _nearestZones.length; i++) {
       var zone = _nearestZones[i];
       double? zoneLat;
       double? zoneLng;
 
-      final nameKey = (zone['name'] ?? '').toString().toLowerCase().trim();
-      if (knownCoordinates.containsKey(nameKey)) {
-        zoneLat = knownCoordinates[nameKey]![0];
-        zoneLng = knownCoordinates[nameKey]![1];
+      // 1. Direct lat/lng from backend API map
+      if (zone['lat'] != null && zone['lng'] != null) {
+        zoneLat = (zone['lat'] as num).toDouble();
+        zoneLng = (zone['lng'] as num).toDouble();
+      } else if (zone['latitude'] != null && zone['longitude'] != null) {
+        zoneLat = (zone['latitude'] as num).toDouble();
+        zoneLng = (zone['longitude'] as num).toDouble();
       }
 
+      // 2. Check center object
       if (zoneLat == null || zoneLng == null) {
         if (zone['center'] != null) {
           dynamic centerObj = zone['center'];
@@ -152,6 +163,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         }
       }
 
+      // 3. Check points polygon array
       if (zoneLat == null || zoneLng == null) {
         if (zone['points'] != null) {
           dynamic pts = zone['points'];
@@ -168,48 +180,103 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         }
       }
 
+      // 4. Fuzzy match known coordinates by zone name substring
       if (zoneLat == null || zoneLng == null) {
-        if (zone['lat'] != null && zone['lng'] != null) {
-          zoneLat = (zone['lat'] as num).toDouble();
-          zoneLng = (zone['lng'] as num).toDouble();
-        } else if (zone['latitude'] != null && zone['longitude'] != null) {
-          zoneLat = (zone['latitude'] as num).toDouble();
-          zoneLng = (zone['longitude'] as num).toDouble();
+        final rawName = (zone['name'] ?? '').toString().toLowerCase();
+        for (final entry in knownCoordinates.entries) {
+          if (rawName.contains(entry.key)) {
+            zoneLat = entry.value[0];
+            zoneLng = entry.value[1];
+            break;
+          }
         }
       }
 
-      // Fallback distinct offset per zone if coordinates still missing
+      // 5. Fallback Vadodara offset if still missing
       zoneLat ??= 22.3072 + (i * 0.015);
       zoneLng ??= 73.1812 + (i * 0.018);
 
-      double distanceMeters = Geolocator.distanceBetween(
+      destCoords.add(LatLng(zoneLat, zoneLng));
+
+      // Calculate geodesic straight line meters from rider's current position to zone
+      double straightLineMeters = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
         zoneLat,
         zoneLng,
       );
 
-      double distanceKm = distanceMeters / 1000.0;
-      String formattedDist = distanceKm < 1.0
-          ? "${(distanceKm * 1000).round()} m away"
-          : "${distanceKm.toStringAsFixed(1)} km away";
+      double straightLineKm = straightLineMeters / 1000.0;
+      // Road driving distance multiplier: highway ~1.15x for long distance, city ~1.25x
+      double estimatedRoadKm = straightLineKm > 50.0 ? (straightLineKm * 1.15) : (straightLineKm * 1.25);
+
+      String formattedDist = estimatedRoadKm < 1.0
+          ? "${(estimatedRoadKm * 1000).round()} m away"
+          : "${estimatedRoadKm.toStringAsFixed(1)} km away";
 
       updated.add({
         ...zone,
         "distance": formattedDist,
-        "distanceVal": distanceKm,
+        "distanceVal": estimatedRoadKm,
         "lat": zoneLat,
         "lng": zoneLng,
       });
     }
 
-    // Sort by distance ascending
+    // Sort initial list by estimated road distance from rider's position
     updated.sort((a, b) => (a['distanceVal'] as double).compareTo(b['distanceVal'] as double));
 
-    setState(() {
-      _nearestZones = updated;
-      _selectedZoneIndex = 0; // Auto-select nearest zone!
-    });
+    if (mounted) {
+      setState(() {
+        _nearestZones = updated;
+        _selectedZoneIndex = 0;
+      });
+    }
+
+    // Fetch exact Google Maps driving road distances via Distance Matrix API
+    try {
+      final roadMatrix = await GooglePlacesService().getBatchRoadDistances(
+        originLat: position.latitude,
+        originLng: position.longitude,
+        destinations: destCoords,
+      );
+
+      if (roadMatrix != null && roadMatrix.length == updated.length) {
+        List<Map<String, dynamic>> googleUpdated = [];
+        for (int i = 0; i < updated.length; i++) {
+          final zone = updated[i];
+          final LatLng zCoord = LatLng(zone['lat'] as double, zone['lng'] as double);
+
+          // Match matrix result corresponding to this zone coordinate
+          int matchIdx = destCoords.indexWhere((c) => (c.latitude - zCoord.latitude).abs() < 0.0001 && (c.longitude - zCoord.longitude).abs() < 0.0001);
+          if (matchIdx != -1 && matchIdx < roadMatrix.length) {
+            final gData = roadMatrix[matchIdx];
+            if (gData.isNotEmpty && gData['distanceText'] != null && gData['distanceKm'] != null) {
+              googleUpdated.add({
+                ...zone,
+                "distance": gData['distanceText'],
+                "distanceVal": gData['distanceKm'],
+                "drivingDuration": gData['durationText'] ?? '',
+              });
+              continue;
+            }
+          }
+          googleUpdated.add(zone);
+        }
+
+        // Sort by exact Google Maps driving distance from rider's position
+        googleUpdated.sort((a, b) => (a['distanceVal'] as double).compareTo(b['distanceVal'] as double));
+
+        if (mounted) {
+          setState(() {
+            _nearestZones = googleUpdated;
+            _selectedZoneIndex = 0;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Google Distance Matrix error: $e");
+    }
   }
 
   Future<void> _fetchZones() async {
@@ -511,12 +578,51 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     );
   }
 
+  Widget _buildZoneImageWidget(String imageUrl, Color iconColor) {
+    final clean = imageUrl.trim();
+    if (clean.isEmpty) {
+      return Icon(Icons.electric_scooter_rounded, color: iconColor, size: 24);
+    }
+
+    if (clean.startsWith('data:image')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Icon(Icons.electric_scooter_rounded, color: iconColor, size: 24),
+        );
+      } catch (_) {
+        return Icon(Icons.electric_scooter_rounded, color: iconColor, size: 24);
+      }
+    }
+
+    String finalUrl = clean;
+    if (finalUrl.startsWith('/')) {
+      finalUrl = 'http://192.168.1.4:5000$finalUrl';
+    } else if (finalUrl.contains('localhost')) {
+      finalUrl = finalUrl.replaceAll('localhost', '192.168.1.4');
+    }
+
+    return Image.network(
+      finalUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Icon(Icons.electric_scooter_rounded, color: iconColor, size: 24),
+    );
+  }
+
   // Zone Card Item
   Widget _buildZoneCard(Map<String, dynamic> zone, int index, bool isSelected) {
+    final String phone = (zone["phone"] ?? "+91 98765 43210").toString();
+    final String mapLink = (zone["map_link"] ?? "").toString();
+    final String imageUrl = (zone["image_url"] ?? "").toString();
+
     return GestureDetector(
       onTap: () {
         setState(() {
           _selectedZoneIndex = index;
+          _selectedZoneName = zone["name"];
         });
         widget.onLocationSelected(zone);
       },
@@ -540,15 +646,16 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         ),
         child: Row(
           children: [
-            // Left Circle Icon Box
+            // Left Image or Icon Box
             Container(
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: zone["color"],
-                shape: BoxShape.circle,
+                color: zone["color"] ?? const Color(0xFFF5F3FF),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.electric_scooter_rounded, color: zone["iconColor"], size: 22),
+              clipBehavior: Clip.antiAlias,
+              child: _buildZoneImageWidget(imageUrl, zone["iconColor"] ?? const Color(0xFF4313B8)),
             ),
             const SizedBox(width: 12),
 
@@ -559,11 +666,15 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        zone["name"],
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      Flexible(
+                        child: Text(
+                          zone["name"],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
                       ),
-                      if (zone["isPopular"]) ...[
+                      if (zone["isPopular"] == true) ...[
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -572,7 +683,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
-                            "Most Popular",
+                            "Operational",
                             style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
                           ),
                         ),
@@ -603,13 +714,19 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                         zone["hours"],
                         style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
                       ),
+                      if (phone.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.phone_outlined, size: 9, color: Color(0xFF4313B8)),
+                        const SizedBox(width: 2),
+                        Text(phone, style: const TextStyle(fontSize: 9, color: Color(0xFF4313B8), fontWeight: FontWeight.bold)),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
 
-            // Right Distance & Chevron
+            // Right Distance & Direction Action
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -617,8 +734,34 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                   zone["distance"],
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
                 ),
-                const SizedBox(height: 10),
-                const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 18),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () {
+                    final lat = zone['lat'] ?? 22.3072;
+                    final lng = zone['lng'] ?? 73.1812;
+                    final String dirUrl = mapLink.isNotEmpty ? mapLink : "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng";
+                    try {
+                      url_launcher.launchUrl(Uri.parse(dirUrl), mode: url_launcher.LaunchMode.externalApplication);
+                    } catch (_) {}
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F3FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFDDD6FE)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.directions_outlined, size: 10, color: Color(0xFF4313B8)),
+                        SizedBox(width: 2),
+                        Text("Direction", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF4313B8))),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ],

@@ -1021,60 +1021,84 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 </div>
               </div>
 
-              {/* Operator vehicle + battery allocation */}
+              {/* Operator vehicle + battery allocation with rider present address and pre-ride vehicle inspection */}
               {selectedRes.status.toLowerCase() === 'upcoming' && (
                 <div style={{ background: '#EEF2FF', border: '1.5px solid #C7D2FE', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
                   <span style={{ fontSize: '11px', fontWeight: '850', color: '#2A195C', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    🛠️ Operator Action: Assign Vehicle & Battery → Move to Active Rides
+                    🛠️ Operator Action: Vehicle Allocation & Pre-Ride Verification
                   </span>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div className="sim-form-group">
-                      <span className="sim-form-lbl">Select Vehicle *</span>
-                      <select
-                        className="rr-select"
-                        style={{ width: '100%' }}
-                        value={allocVehicle}
-                        onChange={e => setAllocVehicle(e.target.value)}
-                      >
-                        <option value="">-- Select Available Vehicle --</option>
-                        {availableVehicles.length > 0
-                          ? availableVehicles.map((v: any) => (
-                              <option key={v.code} value={v.code}>
-                                {v.code} — {v.evegah_model_name || v.vehicle_category || 'Vehicle'} ({v.zone || 'Unassigned'})
-                              </option>
-                            ))
-                          : <option disabled>No available vehicles found</option>
-                        }
-                      </select>
+                      <span className="sim-form-lbl">Rider Present Address *</span>
+                      <input
+                        type="text"
+                        className="sim-inp"
+                        placeholder="Enter rider current residential address (e.g. 42, Sayaji Path, Gotri, Vadodara)"
+                        defaultValue={selectedRes.customer_name ? `Gotri Main Road, Vadodara, Gujarat` : ''}
+                      />
+                    </div>
+
+                    <div className="sim-grid-2">
+                      <div className="sim-form-group">
+                        <span className="sim-form-lbl">Select Vehicle *</span>
+                        <select
+                          className="rr-select"
+                          style={{ width: '100%' }}
+                          value={allocVehicle}
+                          onChange={e => setAllocVehicle(e.target.value)}
+                        >
+                          <option value="">-- Select Available Vehicle --</option>
+                          {availableVehicles.length > 0
+                            ? availableVehicles.map((v: any) => (
+                                <option key={v.code} value={v.code}>
+                                  {v.code} — {v.evegah_model_name || v.vehicle_category || 'Vehicle'} ({v.zone || 'Unassigned'})
+                                </option>
+                              ))
+                            : <option disabled>No available vehicles found</option>
+                          }
+                        </select>
+                      </div>
+
+                      <div className="sim-form-group">
+                        <span className="sim-form-lbl">Select Battery (Optional)</span>
+                        <select
+                          className="rr-select"
+                          style={{ width: '100%' }}
+                          value={allocBattery}
+                          onChange={e => setAllocBattery(e.target.value)}
+                        >
+                          <option value="">-- Select Battery --</option>
+                          {availableBatteries.length > 0
+                            ? availableBatteries.map((b: any) => (
+                                <option key={b.battery_id} value={b.battery_id}>
+                                  {b.battery_id} — {b.soc ?? '?'}% SOC ({b.zone || 'Unassigned'})
+                                </option>
+                              ))
+                            : <option disabled>No idle batteries found</option>
+                          }
+                        </select>
+                      </div>
                     </div>
 
                     <div className="sim-form-group">
-                      <span className="sim-form-lbl">Select Battery (Optional)</span>
-                      <select
-                        className="rr-select"
-                        style={{ width: '100%' }}
-                        value={allocBattery}
-                        onChange={e => setAllocBattery(e.target.value)}
-                      >
-                        <option value="">-- Select Battery --</option>
-                        {availableBatteries.length > 0
-                          ? availableBatteries.map((b: any) => (
-                              <option key={b.battery_id} value={b.battery_id}>
-                                {b.battery_id} — {b.soc ?? '?'}% SOC ({b.zone || 'Unassigned'})
-                              </option>
-                            ))
-                          : <option disabled>No idle batteries found</option>
-                        }
-                      </select>
+                      <span className="sim-form-lbl">Pre-Ride Vehicle Inspection Capture *</span>
+                      <div style={{ border: '1.5px dashed #A5B4FC', borderRadius: '8px', padding: '10px', background: '#fff', textAlign: 'center', cursor: 'pointer' }}>
+                        <div style={{ fontSize: '12px', color: '#4F46E5', fontWeight: '700' }}>
+                          📸 Click to Upload or Capture Pre-Ride Vehicle Inspection Photo
+                        </div>
+                        <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
+                          Supports JPG, PNG (Max 5MB) — Required before handing over key
+                        </div>
+                      </div>
                     </div>
 
                     <button
                       className="rr-btn rr-btn-primary"
-                      style={{ background: '#10B981', borderColor: '#10B981', alignSelf: 'flex-end' }}
+                      style={{ background: '#10B981', borderColor: '#10B981', alignSelf: 'flex-end', marginTop: '4px' }}
                       onClick={() => handleAllocateVehicle(selectedRes.id)}
                     >
-                      ✅ Confirm Allocation & Move to Riders
+                      ✅ Confirm Allocation & Move to Active Renters
                     </button>
                   </div>
                 </div>
@@ -1115,7 +1139,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
       )}
 
       {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && resToDelete && (
+      {isDeleteModalOpen && (
         <div className="rr-modal-ov">
           <div className="rr-modal-box" style={{ maxWidth: '440px' }}>
             <div className="rr-modal-hdr">
@@ -1123,18 +1147,22 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 Delete Reservation
               </span>
-              <button className="rr-modal-close" onClick={() => setIsDeleteModalOpen(false)}>×</button>
+              <button className="rr-modal-close" onClick={() => { setIsDeleteModalOpen(false); setResToDelete(null); }}>×</button>
             </div>
             <div className="rr-modal-body">
               <p style={{ fontSize: '13.5px', color: '#334155', margin: 0, lineHeight: 1.5 }}>
-                Are you sure you want to delete reservation <strong style={{ color: '#0F172A' }}>{resToDelete.reservation_id}</strong> for <strong style={{ color: '#0F172A' }}>{resToDelete.customer_name}</strong>?
+                {resToDelete ? (
+                  <>Are you sure you want to delete reservation <strong style={{ color: '#0F172A' }}>{resToDelete.reservation_id}</strong> for <strong style={{ color: '#0F172A' }}>{resToDelete.customer_name}</strong>?</>
+                ) : (
+                  <>Are you sure you want to delete the <strong style={{ color: '#0F172A' }}>{selectedResIds.length}</strong> selected reservation(s)?</>
+                )}
               </p>
               <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
-                This action cannot be undone and will permanently remove this reservation from the system.
+                This action cannot be undone and will permanently remove the record(s) from the system.
               </p>
             </div>
             <div className="rr-modal-ftr">
-              <button className="rr-btn" onClick={() => setIsDeleteModalOpen(false)}>Cancel</button>
+              <button className="rr-btn" onClick={() => { setIsDeleteModalOpen(false); setResToDelete(null); }}>Cancel</button>
               <button className="rr-btn" style={{ background: '#EF4444', color: '#fff', borderColor: '#EF4444' }} onClick={confirmDeleteReservation}>
                 Yes, Delete Reservation
               </button>

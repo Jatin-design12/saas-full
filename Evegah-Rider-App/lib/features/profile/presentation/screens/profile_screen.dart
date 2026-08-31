@@ -505,38 +505,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                           const SizedBox(height: 8),
 
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.22),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: const Color(0xFF8CE600),
-                                width: 1.2,
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.check_circle_rounded,
-                                  color: Color(0xFF8CE600),
-                                  size: 14,
+                          Builder(
+                            builder: (context) {
+                              final isVerified = _profileService.kycStatus.trim().toLowerCase() == 'verified';
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                                SizedBox(width: 5),
-                                Text(
-                                  "Verified Rider",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w800,
+                                decoration: BoxDecoration(
+                                  color: isVerified
+                                      ? const Color(0xFF10B981).withValues(alpha: 0.22)
+                                      : const Color(0xFFF59E0B).withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isVerified ? const Color(0xFF8CE600) : const Color(0xFFF59E0B),
+                                    width: 1.2,
                                   ),
                                 ),
-                              ],
-                            ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isVerified ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+                                      color: isVerified ? const Color(0xFF8CE600) : const Color(0xFFF59E0B),
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      isVerified ? "Verified Rider" : "Unverified Rider",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
 
                           const SizedBox(height: 10),
@@ -1016,6 +1023,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           _buildAccountTile(
+            title: "Rider Documents (KYC Storage)",
+            subtitle: "Structured KYC files & 6-month verification",
+            icon: Icons.folder_shared_rounded,
+            iconColor: const Color(0xFF16A34A),
+            iconBackground: const Color(0xFFDCFCE7),
+            onTap: _showRiderDocumentsModal,
+          ),
+
+          _buildAccountTile(
             title: "Refer & Earn",
             subtitle: "Invite friends and earn ride points",
             icon: Icons.card_giftcard_rounded,
@@ -1099,6 +1115,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
             isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRiderDocumentsModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.folder_shared_rounded, color: Color(0xFF16A34A), size: 22),
+                      SizedBox(width: 8),
+                      Text("Rider Documents Store", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Color(0xFF94A3B8)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
+                child: const Text("Status: Verified (Valid for 6 Months)", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+              ),
+              const SizedBox(height: 16),
+
+              _buildDocItem("Rider_pic.png", "Rider Profile Photo", "Verified", Icons.person_rounded),
+              _buildDocItem("Rider_aadhar_front.jpg", "Aadhaar Card (Front)", "Verified", Icons.badge_rounded),
+              _buildDocItem("Rider_aadhar_back.jpg", "Aadhaar Card (Back)", "Verified", Icons.badge_rounded),
+              _buildDocItem("Rider_driving_license.pdf", "Driving License", "Verified", Icons.credit_card_rounded),
+              _buildDocItem("Rider_kyc_certificate.pdf", "6-Month Validity Certificate", "Active", Icons.verified_user_rounded),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDocItem(String filename, String label, String status, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: const Color(0xFF4313B8), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(filename, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A), fontFamily: 'monospace')),
+                Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
+            child: Text(status, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
           ),
         ],
       ),

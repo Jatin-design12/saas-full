@@ -13,7 +13,10 @@ class AppConstants {
   static const String keyIsLoggedIn = 'is_logged_in';
   static const String keyUserProfile = 'user_profile';
 
+  // Application Identity
+  static const String appName = 'EVegah';
+
   // Assets Paths
-  static const String logoImg = 'assets/Evegah_login_page_logo.png';
+  static const String logoImg = 'assets/logo/evegah_brand.png';
   static const String loginBgImg = 'assets/login_page_b.jpeg';
 }

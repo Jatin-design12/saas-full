@@ -77,9 +77,66 @@ class _NotificationScreenState extends State<NotificationScreen> {
     },
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadLiveNotifications();
+  }
+
+  Future<void> _loadLiveNotifications() async {
+    setState(() => _isLoading = true);
+    final fetched = await _notificationService.fetchNotifications();
+    if (mounted && fetched.isNotEmpty) {
+      setState(() {
+        _alertsList.clear();
+        for (var item in fetched) {
+          IconData ic = Icons.notifications_rounded;
+          String typeColor = 'purple';
+          String category = 'System';
+
+          final t = (item['type'] ?? '').toString().toLowerCase();
+          final titleLower = (item['title'] ?? '').toString().toLowerCase();
+
+          if (t.contains('payment') || titleLower.contains('wallet')) {
+            ic = Icons.account_balance_wallet_rounded;
+            typeColor = 'purple';
+            category = 'Transactions';
+          } else if (t.contains('booking') || t.contains('ride') || titleLower.contains('scooter')) {
+            ic = Icons.electric_scooter_rounded;
+            typeColor = 'green';
+            category = 'Ride & Service';
+          } else if (t.contains('alert') || titleLower.contains('bms') || titleLower.contains('battery')) {
+            ic = Icons.battery_alert_rounded;
+            typeColor = 'orange';
+            category = 'System';
+          } else if (t.contains('promo') || titleLower.contains('offer')) {
+            ic = Icons.local_offer_rounded;
+            typeColor = 'orange';
+            category = 'Transactions';
+          }
+
+          _alertsList.add({
+            'id': item['id'],
+            'title': item['title'],
+            'subtitle': item['message'],
+            'time': item['time'],
+            'badge': item['isRead'] == false ? 'New' : '',
+            'category': category,
+            'type': typeColor,
+            'icon': ic,
+            'isRead': item['isRead'] ?? false,
+          });
+        }
+        _isLoading = false;
+      });
+    } else {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _markAllRead() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 400));
+    await _notificationService.markAllAsRead();
     for (var alert in _alertsList) {
       alert['isRead'] = true;
     }

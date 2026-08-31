@@ -176,7 +176,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const NotificationScreen(),
+                  builder: (context) => NotificationScreen(),
                 ),
               ).then((_) => setState(() {}));
             },
@@ -346,56 +346,34 @@ class _RentEvScreenState extends State<RentEvScreen> {
           // 1. Enter pickup zone or location
           GestureDetector(
             onTap: () async {
-              if (isDifferentDropZone) {
-                // Flexi Pickup & Drop Enabled -> Open Interactive Map-Based Selection Screen
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MapPickupDropSelectionScreen(
-                      initialPickup: selectedLocation == "Select pickup zone" ? "Gotri Station, Vadodara" : selectedLocation,
-                      initialDrop: selectedDropLocation == "Select drop-off zone" ? "Alkapuri Hub, Vadodara" : selectedDropLocation,
-                    ),
+              // Open List-Wise Zone Selection Screen for Pickup Zone
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SelectLocationScreen(
+                    currentCity: "Vadodara",
+                    onLocationSelected: (zone) {
+                      setState(() {
+                        if (zone is Map<String, dynamic>) {
+                          selectedZoneData = zone;
+                          selectedLocation = "${zone['name']}, Vadodara";
+                        } else {
+                          selectedLocation = "$zone Zone, Vadodara";
+                        }
+                      });
+                    },
                   ),
-                );
-                if (result != null && result is Map<String, dynamic>) {
-                  setState(() {
+                ),
+              );
+              if (result != null) {
+                setState(() {
+                  if (result is Map<String, dynamic>) {
                     selectedZoneData = result;
-                    selectedLocation = result['pickup'] ?? selectedLocation;
-                    if (result['drop'] != null && result['drop'] != selectedLocation) {
-                      selectedDropLocation = result['drop'];
-                    }
-                  });
-                }
-              } else {
-                // Standard Zone Mode -> Open List-Wise Zone Selection Screen
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SelectLocationScreen(
-                      currentCity: "Vadodara",
-                      onLocationSelected: (zone) {
-                        setState(() {
-                          if (zone is Map<String, dynamic>) {
-                            selectedZoneData = zone;
-                            selectedLocation = "${zone['name']}, Vadodara";
-                          } else {
-                            selectedLocation = "$zone Zone, Vadodara";
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                );
-                if (result != null) {
-                  setState(() {
-                    if (result is Map<String, dynamic>) {
-                      selectedZoneData = result;
-                      selectedLocation = "${result['name']}, Vadodara";
-                    } else if (result is String) {
-                      selectedLocation = result;
-                    }
-                  });
-                }
+                    selectedLocation = "${result['name']}, Vadodara";
+                  } else if (result is String) {
+                    selectedLocation = result;
+                  }
+                });
               }
             },
             child: Container(
@@ -783,7 +761,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                       if (!isLoggedIn) {
                         final loginSuccess = await Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          MaterialPageRoute(builder: (context) => LoginScreen()),
                         );
                         if (loginSuccess != true) return;
                       }

@@ -1,78 +1,110 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:evegah_rider_app/core/constants/app_constants.dart';
+
 class NotificationService {
-  // --- SINGLETON SETUP ---
   static final NotificationService _instance = NotificationService._internal();
-  factory NotificationService() {
-    return _instance;
-  }
+  factory NotificationService() => _instance;
   NotificationService._internal();
 
-  // --- NOTIFICATION DATA ---
-  // A list of maps simulating data from Push Notifications
   List<Map<String, dynamic>> notifications = [
     {
-      "id": "1",
-      "type": "ride",
-      "title": "Flexi Pickup & Drop Active 🏁",
-      "message": "You can pick up and drop off EV vehicles across different zones seamlessly.",
+      "id": "notif-wallet-01",
+      "type": "payment",
+      "title": "💳 Wallet Top-Up Successful",
+      "message": "₹500.00 successfully added to your EVegah Wallet.",
       "time": "Just now",
       "isRead": false,
     },
     {
-      "id": "2",
-      "type": "payment",
-      "title": "Wallet Recharge Successful",
-      "message": "₹500 has been successfully added to your EVegah wallet.",
-      "time": "10 mins ago",
-      "isRead": false,
-    },
-    {
-      "id": "3",
+      "id": "notif-booking-02",
       "type": "ride",
-      "title": "Ride Completed Safely 🍃",
-      "message": "Your trip to Cyber City was completed safely. You saved 2.5kg of CO₂!",
-      "time": "2 hours ago",
+      "title": "🛵 EV Ride Booking Alert",
+      "message": "Your EV Scooter reservation in Gotri Zone is confirmed & ready for pickup.",
+      "time": "15 mins ago",
       "isRead": false,
     },
     {
-      "id": "4",
+      "id": "notif-bms-03",
+      "type": "system",
+      "title": "⚡ BMS Alert: Low Battery (18% SOC)",
+      "message": "Vehicle battery is low (18% SOC). Swap at the nearest EVegah Swap Station.",
+      "time": "1 hour ago",
+      "isRead": false,
+    },
+    {
+      "id": "notif-offer-04",
       "type": "promo",
-      "title": "Weekend Green Offer! 🎉",
-      "message": "Use code GREEN50 to get 50% off on your next 2 EV rides.",
+      "title": "🎁 Special Offer Alert: 25% OFF",
+      "message": "Use code EVEGAH25 to get 25% off on your next weekly package booking!",
       "time": "Yesterday",
-      "isRead": true,
+      "isRead": false,
     },
     {
-      "id": "5",
+      "id": "notif-announce-05",
       "type": "system",
-      "title": "Smart Lock System Ready 🔒",
-      "message": "Bluetooth keyless unlock is active and ready for your ride.",
-      "time": "Yesterday",
-      "isRead": true,
-    },
-    {
-      "id": "6",
-      "type": "system",
-      "title": "App Update Available",
-      "message": "Update EVegah to v2.0.0 for faster Bluetooth unlocking.",
+      "title": "📢 System Announcement",
+      "message": "EVegah 24x7 Stations are active across Gotri, Alkapuri & Subhanpura zones.",
       "time": "2 days ago",
       "isRead": true,
     },
   ];
 
-  // --- METHODS ---
-  
-  // Simulates marking all notifications as read
+  Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    final urls = [
+      '${AppConstants.apiBaseUrl}/notifications',
+      'http://192.168.1.4:5000/api/notifications',
+      'http://localhost:5000/api/notifications',
+    ];
+
+    for (final url in urls) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final body = json.decode(res.body);
+          if (body['status'] == 'success' && body['data'] is List) {
+            final List rawList = body['data'];
+            notifications = rawList.map((item) => {
+              "id": item['id'] ?? 'n_${DateTime.now().millisecondsSinceEpoch}',
+              "type": item['type'] ?? 'system',
+              "title": item['title'] ?? 'Notification',
+              "message": item['message'] ?? '',
+              "time": item['created_at'] != null ? _formatTime(item['created_at'].toString()) : 'Recently',
+              "isRead": item['read'] ?? false,
+            }).toList();
+            break;
+          }
+        }
+      } catch (e) {
+        debugPrint("Failed to fetch live notifications from $url: $e");
+      }
+    }
+    return notifications;
+  }
+
+  String _formatTime(String isoString) {
+    try {
+      final dt = DateTime.parse(isoString);
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) return "${diff.inMinutes} mins ago";
+      if (diff.inHours < 24) return "${diff.inHours} hours ago";
+      return "${diff.inDays} days ago";
+    } catch (_) {
+      return "Recently";
+    }
+  }
+
   Future<void> markAllAsRead() async {
-    // Fake a quick network delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Loop through and update the status
+    try {
+      await http.post(Uri.parse('${AppConstants.apiBaseUrl}/notifications/mark-read')).timeout(const Duration(seconds: 2));
+    } catch (_) {}
+
     for (var notification in notifications) {
       notification['isRead'] = true;
     }
   }
 
-  // Count how many unread notifications we have
   int get unreadCount {
     return notifications.where((n) => n['isRead'] == false).length;
   }

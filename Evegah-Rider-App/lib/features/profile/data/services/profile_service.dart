@@ -33,7 +33,7 @@ class ProfileService {
   String address = "";
   String aadhaarNumber = "";
 
-  String kycStatus = "Verified";
+  String kycStatus = "Unverified";
 
   bool isBiometricEnabled = false;
 
@@ -157,6 +157,16 @@ class ProfileService {
                 final backendDob = r['date_of_birth'] ?? r['dateOfBirth'] ?? r['dob'];
                 final backendAddress = r['address'];
                 final backendGender = r['gender'];
+                final backendKyc = r['kyc_status'] ?? r['kycStatus'] ?? r['verification_status'] ?? r['kyc_verified'];
+
+                if (backendKyc != null && backendKyc.toString().trim().isNotEmpty) {
+                  final kStr = backendKyc.toString().trim().toLowerCase();
+                  if (kStr == 'verified' || kStr == 'true' || kStr == 'approved') {
+                    kycStatus = "Verified";
+                  } else {
+                    kycStatus = "Unverified";
+                  }
+                }
 
                 if (backendName != null && backendName.toString().trim().isNotEmpty) {
                   userName = backendName.toString().trim();

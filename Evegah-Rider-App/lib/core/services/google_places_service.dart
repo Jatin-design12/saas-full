@@ -272,4 +272,53 @@ class GooglePlacesService {
     }
     return null;
   }
+
+  /// Fetch driving road distances from origin to multiple destination LatLngs via Google Maps Distance Matrix API
+  Future<List<Map<String, dynamic>>?> getBatchRoadDistances({
+    required double originLat,
+    required double originLng,
+    required List<LatLng> destinations,
+  }) async {
+    if (destinations.isEmpty) return null;
+
+    try {
+      final destsParam = destinations
+          .map((d) => '${d.latitude},${d.longitude}')
+          .join('|');
+      final url =
+          'https://maps.googleapis.com/maps/api/distancematrix/json?origins=$originLat,$originLng&destinations=$destsParam&mode=driving&key=$apiKey';
+
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == 'OK' &&
+            data['rows'] != null &&
+            (data['rows'] as List).isNotEmpty) {
+          final elements = data['rows'][0]['elements'] as List?;
+          if (elements != null) {
+            List<Map<String, dynamic>> results = [];
+            for (var elem in elements) {
+              if (elem['status'] == 'OK' && elem['distance'] != null) {
+                final text = elem['distance']['text'] ?? '';
+                final valueMeters = (elem['distance']['value'] as num).toDouble();
+                final durationText = elem['duration']?['text'] ?? '';
+                results.add({
+                  'distanceText': text.contains('km') || text.contains('m') ? '$text away' : '$text km away',
+                  'distanceMeters': valueMeters,
+                  'distanceKm': valueMeters / 1000.0,
+                  'durationText': durationText,
+                });
+              } else {
+                results.add({});
+              }
+            }
+            return results;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Distance Matrix API error: $e");
+    }
+    return null;
+  }
 }

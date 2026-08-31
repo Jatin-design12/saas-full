@@ -5,28 +5,44 @@ const db = require('../db');
 // In-memory notifications telemetry list
 let MOCK_NOTIFICATIONS = [
   {
-    id: 'notif-1',
-    title: '🎉 New Ride Reservation Confirmed',
-    message: 'Rohit Sharma reserved E-Scooter EVM1024001 in Gotri Zone.',
-    type: 'booking',
+    id: 'notif-wallet-01',
+    title: '💳 Wallet Top-Up Successful',
+    message: '₹500.00 successfully added to your EVegah Wallet.',
+    type: 'payment',
     read: false,
-    created_at: new Date(Date.now() - 300000).toISOString()
+    created_at: new Date(Date.now() - 180000).toISOString()
   },
   {
-    id: 'notif-2',
-    title: '⚡ Low Battery SOC Alert',
-    message: 'Battery BAT-GOTRI-09 dropped below 20% SOC in Gotri Station.',
+    id: 'notif-booking-02',
+    title: '🛵 EV Ride Booking Alert',
+    message: 'Your EV Scooter reservation in Gotri Zone is confirmed & ready for pickup.',
+    type: 'booking',
+    read: false,
+    created_at: new Date(Date.now() - 900000).toISOString()
+  },
+  {
+    id: 'notif-bms-03',
+    title: '⚡ BMS Alert: Low Battery (18% SOC)',
+    message: 'Vehicle battery is low (18% SOC). Swap at the nearest EVegah Swap Station.',
     type: 'alert',
     read: false,
-    created_at: new Date(Date.now() - 1200000).toISOString()
+    created_at: new Date(Date.now() - 3600000).toISOString()
   },
   {
-    id: 'notif-3',
-    title: '📅 New Booking Request',
-    message: 'Ananya Verma created a weekly booking request in Gotri Zone.',
-    type: 'booking',
+    id: 'notif-offer-04',
+    title: '🎁 Special Offer Alert: 25% OFF',
+    message: 'Use code EVEGAH25 to get 25% off on your next weekly package booking!',
+    type: 'promo',
     read: false,
-    created_at: new Date(Date.now() - 2400000).toISOString()
+    created_at: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    id: 'notif-announce-05',
+    title: '📢 System Announcement',
+    message: 'EVegah 24x7 Stations are active across Gotri, Alkapuri & Subhanpura zones.',
+    type: 'system',
+    read: true,
+    created_at: new Date(Date.now() - 172800000).toISOString()
   }
 ];
 

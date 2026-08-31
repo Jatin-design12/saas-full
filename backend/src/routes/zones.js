@@ -18,14 +18,17 @@ const db = require('../db');
 const MOCK_ZONES = [
   {
     id: 1,
-    name: 'Gotri Zone',
-    code: 'ZONE-GT-001',
-    locality: 'Gotri',
+    name: 'Manjalpur Zone - Vadodara',
+    code: 'ZONE-MJ-001',
+    locality: 'Manjalpur',
     city: 'Vadodara',
-    address: 'Gotri Main Road, Vadodara, Gujarat',
-    phone: '+91 98765 43210',
-    center: { lat: 22.3072, lng: 73.1812 },
-    points: [{ lat: 22.3072, lng: 73.1812 }, { lat: 22.3100, lng: 73.1900 }],
+    address: 'Manjalpur, Vadodara, Gujarat',
+    phone: '+91 8980966677',
+    lat: 22.2684,
+    lng: 73.1952,
+    image_url: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=60',
+    center: { lat: 22.2684, lng: 73.1952 },
+    points: [{ lat: 22.2684, lng: 73.1952 }],
     pricing: {
       pricingModel: 'Package Based',
       packages: [
@@ -38,14 +41,40 @@ const MOCK_ZONES = [
   },
   {
     id: 2,
-    name: 'Aatapi Zone',
-    code: 'ZONE-AT-002',
-    locality: 'Aatapi',
+    name: 'Gotri Zone',
+    code: 'ZONE-GT-002',
+    locality: 'Gotri',
     city: 'Vadodara',
-    address: 'Aatapi Wonderland, Vadodara, Gujarat',
-    phone: '+91 98765 43211',
-    center: { lat: 22.3200, lng: 73.2000 },
-    points: [{ lat: 22.3200, lng: 73.2000 }],
+    address: 'Gotri Main Road, Vadodara, Gujarat',
+    phone: '+91 98765 43210',
+    lat: 22.3168,
+    lng: 73.1415,
+    image_url: 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=600&auto=format&fit=crop&q=60',
+    center: { lat: 22.3168, lng: 73.1415 },
+    points: [{ lat: 22.3168, lng: 73.1415 }],
+    pricing: {
+      pricingModel: 'Package Based',
+      packages: [
+        { id: 1, name: '3 Days Package', duration: 3, price: 899 },
+        { id: 2, name: '5 Days Package', duration: 5, price: 1399 },
+        { id: 3, name: '7 Days Package', duration: 7, price: 1899 },
+        { id: 4, name: '10 Days Package', duration: 10, price: 2499 }
+      ]
+    }
+  },
+  {
+    id: 3,
+    name: 'Aatapi Zone',
+    code: 'ZONE-AT-003',
+    locality: 'Ajwa Road',
+    city: 'Vadodara',
+    address: 'Evegah Aatapi Wonderland, Ajwa Rd, Vadodara',
+    phone: '+91 8980966098',
+    lat: 22.3615,
+    lng: 73.3524,
+    image_url: 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?w=600&auto=format&fit=crop&q=60',
+    center: { lat: 22.3615, lng: 73.3524 },
+    points: [{ lat: 22.3615, lng: 73.3524 }],
     pricing: {
       pricingModel: 'Hourly Based',
       hourlyPricing: [{ id: 1, model: 'Evegah City', basePrice: 80, extraPrice: 10 }],
@@ -56,53 +85,39 @@ const MOCK_ZONES = [
     }
   },
   {
-    id: 3,
-    name: 'Alkapuri Zone',
-    code: 'ZONE-ALK-003',
-    locality: 'Alkapuri',
-    city: 'Vadodara',
-    address: 'RC Dutt Road, Alkapuri, Vadodara',
-    phone: '+91 98765 43212',
-    center: { lat: 22.3120, lng: 73.1700 },
-    points: [{ lat: 22.3120, lng: 73.1700 }],
-    pricing: {
-      pricingModel: 'Package Based',
-      packages: [
-        { id: 1, name: 'Weekly Business', duration: 7, price: 1999 },
-        { id: 2, name: '15 Days Executive', duration: 15, price: 3799 },
-        { id: 3, name: 'Monthly Pro', duration: 30, price: 6999 }
-      ]
-    }
-  },
-  {
     id: 4,
-    name: 'Subhanpura Zone',
-    code: 'ZONE-SUB-004',
-    locality: 'Subhanpura',
+    name: 'KPGU Zone',
+    code: 'ZONE-KPG-004',
+    locality: 'KPGU Campus',
     city: 'Vadodara',
-    address: 'Subhanpura High Street, Vadodara',
-    phone: '+91 98765 43213',
-    center: { lat: 22.3250, lng: 73.1550 },
-    points: [{ lat: 22.3250, lng: 73.1550 }],
+    address: 'KPGU, Manjalpur, Vadodara, Gujarat',
+    phone: '+91 98765 43210',
+    lat: 22.2510,
+    lng: 73.2140,
+    image_url: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&auto=format&fit=crop&q=60',
+    center: { lat: 22.2510, lng: 73.2140 },
+    points: [{ lat: 22.2510, lng: 73.2140 }],
     pricing: {
       pricingModel: 'Package Based',
       packages: [
         { id: 1, name: '3 Days Starter', duration: 3, price: 799 },
-        { id: 2, name: '7 Days Value', duration: 7, price: 1699 },
-        { id: 3, name: '10 Days Commuter', duration: 10, price: 2299 }
+        { id: 2, name: '7 Days Value', duration: 7, price: 1699 }
       ]
     }
   },
   {
     id: 5,
-    name: 'Daman Zone',
+    name: 'Moti Daman Zone',
     code: 'ZONE-DMN-005',
-    locality: 'Nani Daman',
+    locality: 'Moti Daman',
     city: 'Daman',
-    address: 'Devka Beach Road, Nani Daman',
-    phone: '+91 98765 43214',
-    center: { lat: 20.3974, lng: 72.8328 },
-    points: [{ lat: 20.3974, lng: 72.8328 }],
+    address: 'Moti Daman, Daman, Dadra Nagar & Haveli',
+    phone: '+91 98765 43210',
+    lat: 20.4075,
+    lng: 72.8335,
+    image_url: 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=600&auto=format&fit=crop&q=60',
+    center: { lat: 20.4075, lng: 72.8335 },
+    points: [{ lat: 20.4075, lng: 72.8335 }],
     pricing: {
       pricingModel: 'Hourly Based',
       packages: [

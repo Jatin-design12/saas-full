@@ -108,6 +108,36 @@ app.post('/api/qrDecrypted', (req, res) => {
   });
 });
 
+let globalBanners = [
+  "assets/Rakshabandhan.png",
+  "assets/Offer.png",
+  "assets/Rent EV.png",
+  "assets/Ride More.png"
+];
+
+app.get('/api/banners', (req, res) => {
+  res.json({
+    status: 'success',
+    data: globalBanners
+  });
+});
+
+app.post('/api/banners', (req, res) => {
+  const { banners, banner_url, image_url, image } = req.body;
+  if (Array.isArray(banners) && banners.length > 0) {
+    globalBanners = banners;
+  } else {
+    const newImg = banner_url || image_url || image;
+    if (newImg) {
+      globalBanners.unshift(newImg);
+    }
+  }
+  res.json({
+    status: 'success',
+    data: globalBanners
+  });
+});
+
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 

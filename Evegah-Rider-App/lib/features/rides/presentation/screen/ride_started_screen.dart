@@ -78,7 +78,7 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     ).then((_) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MainNavigation()),
+        MaterialPageRoute(builder: (context) => MainNavigation()),
         (route) => false,
       );
     });
