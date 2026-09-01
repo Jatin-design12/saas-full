@@ -49,6 +49,15 @@ class WalletService {
   Future<Map<String, double>> fetchWalletBalance() async {
     final mobile = await _getEffectiveMobile();
     final cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
+    if (cleanMobile.trim().isEmpty) {
+      _mainBalance = 0.0;
+      _bonusBalance = 0.0;
+      return {
+        "main": 0.0,
+        "bonus": 0.0,
+        "total": 0.0,
+      };
+    }
     final last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
 
     final endpoints = _getEndpoints('/wallet/balance?mobile=${Uri.encodeComponent(last10.isNotEmpty ? last10 : mobile)}');

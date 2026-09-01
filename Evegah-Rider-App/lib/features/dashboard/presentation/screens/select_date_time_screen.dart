@@ -1279,7 +1279,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isPackageBased && selectedDurationChip != "Custom" ? const Color(0xFFF8FAFC) : Colors.white,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: const Color(0xFFF1F5F9)),
                 ),
@@ -1287,43 +1287,71 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        CircleAvatar(radius: 3, backgroundColor: Color(0xFF8CE600)),
-                        SizedBox(width: 6),
-                        Text(
-                          "Drop Date & Time",
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      children: [
+                        const CircleAvatar(radius: 3, backgroundColor: Color(0xFF8CE600)),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            "Drop Date & Time",
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        if (isPackageBased && selectedDurationChip != "Custom")
+                          const Icon(Icons.lock_rounded, size: 12, color: Color(0xFF94A3B8)),
                       ],
                     ),
                     const SizedBox(height: 2),
                     Text(_formatDateShort(_endDate), style: const TextStyle(fontSize: 9, color: Color(0xFF64748B))),
                     const SizedBox(height: 10),
 
-                    // Time Spinner
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildTimeColumn(dropHour, validDropHours, (val) => setState(() => dropHour = val)),
-                          const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          _buildTimeColumn(dropMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => dropMinute = val)),
-                          const SizedBox(width: 4),
-                          _buildPeriodDropdown(dropPeriod, (val) {
-                            if (val != null) {
-                              setState(() {
-                                dropPeriod = val;
-                                final newValid = _getOperatingHoursList(dropPeriod);
-                                if (!newValid.contains(dropHour)) {
-                                  dropHour = newValid.first;
-                                }
-                              });
-                            }
-                          }),
-                        ],
+                    // Time Spinner or Fixed Display
+                    if (isPackageBased && selectedDurationChip != "Custom")
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEDF2F7),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "$pickupHour:$pickupMinute $pickupPeriod",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildTimeColumn(dropHour, validDropHours, (val) => setState(() => dropHour = val)),
+                            const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            _buildTimeColumn(dropMinute, List.generate(12, (i) => (i * 5).toString().padLeft(2, '0')), (val) => setState(() => dropMinute = val)),
+                            const SizedBox(width: 4),
+                            _buildPeriodDropdown(dropPeriod, (val) {
+                              if (val != null) {
+                                setState(() {
+                                  dropPeriod = val;
+                                  final newValid = _getOperatingHoursList(dropPeriod);
+                                  if (!newValid.contains(dropHour)) {
+                                    dropHour = newValid.first;
+                                  }
+                                });
+                              }
+                            }),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

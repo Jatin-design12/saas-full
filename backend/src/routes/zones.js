@@ -174,16 +174,23 @@ router.post('/', async (req, res) => {
     points,
     address,
     image_url,
+    image,
+    banner,
     phone,
+    open_time,
+    close_time,
+    is_24_hours,
     pricing
   } = req.body;
 
+  const finalImage = image_url || image || banner || '';
+
   try {
     const result = await db.query(`
-      INSERT INTO zones (name, code, country, state, city, locality, type, priority, status, timezone, description, start_date, end_date, max_vehicles, notes, map_link, points, address, image_url, phone, pricing)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      INSERT INTO zones (name, code, country, state, city, locality, type, priority, status, timezone, description, start_date, end_date, max_vehicles, notes, map_link, points, address, image_url, phone, open_time, close_time, is_24_hours, pricing)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
       RETURNING *
-    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', image_url || '', phone || '+91 98765 43210', JSON.stringify(pricing || {})]);
+    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', finalImage, phone || '+91 98765 43210', open_time || '06:00 AM', close_time || '11:00 PM', is_24_hours || false, JSON.stringify(pricing || {})]);
 
     res.json({
       status: 'success',
@@ -222,17 +229,24 @@ router.put('/:id', async (req, res) => {
     points,
     address,
     image_url,
+    image,
+    banner,
     phone,
+    open_time,
+    close_time,
+    is_24_hours,
     pricing
   } = req.body;
+
+  const finalImage = image_url || image || banner || '';
 
   try {
     const result = await db.query(`
       UPDATE zones 
-      SET name = $1, code = $2, country = $3, state = $4, city = $5, locality = $6, type = $7, priority = $8, status = $9, timezone = $10, description = $11, start_date = $12, end_date = $13, max_vehicles = $14, notes = $15, map_link = $16, points = $17, address = $18, image_url = $19, phone = $20, pricing = $21
-      WHERE id = $22
+      SET name = $1, code = $2, country = $3, state = $4, city = $5, locality = $6, type = $7, priority = $8, status = $9, timezone = $10, description = $11, start_date = $12, end_date = $13, max_vehicles = $14, notes = $15, map_link = $16, points = $17, address = $18, image_url = $19, phone = $20, open_time = $21, close_time = $22, is_24_hours = $23, pricing = $24
+      WHERE id = $25
       RETURNING *
-    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', image_url || '', phone || '+91 98765 43210', JSON.stringify(pricing || {}), id]);
+    `, [name, code, country, state, city, locality, type, priority, status || 'active', timezone, description, start_date || null, end_date || null, max_vehicles || 0, notes, map_link, JSON.stringify(points), address || '', finalImage, phone || '+91 98765 43210', open_time || '06:00 AM', close_time || '11:00 PM', is_24_hours || false, JSON.stringify(pricing || {}), id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({

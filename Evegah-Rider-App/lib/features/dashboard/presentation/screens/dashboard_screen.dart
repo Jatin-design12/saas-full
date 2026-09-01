@@ -94,6 +94,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     },
   ];
 
+  double _dashboardWalletBalance = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +104,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadBookingState();
     _fetchActiveBooking();
     _fetchAdminBanners();
+    _fetchWalletBalance();
+  }
+
+  Future<void> _fetchWalletBalance() async {
+    final loggedIn = await SessionService().isLoggedIn();
+    final mobile = await SessionService().getUserMobile();
+    if (!loggedIn || mobile == null || mobile.trim().isEmpty) {
+      if (mounted) {
+        setState(() {
+          _dashboardWalletBalance = 0.0;
+        });
+      }
+      return;
+    }
+
+    final balMap = await WalletService().fetchWalletBalance();
+    if (mounted) {
+      setState(() {
+        _dashboardWalletBalance = balMap['main'] ?? 0.0;
+      });
+    }
   }
 
   Future<void> _fetchAdminBanners() async {
@@ -1413,7 +1436,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildActionItem(
                 icon: Icons.account_balance_wallet_outlined,
                 title: "My Wallet",
-                subtitle: "₹${(WalletService().mainBalance > 0 ? WalletService().mainBalance : 500.0).toStringAsFixed(2)}",
+                subtitle: "₹${_dashboardWalletBalance.toStringAsFixed(2)}",
                 bgColor: const Color(0xFFF5F3FF),
                 iconColor: const Color(0xFF4313B8),
                 onTap: () async {
@@ -1421,7 +1444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     context,
                     MaterialPageRoute(builder: (context) => const WalletScreen()),
                   );
-                  setState(() {});
+                  _fetchWalletBalance();
                 },
               ),
             ],
