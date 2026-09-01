@@ -289,11 +289,18 @@ router.get('/:code', async (req, res) => {
   }
 });
 
+const parseDateOrNull = (d) => {
+  if (!d || typeof d !== 'string' || d.trim() === '') return null;
+  const parsed = new Date(d);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
 // POST /api/vehicles
 router.post('/', async (req, res) => {
-  const {
+  let {
     vehicleImage,
     vehicleNumber,
+    code,
     vehicleCategory,
     vehicleType,
     evegahModelName,
@@ -318,6 +325,8 @@ router.post('/', async (req, res) => {
     zone
   } = req.body;
 
+  const vehicleCode = (vehicleNumber || code || '').trim() || `EVM${Date.now()}`;
+
   let selectedImg = vehicleImage;
   if (!selectedImg || selectedImg === '/3d_scooter_rider.png') {
     if (evegahModelName === 'Evegah Mink') selectedImg = '/Mink-1.png';
@@ -338,26 +347,50 @@ router.post('/', async (req, res) => {
         status, battery_pct, speed, renter_name, zone
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+      ON CONFLICT (code) DO UPDATE SET
+        vehicle_image = EXCLUDED.vehicle_image,
+        vehicle_category = EXCLUDED.vehicle_category,
+        vehicle_type = EXCLUDED.vehicle_type,
+        evegah_model_name = EXCLUDED.evegah_model_name,
+        vehicle_model = EXCLUDED.vehicle_model,
+        vehicle_manufacturer = EXCLUDED.vehicle_manufacturer,
+        manufacturing_date = EXCLUDED.manufacturing_date,
+        chassis_number = EXCLUDED.chassis_number,
+        motor_number = EXCLUDED.motor_number,
+        controller_number = EXCLUDED.controller_number,
+        registration_number = EXCLUDED.registration_number,
+        color = EXCLUDED.color,
+        purchase_date = EXCLUDED.purchase_date,
+        vehicle_warranty_expiry_date = EXCLUDED.vehicle_warranty_expiry_date,
+        insurance_policy_number = EXCLUDED.insurance_policy_number,
+        insurance_provider = EXCLUDED.insurance_provider,
+        insurance_expiry_date = EXCLUDED.insurance_expiry_date,
+        current_km_reading = EXCLUDED.current_km_reading,
+        total_km_covered = EXCLUDED.total_km_covered,
+        vehicle_status = EXCLUDED.vehicle_status,
+        vehicle_document = EXCLUDED.vehicle_document,
+        vehicle_qr_code = EXCLUDED.vehicle_qr_code,
+        zone = EXCLUDED.zone
       RETURNING *
     `, [
-      vehicleNumber,
+      vehicleCode,
       selectedImg,
       vehicleCategory || 'E-Scooter',
       vehicleType || 'Rental',
       evegahModelName || 'Evegah City',
       vehicleModel || '',
       vehicleManufacturer || '',
-      manufacturingDate ? new Date(manufacturingDate) : null,
+      parseDateOrNull(manufacturingDate),
       chassisNumber || '',
       motorNumber || '',
       controllerNumber || '',
       registrationNumber || '',
       color || '',
-      purchaseDate ? new Date(purchaseDate) : null,
-      vehicleWarrantyExpiryDate ? new Date(vehicleWarrantyExpiryDate) : null,
+      parseDateOrNull(purchaseDate),
+      parseDateOrNull(vehicleWarrantyExpiryDate),
       insurancePolicyNumber || '',
       insuranceProvider || '',
-      insuranceExpiryDate ? new Date(insuranceExpiryDate) : null,
+      parseDateOrNull(insuranceExpiryDate),
       currentKmReading ? parseFloat(currentKmReading) : 0,
       totalKmCovered ? parseFloat(totalKmCovered) : 0,
       vehicleStatus || 'Available',
@@ -372,7 +405,7 @@ router.post('/', async (req, res) => {
 
     res.json({
       status: 'success',
-      message: 'Vehicle added successfully',
+      message: 'Vehicle saved successfully',
       data: result.rows[0]
     });
   } catch (err) {

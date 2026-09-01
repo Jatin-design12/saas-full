@@ -22,6 +22,8 @@ const CSS = `
 .pw-btn:hover { border-color: #6366F1; color: #6366F1; }
 .pw-btn-primary { background: #6366F1; color: #fff; border-color: #6366F1; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
 .pw-btn-primary:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+.pw-btn-danger { background: #EF4444; color: #fff; border-color: #EF4444; box-shadow: 0 4px 12px rgba(239,68,68,0.25); }
+.pw-btn-danger:hover { background: #DC2626; border-color: #DC2626; color: #fff; }
 
 /* Stat Cards Grid */
 .pw-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -40,18 +42,23 @@ const CSS = `
 
 /* Tabs & Container Card */
 .pw-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; display: flex; flex-direction: column; }
-.pw-tabs { display: flex; border-bottom: 1px solid #F1F5F9; padding: 0 20px; background: #fff; }
+.pw-tabs { display: flex; border-bottom: 1px solid #F1F5F9; padding: 0 20px; background: #fff; align-items: center; justify-content: space-between; }
+.pw-tab-group { display: flex; }
 .pw-tab { padding: 14px 18px; font-size: 13.5px; font-weight: 700; color: #64748B; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .15s; }
 .pw-tab:hover { color: #6366F1; }
 .pw-tab.active { color: #6366F1; border-bottom-color: #6366F1; }
 .pw-badge { padding: 2px 7px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #EEF2FF; color: #6366F1; }
 
 /* Filters Bar */
-.pw-filters-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; border-bottom: 1px solid #F1F5F9; gap: 16px; }
-.pw-search-wrapper { position: relative; display: flex; align-items: center; width: 100%; max-width: 340px; }
+.pw-filters-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; border-bottom: 1px solid #F1F5F9; gap: 14px; flex-wrap: wrap; }
+.pw-search-wrapper { position: relative; display: flex; align-items: center; flex: 1; min-width: 260px; max-width: 380px; }
 .pw-search-ic { position: absolute; left: 12px; color: #94A3B8; display: flex; align-items: center; }
 .pw-input-search { width: 100%; padding: 8px 12px 8px 36px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; outline: none; color: #0F172A; background: #fff; font-weight: 500; }
 .pw-input-search:focus { border-color: #6366F1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+
+.pw-filter-select { padding: 8px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; color: #334155; background: #fff; font-weight: 600; cursor: pointer; outline: none; transition: border-color .15s; }
+.pw-filter-select:focus { border-color: #6366F1; }
+.pw-filter-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* Table */
 .pw-table-wrap { overflow-x: auto; width: 100%; }
@@ -60,6 +67,8 @@ const CSS = `
 .pw-table td { padding: 14px 18px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; white-space: nowrap; }
 .pw-table tr:last-child td { border-bottom: none; }
 .pw-table tr:hover td { background: #F8FAFC; }
+
+.pw-chk { width: 16px; height: 16px; cursor: pointer; accent-color: #6366F1; }
 
 .pw-user-cell { display: flex; align-items: center; gap: 10px; }
 .pw-avatar { width: 34px; height: 34px; border-radius: 10px; background: #EEF2FF; color: #6366F1; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; }
@@ -72,6 +81,9 @@ const CSS = `
 
 .pw-amt { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 14px; color: #0F172A; }
 .pw-amt-bonus { color: #8B5CF6; }
+
+.pw-act-del { padding: 5px 10px; border-radius: 6px; border: 1px solid #FEE2E2; background: #FEF2F2; color: #EF4444; font-size: 11px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.pw-act-del:hover { background: #EF4444; color: #fff; border-color: #EF4444; }
 `;
 
 interface WalletUser {
@@ -90,6 +102,7 @@ interface WalletUser {
 interface WalletTx {
   id: number;
   mobile: string;
+  customer_name?: string;
   title: string;
   subtitle: string;
   amount: number;
@@ -106,6 +119,14 @@ export default function PaymentWalletPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'transactions'>('users');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+
+  // Checkbox selections for delete
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedTxIds, setSelectedTxIds] = useState<number[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -128,25 +149,80 @@ export default function PaymentWalletPage() {
     }
   };
 
+  // Filtered Users
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
     const q = search.toLowerCase();
     return users.filter(u => 
-      u.name.toLowerCase().includes(q) ||
-      u.mobile.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.mobile || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q)
     );
   }, [users, search]);
 
+  // Filtered Transactions with operational filters
   const filteredTxs = useMemo(() => {
-    if (!search.trim()) return transactions;
-    const q = search.toLowerCase();
-    return transactions.filter(t => 
-      t.mobile.toLowerCase().includes(q) ||
-      t.title.toLowerCase().includes(q) ||
-      (t.transaction_id || '').toLowerCase().includes(q)
-    );
-  }, [transactions, search]);
+    return transactions.filter(t => {
+      const matchesSearch = !search.trim() || 
+        (t.customer_name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (t.mobile || '').toLowerCase().includes(search.toLowerCase()) ||
+        (t.title || '').toLowerCase().includes(search.toLowerCase()) ||
+        (t.transaction_id || '').toLowerCase().includes(search.toLowerCase());
+
+      const matchesType = typeFilter === 'All' || t.type.toLowerCase() === typeFilter.toLowerCase();
+      const matchesStatus = statusFilter === 'All' || t.status.toLowerCase() === statusFilter.toLowerCase();
+
+      return matchesSearch && matchesType && matchesStatus;
+    });
+  }, [transactions, search, typeFilter, statusFilter]);
+
+  // Checkbox logic for Users
+  const toggleSelectUser = (id: number) => {
+    setSelectedUserIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAllUsers = () => {
+    if (selectedUserIds.length === filteredUsers.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filteredUsers.map(u => u.id));
+    }
+  };
+
+  const handleDeleteUsers = async (idsToDelete: number[]) => {
+    if (!confirm(`Are you sure you want to delete ${idsToDelete.length} selected rider wallet record(s)?`)) return;
+    try {
+      await api.delete('/wallet/users', { ids: idsToDelete });
+      setSelectedUserIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+      fetchData();
+    } catch (err: any) {
+      alert(`Failed to delete users: ${err.message || err}`);
+    }
+  };
+
+  // Checkbox logic for Transactions
+  const toggleSelectTx = (id: number) => {
+    setSelectedTxIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAllTxs = () => {
+    if (selectedTxIds.length === filteredTxs.length) {
+      setSelectedTxIds([]);
+    } else {
+      setSelectedTxIds(filteredTxs.map(t => t.id));
+    }
+  };
+
+  const handleDeleteTxs = async (idsToDelete: number[]) => {
+    if (!confirm(`Are you sure you want to delete ${idsToDelete.length} selected transaction(s)?`)) return;
+    try {
+      await api.delete('/wallet/transactions', { ids: idsToDelete });
+      setSelectedTxIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+      fetchData();
+    } catch (err: any) {
+      alert(`Failed to delete transactions: ${err.message || err}`);
+    }
+  };
 
   const totalMainBalance = useMemo(() => {
     return users.reduce((sum, u) => sum + (Number(u.wallet_balance) || 0), 0);
@@ -235,21 +311,36 @@ export default function PaymentWalletPage() {
           {/* Main Card with Tabs */}
           <div className="pw-card">
             <div className="pw-tabs">
-              <div 
-                className={`pw-tab ${activeTab === 'users' ? 'active' : ''}`}
-                onClick={() => setActiveTab('users')}
-              >
-                Rider Wallet Directory <span className="pw-badge">{users.length}</span>
+              <div className="pw-tab-group">
+                <div 
+                  className={`pw-tab ${activeTab === 'users' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('users')}
+                >
+                  Rider Wallet Directory <span className="pw-badge">{users.length}</span>
+                </div>
+                <div 
+                  className={`pw-tab ${activeTab === 'transactions' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('transactions')}
+                >
+                  Live Wallet Transactions <span className="pw-badge">{transactions.length}</span>
+                </div>
               </div>
-              <div 
-                className={`pw-tab ${activeTab === 'transactions' ? 'active' : ''}`}
-                onClick={() => setActiveTab('transactions')}
-              >
-                Live Wallet Transactions <span className="pw-badge">{transactions.length}</span>
-              </div>
+
+              {/* Bulk Delete Button when items selected */}
+              {activeTab === 'users' && selectedUserIds.length > 0 && (
+                <button className="pw-btn pw-btn-danger" onClick={() => handleDeleteUsers(selectedUserIds)}>
+                  Delete Selected ({selectedUserIds.length})
+                </button>
+              )}
+
+              {activeTab === 'transactions' && selectedTxIds.length > 0 && (
+                <button className="pw-btn pw-btn-danger" onClick={() => handleDeleteTxs(selectedTxIds)}>
+                  Delete Selected ({selectedTxIds.length})
+                </button>
+              )}
             </div>
 
-            {/* Filter */}
+            {/* Filter & Search Bar */}
             <div className="pw-filters-bar">
               <div className="pw-search-wrapper">
                 <span className="pw-search-ic">
@@ -258,11 +349,38 @@ export default function PaymentWalletPage() {
                 <input 
                   type="text" 
                   className="pw-input-search"
-                  placeholder={activeTab === 'users' ? "Search rider by name, phone or email..." : "Search transaction by phone or ID..."}
+                  placeholder={activeTab === 'users' ? "Search rider by name, phone or email..." : "Search by customer name, phone, title or ID..."}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
+
+              {/* Operational Filters for Transactions */}
+              {activeTab === 'transactions' && (
+                <div className="pw-filter-group">
+                  <select 
+                    className="pw-filter-select"
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                  >
+                    <option value="All">All Types</option>
+                    <option value="Credit">Credit (Top-Up / Deposit)</option>
+                    <option value="Debit">Debit (Ride Fare)</option>
+                    <option value="Withdrawal">Withdrawal</option>
+                  </select>
+
+                  <select 
+                    className="pw-filter-select"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="All">All Status</option>
+                    <option value="Success">Success</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Failed">Failed</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Users Tab */}
@@ -271,6 +389,14 @@ export default function PaymentWalletPage() {
                 <table className="pw-table">
                   <thead>
                     <tr>
+                      <th style={{ width: '40px' }}>
+                        <input 
+                          type="checkbox" 
+                          className="pw-chk"
+                          checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
+                          onChange={toggleSelectAllUsers}
+                        />
+                      </th>
                       <th>Rider Details</th>
                       <th>Mobile Number</th>
                       <th>Email Address</th>
@@ -278,16 +404,25 @@ export default function PaymentWalletPage() {
                       <th>Main Balance</th>
                       <th>Bonus Balance</th>
                       <th>Total Balance</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px' }}>Loading riders...</td></tr>
+                      <tr><td colSpan={9} style={{ textAlign: 'center', padding: '30px' }}>Loading riders...</td></tr>
                     ) : filteredUsers.length === 0 ? (
-                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px' }}>No riders found</td></tr>
+                      <tr><td colSpan={9} style={{ textAlign: 'center', padding: '30px' }}>No riders found</td></tr>
                     ) : (
                       filteredUsers.map((u) => (
                         <tr key={u.id}>
+                          <td>
+                            <input 
+                              type="checkbox" 
+                              className="pw-chk"
+                              checked={selectedUserIds.includes(u.id)}
+                              onChange={() => toggleSelectUser(u.id)}
+                            />
+                          </td>
                           <td>
                             <div className="pw-user-cell">
                               <div className="pw-avatar">
@@ -311,6 +446,9 @@ export default function PaymentWalletPage() {
                           <td className="pw-amt" style={{ color: '#4338CA', fontSize: '15px' }}>
                             ₹{(Number(u.total_balance) || 0).toFixed(2)}
                           </td>
+                          <td>
+                            <button className="pw-act-del" onClick={() => handleDeleteUsers([u.id])}>Delete</button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -325,25 +463,44 @@ export default function PaymentWalletPage() {
                 <table className="pw-table">
                   <thead>
                     <tr>
+                      <th style={{ width: '40px' }}>
+                        <input 
+                          type="checkbox" 
+                          className="pw-chk"
+                          checked={filteredTxs.length > 0 && selectedTxIds.length === filteredTxs.length}
+                          onChange={toggleSelectAllTxs}
+                        />
+                      </th>
                       <th>Tx ID</th>
-                      <th>Rider Mobile</th>
+                      <th>Customer Name</th>
+                      <th>Mobile Number</th>
                       <th>Title / Description</th>
                       <th>Method</th>
                       <th>Type</th>
                       <th>Status</th>
                       <th>Amount</th>
                       <th>Date</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={8} style={{ textAlign: 'center', padding: '30px' }}>Loading transactions...</td></tr>
+                      <tr><td colSpan={11} style={{ textAlign: 'center', padding: '30px' }}>Loading transactions...</td></tr>
                     ) : filteredTxs.length === 0 ? (
-                      <tr><td colSpan={8} style={{ textAlign: 'center', padding: '30px' }}>No transactions found</td></tr>
+                      <tr><td colSpan={11} style={{ textAlign: 'center', padding: '30px' }}>No transactions found</td></tr>
                     ) : (
                       filteredTxs.map((t, idx) => (
                         <tr key={t.id || idx}>
+                          <td>
+                            <input 
+                              type="checkbox" 
+                              className="pw-chk"
+                              checked={selectedTxIds.includes(t.id)}
+                              onChange={() => toggleSelectTx(t.id)}
+                            />
+                          </td>
                           <td style={{ fontFamily: 'monospace', fontWeight: 700 }}>{t.transaction_id || `TXN-${t.id}`}</td>
+                          <td style={{ fontWeight: 700, color: '#0F172A' }}>{t.customer_name || 'Rider Customer'}</td>
                           <td style={{ fontWeight: 600 }}>{t.mobile}</td>
                           <td>
                             <div style={{ fontWeight: 700 }}>{t.title}</div>
@@ -363,6 +520,9 @@ export default function PaymentWalletPage() {
                           </td>
                           <td style={{ color: '#64748B', fontSize: '11.5px' }}>
                             {new Date(t.created_at).toLocaleString()}
+                          </td>
+                          <td>
+                            <button className="pw-act-del" onClick={() => handleDeleteTxs([t.id])}>Delete</button>
                           </td>
                         </tr>
                       ))

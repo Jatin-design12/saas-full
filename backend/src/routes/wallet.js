@@ -328,37 +328,27 @@ router.get('/transactions', async (req, res) => {
 
   try {
     let txs = [];
+    let query = `
+      SELECT 
+        wt.*,
+        COALESCE(r.rider_name, r.name, u.name, 'Customer') AS customer_name
+      FROM wallet_transactions wt
+      LEFT JOIN renters r ON (r.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%')
+      LEFT JOIN users u ON (u.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%' OR u.phone LIKE '%' || RIGHT(wt.mobile, 10) || '%')
+    `;
+    let params = [];
     if (cleanMobile.length > 0) {
-      const result = await db.query('SELECT * FROM wallet_transactions WHERE mobile LIKE $1 ORDER BY created_at DESC', [`%${cleanMobile}%`]);
-      txs = result.rows;
-    } else {
-      const result = await db.query('SELECT * FROM wallet_transactions ORDER BY created_at DESC LIMIT 50');
-      txs = result.rows;
+      query += ` WHERE wt.mobile LIKE $1`;
+      params.push(`%${cleanMobile}%`);
     }
+    query += ` ORDER BY wt.created_at DESC LIMIT 100`;
 
-    // Combine with rental payment history for this mobile
-    let reservationTxs = [];
-    if (cleanMobile.length > 0) {
-      const reservationRes = await db.query("SELECT * FROM reservations WHERE mobile_number LIKE $1 ORDER BY created_at DESC LIMIT 20", [`%${cleanMobile}%`]);
-      reservationTxs = reservationRes.rows.map(r => ({
-        id: r.id,
-        mobile: r.mobile_number || r.user_id,
-        title: `Ride Reservation (${r.status || 'Paid'})`,
-        subtitle: `Evegah EV • ${r.pickup_zone || 'Vadodara Zone'}`,
-        amount: parseFloat(r.total_price || 0.00),
-        type: 'Debit',
-        status: r.status || 'Paid',
-        payment_method: r.payment_method || 'Evegah Wallet',
-        transaction_id: r.reservation_id || `TXN-${r.id}`,
-        created_at: r.created_at || new Date()
-      }));
-    }
-
-    const combined = [...txs, ...reservationTxs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const result = await db.query(query, params);
+    txs = result.rows;
 
     res.json({
       status: 'success',
-      data: combined
+      data: txs
     });
   } catch (err) {
     console.error('Failed to fetch wallet transactions:', err);
@@ -366,6 +356,58 @@ router.get('/transactions', async (req, res) => {
       status: 'success',
       data: []
     });
+  }
+});
+
+// DELETE /api/wallet/transactions - Bulk delete or single delete
+router.delete('/transactions', async (req, res) => {
+  const { ids } = req.body;
+  try {
+    if (Array.isArray(ids) && ids.length > 0) {
+      await db.query('DELETE FROM wallet_transactions WHERE id = ANY($1::int[])', [ids]);
+    }
+    res.json({ status: 'success', message: 'Transactions deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete transactions:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// DELETE /api/wallet/transactions/:id - Delete single transaction
+router.delete('/transactions/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM wallet_transactions WHERE id = $1', [id]);
+    res.json({ status: 'success', message: 'Transaction deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete transaction:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// DELETE /api/wallet/users - Bulk delete rider wallet users
+router.delete('/users', async (req, res) => {
+  const { ids } = req.body;
+  try {
+    if (Array.isArray(ids) && ids.length > 0) {
+      await db.query('DELETE FROM renters WHERE id = ANY($1::int[])', [ids]);
+    }
+    res.json({ status: 'success', message: 'Rider wallet users deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete rider wallet users:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// DELETE /api/wallet/users/:id - Delete single rider wallet user
+router.delete('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM renters WHERE id = $1', [id]);
+    res.json({ status: 'success', message: 'Rider wallet user deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete rider wallet user:', err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

@@ -132,6 +132,16 @@ export default function VehicleListPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [selectedZone, setSelectedZone] = useState('All Zones');
+  const [zonesList, setZonesList] = useState<string[]>(['All Zones']);
+
+  useEffect(() => {
+    api.get('/zones').then((res: any) => {
+      if (res && res.data) {
+        const names = res.data.map((z: any) => z.name || z.locality).filter(Boolean);
+        setZonesList(['All Zones', ...new Set<string>(names)]);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Multi-delete row selections
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
@@ -363,6 +373,16 @@ export default function VehicleListPage() {
                 />
               </div>
               <div className="vl-filter-grp">
+                <select 
+                  className="vl-select"
+                  value={selectedZone}
+                  onChange={(e) => setSelectedZone(e.target.value)}
+                >
+                  {zonesList.map(z => (
+                    <option key={z} value={z}>{z}</option>
+                  ))}
+                </select>
+
                 <select 
                   className="vl-select"
                   value={statusFilter}

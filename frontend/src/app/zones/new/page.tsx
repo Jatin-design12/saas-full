@@ -479,8 +479,8 @@ export default function AddZonePage() {
                   address: zone.address || '',
                   image_url: zone.image_url || '',
                   phone: zone.phone || '',
-                  open_time: zone.open_time || '06:00',
-                  close_time: zone.close_time || '23:00',
+                  open_time: zone.open_time ? (zone.open_time.includes('M') ? (zone.open_time.includes('PM') ? `${(parseInt(zone.open_time.split(':')[0]) % 12) + 12}:${zone.open_time.split(':')[1]?.split(' ')[0]}` : `${parseInt(zone.open_time.split(':')[0]) % 12}:${zone.open_time.split(':')[1]?.split(' ')[0]}`).replace(/^(\d):/, '0$1') : zone.open_time) : '06:00',
+                  close_time: zone.close_time ? (zone.close_time.includes('M') ? (zone.close_time.includes('PM') ? `${(parseInt(zone.close_time.split(':')[0]) % 12) + 12}:${zone.close_time.split(':')[1]?.split(' ')[0]}` : `${parseInt(zone.close_time.split(':')[0]) % 12}:${zone.close_time.split(':')[1]?.split(' ')[0]}`).replace(/^(\d):/, '0$1') : zone.close_time) : '23:00',
                   is_24_hours: !!zone.is_24_hours
                 });
                 setPoints(pts);
