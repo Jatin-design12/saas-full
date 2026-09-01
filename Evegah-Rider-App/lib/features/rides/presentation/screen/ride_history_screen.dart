@@ -194,15 +194,43 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
 
   DateTime? _parseDateTime(dynamic dateStr, dynamic timeStr) {
     if (dateStr == null || dateStr.toString().trim().isEmpty) return null;
-    final cleanDate = dateStr.toString().split('T').first;
-    final cleanTime = (timeStr != null && timeStr.toString().trim().isNotEmpty) ? timeStr.toString().trim() : '00:00:00';
+    final cleanDateStr = dateStr.toString().split('T').first;
+    DateTime? baseDate;
     try {
-      return DateTime.parse("${cleanDate}T$cleanTime");
-    } catch (_) {}
+      baseDate = DateTime.parse(cleanDateStr);
+    } catch (_) {
+      return null;
+    }
+
+    if (timeStr == null || timeStr.toString().trim().isEmpty) {
+      return baseDate;
+    }
+
+    final rawTime = timeStr.toString().trim();
+
+    final regex12 = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$', caseSensitive: false);
+    final match = regex12.firstMatch(rawTime);
+    if (match != null) {
+      int hour = int.parse(match.group(1)!);
+      int minute = int.parse(match.group(2)!);
+      String? period = match.group(3)?.toUpperCase();
+
+      if (period == "PM" && hour < 12) hour += 12;
+      if (period == "AM" && hour == 12) hour = 0;
+
+      return DateTime(baseDate.year, baseDate.month, baseDate.day, hour, minute);
+    }
+
     try {
-      return DateTime.parse(cleanDate);
+      final parts = rawTime.split(':');
+      if (parts.length >= 2) {
+        int hour = int.parse(parts[0]);
+        int minute = int.parse(parts[1].substring(0, 2));
+        return DateTime(baseDate.year, baseDate.month, baseDate.day, hour, minute);
+      }
     } catch (_) {}
-    return null;
+
+    return baseDate;
   }
 
   DateTime _calculateReturnTime(DateTime pickup, dynamic packageType, dynamic dropDateStr) {

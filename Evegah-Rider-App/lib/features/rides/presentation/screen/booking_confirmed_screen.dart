@@ -346,44 +346,136 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
     return null;
   }
 
+  String _formatDateAndTimeString(dynamic dateStr, dynamic timeStr) {
+    if (dateStr == null || dateStr.toString().trim().isEmpty) return "";
+    final cleanDateStr = dateStr.toString().split('T').first;
+    DateTime? baseDate;
+    try {
+      baseDate = DateTime.parse(cleanDateStr);
+    } catch (_) {
+      return dateStr.toString();
+    }
+
+    int hour = 10;
+    int minute = 0;
+    String period = "AM";
+
+    if (timeStr != null && timeStr.toString().trim().isNotEmpty) {
+      final rawTime = timeStr.toString().trim();
+      final regex12 = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$', caseSensitive: false);
+      final match = regex12.firstMatch(rawTime);
+      if (match != null) {
+        hour = int.parse(match.group(1)!);
+        minute = int.parse(match.group(2)!);
+        if (match.group(3) != null) {
+          period = match.group(3)!.toUpperCase();
+        }
+      } else {
+        try {
+          final parts = rawTime.split(':');
+          if (parts.length >= 2) {
+            final h24 = int.parse(parts[0]);
+            minute = int.parse(parts[1].substring(0, 2));
+            period = h24 >= 12 ? "PM" : "AM";
+            hour = h24 % 12 == 0 ? 12 : h24 % 12;
+          }
+        } catch (_) {}
+      }
+    }
+
+    final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    final hourStr = hour.toString().padLeft(2, '0');
+    final minuteStr = minute.toString().padLeft(2, '0');
+    return "${baseDate.day} ${months[baseDate.month - 1]} ${baseDate.year}, $hourStr:$minuteStr $period";
+  }
+
+  String _getFormattedPickupDisplay() {
+    if (widget.bookingData?['pickupTime'] != null && !widget.bookingData!['pickupTime'].toString().contains("12:00 AM")) {
+      return widget.bookingData!['pickupTime'].toString();
+    }
+    if (_fetchedReservation != null) {
+      final d = _fetchedReservation!['reservation_date'];
+      final t = _fetchedReservation!['reservation_time'] ?? _fetchedReservation!['pickup_time'];
+      final res = _formatDateAndTimeString(d, t);
+      if (res.isNotEmpty) return res;
+    }
+    if (widget.bookingData?['pickupRaw'] != null) {
+      final res = _formatDateAndTimeString(widget.bookingData!['pickupRaw'], widget.bookingData?['pickupTimeOnly']);
+      if (res.isNotEmpty) return res;
+    }
+    return "31 Aug 2026, 10:00 AM";
+  }
+
+  String _getFormattedDropDisplay() {
+    if (widget.bookingData?['dropTime'] != null &&
+        widget.bookingData!['dropTime'] != widget.bookingData!['pickupTime'] &&
+        !widget.bookingData!['dropTime'].toString().contains("12:00 AM")) {
+      return widget.bookingData!['dropTime'].toString();
+    }
+    if (_fetchedReservation != null && _fetchedReservation!['drop_date'] != null) {
+      final d = _fetchedReservation!['drop_date'];
+      final t = _fetchedReservation!['drop_time'] ?? _fetchedReservation!['reservation_time'];
+      final res = _formatDateAndTimeString(d, t);
+      if (res.isNotEmpty) return res;
+    }
+
+    final pickupStr = _getFormattedPickupDisplay();
+    final pDt = _parseAnyDate(pickupStr);
+    if (pDt != null) {
+      int durationDays = 1;
+      final String? pkg = _fetchedReservation?['package_type'] ?? widget.bookingData?['packageType'];
+      if (pkg != null) {
+        final lower = pkg.toLowerCase();
+        if (lower.contains('3')) durationDays = 3;
+        else if (lower.contains('5')) durationDays = 5;
+        else if (lower.contains('7') || lower.contains('week')) durationDays = 7;
+        else if (lower.contains('10')) durationDays = 10;
+        else if (lower.contains('30') || lower.contains('month')) durationDays = 30;
+      }
+      final dropDt = pDt.add(Duration(days: durationDays));
+      final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      final hourInt = dropDt.hour % 12 == 0 ? 12 : dropDt.hour % 12;
+      final ampm = dropDt.hour >= 12 ? "PM" : "AM";
+      final hourStr = hourInt.toString().padLeft(2, '0');
+      final minuteStr = dropDt.minute.toString().padLeft(2, '0');
+      return "${dropDt.day} ${months[dropDt.month - 1]} ${dropDt.year}, $hourStr:$minuteStr $ampm";
+    }
+
+    return "01 Sep 2026, 10:00 AM";
+  }
+
   String _getDynamicDuration() {
-    final String pickup =
-        widget.bookingData?['pickupRaw'] ??
-        widget.bookingData?['pickupTime'] ??
-        _fetchedReservation?['reservation_date'] ??
-        '';
+    final pickupStr = _getFormattedPickupDisplay();
+    final dropStr = _getFormattedDropDisplay();
 
-    final String drop =
-        widget.bookingData?['dropRaw'] ??
-        widget.bookingData?['dropTime'] ??
-        _fetchedReservation?['drop_date'] ??
-        '';
+    final pDate = _parseAnyDate(pickupStr);
+    final dDate = _parseAnyDate(dropStr);
 
-    final String? pkg =
-        _fetchedReservation?['package_type'] ??
-        widget.bookingData?['packageType'];
-
-    final pDate = _parseAnyDate(pickup);
-    final dDate = _parseAnyDate(drop);
+    final String? pkg = _fetchedReservation?['package_type'] ?? widget.bookingData?['packageType'];
 
     if (pDate != null && dDate != null) {
       final hours = dDate.difference(pDate).inHours;
       final days = (hours / 24).round();
 
-      if (days >= 28 || pkg == 'Month') {
+      if (days >= 28 || (pkg != null && pkg.toLowerCase().contains('month'))) {
         return "30 Days (1 Month)";
-      } else if (days >= 6 || pkg == 'Week') {
+      } else if (days >= 6 || (pkg != null && pkg.toLowerCase().contains('week'))) {
         return "7 Days (1 Week)";
-      } else if (days >= 1 || pkg == 'Day') {
+      } else if (days >= 1) {
         return "$days ${days == 1 ? 'Day' : 'Days'}";
       } else if (hours > 0) {
         return "$hours ${hours == 1 ? 'Hour' : 'Hours'}";
       }
     }
 
-    if (pkg == 'Day') return "1 Day";
-    if (pkg == 'Week') return "7 Days (1 Week)";
-    if (pkg == 'Month') return "30 Days (1 Month)";
+    if (pkg != null) {
+      final lower = pkg.toLowerCase();
+      if (lower.contains('3')) return "3 Days";
+      if (lower.contains('5')) return "5 Days";
+      if (lower.contains('7') || lower.contains('week')) return "7 Days (1 Week)";
+      if (lower.contains('10')) return "10 Days";
+      if (lower.contains('month')) return "30 Days (1 Month)";
+    }
 
     return "1 Day";
   }
@@ -1054,11 +1146,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          widget.bookingData?[
-                                  'pickupTime'] ??
-                              _fetchedReservation?[
-                                  'reservation_date'] ??
-                              "20 Aug 2026, 10:00 AM",
+                          _getFormattedPickupDisplay(),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 10,
@@ -1078,11 +1166,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          widget.bookingData?[
-                                  'dropTime'] ??
-                              _fetchedReservation?[
-                                  'drop_date'] ??
-                              "21 Aug 2026, 06:00 PM",
+                          _getFormattedDropDisplay(),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 10,
@@ -1231,7 +1315,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                               onTap: () {},
                               child: Text(
                                 isDoorstep
-                                    ? "Deliver to Doorstep"
+                                    ? "Vehicle Drop at Doorstep"
                                     : "Same as Pickup",
                                 style: const TextStyle(
                                   color:

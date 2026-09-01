@@ -630,7 +630,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                                 );
                               },
                         child: const Text(
-                          "Vehicle Pickup & Drop Doorstep Delivery (₹30/km)",
+                          "Vehicle Drop at Doorstep (Doorstep Delivery @ ₹30/km)",
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
