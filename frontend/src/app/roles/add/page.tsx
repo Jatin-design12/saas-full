@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -149,7 +149,7 @@ interface ModulePermission {
   subPages: SubPage[];
 }
 
-export default function AddRolePage() {
+function AddRoleForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('id') || searchParams.get('edit');
@@ -219,7 +219,7 @@ export default function AddRolePage() {
     {
       name: 'Vehicles',
       desc: 'Manage vehicles and documents',
-      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></svg>,
       expanded: false,
       permissions: { access: false, create: false, view: false, edit: false, delete: false, export: false },
       supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
@@ -547,7 +547,7 @@ export default function AddRolePage() {
       const resData = await response.json();
       if (response.ok) {
         alert(editId ? `Role "${roleName}" updated successfully!` : `Role "${roleName}" created successfully!`);
-        router.push('/users?tab=1');
+        router.push('/roles');
       } else {
         alert(`Error: ${resData.message || 'Failed to submit role'}`);
       }
@@ -739,11 +739,11 @@ export default function AddRolePage() {
           <div className="role-page">
             {/* Breadcrumbs */}
             <div className="role-bc">
-              <span className="role-bc-link">Home</span>
+              <span className="role-bc-link" onClick={() => router.push('/')}>Home</span>
               <span className="role-bc-sep">&gt;</span>
-              <span className="role-bc-link">Users & Roles</span>
+              <span className="role-bc-link" onClick={() => router.push('/users')}>Users &amp; Roles</span>
               <span className="role-bc-sep">&gt;</span>
-              <span className="role-bc-link">Roles</span>
+              <span className="role-bc-link" onClick={() => router.push('/roles')}>Roles</span>
               <span className="role-bc-sep">&gt;</span>
               <span className="role-bc-curr">{editId ? 'Edit Role' : 'Add New Role'}</span>
             </div>
@@ -755,7 +755,7 @@ export default function AddRolePage() {
                 <p className="role-subtitle">{editId ? 'Modify role metadata, permissions matrix and details.' : 'Define new role metadata, permissions template and options.'}</p>
               </div>
               <div className="role-header-actions">
-                <button className="role-btn" onClick={() => router.push('/users?tab=1')}>Cancel</button>
+                <button className="role-btn" onClick={() => router.push('/roles')}>Cancel</button>
                 {!editId && (
                   <button className="role-btn role-btn-draft" onClick={() => handleCreateRole(true)}>Save as Draft</button>
                 )}
@@ -1055,5 +1055,13 @@ export default function AddRolePage() {
         </div>
       </div>
     </RoleGuard>
+  );
+}
+
+export default function AddRolePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '60px 24px', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>Loading Role Configuration...</div>}>
+      <AddRoleForm />
+    </Suspense>
   );
 }

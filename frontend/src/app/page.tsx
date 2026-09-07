@@ -1127,9 +1127,9 @@ function SuperAdminRoleDashboard() {
                   <tbody>
                     {[
                       { name: 'Gotri Mobility Hub', plan: 'Enterprise', vehicles: 450, st: 'Active', bg: 'sa-badge-green' },
-                      { name: 'Connaught Fleet Ltd', plan: 'Business', vehicles: 320, st: 'Active', bg: 'sa-badge-green' },
-                      { name: 'Bangalore EV Rides', plan: 'Business', vehicles: 280, st: 'Active', bg: 'sa-badge-green' },
-                      { name: 'Indiranagar Hub', plan: 'Starter', vehicles: 85, st: 'Trial', bg: 'sa-badge-orange' },
+                      { name: 'Manjalpur Hub', plan: 'Business', vehicles: 320, st: 'Active', bg: 'sa-badge-green' },
+                      { name: 'KPGU Campus Hub', plan: 'Business', vehicles: 280, st: 'Active', bg: 'sa-badge-green' },
+                      { name: 'Moti Daman Hub', plan: 'Starter', vehicles: 85, st: 'Trial', bg: 'sa-badge-orange' },
                       { name: 'Aatapi Eco Mobility', plan: 'Professional', vehicles: 190, st: 'Active', bg: 'sa-badge-green' }
                     ].map(t => (
                       <tr key={t.name}>
@@ -1392,35 +1392,358 @@ function FranchiseAdminRoleDashboard() {
 /* ── 3. ZONE MANAGER ROLE DASHBOARD (SUPER ADMIN STYLE) ─── */
 /* ──────────────────────────────────────────────────────── */
 function ZoneManagerRoleDashboard() {
+  const [activeZone, setActiveZone] = useState('Manjalpur Zone');
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Date Filter State
+  const [datePreset, setDatePreset] = useState<string>('this_month');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [customStart, setCustomStart] = useState<string>('');
+  const [customEnd, setCustomEnd] = useState<string>('');
+  const [isDateMenuOpen, setIsDateMenuOpen] = useState<boolean>(false);
+  const [dateRangeText, setDateRangeText] = useState<string>('This Month');
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Helper date formatting
+  const toYMD = (d: Date) => d.toISOString().split('T')[0];
+  const toDisplay = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Handle Date Presets
+  const applyPreset = (preset: string) => {
+    const now = new Date();
+    let s = '';
+    let e = '';
+    let text = 'All Time';
+
+    if (preset === 'today') {
+      s = toYMD(now);
+      e = toYMD(now);
+      text = `Today (${toDisplay(now)})`;
+    } else if (preset === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      s = toYMD(y);
+      e = toYMD(y);
+      text = `Yesterday (${toDisplay(y)})`;
+    } else if (preset === 'last_7_days') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 7);
+      s = toYMD(past);
+      e = toYMD(now);
+      text = `${toDisplay(past)} - ${toDisplay(now)}`;
+    } else if (preset === 'this_month') {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      s = toYMD(first);
+      e = toYMD(last);
+      text = `${toDisplay(first)} - ${toDisplay(last)}`;
+    } else if (preset === 'all_time') {
+      s = '';
+      e = '';
+      text = 'All Time (No Date Filter)';
+    }
+
+    setDatePreset(preset);
+    setStartDate(s);
+    setEndDate(e);
+    setDateRangeText(text);
+    setIsDateMenuOpen(false);
+  };
+
+  const applyCustomDates = () => {
+    if (!customStart || !customEnd) {
+      showToast('Please select both start and end dates');
+      return;
+    }
+    setDatePreset('custom');
+    setStartDate(customStart);
+    setEndDate(customEnd);
+    setDateRangeText(`${toDisplay(new Date(customStart))} - ${toDisplay(new Date(customEnd))}`);
+    setIsDateMenuOpen(false);
+  };
+
+  // Initialize Default Date: This Month
+  useEffect(() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const s = toYMD(first);
+    const e = toYMD(last);
+    setStartDate(s);
+    setEndDate(e);
+    setCustomStart(s);
+    setCustomEnd(e);
+    setDateRangeText(`${toDisplay(first)} - ${toDisplay(last)}`);
+  }, []);
+
+  // Fetch Stats from Backend API
+  const fetchZoneStats = async (zoneName: string, start?: string, end?: string) => {
+    try {
+      setLoading(true);
+      let query = `/stats/zone-admin?zone=${encodeURIComponent(zoneName)}`;
+      if (start && end) {
+        query += `&startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`;
+      }
+      const res = await api.get(query);
+      if (res && res.status === 'success' && res.data) {
+        setStats(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to load zone admin stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sync with Active Zone and Date Filter
+  useEffect(() => {
+    const update = () => {
+      if (typeof window !== 'undefined') {
+        const storedZone = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_user_zone') || 'Manjalpur Zone';
+        setActiveZone(storedZone);
+        fetchZoneStats(storedZone, startDate, endDate);
+      }
+    };
+    update();
+    window.addEventListener('evegah_active_zone_changed', update);
+    window.addEventListener('evegah_zone_changed', update);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', update);
+      window.removeEventListener('evegah_zone_changed', update);
+    };
+  }, [startDate, endDate]);
+
+  // CSV Export Function
+  const handleExport = () => {
+    if (!stats) return;
+    const rows = [
+      ['Evegah Mobility - Zone Performance Report'],
+      ['Zone', activeZone],
+      ['Date Range', dateRangeText],
+      ['Report Generated At', new Date().toLocaleString('en-IN')],
+      [],
+      ['--- KPI OVERVIEW ---'],
+      ['Metric', 'Value', 'Change'],
+      ['Total Riders', stats.kpis?.totalRiders?.value ?? 0, stats.kpis?.totalRiders?.change ?? ''],
+      ['Total Rentals', stats.kpis?.totalRentals?.value ?? 0, stats.kpis?.totalRentals?.change ?? ''],
+      ['Revenue', stats.kpis?.revenue?.value ?? '₹0', stats.kpis?.revenue?.change ?? ''],
+      ['Total Deposit', stats.kpis?.totalDeposit?.value ?? '₹0', stats.kpis?.totalDeposit?.change ?? ''],
+      ['Active Rides', stats.kpis?.activeRides?.value ?? 0, stats.kpis?.activeRides?.change ?? ''],
+      ['Zone Fleet', stats.kpis?.zoneFleet?.value ?? '0 EVs', stats.kpis?.zoneFleet?.change ?? ''],
+      [],
+      ['--- RECENT RESERVATIONS ---'],
+      ['Reservation ID', 'Customer Name', 'Mobile', 'Vehicle', 'Package', 'Fare (INR)', 'Deposit (INR)', 'Payment Status', 'Status', 'Date'],
+      ...(stats.recentReservations || []).map((r: any) => [
+        r.reservation_id, `"${r.customer_name || ''}"`, r.mobile, r.vehicle_number || '-', r.package_type || '-', r.fare, r.deposit, r.payment_status, r.status, r.created_at
+      ]),
+      [],
+      ['--- RIDER PAYMENT DUE ---'],
+      ['Rider Name', 'Mobile', 'Vehicle', 'Package', 'Amount Due (INR)', 'Payment Status', 'Status'],
+      ...(stats.riderPaymentDue || []).map((p: any) => [
+        `"${p.rider_name || ''}"`, p.mobile, p.vehicle_id || '-', p.package_name || '-', p.amount_due, p.payment_status, p.status
+      ]),
+      [],
+      ['--- DRAFT REGISTRATIONS ---'],
+      ['Applicant Name', 'Mobile', 'Package', 'KYC Status', 'Status', 'Submission Date'],
+      ...(stats.draftRegistrations || []).map((d: any) => [
+        `"${d.rider_name || ''}"`, d.mobile, d.package_name || '-', d.kyc_status, d.status, d.created_at
+      ])
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Zone_Report_${activeZone.replace(/\s+/g, '_')}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`Exported ${activeZone} report successfully!`);
+  };
+
+  const kpis = stats?.kpis;
+  const batteryStats = stats?.batteryStats || { total: 8, charged: 4, medium: 2, low: 0, charging: 2 };
+  const recentReservations = stats?.recentReservations || [];
+  const riderPaymentDue = stats?.riderPaymentDue || [];
+  const draftRegistrations = stats?.draftRegistrations || [];
+  const telemetryFleet = stats?.telemetryFleet || [];
+  const hubs = stats?.hubs || [];
+
   return (
     <div className="ev-shell">
       <Sidebar activePath="/" />
       <div className="ev-main">
-        <TopBar title="Zone Admin Dashboard" subtitle="Live Zone Monitoring, Battery Swap Cabinets, Fleet Telemetry & Zone Performance" hideZone={false} />
+        <TopBar title="Zone Admin Dashboard" subtitle="Live Zone Monitoring, Battery Swap Cabinets, Fleet Telemetry & Zone Performance" hideZone={false} hideDateFilter={true} />
+
+        {/* Toast alert notification */}
+        {toastMessage && (
+          <div style={{
+            position: 'fixed',
+            top: 24,
+            right: 24,
+            background: '#10B981',
+            color: '#fff',
+            padding: '12px 20px',
+            borderRadius: '10px',
+            fontWeight: 700,
+            fontSize: '13.5px',
+            zIndex: 99999,
+            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>✓</span> {toastMessage}
+          </div>
+        )}
 
         <div className="ev-body">
-          <div className="sa-sub-header">
+          {/* Sub Header with Interactive Date Range Filter & Export */}
+          <div className="sa-sub-header" style={{ position: 'relative' }}>
             <div className="sa-sub-title-group">
-              <h2 className="sa-sub-title">Connaught Place Zone Performance</h2>
-              <span className="sa-sub-desc">Live geofence telemetry, battery swapping analytics & hub operations</span>
+              <h2 className="sa-sub-title">Zone Performance Overview</h2>
+              <span className="sa-sub-desc">Live telemetry, rental conversions, deposits & fleet status</span>
             </div>
-            <div className="sa-sub-right">
-              <div className="sa-date-box">
-                <span>01 May 2024 - 31 May 2024</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+
+            <div className="sa-sub-right" style={{ position: 'relative' }}>
+              {/* Clickable Interactive Date Box */}
+              <div
+                className="sa-date-box"
+                onClick={() => setIsDateMenuOpen(!isDateMenuOpen)}
+                style={{ position: 'relative', cursor: 'pointer', background: isDateMenuOpen ? '#F1F5F9' : '#fff' }}
+                title="Click to change date range"
+              >
+                <span style={{ fontWeight: 700, color: '#1E293B' }}>📅 {dateRangeText}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
               </div>
-              <button className="sa-export-btn">Export Zone Report</button>
+
+              {/* Popover Date Picker Modal */}
+              {isDateMenuOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '110%',
+                  right: 0,
+                  width: '320px',
+                  background: '#ffffff',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '12px',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
+                  padding: '16px',
+                  zIndex: 1000,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filter by Date Range</span>
+                    <button
+                      onClick={() => setIsDateMenuOpen(false)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontWeight: 800, fontSize: '13px' }}
+                    >×</button>
+                  </div>
+
+                  {/* Preset quick buttons */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {[
+                      { id: 'today', label: 'Today' },
+                      { id: 'yesterday', label: 'Yesterday' },
+                      { id: 'last_7_days', label: 'Last 7 Days' },
+                      { id: 'this_month', label: 'This Month' },
+                      { id: 'all_time', label: 'All Time' }
+                    ].map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => applyPreset(p.id)}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          textAlign: 'center',
+                          border: '1px solid',
+                          borderColor: datePreset === p.id ? '#6366F1' : '#E2E8F0',
+                          background: datePreset === p.id ? '#EEF2FF' : '#fff',
+                          color: datePreset === p.id ? '#4F46E5' : '#334155',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Date Inputs */}
+                  <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>CUSTOM DATE RANGE</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600 }}>START</span>
+                        <input
+                          type="date"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '11.5px', color: '#0F172A', outline: 'none' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600 }}>END</span>
+                        <input
+                          type="date"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '11.5px', color: '#0F172A', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={applyCustomDates}
+                      style={{
+                        padding: '8px',
+                        background: '#6366F1',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        marginTop: '4px'
+                      }}
+                    >
+                      Apply Custom Filter
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button className="sa-export-btn" onClick={handleExport}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export Zone Report
+              </button>
             </div>
           </div>
 
-          {/* 5 Top KPI Cards */}
+          {/* 5 Top KPI Cards: Total Riders, Total Rentals, Revenue, Total Deposit, Active Rides */}
           <div className="sa-kpi-row-5">
             {[
-              { label: 'Zone Fleet', val: '412 EVs', change: '8.5%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛵' },
-              { label: 'Available Batteries', val: '184', change: '94% Charged', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🔋' },
-              { label: 'Active Swap Stations', val: '8 / 8', change: '100% Online', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' },
-              { label: 'Swaps Today', val: '92 Swaps', change: '12% vs yesterday', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '🔄' },
-              { label: 'Zone Daily Revenue', val: '₹48,200', change: '18% vs last week', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' }
+              { label: 'Total Riders', val: kpis?.totalRiders?.value ?? 0, change: kpis?.totalRiders?.change ?? '+12.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
+              { label: 'Total Rentals', val: kpis?.totalRentals?.value ?? 0, change: kpis?.totalRentals?.change ?? '+15.2%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '🛵' },
+              { label: 'Revenue', val: kpis?.revenue?.value ?? '₹0', change: kpis?.revenue?.change ?? '+18.5%', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' },
+              { label: 'Total Deposit', val: kpis?.totalDeposit?.value ?? '₹0', change: kpis?.totalDeposit?.change ?? 'Secured', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
+              { label: 'Active Rides', val: `${kpis?.activeRides?.value ?? 0} Rides`, change: kpis?.activeRides?.change ?? 'Active', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' }
             ].map(k => (
               <div key={k.label} className="sa-kpi-card">
                 <div className="sa-kpi-card-top">
@@ -1436,24 +1759,43 @@ function ZoneManagerRoleDashboard() {
             ))}
           </div>
 
-          {/* Row 1 Grid: Line Chart, Doughnut Chart, Top Swap Stations */}
-          <div className="sa-row-1-grid">
+          {/* Row 1 Grid: Line Chart (Demand Trend) & Doughnut Chart (Battery SOC) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '16px', marginTop: '4px' }}>
             <div className="sa-card">
               <div className="sa-card-hdr">
-                <span className="sa-card-title">Zone Ride Demand & Battery Swaps (24h Trend)</span>
-                <select className="sa-select-light"><option>Today</option></select>
+                <span className="sa-card-title">Ride Demand &amp; Active Trips (24h Trend)</span>
+                <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>{dateRangeText}</span>
               </div>
               <div className="sa-card-body">
-                <div style={{ height: '180px', position: 'relative' }}>
+                <div style={{ height: '190px', position: 'relative' }}>
                   <Line
                     data={{
-                      labels: ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00'],
+                      labels: stats?.demandTrend?.labels || ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00'],
                       datasets: [
-                        { label: 'Active Rides', data: [80, 190, 240, 310, 380, 290, 140], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.4 },
-                        { label: 'Battery Swaps', data: [12, 35, 48, 62, 92, 54, 20], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
+                        {
+                          label: 'Active Rides',
+                          data: stats?.demandTrend?.activeRides || [1, 3, 5, 4, 6, 4, 2],
+                          borderColor: '#6366F1',
+                          backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                          fill: true,
+                          tension: 0.4
+                        },
+                        {
+                          label: 'Hourly Bookings',
+                          data: stats?.demandTrend?.hourlyRentals || [0, 2, 3, 4, 5, 2, 1],
+                          borderColor: '#10B981',
+                          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                          fill: true,
+                          tension: 0.4
+                        }
                       ]
                     }}
-                    options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      animation: { duration: 1200, easing: 'easeInOutQuart' },
+                      plugins: { legend: { display: true, position: 'top' } }
+                    }}
                   />
                 </div>
               </div>
@@ -1466,128 +1808,387 @@ function ZoneManagerRoleDashboard() {
                   <Doughnut
                     data={{
                       labels: ['Fully Charged (>80%)', 'Medium (40-80%)', 'Low Battery (<40%)', 'In Charging Station'],
-                      datasets: [{ data: [112, 48, 14, 10], backgroundColor: ['#10B981', '#6366F1', '#F97316', '#8B5CF6'] }]
+                      datasets: [{
+                        data: [
+                          batteryStats.charged || 4,
+                          batteryStats.medium || 2,
+                          batteryStats.low || 0,
+                          batteryStats.charging || 2
+                        ],
+                        backgroundColor: ['#10B981', '#6366F1', '#F97316', '#8B5CF6']
+                      }]
                     }}
-                    options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      cutout: '70%',
+                      animation: { animateRotate: true, animateScale: true, duration: 1200 },
+                      plugins: { legend: { display: false } }
+                    }}
                   />
                   <div className="sa-donut-center">
-                    <span className="sa-donut-num">184</span>
+                    <span className="sa-donut-num">{batteryStats.total || 8}</span>
                     <span className="sa-donut-lbl">Batteries</span>
                   </div>
                 </div>
                 <div className="sa-donut-legends">
-                  <div className="sa-donut-leg-row"><span>Charged (&gt;80%)</span><span className="sa-donut-leg-val">112 (60.8%)</span></div>
-                  <div className="sa-donut-leg-row"><span>Medium (40-80%)</span><span className="sa-donut-leg-val">48 (26.1%)</span></div>
-                  <div className="sa-donut-leg-row"><span>Low (&lt;40%)</span><span className="sa-donut-leg-val">14 (7.6%)</span></div>
-                  <div className="sa-donut-leg-row"><span>Charging</span><span className="sa-donut-leg-val">10 (5.5%)</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="sa-card">
-              <div className="sa-card-hdr">
-                <span className="sa-card-title">Top Swap Cabinets</span>
-                <a href="/battery" className="sa-link-all">View All</a>
-              </div>
-              <div className="sa-card-body">
-                <div className="sa-rank-list">
-                  {[
-                    { name: 'CP Hub Station A', val: '342 Swaps', color: '#6366F1' },
-                    { name: 'CP Metro Gate 2 Cabinet', val: '289 Swaps', color: '#10B981' },
-                    { name: 'Janpath Crossing Hub', val: '210 Swaps', color: '#F59E0B' },
-                    { name: 'Barakhamba Road Station', val: '154 Swaps', color: '#8B5CF6' }
-                  ].map((s, idx) => (
-                    <div key={s.name} className="sa-rank-row">
-                      <div className="sa-rank-left">
-                        <span className="sa-rank-circle" style={{ background: s.color }}>{idx + 1}</span>
-                        <span className="sa-rank-name">{s.name}</span>
-                      </div>
-                      <span className="sa-rank-val">{s.val}</span>
-                    </div>
-                  ))}
+                  <div className="sa-donut-leg-row"><span>Charged (&gt;80%)</span><span className="sa-donut-leg-val">{batteryStats.charged} Units</span></div>
+                  <div className="sa-donut-leg-row"><span>Medium (40-80%)</span><span className="sa-donut-leg-val">{batteryStats.medium} Units</span></div>
+                  <div className="sa-donut-leg-row"><span>Low (&lt;40%)</span><span className="sa-donut-leg-val">{batteryStats.low} Units</span></div>
+                  <div className="sa-donut-leg-row"><span>Charging</span><span className="sa-donut-leg-val">{batteryStats.charging} Units</span></div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 6 Small KPIs Row */}
-          <div className="sa-kpi-row-6">
-            {[
-              { label: 'Active Riders Online', val: '315', change: '14.2%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
-              { label: 'Avg Swap Time', val: '1.8 min', change: '0.4m faster', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⏱️' },
-              { label: 'Geofence Violations', val: '0', change: 'Zero breaches', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
-              { label: 'Fleet Uptime', val: '99.2%', change: 'Optimal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '📈' },
-              { label: 'Maintenance Pending', val: '3 Bikes', change: 'In workshop', up: false, bg: '#FFF7ED', color: '#F97316', ic: '🛠️' },
-              { label: 'Revenue / Rider', val: '₹153', change: '8.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '💳' }
-            ].map(k => (
-              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
-                </div>
-                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
-                  <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
-                </div>
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── TABLE 1: RECENT RESERVATIONS (FULL WIDTH EXECUTIVE TABLE) ──── */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <div className="sa-card" style={{ marginTop: '4px' }}>
+            <div className="sa-card-hdr">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="sa-card-title">Recent Reservations</span>
+                <span style={{
+                  background: '#EEF2FF',
+                  color: '#4F46E5',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  fontSize: '11.5px',
+                  fontWeight: 700
+                }}>
+                  {recentReservations.length} Bookings
+                </span>
               </div>
-            ))}
-          </div>
-
-          {/* Row 3 Data Grid: Fleet Overview & Cabinets */}
-          <div className="sa-row-3-grid">
-            <div className="sa-card">
-              <div className="sa-card-hdr">
-                <span className="sa-card-title">Live Zone Fleet Telemetry</span>
-                <a href="/vehicles" className="sa-link-all">View All Fleet</a>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <a href="/renters/reserved" className="sa-link-all">View All Reservations →</a>
               </div>
-              <div className="sa-card-body" style={{ padding: 0 }}>
+            </div>
+            <div className="sa-card-body" style={{ padding: 0 }}>
+              <div style={{ overflowX: 'auto' }}>
                 <table className="sa-table">
                   <thead>
-                    <tr><th>Vehicle Plate</th><th>Rider Name</th><th>Battery SOC</th><th>Current Location</th><th>Status</th></tr>
+                    <tr>
+                      <th>Reservation ID</th>
+                      <th>Rider Name</th>
+                      <th>Mobile</th>
+                      <th>Vehicle Number</th>
+                      <th>Package Plan</th>
+                      <th>Fare</th>
+                      <th>Deposit</th>
+                      <th>Payment Status</th>
+                      <th>Ride Status</th>
+                      <th>Action</th>
+                    </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { plate: 'EVM-901', rider: 'Amit Kumar', battery: '92%', loc: 'Connaught Inner Circle', st: 'Active Ride', bg: 'sa-badge-green' },
-                      { plate: 'EVM-804', rider: 'Neha Gupta', battery: '78%', loc: 'Barakhamba Road', st: 'Active Ride', bg: 'sa-badge-green' },
-                      { plate: 'EVM-755', rider: 'Rohit Singh', battery: '64%', loc: 'Janpath Hub', st: 'Available', bg: 'sa-badge-blue' },
-                      { plate: 'EVM-612', rider: 'Sneha Reddy', battery: '18%', loc: 'Metro Gate 2 Cabinet', st: 'Charging', bg: 'sa-badge-orange' }
-                    ].map(v => (
-                      <tr key={v.plate}>
-                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{v.plate}</td>
-                        <td>{v.rider}</td>
-                        <td style={{ fontWeight: '700' }}>{v.battery}</td>
-                        <td>{v.loc}</td>
-                        <td><span className={`sa-badge ${v.bg}`}>{v.st}</span></td>
+                    {recentReservations.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} style={{ textAlign: 'center', padding: '30px', color: '#94A3B8' }}>
+                          No reservations found for this period.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      recentReservations.map((r: any) => (
+                        <tr key={r.id || r.reservation_id}>
+                          <td style={{ fontWeight: 800, fontFamily: 'Outfit', color: '#4F46E5' }}>{r.reservation_id}</td>
+                          <td style={{ fontWeight: 700, color: '#0F172A' }}>{r.customer_name}</td>
+                          <td style={{ color: '#475569', fontSize: '12px' }}>{r.mobile}</td>
+                          <td>
+                            <span style={{ background: '#F1F5F9', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '11.5px' }}>
+                              {r.vehicle_number || 'Pending'}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{r.package_type}</td>
+                          <td style={{ fontWeight: 800, color: '#0F172A' }}>₹{parseFloat(r.fare || 0).toLocaleString('en-IN')}</td>
+                          <td style={{ fontWeight: 700, color: '#10B981' }}>₹{parseFloat(r.deposit || 0).toLocaleString('en-IN')}</td>
+                          <td>
+                            <span className={`sa-badge ${r.payment_status === 'Paid' ? 'sa-badge-green' : 'sa-badge-orange'}`}>
+                              {r.payment_status}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`sa-badge ${
+                              r.status === 'Active Ride' ? 'sa-badge-green' :
+                              r.status === 'Confirmed' ? 'sa-badge-blue' :
+                              r.status === 'Completed' ? 'sa-badge-green' : 'sa-badge-orange'
+                            }`}>
+                              {r.status}
+                            </span>
+                          </td>
+                          <td>
+                            <a
+                              href={`/renters/profile?mobile=${encodeURIComponent(r.mobile || '')}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '4px 8px',
+                                background: '#F8FAFC',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: '#475569',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              Details
+                            </a>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+          </div>
 
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── ROW 2: RIDER PAYMENT DUE (LEFT) & DRAFT REGISTRATIONS (RIGHT) ─ */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <div className="sa-row-2-grid" style={{ marginTop: '4px' }}>
+            {/* Table 2: Rider Payment Due */}
             <div className="sa-card">
               <div className="sa-card-hdr">
-                <span className="sa-card-title">Cabinet Capacity & Live Status</span>
-                <a href="/battery" className="sa-link-all">Manage Cabinets</a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="sa-card-title">Rider Payment Due</span>
+                  <span style={{
+                    background: '#FEE2E2',
+                    color: '#DC2626',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 800
+                  }}>
+                    {riderPaymentDue.length} Overdue
+                  </span>
+                </div>
+                <button
+                  onClick={() => showToast('Payment reminders dispatched via WhatsApp to overdue riders!')}
+                  style={{
+                    background: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    color: '#DC2626',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Send Reminders
+                </button>
               </div>
-              <div className="sa-card-body" style={{ gap: '14px' }}>
-                {[
-                  { name: 'CP Hub Station A', charged: 24, total: 32, pct: '75%', color: '#10B981' },
-                  { name: 'CP Metro Gate 2 Cabinet', charged: 14, total: 16, pct: '87%', color: '#10B981' },
-                  { name: 'Janpath Crossing Hub', charged: 6, total: 12, pct: '50%', color: '#F59E0B' },
-                  { name: 'Barakhamba Road Station', charged: 2, total: 8, pct: '25%', color: '#EF4444' }
-                ].map(st => (
-                  <div key={st.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700' }}>
-                      <span>{st.name}</span>
-                      <span style={{ color: st.color }}>{st.charged}/{st.total} Charged ({st.pct})</span>
-                    </div>
-                    <div className="sa-prog-bar-bg"><div className="sa-prog-bar-fill" style={{ width: st.pct, background: st.color }} /></div>
-                  </div>
-                ))}
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="sa-table">
+                    <thead>
+                      <tr>
+                        <th>Rider Name</th>
+                        <th>Contact</th>
+                        <th>Vehicle</th>
+                        <th>Amount Due</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {riderPaymentDue.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94A3B8' }}>
+                            ✓ No pending payment dues.
+                          </td>
+                        </tr>
+                      ) : (
+                        riderPaymentDue.map((p: any) => (
+                          <tr key={p.id || p.reservation_id}>
+                            <td style={{ fontWeight: 700, color: '#0F172A' }}>{p.rider_name}</td>
+                            <td style={{ color: '#475569', fontSize: '11.5px' }}>{p.mobile}</td>
+                            <td>
+                              <span style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
+                                {p.vehicle_id || 'EVM102504'}
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: 800, color: '#DC2626' }}>
+                              ₹{parseFloat(p.amount_due || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td>
+                              <span className="sa-badge sa-badge-orange">{p.status || 'Payment Due'}</span>
+                            </td>
+                            <td>
+                              <button
+                                onClick={() => showToast(`Payment collection initiated for ${p.rider_name} (₹${p.amount_due})`)}
+                                style={{
+                                  padding: '4px 8px',
+                                  background: '#6366F1',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Collect
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Table 3: Draft Registration */}
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="sa-card-title">Draft Registrations &amp; Pending KYC</span>
+                  <span style={{
+                    background: '#FEF3C7',
+                    color: '#D97706',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 800
+                  }}>
+                    {draftRegistrations.length} In Review
+                  </span>
+                </div>
+                <a href="/new-rider" className="sa-link-all">+ New Rider</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="sa-table">
+                    <thead>
+                      <tr>
+                        <th>Applicant Name</th>
+                        <th>Mobile</th>
+                        <th>Plan</th>
+                        <th>KYC Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {draftRegistrations.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94A3B8' }}>
+                            ✓ No pending draft applications.
+                          </td>
+                        </tr>
+                      ) : (
+                        draftRegistrations.map((d: any) => (
+                          <tr key={d.id || d.mobile}>
+                            <td style={{ fontWeight: 700, color: '#0F172A' }}>{d.rider_name}</td>
+                            <td style={{ color: '#475569', fontSize: '11.5px' }}>{d.mobile}</td>
+                            <td style={{ fontWeight: 600 }}>{d.package_name || 'Weekly Pro'}</td>
+                            <td>
+                              <span style={{
+                                background: d.kyc_status === 'Under Review' ? '#FEF3C7' : '#EFF6FF',
+                                color: d.kyc_status === 'Under Review' ? '#B45309' : '#1D4ED8',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700
+                              }}>
+                                {d.kyc_status}
+                              </span>
+                            </td>
+                            <td>
+                              <a
+                                href={`/new-rider?mobile=${encodeURIComponent(d.mobile || '')}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '4px 8px',
+                                  background: '#10B981',
+                                  color: '#fff',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  textDecoration: 'none'
+                                }}
+                              >
+                                Resume KYC
+                              </a>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── ROW 3: LIVE FLEET TELEMETRY (CLEAN FULL WIDTH) ─────────────── */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <div className="sa-card" style={{ marginTop: '4px' }}>
+            <div className="sa-card-hdr">
+              <span className="sa-card-title">Live Fleet Telemetry</span>
+              <a href="/vehicles/all" className="sa-link-all">View All Fleet</a>
+            </div>
+            <div className="sa-card-body" style={{ padding: 0 }}>
+              <table className="sa-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle Plate</th>
+                    <th>Rider Name</th>
+                    <th>Battery SOC</th>
+                    <th>Current Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {telemetryFleet.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#94A3B8' }}>
+                        No EVs registered.
+                      </td>
+                    </tr>
+                  ) : (
+                    telemetryFleet.map((v: any) => (
+                      <tr key={v.code}>
+                        <td style={{ fontWeight: '800', fontFamily: 'Outfit', color: '#0F172A' }}>{v.code}</td>
+                        <td>{v.renter_name || 'None (Available)'}</td>
+                        <td style={{ fontWeight: '700', color: v.battery_pct > 50 ? '#10B981' : '#F97316' }}>
+                          {v.battery_pct}%
+                        </td>
+                        <td>
+                          <span className={`sa-badge ${v.vehicle_status === 'In Ride' ? 'sa-badge-green' : 'sa-badge-blue'}`}>
+                            {v.vehicle_status}
+                          </span>
+                        </td>
+                        <td>
+                          <a
+                            href={`/vehicles/detail?code=${encodeURIComponent(v.code)}`}
+                            style={{
+                              padding: '3px 8px',
+                              background: '#F1F5F9',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#334155',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            Live GPS
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -2242,7 +2843,7 @@ function FinanceAccountsRoleDashboard() {
                 <tbody>
                   {[
                     { id: '#INV-2024-089', tenant: 'Gotri Mobility Hub', mode: 'UPI Direct', amt: '₹1,45,000', st: 'Success', bg: 'sa-badge-green' },
-                    { id: '#INV-2024-088', tenant: 'Connaught Fleet Ltd', mode: 'Corporate Card', amt: '₹98,500', st: 'Success', bg: 'sa-badge-green' },
+                    { id: '#INV-2024-088', tenant: 'Manjalpur Hub', mode: 'Corporate Card', amt: '₹98,500', st: 'Success', bg: 'sa-badge-green' },
                     { id: '#INV-2024-087', tenant: 'Aatapi Eco Mobility', mode: 'Net Banking', amt: '₹62,000', st: 'Processing', bg: 'sa-badge-blue' }
                   ].map(inv => (
                     <tr key={inv.id}>

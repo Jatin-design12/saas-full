@@ -137,12 +137,12 @@ const CSS = `
 export default function FranchiseOnboardWizard() {
   const [step, setStep] = useState(4); // Default to Step 4 to show the newly updated Agreement & Signature step
   const [formData, setFormData] = useState({
-    hubName: 'CP E-Vegah Hub',
-    code: 'FRN-CP-0001',
+    hubName: 'Gotri E-Vegah Hub',
+    code: 'FRN-GOT-0001',
     type: 'Battery Swapping + Rental',
-    zone: 'Connaught Place Zone',
-    address: 'Shop No. 12, Connaught Place, New Delhi - 110001',
-    landmark: 'Near Metro Station Gate No. 2',
+    zone: 'Gotri Zone',
+    address: 'Shop No. 12, Gotri Road, Vadodara - 390021',
+    landmark: 'Near Gotri Water Tank',
     ownerName: 'Rahul Sharma',
     mobile: '+91 98765 43210',
     email: 'rahul.sharma@evegah.com',
@@ -151,7 +151,7 @@ export default function FranchiseOnboardWizard() {
     dob: '1990-06-15',
 
     bizType: 'Proprietorship',
-    entityName: 'CP E-Vegah Hub',
+    entityName: 'Gotri E-Vegah Hub',
     gstin: '07ABCDE1234F1Z5',
     establishmentYear: '2023',
     employees: '8',
@@ -248,7 +248,7 @@ export default function FranchiseOnboardWizard() {
       <div className="ev-shell">
         <Sidebar activePath="/franchise/onboard" />
         <div className="ev-main">
-          <TopBar title="Akash Verma" subtitle="Zone Employee" />
+          <TopBar />
 
           <div className="ev-body">
             
@@ -348,10 +348,11 @@ export default function FranchiseOnboardWizard() {
                           value={formData.zone}
                           onChange={e => setFormData({ ...formData, zone: e.target.value })}
                         >
-                          <option>Connaught Place Zone</option>
-                          <option>Karol Bagh Zone</option>
-                          <option>Janakpuri Zone</option>
-                          <option>Raja Garden Zone</option>
+                          <option>Gotri Zone</option>
+                          <option>Manjalpur Zone</option>
+                          <option>KPGU Zone</option>
+                          <option>Aatapi Zone</option>
+                          <option>Moti Daman Zone</option>
                         </select>
                       </div>
                     </div>
@@ -718,9 +719,9 @@ export default function FranchiseOnboardWizard() {
                               <div className="on-doc-page-tit" style={{ fontSize: '14px', fontWeight: '800', borderBottom: '2px solid #0F172A', paddingBottom: '8px', marginBottom: '14px', textAlign: 'center' }}>FRANCHISE AGREEMENT</div>
                               <div className="on-doc-page-body" style={{ fontSize: '10px', lineHeight: '1.5' }}>
                                 <p>This Franchise Agreement (&quot;Agreement&quot;) is made and entered into on this <strong>15th day of July, 2024</strong>, by and between:</p>
-                                <p><strong>Evegah Mobility Private Limited</strong>, a company incorporated under the laws of India, having its registered office at Connaught Place, New Delhi (hereinafter referred to as &quot;Company&quot;)</p>
+                                <p><strong>Evegah Mobility Private Limited</strong>, a company incorporated under the laws of India, having its registered office at Gotri Road, Vadodara, Gujarat (hereinafter referred to as &quot;Company&quot;)</p>
                                 <p>AND</p>
-                                <p><strong>Rahul Sharma</strong>, residing at Shop No. 12, Connaught Place, New Delhi - 110001 (hereinafter referred to as &quot;Franchisee&quot;)</p>
+                                <p><strong>Rahul Sharma</strong>, residing at Shop No. 12, Gotri Road, Vadodara - 390021 (hereinafter referred to as &quot;Franchisee&quot;)</p>
                                 <h4 style={{ fontSize: '10.5px', fontWeight: '800', marginTop: '10px', marginBottom: '4px' }}>WHEREAS:</h4>
                                 <p>The Company is engaged in the business of battery swapping, EV mobility, and related services under the brand &quot;Evegah&quot;; and the Franchisee desires to associate with the Company for operating a battery swapping station under the brand &quot;Evegah&quot;.</p>
                                 <p>Now, therefore, in consideration of the mutual covenants contained herein, the parties agree to perform the duties and obligations described in the agreement.</p>

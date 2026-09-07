@@ -272,13 +272,7 @@ export default function BatteryInwardDetailsPage() {
       <div className="ba-shell">
         <Sidebar activePath="/battery/inward" />
         <div className="ba-main">
-          <TopBar
-            title="Hello, Akash"
-            subtitle="Zone Employee"
-            notificationCount={3}
-            leftAvatarText=""
-            userAvatar="/rohit_avatar.png"
-          />
+          <TopBar />
           <div className="ba-page">
             {/* Breadcrumbs Row */}
             <div className="ba-bc-container">
@@ -802,21 +796,21 @@ export default function BatteryInwardDetailsPage() {
                             <td style={{ whiteSpace: 'nowrap' }}>16 May 2024, 09:30 AM</td>
                             <td style={{ fontWeight: 700, fontFamily: 'monospace', color: '#2A195C' }}>BINW-2024-5567</td>
                             <td style={{ fontWeight: 600 }}>Ritu Sharma</td>
-                            <td>Karol Bagh</td>
+                            <td>Manjalpur Zone</td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>2,100 km</td>
                           </tr>
                           <tr>
                             <td style={{ whiteSpace: 'nowrap' }}>12 May 2024, 08:50 AM</td>
                             <td style={{ fontWeight: 700, fontFamily: 'monospace', color: '#2A195C' }}>BINW-2024-5446</td>
                             <td style={{ fontWeight: 600 }}>Mohit Singh</td>
-                            <td>Paharganj</td>
+                            <td>KPGU Zone</td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>2,048 km</td>
                           </tr>
                           <tr>
                             <td style={{ whiteSpace: 'nowrap' }}>08 May 2024, 07:45 AM</td>
                             <td style={{ fontWeight: 700, fontFamily: 'monospace', color: '#2A195C' }}>BINW-2024-5335</td>
                             <td style={{ fontWeight: 600 }}>Neha Gupta</td>
-                            <td>Rajendra Place</td>
+                            <td>Gotri Zone</td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>1,984 km</td>
                           </tr>
                           <tr>

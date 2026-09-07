@@ -575,10 +575,11 @@ export default function BatteryInventoryPage() {
                 </select>
                 <select className="bi-select" value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)}>
                   <option value="All Locations">All Locations</option>
-                  <option value="Palika Bazaar">Palika Bazaar, CP</option>
-                  <option value="Jantar Mantar">Jantar Mantar, CP</option>
-                  <option value="Karol Bagh">Karol Bagh</option>
-                  <option value="Raja Garden">Raja Garden</option>
+                  <option value="Gotri Hub">Gotri Hub</option>
+                  <option value="Manjalpur Hub">Manjalpur Hub</option>
+                  <option value="KPGU Hub">KPGU Hub</option>
+                  <option value="Aatapi Hub">Aatapi Hub</option>
+                  <option value="Moti Daman Hub">Moti Daman Hub</option>
                 </select>
                 <button className="bi-filter-btn" onClick={() => alert('Filtering loaded batteries list in real time!')}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>

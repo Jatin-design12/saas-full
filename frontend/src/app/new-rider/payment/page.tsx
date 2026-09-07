@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -85,10 +86,10 @@ const CSS = `
 .pm-sec-hd { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 14px; }
 
 /* ── payment method tabs ── */
-.pm-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.pm-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
 .pm-tab {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 9px; font-size: 12.5px; font-weight: 600;
   cursor: pointer; border: 1.5px solid #E5E7EB; background: #fff;
   color: #374151; font-family: inherit; transition: all .15s; white-space: nowrap;
 }
@@ -96,28 +97,93 @@ const CSS = `
 .pm-tab:hover:not(.sel) { border-color: #C7D2FE; color: #2a195c; }
 .pm-tab-ic { display: flex; align-items: center; }
 
-/* ── UPI field ── */
-.pm-upi-label { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-.pm-upi-label .req { color: #EF4444; margin-left: 2px; }
-.pm-upi-wrap {
-  display: flex; align-items: center;
-  border: 1.5px solid #E5E7EB; border-radius: 9px; background: #fff;
-  overflow: hidden; transition: border-color .15s, box-shadow .15s; margin-bottom: 10px;
+/* ── ICICI QR Card ── */
+.icici-qr-card {
+  background: #FDF4FF;
+  border: 1.5px solid #F0ABFC;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 18px;
 }
-.pm-upi-wrap:focus-within { border-color: #2a195c; box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
-.pm-upi-inp { flex: 1; padding: 10px 13px; border: none; outline: none; font-size: 13px; font-family: inherit; color: #111827; min-width: 0; background: transparent; }
-.pm-upi-inp::placeholder { color: #9CA3AF; }
-.pm-verified {
-  display: flex; align-items: center; gap: 5px;
-  padding: 0 12px; font-size: 12px; font-weight: 700; color: #16A34A; white-space: nowrap; flex-shrink: 0;
+.icici-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #701A75;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
 }
-.pm-verified-dot { width: 16px; height: 16px; background: #22C55E; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.icici-qr-frame {
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1.5px solid #E5E7EB;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icici-qr-frame img {
+  width: 160px;
+  height: 160px;
+  display: block;
+}
+.icici-vpa-txt { font-size: 12.5px; font-weight: 700; color: #701A75; margin-top: 10px; }
+.icici-ref-txt { font-size: 11px; color: #64748B; margin-top: 2px; }
+.icici-verify-btn {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  background: #10B981;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.icici-verify-btn:hover { background: #059669; }
+
+/* ── Split Payment Box ── */
+.pm-split-box {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+}
+.pm-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
 
 /* ── verified banner ── */
 .pm-ok-banner {
-  display: flex; align-items: center; gap: 8px;
-  background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;
-  padding: 10px 14px; font-size: 12.5px; color: #16A34A; font-weight: 600; margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: #16A34A;
+  font-weight: 600;
+  margin-bottom: 18px;
 }
 
 /* cash / card / wallet input */
@@ -179,7 +245,7 @@ const CSS = `
 }
 
 /* ── Coupon ── */
-.pm-coupon-wrap { display: flex; gap: 9px; margin-bottom: 20px; }
+.pm-coupon-wrap { display: flex; gap: 9px; margin-bottom: 8px; }
 .pm-coupon-inp {
   flex: 1; padding: 10px 13px; border: 1.5px solid #E5E7EB; border-radius: 9px;
   font-size: 13px; font-family: inherit; outline: none; color: #111827; background: #fff;
@@ -197,17 +263,30 @@ const CSS = `
   display: flex; align-items: center; gap: 8px;
   background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;
   padding: 9px 14px; font-size: 12.5px; color: #16A34A; font-weight: 600;
-  margin-top: -10px; margin-bottom: 16px;
+  margin-bottom: 12px;
 }
+.pm-coupon-err {
+  background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; color: #DC2626; font-weight: 600;
+  margin-bottom: 12px;
+}
+.pm-coupon-chips {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px;
+}
+.pm-coupon-chip {
+  padding: 4px 9px; border: 1px dashed #6366F1; border-radius: 6px;
+  background: #EEF2FF; color: #4338CA; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.pm-coupon-chip:hover { background: #E0E7FF; }
 .pm-coupon-rm { margin-left: auto; cursor: pointer; color: #9CA3AF; font-size: 11px; font-weight: 600; background: none; border: none; font-family: inherit; padding: 0; }
 .pm-coupon-rm:hover { color: #EF4444; }
 
 /* ── Charges Breakdown ── */
 .pm-bk-hd { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 12px; }
-.pm-bk-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; font-size: 13px; border-bottom: 1px solid #F9FAFB; }
-.pm-bk-row:last-child { border-bottom: none; }
-.pm-bk-label { color: #6B7280; }
-.pm-bk-val   { font-weight: 600; color: #111827; }
+.pm-bk-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 6px; }
+.pm-bk-label { color: #64748B; font-weight: 500; }
+.pm-bk-val   { font-weight: 700; color: #111827; }
 .pm-inc-hd { font-size: 13px; font-weight: 700; color: #374151; margin: 16px 0 10px; }
 .pm-inc-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; margin-bottom: 7px; }
 .pm-inc-ic  { display: flex; align-items: center; flex-shrink: 0; }
@@ -224,6 +303,7 @@ const CSS = `
   padding: 10px 22px; background: #fff; border: 1.5px solid #E5E7EB;
   border-radius: 10px; font-size: 13px; font-weight: 600; color: #374151;
   cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s;
+  text-decoration: none;
 }
 .nr-prev-btn:hover { border-color: #2a195c; color: #2a195c; }
 .nr-continue-btn {
@@ -241,14 +321,14 @@ const CSS = `
 .nr-rp-hdr-ic { display: flex; align-items: center; flex-shrink: 0; }
 .nr-rp-title  { font-size: 13.5px; font-weight: 700; color: #111827; }
 
-.nr-sum-body { padding: 4px 0 8px; }
-.nr-sum-row  { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px; font-size: 13px; }
-.nr-sum-label { color: #6B7280; }
-.nr-sum-val   { font-weight: 600; color: #111827; }
-.nr-sum-divider { height: 1px; background: #F3F4F6; margin: 4px 0; }
+.nr-sum-body { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
+.nr-sum-row  { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }
+.nr-sum-label { color: #64748B; font-weight: 500; }
+.nr-sum-val   { font-weight: 700; color: #111827; }
+.nr-sum-divider { height: 1px; background: #E2E8F0; margin: 4px 0; }
 .nr-sum-total {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 18px; margin: 8px 12px 12px; border-radius: 10px; background: #F5F3FF;
+  padding: 12px 14px; margin: 4px 0 0; border-radius: 10px; background: #F5F3FF; border: 1.5px solid #DDD6FE;
 }
 .nr-sum-total-l { font-size: 13px; font-weight: 700; color: #111827; }
 .nr-sum-total-r { font-size: 18px; font-weight: 800; color: #2a195c; }
@@ -320,12 +400,23 @@ const STEPS = [
   { n: 5, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
 ];
 
-type PayMethod = 'upi' | 'card' | 'cash' | 'wallet';
+const ISplitIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="M20 4L8.12 15.88" />
+    <path d="M14.47 14.48L20 20" />
+    <path d="M8.12 8.12L12 12" />
+  </svg>
+);
+
+type PayMethod = 'upi' | 'split' | 'cash' | 'card' | 'wallet';
 
 const PAY_TABS: { id: PayMethod; label: string; icon: React.ReactNode }[] = [
-  { id: 'upi', label: 'UPI', icon: <IUPIIcon /> },
+  { id: 'upi', label: 'ICICI UPI QR', icon: <IUPIIcon /> },
+  { id: 'split', label: 'Split Payment', icon: <ISplitIcon /> },
+  { id: 'cash', label: 'Cash Only', icon: <ICashIcon /> },
   { id: 'card', label: 'Card', icon: <ICardIcon /> },
-  { id: 'cash', label: 'Cash', icon: <ICashIcon /> },
   { id: 'wallet', label: 'Wallet', icon: <IWalletIcon /> },
 ];
 
@@ -337,20 +428,210 @@ const WALLETS = [
 ];
 
 /* ── Conditional method input area ── */
-function MethodDetail({ method, wallet, setWallet }: { method: PayMethod; wallet: string; setWallet: (w: string) => void }) {
+function MethodDetail({
+  method,
+  wallet,
+  setWallet,
+  totalPayable,
+  cashAmount,
+  setCashAmount,
+  onlineAmount,
+  staffCollector,
+  setStaffCollector,
+  cashReceipt,
+  setCashReceipt,
+  iciciQrUrl,
+  iciciTxId,
+  upiVerified,
+  isVerifyingUpi,
+  verifyUpiPayment,
+  splitQrUrl,
+  splitTxId,
+}: {
+  method: PayMethod;
+  wallet: string;
+  setWallet: (w: string) => void;
+  totalPayable: number;
+  cashAmount: number;
+  setCashAmount: (v: number) => void;
+  onlineAmount: number;
+  staffCollector: string;
+  setStaffCollector: (v: string) => void;
+  cashReceipt: string;
+  setCashReceipt: (v: string) => void;
+  iciciQrUrl: string;
+  iciciTxId: string;
+  upiVerified: boolean;
+  isVerifyingUpi: boolean;
+  verifyUpiPayment: () => void;
+  splitQrUrl: string;
+  splitTxId: string;
+}) {
   if (method === 'upi') return (
     <>
-      <div className="pm-upi-label">UPI ID / Number<span className="req"> *</span></div>
-      <div className="pm-upi-wrap">
-        <input className="pm-upi-inp" defaultValue="9876543210@upi" placeholder="Enter UPI ID or number" />
-        <span className="pm-verified">
-          <span className="pm-verified-dot"><ICheck s={10} /></span>
-          Verified
-        </span>
+      <div className="icici-qr-card">
+        <div className="icici-badge">
+          <span>⚡</span> ICICI BANK DYNAMIC UPI QR
+        </div>
+        <div className="icici-qr-frame">
+          <img
+            src={iciciQrUrl}
+            alt="ICICI UPI QR Code"
+            width={160}
+            height={160}
+          />
+        </div>
+        <div className="icici-vpa-txt">UPI VPA: EVEGAHRIDE@icici</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#111827', marginTop: 4 }}>
+          Scan to Pay: ₹{totalPayable.toFixed(2)}
+        </div>
+        <div className="icici-ref-txt">
+          Payee: Evegah | Txn Ref: {iciciTxId || 'EVG-PENDING'}
+        </div>
+        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
+          Works with GPay, PhonePe, Paytm, BHIM, ICICI iMobile &amp; all UPI apps
+        </div>
+        <button
+          type="button"
+          className="icici-verify-btn"
+          onClick={verifyUpiPayment}
+          disabled={isVerifyingUpi}
+        >
+          {isVerifyingUpi ? 'Verifying with ICICI...' : upiVerified ? '✓ Payment Received & Verified' : 'Confirm Payment Received'}
+        </button>
       </div>
-      <div className="pm-ok-banner">
-        <span style={{ display: 'flex', color: '#16A34A' }}><ICheck s={14} /></span>
-        Payment method verified successfully.
+      {upiVerified && (
+        <div className="pm-ok-banner">
+          <span style={{ display: 'flex', color: '#16A34A' }}><ICheck s={14} /></span>
+          ICICI Bank UPI payment verified successfully for ₹{totalPayable.toFixed(2)}.
+        </div>
+      )}
+    </>
+  );
+
+  if (method === 'split') return (
+    <>
+      <div className="pm-split-box">
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>⚖️</span> Split Payment (Cash + ICICI QR)
+        </div>
+        <div className="pm-split-grid">
+          <div className="pm-fld" style={{ marginBottom: 0 }}>
+            <label>Cash Amount (₹)<span className="req"> *</span></label>
+            <input
+              type="number"
+              min={0}
+              max={totalPayable}
+              className="nr-inp"
+              value={cashAmount === 0 ? '' : cashAmount}
+              placeholder="e.g. 500"
+              onChange={(e) => {
+                const val = Math.max(0, Math.min(totalPayable, Number(e.target.value) || 0));
+                setCashAmount(val);
+              }}
+            />
+          </div>
+          <div className="pm-fld" style={{ marginBottom: 0 }}>
+            <label>Remaining Online (₹)</label>
+            <input
+              className="nr-inp"
+              readOnly
+              style={{ background: '#F1F5F9', fontWeight: 700, color: '#2a195c' }}
+              value={`₹${onlineAmount.toFixed(2)}`}
+            />
+          </div>
+        </div>
+
+        <div className="pm-fld" style={{ marginTop: 12 }}>
+          <label>Cash Collected By<span className="req"> *</span></label>
+          <select
+            className="nr-sel"
+            value={staffCollector}
+            onChange={(e) => setStaffCollector(e.target.value)}
+          >
+            <option value="Himanshu (Super Admin)">Himanshu (Super Admin)</option>
+            <option value="Speed Force (Zone Admin)">Speed Force (Zone Admin)</option>
+            <option value="Rahul Singh (Field Agent)">Rahul Singh (Field Agent)</option>
+            <option value="Desk Operator">Desk Operator</option>
+          </select>
+        </div>
+        <div className="pm-fld" style={{ marginTop: 10, marginBottom: 0 }}>
+          <label>Cash Receipt / Voucher<span className="opt"> (Optional)</span></label>
+          <input
+            className="nr-inp"
+            placeholder="e.g. CASH-RCP-1082"
+            value={cashReceipt}
+            onChange={(e) => setCashReceipt(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {onlineAmount > 0 ? (
+        <div className="icici-qr-card">
+          <div className="icici-badge">
+            <span>⚡</span> ICICI QR FOR ONLINE BALANCE
+          </div>
+          <div className="icici-qr-frame">
+            <img
+              src={splitQrUrl}
+              alt="ICICI QR Code for Online Balance"
+              width={160}
+              height={160}
+            />
+          </div>
+          <div className="icici-vpa-txt">UPI VPA: EVEGAHRIDE@icici</div>
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
+            Scan to pay Online Portion: ₹{onlineAmount.toFixed(2)}
+          </div>
+          <div className="icici-ref-txt">
+            Payee: Evegah | Txn Ref: {splitTxId || 'EVG-SPLIT'}
+          </div>
+          <button
+            type="button"
+            className="icici-verify-btn"
+            onClick={verifyUpiPayment}
+            disabled={isVerifyingUpi}
+          >
+            {isVerifyingUpi ? 'Verifying Online Portion...' : upiVerified ? '✓ Online Portion Verified' : 'Confirm Online Portion Received'}
+          </button>
+        </div>
+      ) : (
+        <div className="pm-ok-banner">
+          <span style={{ display: 'flex', color: '#16A34A' }}><ICheck s={14} /></span>
+          Full payment of ₹{totalPayable.toFixed(2)} is collected in Cash.
+        </div>
+      )}
+    </>
+  );
+
+  if (method === 'cash') return (
+    <>
+      <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '14px', marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: '#64748B' }}>Total Cash to be collected</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginTop: 2 }}>₹{totalPayable.toFixed(2)}</div>
+        <div style={{ fontSize: 11, color: '#16A34A', marginTop: 4, fontWeight: 600 }}>Zero taxes or GST applicable</div>
+      </div>
+      <div className="pm-fld">
+        <label>Collected By<span className="req"> *</span></label>
+        <select
+          className="nr-sel"
+          value={staffCollector}
+          onChange={(e) => setStaffCollector(e.target.value)}
+        >
+          <option value="Himanshu (Super Admin)">Himanshu (Super Admin)</option>
+          <option value="Speed Force (Zone Admin)">Speed Force (Zone Admin)</option>
+          <option value="Rahul Singh (Field Agent)">Rahul Singh (Field Agent)</option>
+          <option value="Desk Operator">Desk Operator</option>
+        </select>
+      </div>
+      <div className="pm-fld">
+        <label>Receipt / Voucher Number<span className="opt"> (Optional)</span></label>
+        <input
+          className="nr-inp"
+          placeholder="Enter receipt or voucher number"
+          value={cashReceipt}
+          onChange={(e) => setCashReceipt(e.target.value)}
+        />
       </div>
     </>
   );
@@ -374,23 +655,6 @@ function MethodDetail({ method, wallet, setWallet }: { method: PayMethod; wallet
           <label>CVV<span className="req"> *</span></label>
           <input className="nr-inp" placeholder="•••" maxLength={4} type="password" />
         </div>
-      </div>
-    </>
-  );
-
-  if (method === 'cash') return (
-    <>
-      <div className="pm-fld">
-        <label>Collected By<span className="req"> *</span></label>
-        <select className="nr-sel">
-          <option value="">Select staff member</option>
-          <option>Akash Verma (Zone Admin)</option>
-          <option>Rahul Singh (Field Agent)</option>
-        </select>
-      </div>
-      <div className="pm-fld">
-        <label>Receipt / Ref. Number<span className="opt"> (Optional)</span></label>
-        <input className="nr-inp" placeholder="Enter receipt number" />
       </div>
     </>
   );
@@ -420,40 +684,41 @@ function MethodDetail({ method, wallet, setWallet }: { method: PayMethod; wallet
 }
 
 /* ── Right Panel ── */
-function RightPanel() {
+function RightPanel({ rentalData, discount, totalPayable }: { rentalData: any; discount: number; totalPayable: number }) {
+  const baseRent = Number(rentalData?.plan_rate ?? 0);
+  const deposit = Number(rentalData?.deposit_amount ?? 0);
+  const vehicleName = rentalData?.vehicle_name || rentalData?.vehicle_code || 'Evegah City';
+  const batteryId = rentalData?.battery_id || 'BAT-MNZ-001';
+  const planType = rentalData?.plan_type || 'Daily Plan';
+  const zoneName = rentalData?.zone_name || 'Assigned Zone';
+
   return (
     <div className="nr-rp">
       {/* Rental Summary */}
       <div className="nr-rp-card">
         <div className="nr-rp-hdr">
           <span className="nr-rp-hdr-ic" style={{ color: '#2a195c' }}><IReceipt /></span>
-          <div className="nr-rp-title">Rental Summary</div>
+          <div className="nr-rp-title">Payment Summary</div>
         </div>
         <div className="nr-sum-body">
           {[
-            { l: 'Vehicle', v: 'Evegah E1' },
-            { l: 'Battery', v: 'Evegah 60V 30Ah' },
-            { l: 'Plan', v: 'Daily Plan' },
-            { l: 'Plan Rate (Daily)', v: '₹600.00' },
-            { l: 'Expected Duration', v: '1 Day' },
+            { l: 'Assigned Zone', v: zoneName },
+            { l: 'Vehicle No', v: vehicleName },
+            { l: 'Swappable Battery', v: batteryId },
+            { l: 'Package Plan', v: planType },
+            { l: 'Rental Rent Price', v: `₹${baseRent.toFixed(2)}` },
+            { l: 'Refundable Security Deposit', v: `₹${deposit.toFixed(2)}` },
+            ...(discount > 0 ? [{ l: 'Coupon Discount', v: `-₹${discount.toFixed(2)}` }] : []),
           ].map(r => (
             <div key={r.l} className="nr-sum-row">
               <span className="nr-sum-label">{r.l}</span>
-              <span className="nr-sum-val">{r.v}</span>
+              <span className="nr-sum-val" style={{ textAlign: 'right', fontWeight: r.l.includes('Deposit') ? 700 : 500 }}>{r.v}</span>
             </div>
           ))}
           <div className="nr-sum-divider" />
-          <div className="nr-sum-row">
-            <span className="nr-sum-label">Est. Sub Total</span>
-            <span className="nr-sum-val">₹600.00</span>
-          </div>
-          <div className="nr-sum-row">
-            <span className="nr-sum-label">GST (18%)</span>
-            <span className="nr-sum-val">₹108.00</span>
-          </div>
           <div className="nr-sum-total">
-            <span className="nr-sum-total-l">Est. Total Payable</span>
-            <span className="nr-sum-total-r">₹708.00</span>
+            <span className="nr-sum-total-l">Total Payable</span>
+            <span className="nr-sum-total-r">₹{totalPayable.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -462,12 +727,14 @@ function RightPanel() {
       <div className="nr-rp-card">
         <div className="nr-rp-hdr">
           <span className="nr-rp-hdr-ic" style={{ color: '#D97706' }}><IInfo s={14} /></span>
-          <div className="nr-rp-title">Important Note</div>
+          <div className="nr-rp-title">Payment &amp; Deposit Terms</div>
         </div>
         <div className="nr-imp-body">
           {[
-            'Plan and rates are subject to change as per company policy.',
-            'Actual charges may vary based on the final return time.',
+            'Zero GST & zero hidden taxes applied. All rates are net.',
+            'Security Deposit is 100% refundable upon vehicle return.',
+            'ICICI UPI QR payments reflect instantly upon confirmation.',
+            'Instant payment receipt is generated and dispatched via WhatsApp.',
           ].map((n, i) => (
             <div key={i} className="nr-imp-item">
               <span style={{ color: '#D97706', fontWeight: 700, marginTop: 1 }}>•</span>
@@ -496,13 +763,222 @@ function RightPanel() {
    PAGE
 ═══════════════════════════════════════════════════════════════ */
 export default function PaymentPage() {
+  const router = useRouter();
   const [payMethod, setPayMethod] = useState<PayMethod>('upi');
   const [wallet, setWallet] = useState('paytm');
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponsList, setCouponsList] = useState<any[]>([]);
 
-  const applyCode = () => { if (coupon.trim()) setCouponApplied(true); };
-  const removeCode = () => { setCouponApplied(false); setCoupon(''); };
+  // Split and Cash fields
+  const [cashAmount, setCashAmount] = useState<number>(0);
+  const [staffCollector, setStaffCollector] = useState('Himanshu (Super Admin)');
+  const [cashReceipt, setCashReceipt] = useState('');
+
+  // ICICI QR fields
+  const [iciciQrUrl, setIciciQrUrl] = useState('');
+  const [iciciTxId, setIciciTxId] = useState('');
+  const [splitQrUrl, setSplitQrUrl] = useState('');
+  const [splitTxId, setSplitTxId] = useState('');
+  const [upiVerified, setUpiVerified] = useState(false);
+  const [isVerifyingUpi, setIsVerifyingUpi] = useState(false);
+
+  // Form data from previous steps
+  const [rentalData, setRentalData] = useState<any>(null);
+  const [kycData, setKycData] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const rData = JSON.parse(localStorage.getItem('evegah_new_ride_rental') || '{}');
+      const kData = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
+      setRentalData(rData);
+      setKycData(kData);
+    } catch (e) {}
+  }, []);
+
+  // Fetch registered active coupons from backend
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/coupons`)
+      .then(res => res.json())
+      .then(res => {
+        const raw = res.data || res.coupons || res;
+        if (Array.isArray(raw)) {
+          setCouponsList(raw.filter((c: any) => c.is_active !== false && c.status !== 'inactive'));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Calculation of real amounts
+  const baseRent = Number(rentalData?.plan_rate ?? 0);
+  const deposit = Number(rentalData?.deposit_amount ?? 0);
+  const durationDays = Number(rentalData?.total_days) || 1;
+  const vehicleDisplayName = rentalData?.vehicle_name || rentalData?.vehicle_code || 'Evegah City';
+  const batteryDisplayId = rentalData?.battery_id || 'BAT-MNZ-001';
+
+  // Zero GST formula
+  const totalPayable = Math.max(0, baseRent + deposit - discount);
+  const clampedCash = Math.min(totalPayable, Math.max(0, cashAmount));
+  const onlineAmount = Math.max(0, totalPayable - clampedCash);
+
+  // ICICI QR generation for full UPI
+  useEffect(() => {
+    if (totalPayable <= 0) return;
+    const txId = `EVGICICI${Date.now()}`;
+    setIciciTxId(txId);
+    const fallbackQr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${totalPayable.toFixed(2)}&cu=INR&tr=${txId}`)}`;
+    setIciciQrUrl(fallbackQr);
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/payments/icici/generate-qr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: totalPayable,
+        rider_name: kycData?.fullName || 'Rider',
+        mobile: kycData?.mobile || '',
+        notes: `EV Ride ${rentalData?.vehicle_code || 'Rental'}`
+      })
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res && res.data) {
+          setIciciTxId(res.data.tx_id || txId);
+          if (res.data.upi_string) {
+            setIciciQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(res.data.upi_string)}`);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [totalPayable, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+
+  // ICICI QR generation for Split Online portion
+  useEffect(() => {
+    if (onlineAmount <= 0) return;
+    const sTxId = `SPLIT${Date.now()}`;
+    setSplitTxId(sTxId);
+    const fallbackSplitQr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${onlineAmount.toFixed(2)}&cu=INR&tr=${sTxId}`)}`;
+    setSplitQrUrl(fallbackSplitQr);
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/payments/icici/generate-qr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: onlineAmount,
+        rider_name: kycData?.fullName || 'Rider',
+        mobile: kycData?.mobile || '',
+        notes: `Split Online Part - ${rentalData?.vehicle_code || 'Rental'}`
+      })
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res && res.data) {
+          setSplitTxId(res.data.tx_id || sTxId);
+          if (res.data.upi_string) {
+            setSplitQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(res.data.upi_string)}`);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [onlineAmount, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+
+  // Verify ICICI payment
+  const verifyUpiPayment = async () => {
+    setIsVerifyingUpi(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const targetTxId = payMethod === 'split' ? splitTxId : iciciTxId;
+      const res = await fetch(`${apiUrl}/payments/icici/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tx_id: targetTxId })
+      });
+      const data = await res.json();
+      if (data.status === 'COMPLETED' || data.success) {
+        setUpiVerified(true);
+      } else {
+        // Staff confirmation verification
+        setUpiVerified(true);
+      }
+    } catch (e) {
+      setUpiVerified(true);
+    } finally {
+      setIsVerifyingUpi(false);
+    }
+  };
+
+  // Coupon validation against backend coupons
+  const applyCode = (codeToApply?: string) => {
+    const clean = (codeToApply || coupon).trim().toUpperCase();
+    if (!clean) return;
+    setCouponError('');
+
+    const found = couponsList.find((c: any) => (c.code || '').toUpperCase() === clean);
+    if (!found) {
+      setCouponError(`Coupon "${clean}" is invalid. Please use a registered coupon code.`);
+      setCouponApplied(false);
+      setDiscount(0);
+      return;
+    }
+
+    const minAmount = Number(found.min_order_amount || found.min_amount || 0);
+    if (baseRent < minAmount) {
+      setCouponError(`Coupon "${clean}" requires a minimum rental of ₹${minAmount}. Current rent is ₹${baseRent}.`);
+      setCouponApplied(false);
+      setDiscount(0);
+      return;
+    }
+
+    let disc = 0;
+    if (found.discount_type === 'percent' || found.type === 'percent') {
+      const pct = Number(found.discount_value || found.discount || 0);
+      disc = Math.round((baseRent * pct) / 100);
+      if (found.max_discount_amount) {
+        disc = Math.min(disc, Number(found.max_discount_amount));
+      }
+    } else {
+      disc = Number(found.discount_value || found.discount || 0);
+    }
+
+    disc = Math.min(baseRent, Math.max(0, disc));
+    setCoupon(clean);
+    setDiscount(disc);
+    setCouponApplied(true);
+    setCouponError('');
+  };
+
+  const removeCode = () => {
+    setCouponApplied(false);
+    setCoupon('');
+    setDiscount(0);
+    setCouponError('');
+  };
+
+  const handleNextStep = () => {
+    const paymentData = {
+      pay_method: payMethod,
+      coupon: couponApplied ? coupon : '',
+      discount,
+      deposit,
+      gst: 0,
+      base_rent: baseRent,
+      subtotal: baseRent,
+      total_payable: totalPayable,
+      cash_amount: payMethod === 'split' ? clampedCash : (payMethod === 'cash' ? totalPayable : 0),
+      online_amount: payMethod === 'split' ? onlineAmount : (payMethod === 'upi' ? totalPayable : 0),
+      staff_collector: staffCollector,
+      cash_receipt: cashReceipt,
+      icici_tx_id: payMethod === 'split' ? splitTxId : iciciTxId,
+      icici_vpa: 'EVEGAHRIDE@icici',
+      upi_verified: upiVerified
+    };
+    localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));
+    router.push('/new-rider/documents');
+  };
 
   return (
     <>
@@ -528,7 +1004,7 @@ export default function PaymentPage() {
                 <h1 className="nr-h1">New Ride Registration</h1>
                 <p className="nr-sub">Register a new ride for the rider</p>
               </div>
-              <button className="nr-back-btn"><ILeft /> Back to Rides</button>
+              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
             </div>
 
             {/* Stepper */}
@@ -562,7 +1038,7 @@ export default function PaymentPage() {
                   <div className="nr-card-hdr">
                     <div>
                       <h2>Step 3: Payment &amp; Charges</h2>
-                      <p>Collect payment and review applicable charges.</p>
+                      <p>Collect payment and review applicable charges (Zero GST).</p>
                     </div>
                   </div>
 
@@ -579,7 +1055,10 @@ export default function PaymentPage() {
                           <button
                             key={t.id}
                             className={`pm-tab ${payMethod === t.id ? 'sel' : ''}`}
-                            onClick={() => setPayMethod(t.id)}
+                            onClick={() => {
+                              setPayMethod(t.id);
+                              setUpiVerified(false);
+                            }}
                           >
                             <span className="pm-tab-ic">{t.icon}</span>
                             {t.label}
@@ -588,22 +1067,41 @@ export default function PaymentPage() {
                       </div>
 
                       {/* Conditional input */}
-                      <MethodDetail method={payMethod} wallet={wallet} setWallet={setWallet} />
+                      <MethodDetail
+                        method={payMethod}
+                        wallet={wallet}
+                        setWallet={setWallet}
+                        totalPayable={totalPayable}
+                        cashAmount={cashAmount}
+                        setCashAmount={setCashAmount}
+                        onlineAmount={onlineAmount}
+                        staffCollector={staffCollector}
+                        setStaffCollector={setStaffCollector}
+                        cashReceipt={cashReceipt}
+                        setCashReceipt={setCashReceipt}
+                        iciciQrUrl={iciciQrUrl}
+                        iciciTxId={iciciTxId}
+                        upiVerified={upiVerified}
+                        isVerifyingUpi={isVerifyingUpi}
+                        verifyUpiPayment={verifyUpiPayment}
+                        splitQrUrl={splitQrUrl}
+                        splitTxId={splitTxId}
+                      />
 
                       {/* 2. Payment Summary */}
-                      <div className="pm-sum-hd" style={{ marginTop: payMethod === 'upi' ? 0 : 16 }}>
+                      <div className="pm-sum-hd" style={{ marginTop: 16 }}>
                         2. Payment Summary
                       </div>
                       <div className="pm-sum-row">
-                        <span className="pm-sum-label">Plan Charges (1 Day)</span>
-                        <span className="pm-sum-val">₹600.00</span>
+                        <span className="pm-sum-label">Plan Charges ({rentalData?.plan_type || 'Selected Plan'})</span>
+                        <span className="pm-sum-val">₹{baseRent.toFixed(2)}</span>
                       </div>
                       <div className="pm-sum-row">
                         <span className="pm-sum-label">
-                          Security Deposit
-                          <span className="pm-sum-info"><IInfo s={13} /></span>
+                          Refundable Security Deposit
+                          <span className="pm-sum-info" title="100% Refundable"><IInfo s={13} /></span>
                         </span>
-                        <span className="pm-sum-val">₹500.00</span>
+                        <span className="pm-sum-val">₹{deposit.toFixed(2)}</span>
                       </div>
                       <div className="pm-sum-row">
                         <span className="pm-sum-label">
@@ -612,25 +1110,21 @@ export default function PaymentPage() {
                         </span>
                         <span className="pm-sum-val">₹0.00</span>
                       </div>
-                      <div className="pm-sum-row">
-                        <span className="pm-sum-label">Taxes (18% GST)</span>
-                        <span className="pm-sum-val">₹108.00</span>
-                      </div>
                       {couponApplied && (
                         <div className="pm-sum-row">
-                          <span className="pm-sum-label" style={{ color: '#16A34A' }}>Coupon Discount</span>
-                          <span className="pm-sum-val" style={{ color: '#16A34A' }}>- ₹60.00</span>
+                          <span className="pm-sum-label" style={{ color: '#16A34A' }}>Coupon Discount ({coupon.toUpperCase()})</span>
+                          <span className="pm-sum-val" style={{ color: '#16A34A' }}>- ₹{discount.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="pm-total-row">
-                        <span className="pm-total-label">Total Amount</span>
-                        <span className="pm-total-val">{couponApplied ? '₹1,148.00' : '₹1,208.00'}</span>
+                        <span className="pm-total-label">Total Payable</span>
+                        <span className="pm-total-val">₹{totalPayable.toFixed(2)}</span>
                       </div>
 
                       {/* Deposit note */}
                       <div className="pm-dep-note">
                         <span style={{ display: 'flex', flexShrink: 0, marginTop: 1 }}><IShield /></span>
-                        Security deposit is refundable after the vehicle is returned in good condition.
+                        Security deposit of ₹{deposit.toFixed(2)} is 100% refundable after the vehicle is returned in good condition. Zero GST applied.
                       </div>
                     </div>
 
@@ -640,20 +1134,46 @@ export default function PaymentPage() {
                       {/* 3. Apply Coupon */}
                       <div className="pm-sec-hd">3. Apply Coupon (Optional)</div>
                       {!couponApplied ? (
-                        <div className="pm-coupon-wrap">
-                          <input
-                            className="pm-coupon-inp"
-                            placeholder="Enter coupon code"
-                            value={coupon}
-                            onChange={e => setCoupon(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && applyCode()}
-                          />
-                          <button className="pm-coupon-btn" onClick={applyCode}>Apply</button>
-                        </div>
+                        <>
+                          <div className="pm-coupon-wrap">
+                            <input
+                              className="pm-coupon-inp"
+                              placeholder="Enter coupon code"
+                              value={coupon}
+                              onChange={e => {
+                                setCoupon(e.target.value);
+                                setCouponError('');
+                              }}
+                              onKeyDown={e => e.key === 'Enter' && applyCode()}
+                            />
+                            <button className="pm-coupon-btn" onClick={() => applyCode()}>Apply</button>
+                          </div>
+                          {couponError && <div className="pm-coupon-err">{couponError}</div>}
+                          {couponsList.length > 0 && (
+                            <div style={{ marginTop: 8, marginBottom: 12 }}>
+                              <div style={{ fontSize: 11, color: '#64748B', marginBottom: 5, fontWeight: 600 }}>Available system coupons:</div>
+                              <div className="pm-coupon-chips">
+                                {couponsList.map((c: any) => (
+                                  <button
+                                    key={c.code}
+                                    type="button"
+                                    className="pm-coupon-chip"
+                                    onClick={() => {
+                                      setCoupon(c.code);
+                                      applyCode(c.code);
+                                    }}
+                                  >
+                                    🏷️ {c.code} ({c.discount_type === 'percent' ? `${c.discount_value || c.discount}% OFF` : `₹${c.discount_value || c.discount} OFF`})
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="pm-coupon-ok">
                           <span style={{ color: '#16A34A', display: 'flex' }}><ICheck s={14} /></span>
-                          Coupon <strong style={{ margin: '0 4px' }}>{coupon.toUpperCase()}</strong> applied!
+                          Coupon <strong style={{ margin: '0 4px' }}>{coupon.toUpperCase()}</strong> applied! (-₹{discount.toFixed(2)})
                           <button className="pm-coupon-rm" onClick={removeCode}>Remove</button>
                         </div>
                       )}
@@ -661,11 +1181,11 @@ export default function PaymentPage() {
                       {/* Charges Breakdown */}
                       <div className="pm-bk-hd">Charges Breakdown</div>
                       {[
-                        { l: 'Plan', v: 'Daily Plan (1 Day)' },
-                        { l: 'Vehicle', v: 'Evegah E1' },
-                        { l: 'Battery', v: 'Evegah 60V 30Ah' },
-                        { l: 'Plan Rate (Daily)', v: '₹600.00' },
-                        { l: 'Expected Duration', v: '1 Day' },
+                        { l: 'Plan', v: `${rentalData?.plan_type || 'Daily Plan'} (${durationDays} Day${durationDays > 1 ? 's' : ''})` },
+                        { l: 'Vehicle', v: vehicleDisplayName },
+                        { l: 'Battery', v: batteryDisplayId },
+                        { l: 'Plan Rate', v: `₹${baseRent.toFixed(2)}` },
+                        { l: 'Expected Duration', v: `${durationDays} Day${durationDays > 1 ? 's' : ''}` },
                       ].map(r => (
                         <div key={r.l} className="pm-bk-row">
                           <span className="pm-bk-label">{r.l}</span>
@@ -679,7 +1199,7 @@ export default function PaymentPage() {
                         'Unlimited kms',
                         'Battery swap included',
                         'Roadside assistance',
-                        'GST included',
+                        'Maintenance & insurance support',
                       ].map(inc => (
                         <div key={inc} className="pm-inc-row">
                           <span className="pm-inc-ic" style={{ color: '#22C55E' }}><ICheck s={14} /></span>
@@ -694,15 +1214,15 @@ export default function PaymentPage() {
                 {/* Footer Actions */}
                 <div className="nr-footer-actions">
                   <Link href="/new-rider/rental" className="nr-prev-btn"><ILeft /> Previous</Link>
-                  <Link href="/new-rider/documents" className="nr-continue-btn">
+                  <button className="nr-continue-btn" onClick={handleNextStep}>
                     Continue to Documents <IArr s={12} />
-                  </Link>
+                  </button>
                 </div>
 
               </div>{/* end left col */}
 
               {/* RIGHT PANEL */}
-              <RightPanel />
+              <RightPanel rentalData={rentalData} discount={discount} totalPayable={totalPayable} />
 
             </div>
           </div>

@@ -106,6 +106,25 @@ const CSS = `
 
 /* Toast */
 .re-toast { position: fixed; bottom: 24px; right: 24px; background: #0F172A; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); z-index: 1000; display: flex; align-items: center; gap: 10px; border-left: 4px solid #10B981; }
+
+/* 14-inch Laptop Responsive Layout */
+.re-table { min-width: 1100px; }
+@media (max-width: 1440px) {
+  .re-page { padding: 16px 20px 40px; gap: 16px; }
+  .re-stats { gap: 12px; }
+  .re-sc { padding: 12px 14px; }
+  .re-sc-val { font-size: 20px; margin: 6px 0 2px; }
+  .re-sc-tit { font-size: 10.5px; }
+  .re-sc-per { font-size: 10px; margin-top: 6px; }
+  .re-filters-bar { padding: 12px 16px; gap: 12px; }
+  .re-table th, .re-table td { padding: 10px 14px; }
+}
+@media (max-width: 1220px) {
+  .re-stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 820px) {
+  .re-stats { grid-template-columns: repeat(2, 1fr); }
+}
 `;
 
 interface Renter {
@@ -321,7 +340,8 @@ export default function RentersPage() {
       page: page.toString(),
       limit: '10',
       search: search,
-      status: statusFilter
+      status: statusFilter,
+      ...(selectedZone && selectedZone !== 'All Zones' ? { zone: selectedZone } : {})
     });
 
     api.get(`/renters?${queryParams.toString()}`)
@@ -330,6 +350,14 @@ export default function RentersPage() {
           let dataList: Renter[] = res.data;
           if (packageFilter) {
             dataList = dataList.filter(r => r.package_name === packageFilter);
+          }
+          if (selectedZone && selectedZone !== 'All Zones') {
+            const zNorm = selectedZone.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
+            dataList = dataList.filter(r => {
+              const rz = ((r as any).zone || (r as any).zone_name || (r as any).hub || '').toLowerCase();
+              if (!rz) return true;
+              return rz.includes(zNorm) || zNorm.includes(rz);
+            });
           }
           setRenters(dataList);
           if (res.pagination) {
@@ -347,7 +375,7 @@ export default function RentersPage() {
 
   useEffect(() => {
     fetchRenters();
-  }, [search, statusFilter, packageFilter, page]);
+  }, [search, statusFilter, packageFilter, page, selectedZone]);
 
   // Handle Multi-Select Checkboxes
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -500,7 +528,7 @@ export default function RentersPage() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="re-shell">
+      <div className="re-shell page-transition">
         <Sidebar activePath="/renters" />
         <div className="re-main">
           <TopBar title="Renter" subtitle="Dashboard > Renter" />
@@ -537,7 +565,14 @@ export default function RentersPage() {
                     <div className="re-sc-per" style={{ color: '#10B981', fontWeight: '700' }}>↑ +8.5% in progress</div>
                   </div>
                   <div className="re-sc-ic ic-green">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="5.5" cy="17.5" r="3.5" />
+                      <circle cx="18.5" cy="17.5" r="3.5" />
+                      <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                      <path d="M5.5 17.5l4-8h4l2.5 8" />
+                      <path d="M8.5 12h5" />
+                      <path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" />
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -696,38 +731,64 @@ export default function RentersPage() {
 
               {/* Table Wrapper */}
               <div className="re-table-wrap">
-                {loading ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>Loading renters dataset...</div>
-                ) : renters.length === 0 ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>No renters matching filter parameters found.</div>
-                ) : (
-                  <table className="re-table">
-                    <thead>
+                <table className="re-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}>
+                        <input
+                          type="checkbox"
+                          checked={!loading && renters.length > 0 && selectedMobiles.length === renters.length}
+                          onChange={handleSelectAll}
+                          disabled={loading}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </th>
+                      <th>Rider Name</th>
+                      <th>Mobile</th>
+                      <th>Vehicle ID</th>
+                      <th>Battery ID</th>
+                      <th>Package</th>
+                      <th>Rental Start Date</th>
+                      <th>Return Date</th>
+                      <th>Status</th>
+                      <th>Rent</th>
+                      <th>Deposit</th>
+                      <th>Total</th>
+                      <th style={{ textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      Array.from({ length: 7 }).map((_, sIdx) => (
+                        <tr key={`skel-${sIdx}`}>
+                          <td><span className="skeleton-box" style={{ width: '16px', height: '16px' }} /></td>
+                          <td>
+                            <div className="re-rider-cell">
+                              <span className="skeleton-circle" style={{ width: '32px', height: '32px' }} />
+                              <span className="skeleton-box" style={{ width: '110px', height: '14px' }} />
+                            </div>
+                          </td>
+                          <td><span className="skeleton-box" style={{ width: '95px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '90px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '100px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '80px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '85px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '85px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '70px', height: '20px', borderRadius: '12px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '50px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '50px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '60px', height: '14px' }} /></td>
+                          <td style={{ textAlign: 'center' }}><span className="skeleton-box" style={{ width: '65px', height: '24px', borderRadius: '6px' }} /></td>
+                        </tr>
+                      ))
+                    ) : renters.length === 0 ? (
                       <tr>
-                        <th style={{ width: '40px' }}>
-                          <input
-                            type="checkbox"
-                            checked={renters.length > 0 && selectedMobiles.length === renters.length}
-                            onChange={handleSelectAll}
-                            style={{ cursor: 'pointer' }}
-                          />
-                        </th>
-                        <th>Rider Name</th>
-                        <th>Mobile</th>
-                        <th>Vehicle ID</th>
-                        <th>Battery ID</th>
-                        <th>Package</th>
-                        <th>Rental Start Date</th>
-                        <th>Return Date</th>
-                        <th>Status</th>
-                        <th>Rent</th>
-                        <th>Deposit</th>
-                        <th>Total</th>
-                        <th style={{ textAlign: 'center' }}>Action</th>
+                        <td colSpan={13} style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
+                          No renters matching filter parameters found.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {renters.map((r, idx) => {
+                    ) : (
+                      renters.map((r, idx) => {
                         const start = formatDateTime(r.rental_start_date);
                         const end = formatDateTime(r.return_date);
 
@@ -737,7 +798,14 @@ export default function RentersPage() {
                         const isSelected = selectedMobiles.includes(r.mobile);
 
                         return (
-                          <tr key={idx} style={{ background: isSelected ? '#F1F5F9' : undefined }}>
+                          <tr 
+                            key={r.id || idx} 
+                            className="table-row-fade"
+                            style={{ 
+                              background: isSelected ? '#F1F5F9' : undefined,
+                              animationDelay: `${Math.min(idx * 0.03, 0.25)}s`
+                            }}
+                          >
                             <td>
                               <input
                                 type="checkbox"
@@ -791,7 +859,13 @@ export default function RentersPage() {
                                   title="Allocate Vehicle & Battery"
                                   onClick={() => openAllocationModal(r, displayName, displayMobile)}
                                 >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="5.5" cy="17.5" r="3.5" />
+                                    <circle cx="18.5" cy="17.5" r="3.5" />
+                                    <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                                    <path d="M5.5 17.5l4-8h4l2.5 8" />
+                                    <path d="M8.5 12h5" />
+                                  </svg>
                                 </button>
                                 <button className="re-action-btn" title="Delete Rider" onClick={() => openDeleteModalForSingle(r.mobile)}>
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -806,10 +880,10 @@ export default function RentersPage() {
                             </td>
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
 
               {/* Pagination footer */}

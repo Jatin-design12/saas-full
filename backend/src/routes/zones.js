@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { getCache, setCache, delByPattern } = require('../redis');
 
 // Ensure zone schema columns exist
 (async () => {
@@ -32,11 +33,32 @@ const MOCK_ZONES = [
     pricing: {
       pricingModel: 'Package Based',
       packages: [
-        { id: 1, name: '3 Days Package', duration: 3, price: 899 },
-        { id: 2, name: '5 Days Package', duration: 5, price: 1399 },
-        { id: 3, name: '7 Days Package', duration: 7, price: 1899 },
-        { id: 4, name: '10 Days Package', duration: 10, price: 2499 }
-      ]
+        { id: 1, name: '3 Days City Pass', model: 'Evegah City', duration: 3, price: 899, deposit: 1000 },
+        { id: 2, name: '5 Days City Pass', model: 'Evegah City', duration: 5, price: 1399, deposit: 1000 },
+        { id: 3, name: '7 Days City Pass', model: 'Evegah City', duration: 7, price: 1899, deposit: 1500 },
+        { id: 4, name: '10 Days City Pass', model: 'Evegah City', duration: 10, price: 2499, deposit: 2000 }
+      ],
+      modelPackages: {
+        'Evegah City': [
+          { id: 101, name: '3 Days City Pass', model: 'Evegah City', duration: 3, price: 899, deposit: 1000 },
+          { id: 102, name: '5 Days City Pass', model: 'Evegah City', duration: 5, price: 1399, deposit: 1000 },
+          { id: 103, name: '7 Days City Pass', model: 'Evegah City', duration: 7, price: 1899, deposit: 1500 },
+          { id: 104, name: '10 Days City Pass', model: 'Evegah City', duration: 10, price: 2499, deposit: 2000 }
+        ],
+        'Evegah Mink': [
+          { id: 201, name: '3 Days Cargo Pass', model: 'Evegah Mink', duration: 3, price: 1199, deposit: 1500 },
+          { id: 202, name: '7 Days Cargo Pass', model: 'Evegah Mink', duration: 7, price: 2499, deposit: 2000 },
+          { id: 203, name: '15 Days Cargo Pass', model: 'Evegah Mink', duration: 15, price: 4499, deposit: 2500 }
+        ],
+        'Evegah Pro': [
+          { id: 301, name: '3 Days Pro Speed Pass', model: 'Evegah Pro', duration: 3, price: 1499, deposit: 2000 },
+          { id: 302, name: '7 Days Pro Speed Pass', model: 'Evegah Pro', duration: 7, price: 2999, deposit: 2500 }
+        ],
+        'Evegah Fly': [
+          { id: 401, name: '3 Days Moped Pass', model: 'Evegah Fly', duration: 3, price: 699, deposit: 800 },
+          { id: 402, name: '7 Days Moped Pass', model: 'Evegah Fly', duration: 7, price: 1399, deposit: 1000 }
+        ]
+      }
     }
   },
   {
@@ -55,11 +77,32 @@ const MOCK_ZONES = [
     pricing: {
       pricingModel: 'Package Based',
       packages: [
-        { id: 1, name: '3 Days Package', duration: 3, price: 899 },
-        { id: 2, name: '5 Days Package', duration: 5, price: 1399 },
-        { id: 3, name: '7 Days Package', duration: 7, price: 1899 },
-        { id: 4, name: '10 Days Package', duration: 10, price: 2499 }
-      ]
+        { id: 1, name: '3 Days City Pass', model: 'Evegah City', duration: 3, price: 899, deposit: 1000 },
+        { id: 2, name: '5 Days City Pass', model: 'Evegah City', duration: 5, price: 1399, deposit: 1000 },
+        { id: 3, name: '7 Days City Pass', model: 'Evegah City', duration: 7, price: 1899, deposit: 1500 },
+        { id: 4, name: '10 Days City Pass', model: 'Evegah City', duration: 10, price: 2499, deposit: 2000 }
+      ],
+      modelPackages: {
+        'Evegah City': [
+          { id: 101, name: '3 Days City Pass', model: 'Evegah City', duration: 3, price: 899, deposit: 1000 },
+          { id: 102, name: '5 Days City Pass', model: 'Evegah City', duration: 5, price: 1399, deposit: 1000 },
+          { id: 103, name: '7 Days City Pass', model: 'Evegah City', duration: 7, price: 1899, deposit: 1500 },
+          { id: 104, name: '10 Days City Pass', model: 'Evegah City', duration: 10, price: 2499, deposit: 2000 }
+        ],
+        'Evegah Mink': [
+          { id: 201, name: '3 Days Cargo Pass', model: 'Evegah Mink', duration: 3, price: 1199, deposit: 1500 },
+          { id: 202, name: '7 Days Cargo Pass', model: 'Evegah Mink', duration: 7, price: 2499, deposit: 2000 },
+          { id: 203, name: '15 Days Cargo Pass', model: 'Evegah Mink', duration: 15, price: 4499, deposit: 2500 }
+        ],
+        'Evegah Pro': [
+          { id: 301, name: '3 Days Pro Speed Pass', model: 'Evegah Pro', duration: 3, price: 1499, deposit: 2000 },
+          { id: 302, name: '7 Days Pro Speed Pass', model: 'Evegah Pro', duration: 7, price: 2999, deposit: 2500 }
+        ],
+        'Evegah Fly': [
+          { id: 401, name: '3 Days Moped Pass', model: 'Evegah Fly', duration: 3, price: 699, deposit: 800 },
+          { id: 402, name: '7 Days Moped Pass', model: 'Evegah Fly', duration: 7, price: 1399, deposit: 1000 }
+        ]
+      }
     }
   },
   {
@@ -130,30 +173,54 @@ const MOCK_ZONES = [
 
 // GET /api/zones
 router.get('/', async (req, res) => {
+  const { type } = req.query;
+  const cacheKey = `zones:list:${type || 'all'}`;
+
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   try {
-    const result = await db.query('SELECT * FROM zones ORDER BY created_at DESC');
-    if (result.rows && result.rows.length > 0) {
-      res.json({
-        status: 'success',
-        data: result.rows
-      });
-    } else {
-      res.json({
-        status: 'success',
-        data: MOCK_ZONES
-      });
+    let query = 'SELECT * FROM zones';
+    const params = [];
+    if (type === 'operational') {
+      query += " WHERE LOWER(COALESCE(type, '')) NOT LIKE '%service zone%' AND LOWER(COALESCE(type, '')) NOT LIKE '%maintenance hub%'";
+    } else if (type === 'service') {
+      query += " WHERE LOWER(COALESCE(type, '')) LIKE '%service zone%' OR LOWER(COALESCE(type, '')) LIKE '%maintenance hub%'";
     }
+    query += ' ORDER BY created_at DESC';
+
+    const result = await db.query(query, params);
+    const rows = result.rows && result.rows.length > 0 ? result.rows : MOCK_ZONES;
+    const finalData = type === 'operational'
+      ? rows.filter(z => !((z.type || '').toLowerCase().includes('service zone') || (z.type || '').toLowerCase().includes('maintenance hub')))
+      : rows;
+
+    const payload = {
+      status: 'success',
+      data: finalData
+    };
+    await setCache(cacheKey, payload, 120);
+    res.json(payload);
   } catch (err) {
     console.warn('Failed to get zones from DB, returning MOCK_ZONES fallback:', err.message);
-    res.json({
+    const finalData = type === 'operational'
+      ? MOCK_ZONES.filter(z => !((z.type || '').toLowerCase().includes('service zone') || (z.type || '').toLowerCase().includes('maintenance hub')))
+      : MOCK_ZONES;
+
+    const payload = {
       status: 'success',
-      data: MOCK_ZONES
-    });
+      data: finalData
+    };
+    await setCache(cacheKey, payload, 60);
+    res.json(payload);
   }
 });
 
 // POST /api/zones (Save newly drawn zone)
 router.post('/', async (req, res) => {
+  await delByPattern('zones:*');
   const {
     name,
     code,
@@ -208,6 +275,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/zones/:id (Edit zone)
 router.put('/:id', async (req, res) => {
+  await delByPattern('zones:*');
   const { id } = req.params;
   const {
     name,
@@ -271,6 +339,7 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/zones/:id (Delete zone)
 router.delete('/:id', async (req, res) => {
+  await delByPattern('zones:*');
   const { id } = req.params;
   try {
     const result = await db.query('DELETE FROM zones WHERE id = $1 RETURNING *', [id]);

@@ -164,7 +164,7 @@ function SettingsContent() {
   // Standard initial state values representing what's shown in the screenshots
   const [localSettings, setLocalSettings] = useState<any>({
     general: {
-      zone_name: 'Connaught Place Zone',
+      zone_name: 'Gotri Zone',
       time_zone: '(UTC +05:30) Asia/Kolkata',
       date_format: 'DD MMM YYYY (31 May 2024)',
       time_format: '12 Hours (AM/PM)',
@@ -2182,7 +2182,7 @@ function SettingsContent() {
                           <div className="se-noti-sum-info">
                             <span className="se-noti-sum-lbl">Email</span>
                             <span className="se-noti-sum-val">6 of 8 enabled</span>
-                            <span className="se-noti-sum-val" style={{ color: '#2a195c', fontWeight: '600' }}>akash.verma@evegah.com</span>
+                            <span className="se-noti-sum-val" style={{ color: '#2a195c', fontWeight: '600' }}>{typeof window !== 'undefined' ? (localStorage.getItem('evegah_user_email') || 'himanshu@evegah.com') : 'himanshu@evegah.com'}</span>
                           </div>
                         </div>
 

@@ -14,17 +14,79 @@ table{border-collapse:collapse}
 
 /* Smooth Page Transition to prevent route navigation blinking */
 .page-transition {
-  animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pageFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: opacity, transform;
 }
 
 @keyframes pageFadeIn {
   from {
-    opacity: 0.35;
-    transform: translateY(3px);
+    opacity: 0.1;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
+/* ── Skeleton Loading Pulse & Shimmer Animations ── */
+@keyframes shimmerPulse {
+  0% {
+    background-color: #F1F5F9;
+    opacity: 0.65;
+  }
+  50% {
+    background-color: #E2E8F0;
+    opacity: 1;
+  }
+  100% {
+    background-color: #F1F5F9;
+    opacity: 0.65;
+  }
+}
+
+.skeleton-box {
+  display: inline-block;
+  height: 14px;
+  border-radius: 6px;
+  background-color: #E2E8F0;
+  animation: shimmerPulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-circle {
+  display: inline-block;
+  border-radius: 50%;
+  background-color: #E2E8F0;
+  animation: shimmerPulse 1.5s ease-in-out infinite;
+}
+
+/* ── Smooth Table Row Fade In ── */
+@keyframes rowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.table-row-fade {
+  animation: rowFadeIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* ── 14" Laptop Responsive Scaling (80% / 20% reduction) ── */
+@media screen and (max-width: 1536px) {
+  body {
+    zoom: 0.8;
+  }
+}
+
+@media screen and (max-width: 1280px) {
+  body {
+    zoom: 0.78;
+  }
+}
+

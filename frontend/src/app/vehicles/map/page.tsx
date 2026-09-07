@@ -244,6 +244,87 @@ const CSS = `
 .kb-pin{border:none !important;background:none !important;}
 .pm-pin{border:none !important;background:none !important;}
 .scooter-live-pin{border:none !important;background:none !important;}
+
+/* Zomato / Rapido Real-Time Tracking Marker */
+.zomato-tracking-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+}
+.zomato-speed-badge {
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  border-radius: 20px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.zomato-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22C55E;
+}
+.zomato-status-dot.moving {
+  background: #3B82F6;
+  box-shadow: 0 0 6px #3B82F6;
+}
+.zomato-bike-pod {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid #6366F1;
+  box-shadow: 0 6px 16px rgba(99,102,241,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+.zomato-bike-pod.available {
+  border-color: #16A34A;
+  box-shadow: 0 6px 16px rgba(22,163,74,0.35);
+}
+.zomato-bike-pod.selected {
+  transform: scale(1.18);
+  border-color: #2A195C;
+  box-shadow: 0 8px 22px rgba(42,25,92,0.45);
+}
+.zomato-bike-img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+.zomato-radar-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.4);
+  animation: zomatoRadar 1.8s ease-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes zomatoRadar {
+  0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
 `;
 
 /* ── SVG Icons ── */
@@ -255,7 +336,16 @@ const Sv = (p: React.SVGProps<SVGSVGElement> & { s?: number }) => (
 const ILocate   = () => <Sv><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></Sv>;
 const IFilter   = () => <Sv><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Sv>;
 const IRefresh  = () => <Sv><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></Sv>;
-const IScooter  = ({ s = 14 }) => <Sv s={s}><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></Sv>;
+const IScooter  = ({ s = 14 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="5.5" cy="17.5" r="3.5" />
+    <circle cx="18.5" cy="17.5" r="3.5" />
+    <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+    <path d="M5.5 17.5l4-8h4l2.5 8" />
+    <path d="M8.5 12h5" />
+    <path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" />
+  </svg>
+);
 const ILock     = () => <Sv><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></Sv>;
 const IUnlock   = () => <Sv><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></Sv>;
 const ISun      = () => <Sv><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></Sv>;
@@ -300,13 +390,13 @@ interface EVData {
 }
 const EV_LIST: Record<string, EVData> = {};
 
-const STATS = [
-  { lbl: 'Total Vehicles', val: 120, ic: <IScooter s={16}/> },
-  { lbl: 'Online', val: 72, dot: 'online' },
-  { lbl: 'In Ride', val: 18, dot: 'in_ride' },
-  { lbl: 'Offline', val: 28, dot: 'offline' },
-  { lbl: 'Low Battery', val: 8, dot: 'low_bat' },
-  { lbl: 'Locked', val: 6, dot: 'locked' }
+const VADODARA_HUBS = [
+  { name: 'Gotri Hub', lat: 22.3168, lng: 73.1415 },
+  { name: 'Manjalpur Hub', lat: 22.2684, lng: 73.1952 },
+  { name: 'KPGU Campus', lat: 22.3400, lng: 73.2200 },
+  { name: 'Alkapuri Hub', lat: 22.3100, lng: 73.1700 },
+  { name: 'Sayajigunj Hub', lat: 22.3120, lng: 73.1890 },
+  { name: 'Aatapi Hub', lat: 22.1800, lng: 73.2500 }
 ];
 
 export default function VehicleMapPage() {
@@ -326,6 +416,25 @@ export default function VehicleMapPage() {
     return dbEVList;
   }, [dbEVList]);
 
+  // Compute dynamic stats based on real vehicle list
+  const stats = useMemo(() => {
+    const list = Object.values(activeEvList);
+    const total = list.length;
+    const inRide = list.filter(v => v.status === 'In Ride').length;
+    const available = list.filter(v => v.status === 'Available' || v.status === 'Online').length;
+    const lowBat = list.filter(v => v.battery < 20).length;
+    const maintenance = list.filter(v => v.status === 'Maintenance').length;
+    const offline = list.filter(v => v.status === 'Offline').length;
+    return [
+      { lbl: 'Total Vehicles', val: total, ic: <IScooter s={16}/> },
+      { lbl: 'Available', val: available, dot: 'online' },
+      { lbl: 'In Ride', val: inRide, dot: 'in_ride' },
+      { lbl: 'Low Battery', val: lowBat, dot: 'low_bat' },
+      { lbl: 'Maintenance', val: maintenance, dot: 'locked' },
+      { lbl: 'Offline', val: offline, dot: 'offline' }
+    ];
+  }, [activeEvList]);
+
   // Load database vehicles and logs
   useEffect(() => {
     const fetchDbData = async () => {
@@ -333,45 +442,62 @@ export default function VehicleMapPage() {
         setLoading(true);
         const res = await api.get('/vehicles');
         if (res && res.status === 'success' && res.data) {
-          const RENTER_NAMES = ['Rahul Sharma', 'Aarav Verma', 'Pooja Kapoor', 'Vikram Mehta', 'Neha Singh', 'Amit Kumar', 'Neha Gupta', 'Rohit Singh', 'Sneha Reddy', 'Vikram Patel'];
-          const PICKUPS = ['Palika Bazaar, CP', 'Karol Bagh', 'Rajendra Place', 'Nehru Place', 'Janpath'];
-          const DESTINATIONS = ['Pragati Maidan Gate 1', 'India Gate', 'Lajpat Nagar', 'Rajendra Place', 'Supreme Court'];
-          const DISTANCES = ['5.2 km', '7.1 km', '9.4 km', '0 km', '3.2 km'];
-          const DURATIONS = ['18 mins', '24 mins', '35 mins', '0 mins', '11 mins'];
-
           const mapList: Record<string, EVData> = {};
           res.data.forEach((v: any, index: number) => {
             let lat = parseFloat(v.lat);
             let lng = parseFloat(v.lng);
-            if (isNaN(lat) || isNaN(lng)) {
-              lat = 28.6304 + ((index % 5) * 0.003 - 0.006);
-              lng = 77.2177 + ((index % 5) * 0.003 - 0.006);
+            const hub = VADODARA_HUBS[index % VADODARA_HUBS.length];
+            if (isNaN(lat) || isNaN(lng) || (lat > 25 || lat < 20)) {
+              lat = hub.lat + ((index % 4) * 0.002 - 0.003);
+              lng = hub.lng + ((index % 4) * 0.002 - 0.003);
             }
 
-            const status = v.status || 'Online';
-            const badgeCls = status === 'In Ride' ? 'online' : status === 'Online' ? 'online' : status === 'Low Battery' ? 'low_bat' : 'offline';
+            const rawStatus = v.vehicle_status || v.status || 'Available';
+            const hasRenter = v.renter_name && v.renter_name !== 'None (Available)' && v.renter_name.trim() !== '';
+            // Strict validation: Only "In Ride" if database has an actual ongoing ride with renter
+            const status: EVData['status'] = (rawStatus === 'In Ride' && hasRenter)
+              ? 'In Ride'
+              : rawStatus === 'Maintenance'
+              ? 'Maintenance'
+              : rawStatus === 'Offline'
+              ? 'Offline'
+              : 'Available';
 
-            // Simulate playback points for visualization loop
+            const badgeCls = status === 'In Ride' ? 'online' : status === 'Available' ? 'online' : status === 'Maintenance' ? 'offline' : 'offline';
+
+            // Model transparent 3D image
+            let modelImg = v.vehicle_image;
+            if (!modelImg || modelImg.trim() === '') {
+              const mName = (v.evegah_model_name || '').toLowerCase();
+              if (mName.includes('mink')) modelImg = '/Mink-1.png';
+              else if (mName.includes('fly')) modelImg = '/fly-1.png';
+              else if (mName.includes('pro')) modelImg = '/pro-1.png';
+              else modelImg = '/City-1.png';
+            }
+
+            const speed = status === 'In Ride' ? (v.speed || 24) : 0;
+            const renter = status === 'In Ride' ? v.renter_name : 'None (Available)';
+            const pickup = v.zone || hub.name;
+            const destination = status === 'In Ride' ? 'Alkapuri Hub' : 'Standby at Hub';
+            const distance = status === 'In Ride' ? `${v.current_km_reading || 4.2} km` : '0 km';
+            const duration = status === 'In Ride' ? '15 mins' : '0 mins';
+
+            // Vadodara Route tracking points
             const points = [
-              { lat, lng },
-              { lat: lat + 0.0003, lng: lng + 0.0004 },
-              { lat: lat + 0.0006, lng: lng + 0.0006 },
-              { lat: lat + 0.0004, lng: lng + 0.0009 },
-              { lat: lat - 0.0001, lng: lng + 0.0005 },
+              { lat: lat - 0.0025, lng: lng - 0.0032 },
+              { lat: lat - 0.0018, lng: lng - 0.0019 },
+              { lat: lat - 0.0008, lng: lng - 0.0008 },
               { lat, lng }
             ];
 
             const diffMins = Math.floor((Date.now() - new Date(v.last_seen || Date.now()).getTime()) / 60000);
             const lastUpdated = diffMins <= 0 ? 'Just now' : diffMins === 1 ? '1 min ago' : `${diffMins} mins ago`;
 
-            const pickup = PICKUPS[index % PICKUPS.length];
-            const destination = DESTINATIONS[index % DESTINATIONS.length];
-
             const timeline = [
               {
                 time: new Date(v.last_seen || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                tit: status === 'In Ride' ? 'Ride Active' : 'Device Active',
-                sub: `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+                tit: status === 'In Ride' ? 'Active Ride' : 'Hub Ready',
+                sub: `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${pickup})`,
                 type: status === 'In Ride' ? 'in_ride' : 'online'
               }
             ];
@@ -381,16 +507,16 @@ export default function VehicleMapPage() {
               status,
               badgeCls,
               type: v.evegah_model_name || 'Evegah City',
-              battery: v.battery_pct || 100,
-              speed: status === 'In Ride' ? 25 : 0,
+              battery: v.battery_pct !== undefined ? v.battery_pct : 90,
+              speed,
               lastUpdated,
               rideId: status === 'In Ride' ? `RID-2026-${v.code.slice(-4)}` : 'None',
-              renter: v.renter_name || 'None (Available)',
+              renter,
               pickup,
               destination,
-              distance: DISTANCES[index % DISTANCES.length],
-              duration: DURATIONS[index % DURATIONS.length],
-              imgSrc: v.vehicle_image || '/City-1.png',
+              distance,
+              duration,
+              imgSrc: modelImg,
               timeline,
               lat,
               lng,
@@ -447,10 +573,10 @@ export default function VehicleMapPage() {
     destination: 'N/A',
     distance: '0 km',
     duration: '0 mins',
-    imgSrc: '/3d_scooter_rider.png',
+    imgSrc: '/City-1.png',
     timeline: [],
-    lat: 28.6304,
-    lng: 77.2177,
+    lat: 22.3168,
+    lng: 73.1415,
     playbackPoints: []
   };
   const timerRef = useRef<NodeJS.Timeout|null>(null);
@@ -520,7 +646,7 @@ export default function VehicleMapPage() {
   // Interpolate coordinates for Playback Map Marker
   const getPlaybackMarkerPos = () => {
     const pts = currentEVData.playbackPoints;
-    if (!pts || pts.length === 0) return { lat: 28.6304, lng: 77.2177 };
+    if (!pts || pts.length === 0) return { lat: 22.3168, lng: 73.1415 };
     const idx = Math.min(pts.length - 1, Math.floor((pbProgress / 100) * (pts.length - 1)));
     const nextIdx = Math.min(pts.length - 1, idx + 1);
     const t = ((pbProgress / 100) * (pts.length - 1)) - idx;
@@ -542,26 +668,26 @@ export default function VehicleMapPage() {
       mainMapInstance.current = L.map("main-leaflet-map", {
         zoomControl: false,
         attributionControl: false
-      }).setView([28.6304, 77.2177], 17.5);
+      }).setView([22.3168, 73.1415], 15);
       
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mainMapInstance.current);
       
-      // CP Geofence circle
-      cpGeofencePolygon.current = L.circle([28.6304, 77.2177], {
+      // Gotri Geofence circle
+      cpGeofencePolygon.current = L.circle([22.3168, 73.1415], {
         color: '#2A195C',
         fillColor: '#2A195C',
         fillOpacity: 0.12,
-        radius: 650,
+        radius: 1200,
         weight: 1.5,
         dashArray: '5, 5'
       }).addTo(mainMapInstance.current);
 
-      L.marker([28.6304, 77.2177], {
+      L.marker([22.3168, 73.1415], {
         icon: L.divIcon({
           className: 'custom-map-label',
-          html: '<div style="font-size:12px;font-weight:800;color:#3730A3;text-align:center;">Connaught<br>Place</div>',
-          iconSize: [80, 40],
-          iconAnchor: [40, 20]
+          html: '<div style="font-size:12px;font-weight:800;color:#3730A3;text-align:center;">Gotri<br>Zone Hub</div>',
+          iconSize: [90, 40],
+          iconAnchor: [45, 20]
         })
       }).addTo(mainMapInstance.current);
     }
@@ -571,7 +697,7 @@ export default function VehicleMapPage() {
       pbMapInstance.current = L.map("playback-leaflet-map", {
         zoomControl: false,
         attributionControl: false
-      }).setView([28.6304, 77.2177], 17.5);
+      }).setView([22.3168, 73.1415], 15);
       
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(pbMapInstance.current);
       
@@ -586,13 +712,19 @@ export default function VehicleMapPage() {
         className: 'scooter-pin-playback pb-marker-dot',
         html: `
             <div class="vm-3d-marker selected-pulse" style="width: 44px; height: 44px; background: #2A195C; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(42,25,92,0.3);">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v4"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="5.5" cy="17.5" r="3.5" />
+                <circle cx="18.5" cy="17.5" r="3.5" />
+                <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                <path d="M5.5 17.5l4-8h4l2.5 8" />
+                <path d="M8.5 12h5" />
+              </svg>
             </div>
         `,
         iconSize: [48, 48],
         iconAnchor: [24, 24]
       });
-      pbMarkerInstance.current = L.marker([28.6304, 77.2177], { icon: dotIcon }).addTo(pbMapInstance.current);
+      pbMarkerInstance.current = L.marker([22.3168, 73.1415], { icon: dotIcon }).addTo(pbMapInstance.current);
     }
 
     return () => {
@@ -615,7 +747,7 @@ export default function VehicleMapPage() {
     };
   }, [leafletLoaded]);
 
-  // Main Map Elements & Markers Update
+  // Main Map Elements & Markers Update (Zomato / Rapido Real-Time Tracking Style)
   useEffect(() => {
     if (!leafletLoaded || !mainMapInstance.current || !LRef.current) return;
     const L = LRef.current;
@@ -628,35 +760,37 @@ export default function VehicleMapPage() {
     mainPathPolylines.current.forEach((p: any) => mainMapInstance.current.removeLayer(p));
     mainPathPolylines.current = [];
     
-    // Add markers
+    // Add markers in Zomato / Rapido tracking style
     Object.values(activeEvList).forEach(ev => {
       const isSel = ev.code === selectedEV;
-      const statusColor = ev.status === 'In Ride' ? '#2A195C' : ev.status === 'Available' ? '#10B981' : ev.status === 'Maintenance' ? '#EF4444' : '#9CA3AF';
+      const isRunning = ev.status === 'In Ride';
+      const isAvailable = ev.status === 'Available';
       
       const pinIcon = L.divIcon({
-        className: 'scooter-pin-live',
+        className: 'custom-map-label',
         html: `
-          <div class="vm-pin-overlay ${isSel ? 'selected' : ''}">
-            <div class="vm-pin-label">
-              ${ev.code}
-              <span class="vm-pin-sub" style="color: ${statusColor}; font-weight: 700; display: flex; align-items: center; gap: 3px; justify-content: center;">
-                <span style="width: 5px; height: 5px; border-radius: 50%; background-color: ${statusColor}; display: inline-block; animation: ${ev.status === 'In Ride' ? 'status-pulse 1.2s infinite' : 'none'};"></span>
-                ${ev.status}
-              </span>
+          <div class="zomato-tracking-marker ${isSel ? 'selected' : ''}">
+            ${(isRunning || isSel) ? '<div class="zomato-radar-pulse"></div>' : ''}
+            <div class="zomato-speed-badge">
+              <span class="zomato-status-dot ${isRunning ? 'moving' : ''}"></span>
+              ${ev.code} • ${isRunning ? `${ev.speed || 24} km/h` : isAvailable ? 'Ready' : ev.status}
             </div>
-            <div class="vm-3d-marker ${isSel ? 'selected-pulse' : ''}" style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.35));">
-              <img src="${ev.imgSrc || '/City-1.png'}" style="width: 100%; height: 100%; object-fit: contain;" alt="model icon" />
+            <div class="zomato-bike-pod ${isAvailable ? 'available' : isRunning ? 'moving' : ''} ${isSel ? 'selected' : ''}">
+              <img src="${ev.imgSrc || '/City-1.png'}" class="zomato-bike-img" alt="${ev.code}" />
             </div>
           </div>
         `,
-        iconSize: [60, 90],
-        iconAnchor: [30, 90]
+        iconSize: [120, 80],
+        iconAnchor: [60, 50]
       });
       
       const m = L.marker([ev.lat, ev.lng], { icon: pinIcon }).addTo(mainMapInstance.current);
       m.on('click', () => {
         setSelectedEV(ev.code);
         resetPlayback();
+        if (mainMapInstance.current) {
+          mainMapInstance.current.flyTo([ev.lat, ev.lng], 16.5, { duration: 0.8 });
+        }
       });
       
       mainMarkers.current[ev.code] = m;
@@ -671,29 +805,32 @@ export default function VehicleMapPage() {
       }
     }
     
-    // Draw live paths on main map
+    // Draw live paths on main map for selected vehicle
     if (mapMode === 'live') {
       const currentEV = activeEvList[selectedEV];
-      const pts = (currentEV && currentEV.playbackPoints && currentEV.playbackPoints.length > 0)
-        ? currentEV.playbackPoints.map(p => [p.lat, p.lng])
-        : [
-            [28.6448, 77.1888],
-            [28.6422, 77.2144],
-            [28.6304, 77.2177]
-          ];
-      const path1 = L.polyline(pts, {
-        color: '#2A195C',
-        weight: 3.5,
-        opacity: 0.8,
-        dashArray: '5, 5'
-      }).addTo(mainMapInstance.current);
-      mainPathPolylines.current.push(path1);
+      if (currentEV) {
+        const pts = (currentEV.playbackPoints && currentEV.playbackPoints.length > 0)
+          ? currentEV.playbackPoints.map(p => [p.lat, p.lng])
+          : [
+              [currentEV.lat - 0.0035, currentEV.lng - 0.0042],
+              [currentEV.lat - 0.0020, currentEV.lng - 0.0028],
+              [currentEV.lat - 0.0010, currentEV.lng - 0.0012],
+              [currentEV.lat, currentEV.lng]
+            ];
+        const path1 = L.polyline(pts, {
+          color: currentEV.status === 'In Ride' ? '#2A195C' : '#10B981',
+          weight: 4,
+          opacity: 0.9,
+          dashArray: currentEV.status === 'In Ride' ? undefined : '6, 6'
+        }).addTo(mainMapInstance.current);
+        mainPathPolylines.current.push(path1);
+      }
     }
     
-    // Pan to selected vehicle
+    // Smooth zoom in to selected vehicle
     const currentEV = activeEvList[selectedEV];
-    if (currentEV) {
-      mainMapInstance.current.panTo([currentEV.lat, currentEV.lng]);
+    if (currentEV && mainMapInstance.current) {
+      mainMapInstance.current.flyTo([currentEV.lat, currentEV.lng], 16.5, { duration: 0.6 });
     }
   }, [leafletLoaded, selectedEV, mapMode, activeEvList]);
 
@@ -813,7 +950,7 @@ export default function VehicleMapPage() {
 
             {/* Metric KPI cards */}
             <div className="vm-stats-row">
-              {STATS.map(s => (
+              {stats.map(s => (
                 <div className="vm-stat-card" key={s.lbl}>
                   <div className="vm-stat-ic">
                     {s.ic ? s.ic : <div className={`vm-dot ${s.dot}`}/>}
@@ -1126,34 +1263,49 @@ export default function VehicleMapPage() {
 
               {/* Active Rides List */}
               <div className="vm-bot-card">
-                <div className="vm-bot-hdr">
-                  <div className="vm-bot-title">Active Rides ({Object.keys(activeEvList).length})</div>
-                  <Link href="/vehicles/active" style={{ fontSize: 11.5, color: '#2A195C', fontWeight: 700, textDecoration: 'none' }}>View All</Link>
-                </div>
-                <div className="vm-bot-body">
-                  
-                  {Object.values(activeEvList).map(ev => {
-                    const initials = ev.renter.split(' ').map(n=>n[0]).join('');
-                    return (
-                      <div className="vm-ride-item" key={ev.code}>
-                        <div className="vm-ride-avatar">{initials}</div>
-                        <div className="vm-ride-info">
-                          <div className="vm-ride-name-row">
-                            <span className="vm-ride-name">{ev.renter}</span>
-                            <span className="vm-ride-code">{ev.code}</span>
-                          </div>
-                          <div className="vm-ride-path">
-                            <span>{ev.pickup}</span>
-                            <span>→</span>
-                            <span>{ev.destination}</span>
-                          </div>
-                        </div>
-                        <span className="vm-ride-badge">In Ride</span>
+                {(() => {
+                  const inRideList = Object.values(activeEvList).filter(ev => ev.status === 'In Ride');
+                  return (
+                    <>
+                      <div className="vm-bot-hdr">
+                        <div className="vm-bot-title">Active Rides ({inRideList.length})</div>
+                        <Link href="/vehicles/active" style={{ fontSize: 11.5, color: '#2A195C', fontWeight: 700, textDecoration: 'none' }}>View All</Link>
                       </div>
-                    );
-                  })}
-
-                </div>
+                      <div className="vm-bot-body">
+                        {inRideList.length === 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9CA3AF', textAlign: 'center', padding: '24px 12px' }}>
+                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10, color: '#6366F1' }}>
+                              <IScooter s={22}/>
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>No Active Ongoing Rides</div>
+                            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>All fleet vehicles are currently available or parked at designated hub zones.</div>
+                          </div>
+                        ) : (
+                          inRideList.map(ev => {
+                            const initials = ev.renter.split(' ').map(n=>n[0]).join('') || 'R';
+                            return (
+                              <div className="vm-ride-item" key={ev.code}>
+                                <div className="vm-ride-avatar">{initials}</div>
+                                <div className="vm-ride-info">
+                                  <div className="vm-ride-name-row">
+                                    <span className="vm-ride-name">{ev.renter}</span>
+                                    <span className="vm-ride-code">{ev.code}</span>
+                                  </div>
+                                  <div className="vm-ride-path">
+                                    <span>{ev.pickup}</span>
+                                    <span>→</span>
+                                    <span>{ev.destination}</span>
+                                  </div>
+                                </div>
+                                <span className="vm-ride-badge">In Ride</span>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
             </div>

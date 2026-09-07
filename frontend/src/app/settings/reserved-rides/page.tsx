@@ -478,7 +478,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="rr-shell">
+      <div className="rr-shell page-transition">
         <Sidebar activePath={activePath} />
         <div className="rr-main">
           <TopBar title={activePath.includes('renters') || activePath.includes('riders') ? 'Riders' : 'Settings'} subtitle="View and manage reserved rides" showHand={false} />
@@ -641,11 +641,43 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
-                        Loading reservations telemetry...
-                      </td>
-                    </tr>
+                    Array.from({ length: 7 }).map((_, sIdx) => (
+                      <tr key={`rr-skel-${sIdx}`}>
+                        <td><span className="skeleton-box" style={{ width: '16px', height: '16px' }} /></td>
+                        <td><span className="skeleton-box" style={{ width: '110px', height: '15px' }} /></td>
+                        <td>
+                          <div className="rider-info">
+                            <span className="skeleton-circle" style={{ width: '32px', height: '32px' }} />
+                            <div>
+                              <span className="skeleton-box" style={{ width: '100px', height: '14px' }} />
+                              <div style={{ marginTop: '3px' }}><span className="skeleton-box" style={{ width: '85px', height: '11px' }} /></div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="vehicle-cat">
+                            <span className="skeleton-circle" style={{ width: '16px', height: '16px' }} />
+                            <span className="skeleton-box" style={{ width: '60px', height: '13px' }} />
+                          </div>
+                          <div style={{ marginTop: '3px' }}><span className="skeleton-box" style={{ width: '75px', height: '11px' }} /></div>
+                        </td>
+                        <td>
+                          <div className="pickup-drop">
+                            <span className="skeleton-box" style={{ width: '75px', height: '12px' }} />
+                            <span className="skeleton-box" style={{ width: '85px', height: '12px', marginTop: '2px' }} />
+                          </div>
+                        </td>
+                        <td>
+                          <span className="skeleton-box" style={{ width: '80px', height: '12px' }} />
+                          <div style={{ marginTop: '2px' }}><span className="skeleton-box" style={{ width: '60px', height: '11px' }} /></div>
+                        </td>
+                        <td><span className="skeleton-box" style={{ width: '70px', height: '22px', borderRadius: '12px' }} /></td>
+                        <td><span className="skeleton-box" style={{ width: '65px', height: '15px' }} /></td>
+                        <td><span className="skeleton-box" style={{ width: '50px', height: '18px', borderRadius: '10px' }} /></td>
+                        <td><span className="skeleton-box" style={{ width: '75px', height: '11px' }} /></td>
+                        <td><span className="skeleton-box" style={{ width: '60px', height: '26px', borderRadius: '6px' }} /></td>
+                      </tr>
+                    ))
                   ) : list.length === 0 ? (
                     <tr>
                       <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
@@ -660,7 +692,11 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                         const payLower = (res.payment_status || '').toLowerCase();
                         const isChecked = selectedResIds.includes(res.id);
                         return (
-                          <tr key={res.id}>
+                          <tr 
+                            key={res.id}
+                            className="table-row-fade"
+                            style={{ animationDelay: `${Math.min(idx * 0.03, 0.25)}s` }}
+                          >
                             <td>
                               <input 
                                 type="checkbox"

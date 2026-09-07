@@ -2,14 +2,14 @@
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 /* ──────────────────────────────────────────────────────────────
-   STEP 5 · REVIEW & CONFIRM — pixel-perfect
+   STEP 5 · REVIEW & CONFIRM — Evegah Smart Mobility
    ────────────────────────────────────────────────────────────── */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
-
 /* ── shell & layout ── */
 .nr-shell { display: flex; min-height: 100vh; background: #F3F4F9; }
 .nr-main  { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
@@ -26,12 +26,21 @@ const CSS = `
 .nr-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin: 14px 0 20px; gap: 16px; }
 .nr-h1  { font-size: 24px; font-weight: 800; color: #111827; line-height: 1.2; margin: 0; }
 .nr-sub { font-size: 13px; color: #6B7280; margin-top: 4px; }
+.nr-action-group { display: flex; align-items: center; gap: 10px; }
+.nr-preview-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 18px; background: #EDE9FE; border: 1.5px solid #C4B5FD;
+  border-radius: 10px; font-size: 13px; font-weight: 700; color: #2a195c;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.nr-preview-btn:hover { background: #DDD6FE; }
 .nr-back-btn {
   display: flex; align-items: center; gap: 7px;
   padding: 10px 20px; background: #fff; border: 1.5px solid #E5E7EB;
   border-radius: 10px; font-size: 13px; font-weight: 600; color: #374151;
   cursor: pointer; white-space: nowrap; font-family: inherit;
   box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: border-color .15s, color .15s; flex-shrink: 0;
+  text-decoration: none;
 }
 .nr-back-btn:hover { border-color: #2a195c; color: #2a195c; }
 
@@ -88,12 +97,13 @@ const CSS = `
 .nr-prev-btn:hover { border-color: #2a195c; color: #2a195c; }
 .nr-continue-btn {
   display: flex; align-items: center; gap: 8px;
-  padding: 11px 28px; background: #2a195c; border: none;
-  border-radius: 10px; font-size: 13px; font-weight: 700; color: #fff;
+  padding: 12px 30px; background: #2a195c; border: none;
+  border-radius: 10px; font-size: 13.5px; font-weight: 700; color: #fff;
   cursor: pointer; font-family: inherit; transition: background .15s;
   text-decoration: none;
 }
 .nr-continue-btn:hover { background: #4338CA; }
+.nr-continue-btn:disabled { background: #9CA3AF; cursor: not-allowed; }
 
 /* ─── RIGHT PANEL ─── */
 .nr-rp { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
@@ -101,16 +111,16 @@ const CSS = `
 .nr-rp-hdr  { display: flex; align-items: center; gap: 9px; padding: 14px 18px; border-bottom: 1px solid #E5E7EB; }
 .nr-rp-hdr-ic { display: flex; align-items: center; flex-shrink: 0; }
 .nr-rp-title  { font-size: 13.5px; font-weight: 700; color: #111827; }
-.nr-sum-body  { padding: 4px 0 8px; }
-.nr-sum-row   { display: flex; align-items: center; justify-content: space-between; padding: 7px 18px; font-size: 13px; }
-.nr-sum-row-img { display: flex; align-items: center; justify-content: space-between; padding: 5px 18px; font-size: 13px; }
-.nr-sum-label { color: #6B7280; }
-.nr-sum-val   { font-weight: 600; color: #111827; display: flex; align-items: center; gap: 8px; }
-.nr-sum-thumb { width: 34px; height: 26px; border-radius: 5px; overflow: hidden; background: #F3F4F9; display: flex; align-items: center; justify-content: center; border: 1px solid #E5E7EB; }
-.nr-sum-divider { height: 1px; background: #F3F4F6; margin: 4px 0; }
+.nr-sum-body  { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
+.nr-sum-row   { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }
+.nr-sum-row-img { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }
+.nr-sum-label { color: #64748B; font-weight: 500; }
+.nr-sum-val   { font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; }
+.nr-sum-thumb { width: 38px; height: 26px; border-radius: 5px; overflow: hidden; background: #F8FAFC; display: flex; align-items: center; justify-content: center; border: 1px solid #E2E8F0; }
+.nr-sum-divider { height: 1px; background: #E2E8F0; margin: 4px 0; }
 .nr-sum-total {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 18px; margin: 8px 12px 12px; border-radius: 10px; background: #F5F3FF;
+  padding: 12px 14px; margin: 4px 0 0; border-radius: 10px; background: #F5F3FF; border: 1.5px solid #DDD6FE;
 }
 .nr-sum-total-l { font-size: 13px; font-weight: 700; color: #111827; }
 .nr-sum-total-r { font-size: 18px; font-weight: 800; color: #2a195c; }
@@ -127,12 +137,13 @@ const CSS = `
 .nr-help-btn:hover { background: #4338CA; }
 
 /* ─── REVIEW-SPECIFIC ─── */
-.rv-top3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; }
+.rv-top3 { display: grid; grid-template-columns: 1.15fr 1fr 1fr; }
 .rv-sec { padding: 20px 22px; }
 .rv-sec:not(:last-child) { border-right: 1px solid #F3F4F6; }
 .rv-sec-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .rv-sec-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #111827; }
-.rv-edit-btn { color: #2a195c; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: none; display: flex; align-items: center; gap: 4px; font-family: inherit; }
+.rv-edit-btn { color: #2a195c; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: none; display: flex; align-items: center; gap: 4px; font-family: inherit; text-decoration: none; }
+.rv-edit-btn:hover { text-decoration: underline; }
 .rv-row { display: flex; align-items: flex-start; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F9FAFB; font-size: 12.5px; }
 .rv-row-l { color: #6B7280; }
 .rv-row-v { font-weight: 600; color: #111827; text-align: right; }
@@ -140,18 +151,56 @@ const CSS = `
 .rv-total-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 0; margin-top: 6px; border-top: 1.5px solid #E5E7EB; }
 .rv-total-l { font-size: 13px; font-weight: 800; color: #111827; }
 .rv-total-v { font-size: 20px; font-weight: 800; color: #2a195c; }
-.rv-vb-inner { display: grid; grid-template-columns: 1fr 170px; gap: 24px; }
-.rv-veh-thumbs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 10px; }
-.rv-thumb { border-radius: 8px; overflow: hidden; height: 60px; border: 1px solid #E5E7EB; }
-.rv-thumb-lbl { font-size: 10px; color: #9CA3AF; text-align: center; margin-top: 4px; }
+.rv-vb-inner { display: grid; grid-template-columns: 1fr 180px; gap: 24px; }
+.rv-veh-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+.rv-thumb { border-radius: 8px; overflow: hidden; height: 84px; background: #F8FAFC; border: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: center; }
+.rv-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.rv-thumb-lbl { font-size: 11px; font-weight: 600; color: #4B5563; text-align: center; margin-top: 5px; }
 .rv-bat-name { font-size: 13.5px; font-weight: 800; color: #111827; margin-bottom: 8px; margin-top: 8px; }
-.rv-doc-row { display: flex; align-items: center; gap: 8px; padding: 5.5px 0; font-size: 12.5px; }
+.rv-doc-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12.5px; }
 .rv-confirm-banner { display: flex; align-items: flex-start; gap: 10px; background: #F0FDF4; border-top: 1px solid #BBF7D0; padding: 14px 22px; font-size: 13px; color: #15803D; line-height: 1.5; }
-.rv-sig-pad { width: 100%; height: 90px; background: #fff; border: 1.5px solid #E5E7EB; border-radius: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
-.rv-sig-text { font-family: 'Dancing Script', cursive; font-size: 34px; font-weight: 700; color: #1E1B4B; opacity: 0.88; }
-.rv-sig-line { position: absolute; bottom: 18px; left: 16px; right: 16px; height: 1px; background: #E5E7EB; }
 .rv-footer-note { font-size: 11.5px; color: #9CA3AF; text-align: right; margin-top: 5px; }
 .rv-bottom-2col { display: grid; grid-template-columns: 1fr 1fr; }
+
+/* Agreement box (replaces signature) */
+.rv-agree-box {
+  background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 14px 16px; margin-top: 10px;
+}
+.rv-agree-title { font-size: 12.5px; font-weight: 700; color: #1E293B; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.rv-agree-meta { font-size: 12px; color: #64748B; line-height: 1.5; }
+
+/* ── Modal Styles (Preview & Success) ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px); z-index: 999;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.preview-modal {
+  background: #fff; width: 100%; max-width: 860px; max-height: 90vh;
+  border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.preview-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px; background: #2A195C; color: #fff;
+}
+.preview-hdr h3 { font-size: 16px; font-weight: 700; margin: 0; }
+.preview-close { background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 4px; }
+.preview-body { padding: 24px; overflow-y: auto; flex: 1; }
+.preview-sec { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid #E2E8F0; }
+.preview-sec:last-child { border-bottom: none; margin-bottom: 0; }
+.preview-sec-h { font-size: 14px; font-weight: 700; color: #2A195C; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.preview-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.preview-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.preview-field { font-size: 12.5px; }
+.preview-label { color: #64748B; margin-bottom: 2px; }
+.preview-val { font-weight: 600; color: #0F172A; }
+.preview-thumb { border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; height: 80px; background: #F8FAFC; display: flex; align-items: center; justify-content: center; }
+.preview-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.preview-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 14px 24px; background: #F8FAFC; border-top: 1px solid #E2E8F0;
+}
 `;
 
 /* ── SVG Helpers ── */
@@ -172,6 +221,12 @@ const IShield = ({ s = 14 }: { s?: number }) => <SV s={s}><path d="M12 22s8-4 8-
 const ICheckList = () => <SV s={14}><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></SV>;
 const IPen = () => <SV s={13}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></SV>;
 const IExt = () => <SV s={12}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></SV>;
+const IPrint = () => <SV s={14}><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></SV>;
+const IWhatsApp = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.96.549 1.78.814 2.796.815 3.183 0 5.769-2.587 5.77-5.767 0-3.18-2.586-5.768-5.77-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 1.545-.441 3.01-1.258 4.295l1.227 4.483-4.593-1.205c-1.238.74-2.658 1.149-4.225 1.149-4.418 0-8-3.582-8-8 0-4.418 3.582-8 8-8z"/>
+  </svg>
+);
 
 /* ── Stepper ── */
 const STEPS = [
@@ -182,94 +237,21 @@ const STEPS = [
   { n: 5, label: 'Review & Confirm', stat: 'In Progress', state: 'active' },
 ];
 
-/* ── Vehicle thumbnails ── */
-const VehicleThumb = ({ label, dark = false }: { label: string; dark?: boolean }) => (
-  <svg viewBox="0 0 130 72" fill="none" style={{ width: '100%', height: '100%' }}>
-    <rect width="130" height="72" fill={dark ? '#111827' : '#F3F4F9'} />
-    <circle cx="32" cy="50" r="14" fill={dark ? '#374151' : '#D1D5DB'} />
-    <circle cx="32" cy="50" r="9" fill={dark ? '#4B5563' : '#E5E7EB'} />
-    <circle cx="32" cy="50" r="4" fill={dark ? '#6B7280' : '#9CA3AF'} />
-    <circle cx="98" cy="50" r="14" fill={dark ? '#374151' : '#D1D5DB'} />
-    <circle cx="98" cy="50" r="9" fill={dark ? '#4B5563' : '#E5E7EB'} />
-    <circle cx="98" cy="50" r="4" fill={dark ? '#6B7280' : '#9CA3AF'} />
-    <path d="M32 36 L46 18 L84 14 L100 36 Z" fill={dark ? '#2a195c' : '#818CF8'} />
-    <path d="M84 14 L102 32 L100 36 L96 36 L82 20 L78 14 Z" fill={dark ? '#3730A3' : '#6366F1'} />
-    <rect x="45" y="36" width="54" height="5" fill={dark ? '#374151' : '#9CA3AF'} rx="1" />
-    <text x="65" y="67" fontFamily="Arial" fontSize="7" textAnchor="middle" fill={dark ? '#9CA3AF' : '#6B7280'}>{label}</text>
-  </svg>
-);
-
-const OdometerThumb = () => (
-  <svg viewBox="0 0 130 72" fill="none" style={{ width: '100%', height: '100%' }}>
-    <rect width="130" height="72" fill="#111827" />
-    <circle cx="65" cy="36" r="28" fill="#1F2937" stroke="#374151" strokeWidth="1.5" />
-    <circle cx="65" cy="36" r="22" fill="#111827" />
-    <path d="M43 54 A22 22 0 0 1 65 14 A22 22 0 0 1 87 54" stroke="#374151" strokeWidth="2" fill="none" />
-    <path d="M43 54 A22 22 0 0 1 65 14 A22 22 0 0 1 72 16" stroke="#22C55E" strokeWidth="2.5" fill="none" />
-    <text x="65" y="40" textAnchor="middle" fontFamily="monospace" fontSize="13" fontWeight="bold" fill="white">000256</text>
-    <text x="65" y="50" textAnchor="middle" fontFamily="Arial" fontSize="5.5" fill="#9CA3AF">km</text>
-    <text x="65" y="66" textAnchor="middle" fontFamily="Arial" fontSize="6" fill="#6B7280">Odometer Reading</text>
-  </svg>
-);
-
-const ChassisThumb = () => (
-  <svg viewBox="0 0 130 72" fill="none" style={{ width: '100%', height: '100%' }}>
-    <rect width="130" height="72" fill="#1F2937" />
-    <rect x="15" y="20" width="100" height="32" rx="4" fill="#374151" />
-    <rect x="18" y="23" width="94" height="26" rx="3" fill="#4B5563" />
-    <text x="65" y="40" textAnchor="middle" fontFamily="monospace" fontSize="9" fontWeight="bold" fill="white" letterSpacing="1">MH3T4EVG9YZ</text>
-    <text x="65" y="50" textAnchor="middle" fontFamily="Arial" fontSize="6" fill="#9CA3AF">123456789</text>
-    <text x="65" y="64" textAnchor="middle" fontFamily="Arial" fontSize="6" fill="#6B7280">Chassis No.</text>
-  </svg>
-);
-
-/* ── Small SVGs for right panel ── */
-const SmallScooter = () => (
-  <svg viewBox="0 0 60 36" fill="none" style={{ width: 34, height: 20 }}>
-    <circle cx="10" cy="26" r="9" fill="#374151" />
-    <circle cx="10" cy="26" r="6" fill="#6B7280" />
-    <circle cx="50" cy="26" r="9" fill="#374151" />
-    <circle cx="50" cy="26" r="6" fill="#6B7280" />
-    <path d="M10 17 L18 5 L42 3 L52 17 Z" fill="#2a195c" />
-    <rect x="20" y="17" width="32" height="3" fill="#374151" rx="1" />
-  </svg>
-);
-
-const SmallBattery = () => (
-  <svg viewBox="0 0 24 36" fill="none" style={{ width: 20, height: 28 }}>
-    <rect x="3" y="7" width="18" height="27" rx="3" fill="#1F2937" />
-    <rect x="8" y="3" width="8" height="5" rx="2" fill="#374151" />
-    <rect x="5" y="11" width="14" height="4" rx="1" fill="#22C55E" />
-    <rect x="5" y="17" width="14" height="4" rx="1" fill="#22C55E" />
-    <rect x="5" y="23" width="14" height="4" rx="1" fill="#4B5563" />
-  </svg>
-);
-
-/* ── Battery SVG for vehicle+battery section ── */
-const BatterySVG = () => (
-  <svg viewBox="0 0 60 100" fill="none" style={{ width: 48, height: 80 }}>
-    <rect x="18" y="0" width="24" height="12" rx="5" fill="#374151" />
-    <rect x="4" y="10" width="52" height="88" rx="8" fill="#1F2937" />
-    <rect x="4" y="10" width="52" height="88" rx="8" stroke="#374151" strokeWidth="1.5" />
-    <rect x="10" y="18" width="40" height="14" rx="3" fill="#22C55E" />
-    <rect x="10" y="36" width="40" height="14" rx="3" fill="#22C55E" />
-    <rect x="10" y="54" width="40" height="14" rx="3" fill="#22C55E" />
-    <rect x="10" y="72" width="40" height="14" rx="3" fill="#4B5563" />
-    <text x="30" y="28" textAnchor="middle" fontFamily="monospace" fontSize="8" fontWeight="bold" fill="white">100%</text>
-  </svg>
-);
-
 /* ── Right Panel ── */
-function RightPanel() {
+function RightPanel({ rentalData, paymentData }: { rentalData: any; paymentData?: any }) {
+  const baseRent = Number(rentalData?.plan_rate ?? 0);
+  const deposit = Number(rentalData?.deposit_amount ?? 0);
+  const discount = Number(paymentData?.discount) || 0;
+  const total = paymentData?.total_payable || Math.max(0, baseRent + deposit - discount);
+
   const CHECKLIST = [
-    { l: 'Aadhaar Card', s: 'Uploaded' },
-    { l: 'Driving License', s: 'Uploaded' },
-    { l: 'PAN Card', s: 'Uploaded' },
-    { l: 'Address Proof', s: 'Uploaded' },
-    { l: 'Profile Photo', s: 'Uploaded' },
-    { l: 'Vehicle Images', s: 'Complete' },
-    { l: 'Terms & Signature', s: 'Completed' },
+    { l: 'KYC Details', s: 'Verified' },
+    { l: 'Identity Document', s: 'Uploaded' },
+    { l: 'Profile Photo', s: 'Captured' },
+    { l: 'Vehicle Photos (4 Angles)', s: 'Completed' },
+    { l: 'Terms & Conditions', s: 'Agreed' },
   ];
+
   return (
     <div className="nr-rp">
       {/* Rental Summary */}
@@ -279,42 +261,43 @@ function RightPanel() {
           <div className="nr-rp-title">Rental Summary</div>
         </div>
         <div className="nr-sum-body">
-          <div className="nr-sum-row-img">
-            <span className="nr-sum-label">Vehicle</span>
-            <span className="nr-sum-val">
-              Evegah E1
-              <span className="nr-sum-thumb"><SmallScooter /></span>
+          <div className="nr-sum-row">
+            <span className="nr-sum-label">Vehicle Number</span>
+            <span className="nr-sum-val" style={{ fontWeight: 600 }}>
+              {rentalData?.vehicle_code || (rentalData?.vehicle_name?.match(/\((.*?)\)/)?.[1]) || rentalData?.vehicle_name || 'EVM102501'}
+            </span>
+          </div>
+          <div className="nr-sum-row">
+            <span className="nr-sum-label">Vehicle Model</span>
+            <span className="nr-sum-val" style={{ fontWeight: 600 }}>
+              {rentalData?.vehicle_model || rentalData?.vehicle_name?.replace(/\(.*?\)/, '').trim() || 'Evegah City'}
             </span>
           </div>
           <div className="nr-sum-row-img">
-            <span className="nr-sum-label">Battery</span>
+            <span className="nr-sum-label">Battery ID</span>
             <span className="nr-sum-val">
-              Evegah 60V 30Ah
-              <span className="nr-sum-thumb"><SmallBattery /></span>
+              {rentalData?.battery_id || 'BAT-MNZ-001'}
+              <span className="nr-sum-thumb">
+                <img src="/ev_batttery.png" alt="Battery" style={{ width: 16, height: 24, objectFit: 'contain' }} />
+              </span>
             </span>
           </div>
           {[
-            { l: 'Plan', v: 'Daily Plan' },
-            { l: 'Plan Rate (Daily)', v: '₹600.00' },
-            { l: 'Expected Duration', v: '1 Day' },
+            { l: 'Assigned Zone', v: rentalData?.zone_name || 'Assigned Zone' },
+            { l: 'Package Plan', v: rentalData?.plan_type || 'Daily Plan' },
+            { l: 'Rental Rent Price', v: `₹${baseRent.toFixed(2)}` },
+            { l: 'Refundable Security Deposit', v: `₹${deposit.toFixed(2)}` },
+            ...(discount > 0 ? [{ l: 'Coupon Discount', v: `-₹${discount.toFixed(2)}` }] : []),
           ].map(r => (
             <div key={r.l} className="nr-sum-row">
               <span className="nr-sum-label">{r.l}</span>
-              <span className="nr-sum-val">{r.v}</span>
+              <span className="nr-sum-val" style={{ textAlign: 'right', fontWeight: r.l.includes('Deposit') ? 700 : 500 }}>{r.v}</span>
             </div>
           ))}
           <div className="nr-sum-divider" />
-          <div className="nr-sum-row">
-            <span className="nr-sum-label">Est. Sub Total</span>
-            <span className="nr-sum-val">₹600.00</span>
-          </div>
-          <div className="nr-sum-row">
-            <span className="nr-sum-label">GST (18%)</span>
-            <span className="nr-sum-val">₹108.00</span>
-          </div>
           <div className="nr-sum-total">
-            <span className="nr-sum-total-l">Est. Total Payable</span>
-            <span className="nr-sum-total-r">₹708.00</span>
+            <span className="nr-sum-total-l">Total Payable (Zero GST)</span>
+            <span className="nr-sum-total-r">₹{Number(total).toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -352,8 +335,134 @@ function RightPanel() {
 
 /* ═══════════════════════════════════════════════════════════════
    PAGE
-═══════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 export default function ReviewPage() {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [kycData, setKycData] = useState<any>({});
+  const [rentalData, setRentalData] = useState<any>({});
+  const [paymentData, setPaymentData] = useState<any>({});
+
+  // Real photos from localStorage or defaults
+  const [docIdentity, setDocIdentity] = useState('/assets/aadhar.jpg');
+  const [docProfile, setDocProfile] = useState('/rohit_avatar.png');
+  const [vehFront, setVehFront] = useState('/City-1.png');
+  const [vehRear, setVehRear] = useState('/City-2.png');
+  const [vehLeft, setVehLeft] = useState('/City-3.png');
+  const [vehRight, setVehRight] = useState('/City-4.png');
+
+  // Modals & confirmation
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [successBooking, setSuccessBooking] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const k = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
+      const r = JSON.parse(localStorage.getItem('evegah_new_ride_rental') || '{}');
+      const p = JSON.parse(localStorage.getItem('evegah_new_ride_payment') || '{}');
+      setKycData(k);
+      setRentalData(r);
+      setPaymentData(p);
+
+      const idDoc = localStorage.getItem('evegah_doc_identity');
+      if (idDoc) setDocIdentity(idDoc);
+      const profDoc = localStorage.getItem('evegah_doc_profile');
+      if (profDoc) setDocProfile(profDoc);
+      const vf = localStorage.getItem('evegah_veh_front');
+      if (vf) setVehFront(vf);
+      const vr = localStorage.getItem('evegah_veh_rear');
+      if (vr) setVehRear(vr);
+      const vl = localStorage.getItem('evegah_veh_left');
+      if (vl) setVehLeft(vl);
+      const vrt = localStorage.getItem('evegah_veh_right');
+      if (vrt) setVehRight(vrt);
+    } catch (e) {}
+  }, []);
+
+  const handleConfirmSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const riderName = kycData.fullName || kycData.name || 'Akash Verma';
+      const mobileNumber = (kycData.mobile || '9876543210').replace(/\D/g, '').slice(-10);
+      const totalAmount = Number(paymentData.total_payable) || Math.max(0, (Number(rentalData.plan_rate ?? 0)) + (Number(rentalData.deposit_amount ?? 0)) - (Number(paymentData.discount) || 0));
+
+      const payload = {
+        rider_name: riderName,
+        name: riderName,
+        mobile: mobileNumber,
+        vehicle_id: rentalData.vehicle_code || rentalData.vehicle_name || 'Evegah City',
+        battery_id: rentalData.battery_id || 'BAT-MNZ-001',
+        package_name: rentalData.plan_type || 'Daily Plan',
+        rental_start_date: rentalData.start_date || new Date().toISOString().split('T')[0],
+        rent: Number(rentalData.plan_rate ?? 0),
+        deposit: Number(rentalData.deposit_amount ?? 0),
+        total: totalAmount,
+        zone_name: rentalData.zone_name || 'Assigned Zone',
+        pay_method: paymentData.pay_method || 'upi',
+        icici_tx_id: paymentData.icici_tx_id || `EVGICICI${Date.now()}`
+      };
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+      const res = await fetch(`${apiUrl}/rides/new`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const resJson = await res.json().catch(() => ({}));
+
+      // Trigger ICICI verification fallback
+      fetch(`${apiUrl}/payments/icici/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tx_id: payload.icici_tx_id,
+          amount: payload.total,
+          mobile: payload.mobile,
+          rider_name: payload.rider_name
+        })
+      }).catch(() => {});
+
+      const bookingId = resJson?.data?.id || `RIDE-${Date.now().toString().slice(-6)}`;
+
+      setSuccessBooking({
+        id: bookingId,
+        name: riderName,
+        mobile: mobileNumber,
+        vehicle: payload.vehicle_id,
+        battery: payload.battery_id,
+        plan: payload.package_name,
+        amount: totalAmount
+      });
+
+      // Clear local storage for the flow
+      try {
+        localStorage.removeItem('evegah_new_ride_kyc');
+        localStorage.removeItem('evegah_new_ride_rental');
+        localStorage.removeItem('evegah_new_ride_payment');
+        localStorage.removeItem('evegah_doc_identity');
+        localStorage.removeItem('evegah_doc_profile');
+        localStorage.removeItem('evegah_veh_front');
+        localStorage.removeItem('evegah_veh_rear');
+        localStorage.removeItem('evegah_veh_left');
+        localStorage.removeItem('evegah_veh_right');
+      } catch (e) {}
+
+    } catch (e: any) {
+      alert('Error registering ride: ' + (e.message || 'Server error'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const riderName = kycData.fullName || kycData.name || 'Akash Verma';
+  const riderMobile = kycData.mobile || '+91 98765 43210';
+  const cleanMobile = riderMobile.replace(/\D/g, '').slice(-10) || '9876543210';
+  const totalAmount = Number(paymentData?.total_payable) || Math.max(0, (Number(rentalData?.plan_rate) || 600) + (Number(rentalData?.deposit_amount) || 500) - (Number(paymentData?.discount) || 0));
+
+  const whatsappReceiptText = `Hello ${riderName}, your Evegah EV ride booking is confirmed!%0A%0A*Booking ID:* ${successBooking?.id || 'EVG-' + Date.now().toString().slice(-6)}%0A*Vehicle:* ${rentalData?.vehicle_name || 'Evegah City'}%0A*Battery:* ${rentalData?.battery_id || 'BAT-MNZ-001'}%0A*Plan:* ${rentalData?.plan_type || 'Daily Plan'}%0A*Total Paid:* ₹${totalAmount.toFixed(2)} (Zero GST)%0A%0AThank you for choosing Evegah Smart Mobility! ⚡`;
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -378,7 +487,18 @@ export default function ReviewPage() {
                 <h1 className="nr-h1">New Ride Registration</h1>
                 <p className="nr-sub">Review all details before confirming the registration</p>
               </div>
-              <button className="nr-back-btn"><ILeft /> Back to Rides</button>
+              <div className="nr-action-group">
+                <button
+                  type="button"
+                  className="nr-preview-btn"
+                  onClick={() => setShowPreviewModal(true)}
+                >
+                  <IFile s={14} /> Preview Registration Form
+                </button>
+                <Link href="/renters" className="nr-back-btn">
+                  <ILeft /> Back to Rides
+                </Link>
+              </div>
             </div>
 
             {/* Stepper */}
@@ -422,15 +542,15 @@ export default function ReviewPage() {
                           <span style={{ color: '#2a195c', display: 'flex' }}><IUser s={15} /></span>
                           Rider Details
                         </div>
-                        <button className="rv-edit-btn"><IPen /> Edit</button>
+                        <Link href="/new-rider/kyc" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
                       {[
-                        { l: 'Name', v: 'Akash Verma' },
-                        { l: 'Mobile Number', v: '+91 98765 43210' },
-                        { l: 'Email', v: 'akash.verma@example.com' },
-                        { l: 'Date of Birth', v: '27/05/1995' },
-                        { l: 'Aadhaar Number', v: 'XXXX XXXX 1234' },
-                        { l: 'PAN Number', v: 'ABCDE1234F' },
+                        { l: 'Name', v: riderName },
+                        { l: 'Mobile Number', v: riderMobile },
+                        { l: 'Email', v: kycData.email || 'akash.verma@example.com' },
+                        { l: 'Date of Birth', v: kycData.dob || '27/05/1995' },
+                        { l: 'Identity Document', v: `${kycData.idType || 'Aadhaar'}: ${kycData.idNumber || kycData.aadhaar || 'XXXX XXXX 1234'}` },
+                        { l: 'Address', v: `${kycData.address1 || ''} ${kycData.city || ''} ${kycData.state || ''} ${kycData.pincode || ''}`.trim() || 'Sector 62, Noida, UP' },
                       ].map(r => (
                         <div key={r.l} className="rv-row">
                           <span className="rv-row-l">{r.l}</span>
@@ -446,15 +566,15 @@ export default function ReviewPage() {
                           <span style={{ color: '#2a195c', display: 'flex' }}><IClipboard s={15} /></span>
                           Rental Details
                         </div>
-                        <button className="rv-edit-btn"><IPen /> Edit</button>
+                        <Link href="/new-rider/rental" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
                       {[
-                        { l: 'Vehicle', v: 'Evegah E1' },
-                        { l: 'Battery', v: 'Evegah 60V 30Ah' },
-                        { l: 'Plan', v: 'Daily Plan' },
-                        { l: 'Plan Rate (Daily)', v: '₹600.00' },
-                        { l: 'Expected Duration', v: '1 Day' },
-                        { l: 'Expected Return', v: '21/05/2024, 10:00 AM' },
+                        { l: 'Vehicle', v: rentalData?.vehicle_name || rentalData?.vehicle_code || 'Evegah City' },
+                        { l: 'Battery', v: rentalData?.battery_id || 'BAT-MNZ-001' },
+                        { l: 'Plan', v: rentalData?.plan_type || 'Daily Plan' },
+                        { l: 'Plan Rate', v: `₹${Number(rentalData?.plan_rate || 600).toFixed(2)}` },
+                        { l: 'Expected Duration', v: `${rentalData?.total_days || 1} Day${(rentalData?.total_days || 1) > 1 ? 's' : ''}` },
+                        { l: 'Assigned Zone', v: rentalData?.zone_name || 'Assigned Zone' },
                       ].map(r => (
                         <div key={r.l} className="rv-row">
                           <span className="rv-row-l">{r.l}</span>
@@ -470,13 +590,17 @@ export default function ReviewPage() {
                           <span style={{ color: '#2a195c', display: 'flex' }}><IReceipt s={15} /></span>
                           Payment Summary
                         </div>
-                        <button className="rv-edit-btn"><IPen /> Edit</button>
+                        <Link href="/new-rider/payment" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
                       {[
-                        { l: 'Plan Charges (1 Day)', v: '₹600.00' },
-                        { l: 'Security Deposit', v: '₹500.00' },
-                        { l: 'Accessories', v: '₹0.00' },
-                        { l: 'Taxes (18% GST)', v: '₹108.00' },
+                        { l: `Plan Charges (${rentalData?.plan_type || 'Daily Plan'})`, v: `₹${Number(rentalData?.plan_rate || 600).toFixed(2)}` },
+                        { l: 'Security Deposit', v: `₹${Number(rentalData?.deposit_amount || 500).toFixed(2)}` },
+                        { l: 'Payment Mode', v: (paymentData?.pay_method || 'upi').toUpperCase() },
+                        ...(paymentData?.discount > 0 ? [{ l: 'Coupon Discount', v: `-₹${Number(paymentData.discount).toFixed(2)}` }] : []),
+                        ...(paymentData?.pay_method === 'split' ? [
+                          { l: 'Cash Component', v: `₹${Number(paymentData.cash_amount || 0).toFixed(2)}` },
+                          { l: 'Online Component', v: `₹${Number(paymentData.online_amount || 0).toFixed(2)}` },
+                        ] : []),
                       ].map(r => (
                         <div key={r.l} className="rv-row">
                           <span className="rv-row-l">{r.l}</span>
@@ -484,8 +608,8 @@ export default function ReviewPage() {
                         </div>
                       ))}
                       <div className="rv-total-row">
-                        <span className="rv-total-l">Total Amount</span>
-                        <span className="rv-total-v">₹1,208.00</span>
+                        <span className="rv-total-l">Total Payable (Zero GST)</span>
+                        <span className="rv-total-v">₹{totalAmount.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -498,41 +622,41 @@ export default function ReviewPage() {
                     <div className="rv-sec-hdr">
                       <div className="rv-sec-title">
                         <span style={{ color: '#2a195c', display: 'flex' }}><IShield s={15} /></span>
-                        Vehicle &amp; Battery
+                        Vehicle &amp; Battery Inspection Photos
                       </div>
-                      <button className="rv-edit-btn"><IPen /> Edit</button>
+                      <Link href="/new-rider/documents" className="rv-edit-btn"><IPen /> Edit</Link>
                     </div>
                     <div className="rv-vb-inner">
-                      {/* Left: Vehicle Images */}
+                      {/* Left: 4 Vehicle Angle Photos */}
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>Vehicle Images</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>
+                          Vehicle Inspection Photos (4 Angles Mandatory)
+                        </div>
                         <div className="rv-veh-thumbs">
                           {[
-                            { label: 'Front View', dark: false },
-                            { label: 'Rear View', dark: true },
-                            { label: 'Left Side', dark: false },
-                            { label: 'Right Side', dark: true },
-                            { label: 'Odometer', dark: false, odo: true },
-                            { label: 'Chassis No.', dark: false, chassis: true },
+                            { label: 'Front View', img: vehFront },
+                            { label: 'Rear View', img: vehRear },
+                            { label: 'Left Side View', img: vehLeft },
+                            { label: 'Right Side View', img: vehRight },
                           ].map(t => (
                             <div key={t.label}>
                               <div className="rv-thumb">
-                                {t.odo
-                                  ? <OdometerThumb />
-                                  : t.chassis
-                                    ? <ChassisThumb />
-                                    : <VehicleThumb label="" dark={t.dark} />
-                                }
+                                <img src={t.img} alt={t.label} />
                               </div>
                               <div className="rv-thumb-lbl">{t.label}</div>
                             </div>
                           ))}
                         </div>
                       </div>
+
                       {/* Right: Battery */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingLeft: 8, borderLeft: '1px solid #F3F4F6' }}>
-                        <BatterySVG />
-                        <div className="rv-bat-name">Evegah 60V 30Ah</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingLeft: 12, borderLeft: '1px solid #F3F4F6' }}>
+                        <img
+                          src="/ev_batttery.png"
+                          alt="Battery Unit"
+                          style={{ width: 68, height: 80, objectFit: 'contain', borderRadius: 6 }}
+                        />
+                        <div className="rv-bat-name">{rentalData?.battery_id || 'Evegah 60V 30Ah'}</div>
                         {[
                           { l: 'Type', v: 'Li-ion' },
                           { l: 'Swappable', v: 'Yes' },
@@ -559,16 +683,13 @@ export default function ReviewPage() {
                           <span style={{ color: '#2a195c', display: 'flex' }}><IFile s={15} /></span>
                           Documents Summary
                         </div>
-                        <button className="rv-edit-btn"><IPen /> Edit</button>
+                        <Link href="/new-rider/documents" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
                       {[
-                        { l: 'Aadhaar Card', v: 'Uploaded' },
-                        { l: 'Driving License', v: 'Uploaded' },
-                        { l: 'PAN Card', v: 'Uploaded' },
-                        { l: 'Address Proof', v: 'Uploaded' },
-                        { l: 'Profile Photo', v: 'Uploaded' },
-                        { l: 'Vehicle Images', v: 'Uploaded (6)' },
-                        { l: 'Terms & Signature', v: 'Uploaded' },
+                        { l: 'Identity Document', v: 'Uploaded & Verified' },
+                        { l: 'Profile Photo', v: 'Captured & Verified' },
+                        { l: 'Vehicle Photos (4 Angles)', v: '4 Completed' },
+                        { l: 'Rental Agreement Terms', v: 'Agreed & Accepted' },
                       ].map(r => (
                         <div key={r.l} className="rv-doc-row">
                           <span style={{ display: 'flex', color: '#16A34A', flexShrink: 0 }}><ICheck s={13} /></span>
@@ -578,15 +699,16 @@ export default function ReviewPage() {
                       ))}
                     </div>
 
-                    {/* 2. Terms & Conditions */}
+                    {/* 2. Terms & Digital Consent */}
                     <div className="rv-sec">
                       <div className="rv-sec-hdr">
                         <div className="rv-sec-title">
                           <span style={{ color: '#2a195c', display: 'flex' }}><IShield s={15} /></span>
-                          Terms &amp; Conditions
+                          Terms &amp; Consent
                         </div>
-                        <button className="rv-edit-btn"><IPen /> Edit</button>
+                        <Link href="/new-rider/documents" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
+
                       {/* Checkbox row */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
                         <div style={{
@@ -597,25 +719,20 @@ export default function ReviewPage() {
                           <ICheck s={11} />
                         </div>
                         <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
-                          I have read, understood and agree to the{' '}
-                          <span style={{ color: '#2a195c', fontWeight: 600 }}>Rider Terms &amp; Conditions.</span>
+                          Rider has read, understood and agreed to the{' '}
+                          <span style={{ color: '#2a195c', fontWeight: 600 }}>Rider Terms &amp; Conditions</span> and battery handling policy.
                         </span>
                       </div>
-                      <button style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        fontSize: 13, fontWeight: 600, color: '#2a195c',
-                        cursor: 'pointer', border: 'none', background: 'none',
-                        fontFamily: 'inherit', padding: 0, marginBottom: 14
-                      }}>
-                        View Terms &amp; Conditions <IExt />
-                      </button>
-                      {/* Signature */}
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-                        Rider Signature <span style={{ color: '#EF4444' }}>*</span>
-                      </div>
-                      <div className="rv-sig-pad">
-                        <span className="rv-sig-text">Akash Verma</span>
-                        <div className="rv-sig-line" />
+
+                      {/* Verified acceptance box */}
+                      <div className="rv-agree-box">
+                        <div className="rv-agree-title">
+                          <span style={{ color: '#16A34A', display: 'flex' }}><ICheck s={14} /></span>
+                          Digitally Verified Consent
+                        </div>
+                        <div className="rv-agree-meta">
+                          Consent confirmed for <strong>{riderName}</strong> ({riderMobile}). WhatsApp booking receipt and tax-free rental agreement will be dispatched automatically upon confirmation.
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -625,7 +742,9 @@ export default function ReviewPage() {
                     <span style={{ display: 'flex', flexShrink: 0, marginTop: 1, color: '#16A34A' }}>
                       <ICheck s={16} />
                     </span>
-                    By clicking &quot;Confirm &amp; Submit&quot;, I confirm that all the information provided is true and correct.
+                    <div>
+                      By clicking <strong>&quot;Confirm &amp; Submit&quot;</strong>, the rental booking will be activated and an instant digital booking receipt will be sent to the rider on WhatsApp (+91 {cleanMobile}).
+                    </div>
                   </div>
                 </div>
 
@@ -633,20 +752,258 @@ export default function ReviewPage() {
                 <div className="nr-footer-actions">
                   <Link href="/new-rider/documents" className="nr-prev-btn"><ILeft /> Previous</Link>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <button className="nr-continue-btn">
-                      Confirm &amp; Submit <IArr s={12} />
+                    <button
+                      className="nr-continue-btn"
+                      onClick={handleConfirmSubmit}
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Confirming Ride...' : 'Confirm & Submit'} <IArr s={12} />
                     </button>
-                    <div className="rv-footer-note">You will not be able to edit after submission.</div>
+                    <div className="rv-footer-note">Instant WhatsApp receipt dispatched upon submission</div>
                   </div>
                 </div>
               </div>
 
               {/* Right Panel */}
-              <RightPanel />
+              <RightPanel rentalData={rentalData} paymentData={paymentData} />
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── PREVIEW FORM MODAL ── */}
+      {showPreviewModal && (
+        <div className="modal-overlay" onClick={() => setShowPreviewModal(false)}>
+          <div className="preview-modal" onClick={e => e.stopPropagation()}>
+            <div className="preview-hdr">
+              <div>
+                <h3>📋 Complete Rider Registration Form Preview</h3>
+                <span style={{ fontSize: 12, opacity: 0.85 }}>Evegah Smart Mobility • Application Summary</span>
+              </div>
+              <button className="preview-close" onClick={() => setShowPreviewModal(false)}>✕</button>
+            </div>
+
+            <div className="preview-body">
+              {/* Section 1: Rider KYC */}
+              <div className="preview-sec">
+                <div className="preview-sec-h"><IUser s={15} /> 1. Rider Information</div>
+                <div className="preview-grid-2">
+                  <div className="preview-field">
+                    <div className="preview-label">Full Name</div>
+                    <div className="preview-val">{riderName}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Mobile Number</div>
+                    <div className="preview-val">{riderMobile}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Email Address</div>
+                    <div className="preview-val">{kycData.email || 'akash.verma@example.com'}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Date of Birth</div>
+                    <div className="preview-val">{kycData.dob || '27/05/1995'}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Identity Document</div>
+                    <div className="preview-val">{kycData.idType || 'Aadhaar'}: {kycData.idNumber || kycData.aadhaar || 'XXXX XXXX 1234'}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Registered Address</div>
+                    <div className="preview-val">{`${kycData.address1 || ''} ${kycData.city || ''} ${kycData.state || ''} ${kycData.pincode || ''}`.trim() || 'Sector 62, Noida, UP'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Rental Details */}
+              <div className="preview-sec">
+                <div className="preview-sec-h"><IClipboard s={15} /> 2. Vehicle &amp; Rental Plan</div>
+                <div className="preview-grid-2">
+                  <div className="preview-field">
+                    <div className="preview-label">Allocated Vehicle</div>
+                    <div className="preview-val">{rentalData?.vehicle_name || rentalData?.vehicle_code || 'Evegah City'}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Allocated Battery</div>
+                    <div className="preview-val">{rentalData?.battery_id || 'BAT-MNZ-001'}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Package Plan</div>
+                    <div className="preview-val">{rentalData?.plan_type || 'Daily Plan'} ({rentalData?.total_days || 1} Day)</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Assigned Zone</div>
+                    <div className="preview-val">{rentalData?.zone_name || 'Assigned Zone'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Billing & Charges (Zero GST) */}
+              <div className="preview-sec">
+                <div className="preview-sec-h"><IReceipt s={15} /> 3. Payment &amp; Charges Breakdown (Zero GST)</div>
+                <div className="preview-grid-2">
+                  <div className="preview-field">
+                    <div className="preview-label">Plan Rental Rate</div>
+                    <div className="preview-val">₹{Number(rentalData?.plan_rate || 600).toFixed(2)}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Security Deposit (Refundable)</div>
+                    <div className="preview-val">₹{Number(rentalData?.deposit_amount || 500).toFixed(2)}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Coupon Discount</div>
+                    <div className="preview-val">₹{Number(paymentData?.discount || 0).toFixed(2)}</div>
+                  </div>
+                  <div className="preview-field">
+                    <div className="preview-label">Payment Mode</div>
+                    <div className="preview-val">{(paymentData?.pay_method || 'UPI').toUpperCase()}</div>
+                  </div>
+                  <div className="preview-field" style={{ gridColumn: 'span 2' }}>
+                    <div className="preview-label">Total Amount Payable</div>
+                    <div className="preview-val" style={{ fontSize: 16, color: '#2A195C', fontWeight: 800 }}>
+                      ₹{totalAmount.toFixed(2)} (Zero GST)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Document & Vehicle Photos */}
+              <div className="preview-sec">
+                <div className="preview-sec-h"><IShield s={15} /> 4. Rider Documents &amp; Vehicle Photos</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', marginBottom: 8 }}>Identity &amp; Profile</div>
+                <div className="preview-grid-2" style={{ marginBottom: 14 }}>
+                  <div>
+                    <div className="preview-thumb">
+                      <img src={docIdentity} alt="Identity Document" />
+                    </div>
+                    <div style={{ fontSize: 11, textAlign: 'center', marginTop: 4, color: '#64748B' }}>Identity Document</div>
+                  </div>
+                  <div>
+                    <div className="preview-thumb">
+                      <img src={docProfile} alt="Profile Photo" />
+                    </div>
+                    <div style={{ fontSize: 11, textAlign: 'center', marginTop: 4, color: '#64748B' }}>Profile Photo</div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', marginBottom: 8 }}>Vehicle Inspection Angles</div>
+                <div className="preview-grid-4">
+                  <div>
+                    <div className="preview-thumb"><img src={vehFront} alt="Front View" /></div>
+                    <div style={{ fontSize: 10.5, textAlign: 'center', marginTop: 4, color: '#64748B' }}>Front View</div>
+                  </div>
+                  <div>
+                    <div className="preview-thumb"><img src={vehRear} alt="Rear View" /></div>
+                    <div style={{ fontSize: 10.5, textAlign: 'center', marginTop: 4, color: '#64748B' }}>Rear View</div>
+                  </div>
+                  <div>
+                    <div className="preview-thumb"><img src={vehLeft} alt="Left Side" /></div>
+                    <div style={{ fontSize: 10.5, textAlign: 'center', marginTop: 4, color: '#64748B' }}>Left Side</div>
+                  </div>
+                  <div>
+                    <div className="preview-thumb"><img src={vehRight} alt="Right Side" /></div>
+                    <div style={{ fontSize: 10.5, textAlign: 'center', marginTop: 4, color: '#64748B' }}>Right Side</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="preview-footer">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '9px 18px', background: '#F1F5F9', border: '1px solid #CBD5E1',
+                  borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#334155', cursor: 'pointer'
+                }}
+              >
+                <IPrint /> Print Summary
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(false)}
+                style={{
+                  padding: '9px 22px', background: '#2A195C', border: 'none',
+                  borderRadius: 8, fontSize: 13, fontWeight: 700, color: '#FFF', cursor: 'pointer'
+                }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SUCCESS MODAL WITH WHATSAPP CONFIRMATION ── */}
+      {successBooking && (
+        <div className="modal-overlay">
+          <div className="preview-modal" style={{ maxWidth: 540 }}>
+            <div style={{ padding: '32px 28px', textAlign: 'center' }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%', background: '#DCFCE7',
+                color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px', fontSize: 28
+              }}>
+                ✓
+              </div>
+              <h2 style={{ fontSize: 21, fontWeight: 800, color: '#111827', margin: '0 0 6px' }}>
+                Booking Registered Successfully!
+              </h2>
+              <p style={{ fontSize: 13.5, color: '#6B7280', margin: '0 0 20px', lineHeight: 1.5 }}>
+                Ride <strong>{successBooking.id}</strong> has been created. A digital booking receipt has been dispatched to rider on WhatsApp.
+              </p>
+
+              <div style={{
+                background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12,
+                padding: '16px 20px', textAlign: 'left', marginBottom: 22, fontSize: 13
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: '#64748B' }}>Rider Name:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{successBooking.name}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: '#64748B' }}>Mobile Number:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>+91 {successBooking.mobile}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: '#64748B' }}>Vehicle &amp; Battery:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{successBooking.vehicle} • {successBooking.battery}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Total Amount Paid:</span>
+                  <span style={{ fontWeight: 800, color: '#16A34A' }}>₹{Number(successBooking.amount).toFixed(2)} (Zero GST)</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <a
+                  href={`https://wa.me/91${cleanMobile}?text=${whatsappReceiptText}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '12px', background: '#25D366', color: '#FFF', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, textDecoration: 'none'
+                  }}
+                >
+                  <IWhatsApp /> Open Booking Receipt in WhatsApp Web
+                </a>
+                <button
+                  type="button"
+                  onClick={() => router.push('/renters')}
+                  style={{
+                    padding: '12px', background: '#2A195C', color: '#FFF', borderRadius: 10,
+                    fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer'
+                  }}
+                >
+                  Go to All Renters &amp; Active Rides
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

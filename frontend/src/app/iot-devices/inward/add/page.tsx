@@ -102,21 +102,21 @@ export default function AddInwardPage() {
 
   // Inline added device items
   const [devices, setDevices] = useState<DeviceRow[]>([
-    { key: '1', type: 'GPS Tracker', model: 'GLX-GT06', serial: 'GLXGT060519240087', vehiclePlate: 'DL 1L AB 1234', vehicleModel: 'TATA Ace EV' },
+    { key: '1', type: 'GPS Tracker', model: 'GLX-GT06', serial: 'GLXGT060519240087', vehiclePlate: 'GJ 06 EV 1024', vehicleModel: 'Evegah City' },
     { key: '2', type: '4G Telematics', model: 'TRK-4G-01', serial: 'TRK4G010519240088', vehiclePlate: '', vehicleModel: '' }
   ]);
 
   // Form bottom states
   const [receivedOn, setReceivedOn] = useState('19 May 2024, 11:45 AM');
-  const [receivedBy, setReceivedBy] = useState('Akash Verma');
-  const [location, setLocation] = useState('Connaught Place Warehouse');
+  const [receivedBy, setReceivedBy] = useState('Himanshu');
+  const [location, setLocation] = useState('Gotri Warehouse');
   const [notes, setNotes] = useState('Regular shipment checkup');
 
   // Vehicle choices for binding select
   const VEHICLES = [
-    { plate: 'DL 1L AB 1234', model: 'TATA Ace EV' },
-    { plate: 'DL 1L CD 5678', model: 'Mahindra Treo' },
-    { plate: 'DL 01-AB-1234', model: 'Ola S1 Pro' }
+    { plate: 'GJ 06 EV 1024', model: 'Evegah City' },
+    { plate: 'GJ 06 EV 1025', model: 'Evegah Mink' },
+    { plate: 'GJ 06 EV 1026', model: 'Evegah City' }
   ];
 
   // Model dictionary map helper
@@ -350,15 +350,17 @@ export default function AddInwardPage() {
                     <div className="ad-form-group">
                       <label className="ad-form-lbl">Received By <span>*</span></label>
                       <select className="ad-select" value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)}>
-                        <option value="Akash Verma">Akash Verma (Zone Admin)</option>
+                        <option value="Himanshu">Himanshu (Super Admin)</option>
+                        <option value="Speed Force">Speed Force (Zone Admin)</option>
                         <option value="Suresh Dev">Suresh Dev (Zone Auditor)</option>
                       </select>
                     </div>
                     <div className="ad-form-group">
                       <label className="ad-form-lbl">Location / Warehouse <span>*</span></label>
                       <select className="ad-select" value={location} onChange={(e) => setLocation(e.target.value)}>
-                        <option value="Connaught Place Warehouse">Connaught Place Warehouse</option>
-                        <option value="Karol Bagh Warehouse">Karol Bagh Warehouse</option>
+                        <option value="Gotri Warehouse">Gotri Warehouse</option>
+                        <option value="Manjalpur Warehouse">Manjalpur Warehouse</option>
+                        <option value="KPGU Warehouse">KPGU Warehouse</option>
                       </select>
                     </div>
                   </div>

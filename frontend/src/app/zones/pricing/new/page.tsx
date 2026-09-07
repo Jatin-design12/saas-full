@@ -225,6 +225,24 @@ function PricingForm() {
     setPackages(prev => prev.filter(p => p.id !== id));
   };
 
+  const handlePackageChange = (id: number, field: string, value: any) => {
+    setPackages(prev => prev.map(pkg => {
+      if (pkg.id === id) {
+        return { ...pkg, [field]: value };
+      }
+      return pkg;
+    }));
+  };
+
+  const handlePackageMultiChange = (id: number, updates: Record<string, any>) => {
+    setPackages(prev => prev.map(pkg => {
+      if (pkg.id === id) {
+        return { ...pkg, ...updates };
+      }
+      return pkg;
+    }));
+  };
+
   return (
     <div className="zp-page">
       {/* Breadcrumb back */}
@@ -241,8 +259,28 @@ function PricingForm() {
       {/* Header */}
       <div className="zp-title-row">
         <div>
-          <h1 className="zp-h1">Add / Edit Zone Pricing</h1>
-          <p className="zp-sub">Configure pricing model and rates for the selected zone.</p>
+          <h1 className="zp-h1">{editId ? `Edit Zone Pricing: ${selectedZoneName || 'Zone'}` : 'Add Zone Pricing'}</h1>
+          <p className="zp-sub">{editId ? 'Modify rates, duration, and deposits for existing packages in this zone.' : 'Configure pricing model and rates for the selected zone.'}</p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className="zp-btn-secondary"
+            onClick={() => router.push('/zones/pricing')}
+          >
+            Cancel
+          </button>
+          <button 
+            className="zp-btn-primary" 
+            style={{ padding: '10px 22px' }}
+            onClick={handleSave}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            <span>{editId ? 'Save & Update Pricing' : 'Save Pricing'}</span>
+          </button>
         </div>
       </div>
 
@@ -721,15 +759,79 @@ function PricingForm() {
                     ) : (
                       packages.map((pkg) => (
                         <tr key={pkg.id}>
-                          <td style={{ fontWeight: 700, color: '#2A195C' }}>{pkg.model || 'All Models'}</td>
-                          <td style={{ fontWeight: 700 }}>{pkg.name}</td>
-                          <td style={{ fontWeight: 600 }}>{pkg.duration} Days</td>
-                          <td style={{ fontWeight: 700 }}>₹{pkg.price}</td>
-                          <td style={{ fontWeight: 700 }}>₹{pkg.deposit || 0}</td>
+                          <td>
+                            <select
+                              className="zp-select-inline"
+                              value={pkg.model || 'Evegah MINK'}
+                              onChange={(e) => handlePackageChange(pkg.id, 'model', e.target.value)}
+                              style={{ fontWeight: 700, color: '#2A195C', width: '100%', padding: '6px 8px' }}
+                            >
+                              {VEHICLE_MODELS.map((vm, idx) => (
+                                <option key={idx} value={vm.name}>{vm.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <select
+                              className="zp-select-inline"
+                              value={pkg.name}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                let dur = pkg.duration;
+                                if (val === 'Daily') dur = 1;
+                                else if (val === 'Weekly') dur = 7;
+                                else if (val === 'Monthly') dur = 30;
+                                handlePackageMultiChange(pkg.id, { name: val, duration: dur });
+                              }}
+                              style={{ fontWeight: 700, width: '100%', padding: '6px 8px' }}
+                            >
+                              <option value="Daily">Daily</option>
+                              <option value="Weekly">Weekly</option>
+                              <option value="Monthly">Monthly</option>
+                              <option value="Custom">Custom</option>
+                            </select>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input 
+                                type="number"
+                                className="zp-input-inline"
+                                value={pkg.duration}
+                                onChange={(e) => handlePackageChange(pkg.id, 'duration', parseInt(e.target.value) || 1)}
+                                style={{ width: '60px', padding: '6px 8px', fontWeight: 600 }}
+                              />
+                              <span style={{ fontSize: '11.5px', color: '#64748B' }}>Days</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ position: 'relative' }}>
+                              <input 
+                                type="number"
+                                className="zp-input-inline"
+                                value={pkg.price}
+                                onChange={(e) => handlePackageChange(pkg.id, 'price', parseFloat(e.target.value) || 0)}
+                                style={{ width: '100%', padding: '6px 8px 6px 18px', fontWeight: 700, color: '#1E293B', border: '1.5px solid #CBD5E1' }}
+                              />
+                              <span style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#64748B', fontWeight: 700, fontSize: '12px' }}>₹</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ position: 'relative' }}>
+                              <input 
+                                type="number"
+                                className="zp-input-inline"
+                                value={pkg.deposit ?? 500}
+                                onChange={(e) => handlePackageChange(pkg.id, 'deposit', parseFloat(e.target.value) || 0)}
+                                style={{ width: '100%', padding: '6px 8px 6px 18px', fontWeight: 700, color: '#059669', border: '1.5px solid #CBD5E1' }}
+                              />
+                              <span style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#059669', fontWeight: 700, fontSize: '12px' }}>₹</span>
+                            </div>
+                          </td>
                           <td style={{ textAlign: 'center' }}>
                             <button 
                               className="zp-delete-row-btn"
                               onClick={() => handlePackageDelete(pkg.id)}
+                              title="Delete package"
                             >
                               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <polyline points="3 6 5 6 21 6" />
@@ -903,8 +1005,6 @@ export default function NewZonePricingPage() {
         <Sidebar activePath="/zones/pricing" />
         <div className="zp-main">
           <TopBar 
-            title="Hello, Akash" 
-            subtitle="Zone Admin" 
             notificationCount={3}
             showSearch={false}
             hideZone={false}

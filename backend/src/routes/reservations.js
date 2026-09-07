@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { createNotification } = require('./notifications');
+const { getCache, setCache, delByPattern } = require('../redis');
 
 // In-memory fallback seeds matching real rider names and July 2026 bookings
 const MOCK_RESERVATIONS = [
@@ -36,6 +37,13 @@ router.get('/', async (req, res) => {
     const search = req.query.search || '';
     const status = req.query.status || '';
     const mobile = req.query.mobile || '';
+
+    // Check Redis cache
+    const cacheKey = `reservations:list:${page}:${limit}:${search}:${status}:${mobile}`;
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
 
     let query = 'SELECT * FROM reservations WHERE 1=1';
     let countQuery = 'SELECT COUNT(*) as total FROM reservations WHERE 1=1';
@@ -97,7 +105,7 @@ router.get('/', async (req, res) => {
       cancelled: parseInt(statsResult.rows[0].cancelled) || 0
     };
 
-    res.json({
+    const responsePayload = {
       status: 'success',
       data: rowsResult.rows,
       stats,
@@ -107,7 +115,9 @@ router.get('/', async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit)
       }
-    });
+    };
+    await setCache(cacheKey, responsePayload, 60);
+    res.json(responsePayload);
   } catch (err) {
     console.warn('Postgres query failed for reservations, returning mock fallback:', err.message);
 
@@ -144,7 +154,7 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const paginated = filtered.slice(offset, offset + limit);
 
-    res.json({
+    const fallbackPayload = {
       status: 'success',
       data: paginated,
       stats: getStats(mockList),
@@ -154,7 +164,9 @@ router.get('/', async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit)
       }
-    });
+    };
+    await setCache(cacheKey, fallbackPayload, 30);
+    res.json(fallbackPayload);
   }
 });
 
@@ -302,6 +314,10 @@ router.post('/', async (req, res) => {
     // Keep mock list in sync
     mockList.unshift(result.rows[0]);
 
+    // Clear caches
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
+
     // Trigger real system notification
     createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
 
@@ -330,6 +346,10 @@ router.post('/', async (req, res) => {
       created_at: new Date().toISOString()
     };
     mockList.unshift(newRecord);
+
+    // Clear caches
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
 
     // Trigger real system notification
     createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
@@ -542,17 +562,32 @@ router.post('/:id/allocate', async (req, res) => {
       console.warn('Could not auto-create renters record (non-fatal):', renterErr.message);
     }
 
-    // Update inventory in database: Mark vehicle as Rented and battery as in_use
+    // Update inventory in database: Mark vehicle as In Ride and battery as in_use
     try {
       if (vehicle_number) {
-        await db.query(`UPDATE vehicles SET vehicle_status = 'Rented' WHERE code = $1 OR vehicle_number = $1`, [vehicle_number]);
+        await db.query(`
+          UPDATE vehicles 
+          SET vehicle_status = 'In Ride', status = 'Online', renter_name = $1 
+          WHERE code = $2 OR registration_number = $2
+        `, [renterPayload.rider_name || 'Reserved Rider', vehicle_number]);
       }
       if (battery_id) {
-        await db.query(`UPDATE batteries SET status = 'in_use' WHERE battery_id = $1 OR id = $1`, [battery_id]);
+        await db.query(`
+          UPDATE batteries 
+          SET status = 'in_use' 
+          WHERE battery_id = $1 OR id::text = $1
+        `, [battery_id]);
       }
     } catch (invErr) {
       console.warn('Could not update vehicle/battery inventory status:', invErr.message);
     }
+
+    // Clear caches
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
+    await delByPattern('vehicles:*');
+    await delByPattern('batteries:*');
+    await delByPattern('stats:*');
 
     res.json({
       status: 'success',
@@ -571,6 +606,8 @@ router.delete('/', async (req, res) => {
   const targetIds = Array.isArray(ids) ? ids : (req.query.ids ? req.query.ids.split(',') : []);
 
   try {
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
     if (targetIds.length > 0) {
       try {
         await db.query('DELETE FROM reservations WHERE id::text = ANY($1::text[]) OR reservation_id = ANY($1::text[])', [targetIds]);
@@ -600,6 +637,8 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
     try {
       await db.query('DELETE FROM reservations WHERE id = $1 OR reservation_id = $2', [id, id]);
     } catch (dbErr) {
@@ -626,6 +665,8 @@ router.delete('/:id', async (req, res) => {
 // POST /api/reservations/:id/return (End / Return ride and release vehicle/battery)
 router.post('/:id/return', async (req, res) => {
   const { id } = req.params;
+  await delByPattern('reservations:*');
+  await delByPattern('renters:*');
 
   try {
     let reservation;

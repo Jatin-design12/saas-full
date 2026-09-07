@@ -210,7 +210,14 @@ interface Role {
 
 export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = {}) {
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<'users' | 'roles'>(defaultTab === 1 ? 'roles' : 'users');
+  const [activeSection, setActiveSection] = useState<'users' | 'roles'>(() => {
+    if (defaultTab === 1) return 'roles';
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('tab') === '1' || p.get('tab') === 'roles') return 'roles';
+    }
+    return 'users';
+  });
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   
@@ -366,8 +373,6 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
         <div className="usr-main">
           
           <TopBar 
-            title="Hello, Akash" 
-            subtitle="Zone Admin" 
             notificationCount={3}
             showSearch={false}
             hideZone={false}
@@ -739,15 +744,44 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
                               <td style={{ fontWeight: '700', color: '#2a195c' }}>{r.users_count}</td>
                               <td style={{ fontWeight: '500', color: '#334155' }}>{lastUpdatedText}</td>
                               <td>
-                                <div className="usr-act-btn-group">
-                                  <button className="usr-act-btn" title="View & Edit Role Permissions" onClick={() => router.push(`/roles/add?id=${r.id}`)}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <button 
+                                    className="role-btn-edit"
+                                    onClick={() => router.push(`/roles/add?id=${r.id}`)}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '6px 12px',
+                                      background: '#EEF2FF',
+                                      border: '1.5px solid #C7D2FE',
+                                      borderRadius: '8px',
+                                      color: '#2a195c',
+                                      fontSize: '12px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                    Edit Role
                                   </button>
-                                  <button className="usr-act-btn" title="Edit permissions matrix" onClick={() => router.push(`/roles/add?id=${r.id}`)}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                  </button>
-                                  <button className="usr-act-btn" title="Delete role" onClick={() => handleDeleteRole(r.id, r.name)}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                  <button 
+                                    className="usr-act-btn" 
+                                    title="Delete role" 
+                                    onClick={() => handleDeleteRole(r.id, r.name)}
+                                    style={{
+                                      border: '1.5px solid #FEE2E2',
+                                      color: '#EF4444'
+                                    }}
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5">
+                                      <polyline points="3 6 5 6 21 6" />
+                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    </svg>
                                   </button>
                                 </div>
                               </td>

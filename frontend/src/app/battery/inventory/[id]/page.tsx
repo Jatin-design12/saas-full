@@ -905,7 +905,7 @@ export default function BatteryDetailPage() {
             <div className="bd-footer">
               <span>Added On: {formatDateTime(battery.purchase_date)}</span>
               <span>Last Updated: {formatDateTime(battery.updated_at)}</span>
-              <span>Updated By: Akash Verma (Zone Admin)</span>
+              <span>Updated By: {typeof window !== 'undefined' ? (localStorage.getItem('evegah_user_name') || 'Himanshu') : 'Himanshu'}</span>
             </div>
 
           </div>

@@ -693,10 +693,10 @@ function RiderProfileContent() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="rp-shell">
+      <div className="rp-shell page-transition">
         <Sidebar activePath="/renters" />
         <div className="rp-main">
-          <TopBar title="Hello, Akash" subtitle="Zone Employee" leftAvatarText="AV" hideZone={false} />
+          <TopBar hideZone={false} />
 
           <div className="rp-page">
             {/* Breadcrumbs */}
@@ -870,7 +870,13 @@ function RiderProfileContent() {
                     <div className="rp-summary-grid">
                       <div className="rp-summary-col">
                         <div className="rp-summary-ic purple">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="5.5" cy="17.5" r="3.5" />
+                            <circle cx="18.5" cy="17.5" r="3.5" />
+                            <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                            <path d="M5.5 17.5l4-8h4l2.5 8" />
+                            <path d="M8.5 12h5" />
+                          </svg>
                         </div>
                         <div>
                           <span className="rp-summary-lbl">Total Rides</span>
@@ -2017,15 +2023,15 @@ function RiderProfileContent() {
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot green" />
                       <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Rider Checked Out Scooter EV-12KA-1234</span>
-                        <span className="rp-tl-time">15 Jan 2024, 10:00 AM | CP Zone Hub 1</span>
+                        <span className="rp-tl-txt">Rider Checked Out Scooter EVM1024011</span>
+                        <span className="rp-tl-time">15 Jan 2024, 10:00 AM | Gotri Hub</span>
                       </div>
                     </div>
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot blue" />
                       <div className="rp-tl-info">
                         <span className="rp-tl-txt">License and Aadhaar Verified</span>
-                        <span className="rp-tl-time">14 Jan 2024, 04:30 PM | Verified by Admin (Akash Verma)</span>
+                        <span className="rp-tl-time">14 Jan 2024, 04:30 PM | Verified by Admin (Himanshu)</span>
                       </div>
                     </div>
                     <div className="rp-tl-item">
@@ -2259,7 +2265,25 @@ function RiderProfileContent() {
 
 export default function RiderProfilePage() {
   return (
-    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>Loading Rider Profile details...</div>}>
+    <Suspense fallback={
+      <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '24px' }}>
+          <span className="skeleton-circle" style={{ width: '64px', height: '64px' }} />
+          <div>
+            <span className="skeleton-box" style={{ width: '180px', height: '20px' }} />
+            <div style={{ marginTop: '8px' }}><span className="skeleton-box" style={{ width: '120px', height: '14px' }} /></div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <span className="skeleton-box" style={{ width: '80px', height: '12px' }} />
+              <div style={{ marginTop: '8px' }}><span className="skeleton-box" style={{ width: '120px', height: '20px' }} /></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    }>
       <RiderProfileContent />
     </Suspense>
   );

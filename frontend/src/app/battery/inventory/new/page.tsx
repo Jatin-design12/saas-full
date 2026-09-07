@@ -392,10 +392,11 @@ export default function AddBatteryPage() {
                       <label className="ab-label">Location<span>*</span></label>
                       <select className="ab-select" value={location} onChange={(e) => setLocation(e.target.value)}>
                         <option value="">Select location</option>
-                        <option value="Palika Bazaar, CP">Palika Bazaar, CP</option>
-                        <option value="Jantar Mantar, CP">Jantar Mantar, CP</option>
-                        <option value="Karol Bagh">Karol Bagh</option>
-                        <option value="Raja Garden">Raja Garden</option>
+                        <option value="Gotri Hub">Gotri Hub</option>
+                        <option value="Manjalpur Hub">Manjalpur Hub</option>
+                        <option value="KPGU Hub">KPGU Hub</option>
+                        <option value="Aatapi Hub">Aatapi Hub</option>
+                        <option value="Moti Daman Hub">Moti Daman Hub</option>
                         <option value="Service Center">Service Center</option>
                         <option value="Warehouse">Warehouse</option>
                       </select>
@@ -405,10 +406,11 @@ export default function AddBatteryPage() {
                       <label className="ab-label">Zone<span>*</span></label>
                       <select className="ab-select" value={zone} onChange={(e) => setZone(e.target.value)}>
                         <option value="">Select zone</option>
-                        <option value="Connaught Place Zone">Connaught Place Zone</option>
-                        <option value="Karol Bagh Zone">Karol Bagh Zone</option>
-                        <option value="West Delhi Zone">West Delhi Zone</option>
-                        <option value="Industrial Area Zone">Industrial Area Zone</option>
+                        <option value="Gotri Zone">Gotri Zone</option>
+                        <option value="Manjalpur Zone">Manjalpur Zone</option>
+                        <option value="KPGU Zone">KPGU Zone</option>
+                        <option value="Aatapi Zone">Aatapi Zone</option>
+                        <option value="Moti Daman Zone">Moti Daman Zone</option>
                       </select>
                     </div>
 
@@ -417,10 +419,10 @@ export default function AddBatteryPage() {
                       <select className="ab-select" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
                         <option value="">Select assigned to</option>
                         <option value="Unassigned">Unassigned / In Stock</option>
-                        <option value="EV-12KA-1234">EV-12KA-1234 (Delhi Rider)</option>
-                        <option value="EV-12KA-1255">EV-12KA-1255 (Connaught Rider)</option>
-                        <option value="EV-12KA-1211">EV-12KA-1211 (Karol Rider)</option>
-                        <option value="EV-12KA-1288">EV-12KA-1288 (Raja Rider)</option>
+                        <option value="EVM1024011">EVM1024011 (Gotri Rider)</option>
+                        <option value="EVM1024012">EVM1024012 (Gotri Rider)</option>
+                        <option value="EVM1024023">EVM1024023 (Gotri Rider)</option>
+                        <option value="EVM102501">EVM102501 (Manjalpur Rider)</option>
                       </select>
                     </div>
 

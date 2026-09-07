@@ -119,15 +119,26 @@ function AddUserPageContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
   
-  // New States for profile image and dynamic roles
+  // New States for profile image, dynamic roles, and live multi-zone scope
   const [avatarUrl, setAvatarUrl] = useState('');
   const [roles, setRoles] = useState<any[]>([]);
+  const [liveZones, setLiveZones] = useState<string[]>([
+    'All Zones / Platform Wide',
+    'Gotri Zone',
+    'Vadodara Main Zone',
+    'Alkapuri Zone',
+    'Subhanpura Zone',
+    'Akota Zone',
+    'Daman Zone',
+    'Lekki Phase 1'
+  ]);
+  const [selectedZones, setSelectedZones] = useState<string[]>([]);
 
-  // Load roles list on component mount
+  // Load roles list & live zones list on component mount
   useEffect(() => {
-    const fetchRoles = async () => {
+    const fetchRolesAndZones = async () => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
         const res = await fetch(`${apiUrl}/roles`);
         if (res.ok) {
           const result = await res.json();
@@ -136,8 +147,21 @@ function AddUserPageContent() {
       } catch (err) {
         console.error('Error fetching roles:', err);
       }
+
+      try {
+        const resZ = await fetch(`${apiUrl}/zones`);
+        if (resZ.ok) {
+          const resultZ = await resZ.json();
+          if (resultZ.data && Array.isArray(resultZ.data)) {
+            const names = resultZ.data.map((z: any) => z.name || z.locality).filter(Boolean);
+            setLiveZones(Array.from(new Set<string>(['All Zones / Platform Wide', ...names])));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching zones:', err);
+      }
     };
-    fetchRoles();
+    fetchRolesAndZones();
   }, []);
 
   // Load user details if in edit mode
@@ -156,6 +180,10 @@ function AddUserPageContent() {
               setPhone(u.mobile || '');
               setRole(u.role || 'Select role');
               setZone(u.zone || 'Select zone or scope');
+              if (u.zone) {
+                const parts = u.zone.split(',').map((s: string) => s.trim()).filter(Boolean);
+                setSelectedZones(parts);
+              }
               setStatus(u.status === 'Active' ? 'Active' : 'Inactive');
               setAvatarUrl(u.avatar_url || '');
             }
@@ -167,6 +195,28 @@ function AddUserPageContent() {
       fetchUser();
     }
   }, [editUserId]);
+
+  const toggleZoneSelection = (zName: string) => {
+    if (zName === 'All Zones / Platform Wide') {
+      if (selectedZones.includes('All Zones / Platform Wide')) {
+        setSelectedZones([]);
+        setZone('');
+      } else {
+        setSelectedZones(['All Zones / Platform Wide']);
+        setZone('All Zones / Platform Wide');
+      }
+      return;
+    }
+
+    let next = selectedZones.filter(z => z !== 'All Zones / Platform Wide');
+    if (next.includes(zName)) {
+      next = next.filter(z => z !== zName);
+    } else {
+      next.push(zName);
+    }
+    setSelectedZones(next);
+    setZone(next.join(', '));
+  };
 
   const generatePassword = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
@@ -199,8 +249,8 @@ function AddUserPageContent() {
       alert('Please select a valid role.');
       return;
     }
-    if (zone === 'Select zone or scope') {
-      alert('Please select a valid zone or scope.');
+    if (selectedZones.length === 0 && (!zone || zone === 'Select zone or scope')) {
+      alert('Please select at least one zone or scope.');
       return;
     }
 
@@ -250,8 +300,6 @@ function AddUserPageContent() {
         <div className="ua-main">
           
           <TopBar 
-            title="Hello, Akash" 
-            subtitle="Zone Admin" 
             notificationCount={3}
             showSearch={false}
             hideZone={false}
@@ -451,24 +499,85 @@ function AddUserPageContent() {
                       </select>
                     </div>
 
-                    <div className="ua-form-field">
-                      <label className="ua-form-lbl">Zone / Scope *</label>
-                      <select 
-                        className="ua-inp ua-select"
-                        value={zone}
-                        onChange={(e) => setZone(e.target.value)}
-                      >
-                        <option disabled value="Select zone or scope">Select zone or scope</option>
-                        <option value="Gotri Zone">Gotri Zone</option>
-                        <option value="Lekki Phase 1">Lekki Phase 1</option>
-                        <option value="Vadodara Main Zone">Vadodara Main Zone</option>
-                        <option value="Alkapuri Zone">Alkapuri Zone</option>
-                        <option value="Subhanpura Zone">Subhanpura Zone</option>
-                        <option value="Akota Zone">Akota Zone</option>
-                        <option value="Daman Zone">Daman Zone</option>
-                        <option value="Multiple Zones">Multiple Zones</option>
-                        <option value="All Zones / Platform Wide">All Zones / Platform Wide</option>
-                      </select>
+                    <div className="ua-form-field" style={{ gridColumn: 'span 2' }}>
+                      <label className="ua-form-lbl">Zone / Scope (Select One or Multiple Zones) *</label>
+                      
+                      {/* Active Selected Zone Pills */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                        {selectedZones.length === 0 ? (
+                          <span style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>No zones selected yet. Click below to add access scopes.</span>
+                        ) : (
+                          selectedZones.map(z => (
+                            <span 
+                              key={z} 
+                              style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '6px', 
+                                padding: '4px 10px', 
+                                background: z === 'All Zones / Platform Wide' ? '#FAF5FF' : '#EEF2FF', 
+                                color: z === 'All Zones / Platform Wide' ? '#6D28D9' : '#4338CA', 
+                                border: `1px solid ${z === 'All Zones / Platform Wide' ? '#D8B4FE' : '#C7D2FE'}`, 
+                                borderRadius: '20px', 
+                                fontSize: '12px', 
+                                fontWeight: 700 
+                              }}
+                            >
+                              {z}
+                              <button 
+                                type="button"
+                                onClick={() => toggleZoneSelection(z)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 800, padding: 0, fontSize: '13px' }}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Multi-Select Checkboxes Grid */}
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat( auto-fill, minmax(180px, 1fr) )', 
+                        gap: '8px', 
+                        maxHeight: '180px', 
+                        overflowY: 'auto', 
+                        padding: '12px', 
+                        border: '1.5px solid #E2E8F0', 
+                        borderRadius: '10px', 
+                        background: '#FFF' 
+                      }}>
+                        {liveZones.map(zName => {
+                          const isChecked = selectedZones.includes(zName);
+                          return (
+                            <label 
+                              key={zName} 
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                fontSize: '12.5px', 
+                                fontWeight: isChecked ? 700 : 500, 
+                                color: isChecked ? '#2A195C' : '#475569', 
+                                padding: '6px 8px', 
+                                borderRadius: '6px', 
+                                background: isChecked ? '#F5F3FF' : 'transparent', 
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleZoneSelection(zName)}
+                                style={{ accentColor: '#2A195C', width: '15px', height: '15px' }}
+                              />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{zName}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

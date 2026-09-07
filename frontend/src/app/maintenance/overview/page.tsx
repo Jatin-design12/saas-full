@@ -112,7 +112,7 @@ const EVBikeIcon = () => (
 
 export default function MaintenanceOverviewPage() {
   const router = useRouter();
-  const [activeZone, setActiveZone] = useState("Connaught Place Zone");
+  const [activeZone, setActiveZone] = useState("Gotri Zone");
   const [records, setRecords] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -124,7 +124,7 @@ export default function MaintenanceOverviewPage() {
 
   useEffect(() => {
     const checkZone = () => {
-      const z = localStorage.getItem("evegah_active_zone") || "Connaught Place Zone";
+      const z = localStorage.getItem("evegah_active_zone") || "Gotri Zone";
       setActiveZone(z);
     };
     if (typeof window !== 'undefined') {
@@ -164,12 +164,12 @@ export default function MaintenanceOverviewPage() {
 
     // Initial default seed ONLY if empty and first load
     setRecords([
-      { id: "MAIN-2026-00045", vehicleId: "EV-12KA-1234", vehicleNumber: "GJ06EV1234", vehicleModel: "Ather 450X", serviceType: "Battery Check", status: "Due Soon", dueDate: "22 Jun 2026", dueText: "In 3 days", lastService: "22 May 2026", zone: "Connaught Place Zone", cost: "₹850" },
-      { id: "MAIN-2026-00046", vehicleId: "EV-12KA-5678", vehicleNumber: "GJ06EV5678", vehicleModel: "Hero Lectro", serviceType: "General Service", status: "Under Maintenance", dueDate: "19 Jun 2026", dueText: "Today", lastService: "10 May 2026", zone: "Connaught Place Zone", cost: "₹600" },
-      { id: "MAIN-2026-00047", vehicleId: "EV-12KA-3456", vehicleNumber: "GJ06EV9012", vehicleModel: "Ola S1 Pro", serviceType: "Tyre Replacement", status: "Completed", dueDate: "15 Jun 2026", dueText: "15 Jun 2026", lastService: "15 Jun 2026", zone: "Connaught Place Zone", cost: "₹1,200" },
-      { id: "MAIN-2026-00048", vehicleId: "EV-12KA-9012", vehicleNumber: "GJ06EV3456", vehicleModel: "EMotorad", serviceType: "Brake Check", status: "Overdue", dueDate: "10 Jun 2026", dueText: "9 days ago", lastService: "25 Apr 2026", zone: "Connaught Place Zone", cost: "₹500" },
-      { id: "MAIN-2026-00049", vehicleId: "EV-12KA-6789", vehicleNumber: "GJ06EV7890", vehicleModel: "Ather 450X", serviceType: "Battery Check", status: "Due Soon", dueDate: "25 Jun 2026", dueText: "In 6 days", lastService: "25 May 2026", zone: "Connaught Place Zone", cost: "₹850" },
-      { id: "MAIN-2026-00050", vehicleId: "EV-11ND-1111", vehicleNumber: "GJ06EV1122", vehicleModel: "Hero Lectro", serviceType: "Chain Lube", status: "Completed", dueDate: "10 Jun 2026", dueText: "10 Jun 2026", lastService: "10 Jun 2026", zone: "Connaught Place Zone", cost: "₹300" }
+      { id: "MAIN-2026-00045", vehicleId: "EVM1024011", vehicleNumber: "GJ06EV1234", vehicleModel: "Evegah City", serviceType: "Battery Check", status: "Due Soon", dueDate: "22 Jun 2026", dueText: "In 3 days", lastService: "22 May 2026", zone: "Gotri Zone", cost: "₹850" },
+      { id: "MAIN-2026-00046", vehicleId: "EVM1024012", vehicleNumber: "GJ06EV5678", vehicleModel: "Evegah Mink", serviceType: "General Service", status: "Under Maintenance", dueDate: "19 Jun 2026", dueText: "Today", lastService: "10 May 2026", zone: "Gotri Zone", cost: "₹600" },
+      { id: "MAIN-2026-00047", vehicleId: "EVM1024023", vehicleNumber: "GJ06EV9012", vehicleModel: "Evegah City", serviceType: "Tyre Replacement", status: "Completed", dueDate: "15 Jun 2026", dueText: "15 Jun 2026", lastService: "15 Jun 2026", zone: "Gotri Zone", cost: "₹1,200" },
+      { id: "MAIN-2026-00048", vehicleId: "EVM102501", vehicleNumber: "GJ06EV3456", vehicleModel: "Evegah City", serviceType: "Brake Check", status: "Overdue", dueDate: "10 Jun 2026", dueText: "9 days ago", lastService: "25 Apr 2026", zone: "Manjalpur Zone", cost: "₹500" },
+      { id: "MAIN-2026-00049", vehicleId: "EVM102502", vehicleNumber: "GJ06EV7890", vehicleModel: "Evegah Mink", serviceType: "Battery Check", status: "Due Soon", dueDate: "25 Jun 2026", dueText: "In 6 days", lastService: "25 May 2026", zone: "Manjalpur Zone", cost: "₹850" },
+      { id: "MAIN-2026-00050", vehicleId: "EVM102503", vehicleNumber: "GJ06EV1122", vehicleModel: "Evegah City", serviceType: "Chain Lube", status: "Completed", dueDate: "10 Jun 2026", dueText: "10 Jun 2026", lastService: "10 Jun 2026", zone: "Manjalpur Zone", cost: "₹300" }
     ]);
   };
 
@@ -259,7 +259,7 @@ export default function MaintenanceOverviewPage() {
       <div className="mo-page">
         <Sidebar activePath="/maintenance/overview" />
         <div className="mo-main">
-          <TopBar title="Hello, Akash" subtitle="Franchise Admin" showHand={false} />
+          <TopBar showHand={false} />
 
           <div className="mo-body">
             {/* Breadcrumb */}

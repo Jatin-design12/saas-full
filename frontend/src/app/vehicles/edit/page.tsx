@@ -240,25 +240,51 @@ function EditVehicleForm() {
     alert('Document uploaded successfully!');
   };
 
-  // Mock QR code rendering
-  const renderQrPixels = () => {
-    const pixels = [];
-    for (let r = 0; r < 14; r++) {
-      const row = [];
-      for (let c = 0; c < 14; c++) {
-        const isCorner = (r < 4 && c < 4) || (r < 4 && c > 9) || (r > 9 && c < 4);
-        const isActive = isCorner || (qrGenerated && Math.random() > 0.45);
-        row.push(
-          <div 
-            key={`${r}-${c}`} 
-            className={`add-veh-qr-pixel ${isActive ? 'active' : ''} ${isCorner ? 'corner' : ''}`}
-            style={isCorner ? { background: '#2a195c' } : undefined}
-          />
-        );
-      }
-      pixels.push(<div key={r} className="add-veh-qr-grid-row">{row}</div>);
-    }
-    return <div className="add-veh-qr-mock">{pixels}</div>;
+  const qrTarget = formData.vehicleNumber || (code as string) || 'EVM-UPD';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`https://app.evegah.com/vehicles/detail?code=${qrTarget}`)}`;
+
+  const handleDownloadQR = () => {
+    const a = document.createElement('a');
+    a.href = qrUrl;
+    a.download = `QR-${qrTarget}.png`;
+    a.target = '_blank';
+    a.click();
+  };
+
+  const handlePrintSticker = () => {
+    const printWin = window.open('', '_blank', 'width=450,height=520');
+    if (!printWin) return;
+    printWin.document.write(`
+      <html>
+        <head>
+          <title>Vehicle Asset Tag - ${qrTarget}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fff; }
+            .sticker { border: 2.5px dashed #0F172A; border-radius: 16px; padding: 24px; text-align: center; width: 280px; box-sizing: border-box; }
+            .brand { font-size: 20px; font-weight: 900; color: #6366F1; letter-spacing: 1px; margin-bottom: 4px; }
+            .sub { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 14px; }
+            .qr-img { width: 170px; height: 170px; border-radius: 8px; border: 1px solid #E2E8F0; padding: 6px; }
+            .code { font-size: 18px; font-weight: 800; color: #0F172A; margin-top: 12px; font-family: monospace; }
+            .model { font-size: 12px; font-weight: 600; color: #334155; margin-top: 2px; }
+            .zone { font-size: 10.5px; color: #94A3B8; margin-top: 4px; font-weight: 500; }
+          </style>
+        </head>
+        <body>
+          <div class="sticker">
+            <div class="brand">EVEGAH EV</div>
+            <div class="sub">Asset Identification Tag</div>
+            <img class="qr-img" src="${qrUrl}" alt="Vehicle QR" />
+            <div class="code">${qrTarget}</div>
+            <div class="model">${formData.evegahModelName || 'E-Vehicle'} • ${formData.vehicleCategory || 'EV'}</div>
+            <div class="zone">Assigned to ${formData.zone || 'Gotri Hub'}</div>
+          </div>
+          <script>
+            setTimeout(() => { window.print(); window.close(); }, 400);
+          </script>
+        </body>
+      </html>
+    `);
+    printWin.document.close();
   };
 
   const getVehicleStatusBadgeClass = () => {
@@ -309,10 +335,13 @@ function EditVehicleForm() {
               <div className="add-veh-card">
                 <div className="add-veh-card-title-row">
                   <span className="add-veh-card-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <rect x="1" y="3" width="15" height="13" rx="2"/>
-                      <path d="M16 8h4l3 5v3h-7V8z"/>
-                      <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="5.5" cy="17.5" r="3.5" />
+                      <circle cx="18.5" cy="17.5" r="3.5" />
+                      <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                      <path d="M5.5 17.5l4-8h4l2.5 8" />
+                      <path d="M8.5 12h5" />
+                      <path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" />
                     </svg>
                   </span>
                   <h2 className="add-veh-card-title">Basic Information</h2>
@@ -605,14 +634,11 @@ function EditVehicleForm() {
                       onChange={handleInputChange}
                     >
                       <option value="Unassigned">Unassigned (None)</option>
-                      <option value="Connaught Place Zone">Connaught Place Zone</option>
-                      <option value="Karol Bagh Zone">Karol Bagh Zone</option>
-                      <option value="Rajendra Place Zone">Rajendra Place Zone</option>
-                      <option value="Nehru Place Zone">Nehru Place Zone</option>
-                      <option value="Janpath Zone">Janpath Zone</option>
-                      <option value="India Gate Zone">India Gate Zone</option>
-                      <option value="Pragati Maidan Zone">Pragati Maidan Zone</option>
-                      <option value="Lajpat Nagar Zone">Lajpat Nagar Zone</option>
+                      <option value="Gotri Zone">Gotri Zone</option>
+                      <option value="Manjalpur Zone">Manjalpur Zone</option>
+                      <option value="KPGU Zone">KPGU Zone</option>
+                      <option value="Aatapi Zone">Aatapi Zone</option>
+                      <option value="Moti Daman Zone">Moti Daman Zone</option>
                     </select>
                   </div>
                 </div>
@@ -702,29 +728,45 @@ function EditVehicleForm() {
 
               {/* QR Code Card */}
               <div className="add-veh-card">
-                <div className="add-veh-card-title-row">
-                  <h2 className="add-veh-card-title">QR Code</h2>
+                <div className="add-veh-card-title-row" style={{ justifyContent: 'space-between' }}>
+                  <h2 className="add-veh-card-title">Asset QR Code</h2>
+                  <span style={{ fontSize: '10px', background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>Real Scannable</span>
                 </div>
 
-                <div className="add-veh-qr-box">
-                  {renderQrPixels()}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 10px', background: '#FAFBFD', border: '1.5px solid #E2E8F0', borderRadius: '12px', margin: '8px 0 14px' }}>
+                  <div style={{ background: '#fff', padding: '8px', borderRadius: '10px', border: '1px solid #CBD5E1', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <img 
+                      src={qrUrl} 
+                      alt={`QR Code for ${qrTarget}`} 
+                      style={{ width: '140px', height: '140px', display: 'block' }} 
+                    />
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', marginTop: '10px', fontFamily: 'monospace' }}>
+                    {qrTarget}
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
+                    Scannable via Evegah Hub / Mobile App
+                  </div>
                 </div>
-
-                <button 
-                  className="add-veh-btn add-veh-btn-full add-veh-btn-primary" 
-                  style={{ marginBottom: '10px' }}
-                  onClick={handleGenerateQR}
-                  type="button"
-                >
-                  Generate QR Code
-                </button>
 
                 <div className="add-veh-qr-actions-row">
-                  <button className="add-veh-btn" style={{ fontSize: '11px' }} disabled={!qrGenerated} type="button">
+                  <button 
+                    className="add-veh-btn" 
+                    style={{ fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} 
+                    type="button"
+                    onClick={handleDownloadQR}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download
                   </button>
-                  <button className="add-veh-btn" style={{ fontSize: '11px' }} disabled={!qrGenerated} type="button">
-                    Print
+                  <button 
+                    className="add-veh-btn" 
+                    style={{ fontSize: '12px', fontWeight: 700, borderColor: '#6366F1', color: '#6366F1', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} 
+                    type="button"
+                    onClick={handlePrintSticker}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Print Sticker
                   </button>
                 </div>
               </div>

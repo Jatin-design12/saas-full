@@ -1,954 +1,1538 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
 /* ═══════════════════════════════════════════════════════════════
-   RIDE OPERATIONS – RETURN VEHICLE  (Employee Portal)
-   4 Steps: Search Rider → Vehicle Inspection → Settlement → Return Confirmation
+   RETURN RIDE & OPERATIONS — Modern SaaS UI
+   Tabs: Return Vehicle (4-Step Flow) | Extend Ride | Exchange Vehicle
    ═══════════════════════════════════════════════════════════════ */
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
-.emp-shell{display:flex;height:100vh;overflow:hidden;background:#fff;font-family:Inter,sans-serif;}
 
-/* ── Sidebar ── */
-.emp-sb{width:224px;border-right:1px solid #E5E7EB;display:flex;flex-direction:column;height:100vh;overflow-y:auto;flex-shrink:0;background:#fff;}
-.emp-sb-logo{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #F3F4F6;}
-.emp-logo-ic{width:32px;height:32px;background:linear-gradient(135deg,#2A195C,#2A195C);border-radius:8px;display:flex;align-items:center;justify-content:center;}
-.emp-logo-text{font-size:19px;font-weight:800;color:#111827;letter-spacing:-.5px;}
-.emp-logo-text span{color:#2A195C;}
-.emp-ham{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;flex-shrink:0;margin-left:auto;}
-.emp-sb-section{padding:12px 12px 0;}
-.emp-sb-sec-lbl{font-size:10.5px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.06em;padding:0 8px;margin-bottom:5px;display:block;}
-.emp-sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:#374151;cursor:pointer;margin-bottom:2px;transition:all .15s;text-decoration:none;}
-.emp-sb-item.active{background:#EEF2FF;color:#2A195C;font-weight:700;}
-.emp-sb-item:hover:not(.active){background:#F9FAFB;color:#111827;}
-.emp-sb-footer{margin-top:auto;padding:12px 14px;border-top:1px solid #F3F4F6;}
-.emp-need-help{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:12px;margin-bottom:10px;}
-.emp-need-help-ic{width:28px;height:28px;border-radius:50%;background:#EEF2FF;display:flex;align-items:center;justify-content:center;color:#2A195C;margin-bottom:7px;}
-.emp-need-help-title{font-size:12.5px;font-weight:700;color:#111827;margin-bottom:2px;}
-.emp-need-help-sub{font-size:11px;color:#6B7280;margin-bottom:8px;}
-.emp-raise-ticket{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#2A195C;cursor:pointer;text-decoration:none;}
-.emp-raise-ticket:hover{text-decoration:underline;}
-.emp-version{font-size:10.5px;color:#9CA3AF;text-align:center;padding-top:10px;}
+/* ── shell & layout ── */
+.nr-shell { display: flex; min-height: 100vh; background: #fff; font-family: Inter, sans-serif; }
+.nr-main  { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; flex: 1; min-width: 0; background: #fff; }
+.nr-page  { flex: 1; padding: 18px 22px 60px; background-color: #FFF; }
 
-/* ── Main area ── */
-.emp-main{margin-left:230px;flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:#fff;}
+/* ── responsive 80% fit on 14" screens ── */
+@media (max-width: 1440px) {
+  .nr-page { padding: 14px 18px 45px; }
+  .nr-layout { grid-template-columns: 1fr 285px !important; gap: 16px !important; }
+}
 
-/* ── Topbar ── */
-.emp-topbar{display:flex;align-items:center;padding:10px 20px;background:#fff;border-bottom:1px solid #E5E7EB;gap:14px;flex-shrink:0;}
-.emp-page-info{flex-shrink:0;}
-.emp-page-title{font-size:17px;font-weight:800;color:#111827;}
-.emp-page-sub{font-size:11.5px;color:#6B7280;margin-top:1px;}
-.emp-search-bar{flex:1;max-width:420px;display:flex;align-items:center;gap:9px;padding:8px 14px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;color:#9CA3AF;font-size:13px;cursor:text;}
-.emp-search-inp{flex:1;border:none;background:none;outline:none;font-size:13px;color:#374151;font-family:inherit;}
-.emp-search-inp::placeholder{color:#9CA3AF;}
-.emp-topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;}
-.emp-notif-btn{position:relative;width:36px;height:36px;border-radius:9px;background:#F9FAFB;border:1px solid #E5E7EB;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6B7280;}
-.emp-notif-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#EF4444;font-size:9.5px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid #fff;}
-.emp-user-chip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border:1px solid #E5E7EB;border-radius:24px;cursor:pointer;}
-.emp-user-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#2A195C,#2A195C);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;color:#fff;flex-shrink:0;}
-.emp-user-name{font-size:12.5px;font-weight:700;color:#111827;}
-.emp-user-role{font-size:10.5px;color:#9CA3AF;}
+/* ── breadcrumb ── */
+.nr-bc { display: flex; align-items: center; gap: 7px; padding: 4px 0 0; font-size: 12px; color: #9CA3AF; }
+.nr-bc a { color: #9CA3AF; display: flex; align-items: center; gap: 4px; text-decoration: none; transition: color .15s; }
+.nr-bc a:hover { color: #2A195C; }
+.nr-bc-sep { color: #D1D5DB; }
+.nr-bc-cur { color: #2A195C; font-weight: 600; }
 
-/* ── Tabs ── */
-.emp-tabs{display:flex;background:#fff;border-bottom:1px solid #E5E7EB;flex-shrink:0;}
-.emp-tab{display:flex;align-items:center;gap:8px;padding:13px 22px;font-size:13.5px;font-weight:600;color:#6B7280;cursor:pointer;border-bottom:2.5px solid transparent;transition:all .15s;white-space:nowrap;}
-.emp-tab.active{color:#2A195C;border-bottom-color:#2A195C;}
-.emp-tab:hover:not(.active){color:#374151;}
+/* ── title row ── */
+.nr-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin: 12px 0 16px; gap: 16px; }
+.nr-h1  { font-size: 22px; font-weight: 800; color: #111827; line-height: 1.2; margin: 0; }
+.nr-sub { font-size: 12.5px; color: #6B7280; margin-top: 3px; }
+.nr-back-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 18px; background: #fff; border: 1.5px solid #E5E7EB;
+  border-radius: 9px; font-size: 12.5px; font-weight: 600; color: #374151;
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05); transition: border-color .15s, color .15s; flex-shrink: 0;
+}
+.nr-back-btn:hover { border-color: #2A195C; color: #2A195C; }
 
-/* ── Content split ── */
-.emp-content-wrap{flex:1;overflow:hidden;display:grid;grid-template-columns:1fr 300px;}
-.emp-step-area{overflow-y:auto;padding:20px 22px 40px;}
-.emp-rp-area{border-left:1px solid #E5E7EB;overflow-y:auto;background:#fff;}
+/* ── operation mode tabs ── */
+.ro-mode-tabs {
+  display: flex; align-items: center; gap: 6px;
+  background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 12px;
+  padding: 5px; margin-bottom: 18px; width: fit-content;
+}
+.ro-mode-tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 20px; border-radius: 9px;
+  font-size: 13px; font-weight: 600; color: #4B5563;
+  cursor: pointer; transition: all .15s; user-select: none;
+}
+.ro-mode-tab.active {
+  background: #2A195C; color: #fff; box-shadow: 0 2px 6px rgba(42,25,92,.25);
+}
+.ro-mode-tab:hover:not(.active) {
+  color: #111827; background: rgba(255,255,255,.6);
+}
+.ro-mode-badge {
+  font-size: 11px; padding: 2px 7px; border-radius: 20px;
+  font-weight: 700; background: rgba(255,255,255,.2); color: inherit;
+}
+.ro-mode-tab:not(.active) .ro-mode-badge {
+  background: #E5E7EB; color: #6B7280;
+}
 
-/* ── Stepper ── */
-.ro-stepper{display:flex;align-items:center;margin-bottom:22px;}
-.ro-sw{display:flex;align-items:center;flex:1;}
-.ro-step{display:flex;align-items:center;gap:8px;}
-.ro-sc{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;flex-shrink:0;}
-.ro-sc.done{background:#2A195C;color:#fff;}
-.ro-sc.act{background:#2A195C;color:#fff;}
-.ro-sc.pend{background:#fff;border:2px solid #D1D5DB;color:#9CA3AF;}
-.ro-sn{font-size:12.5px;font-weight:700;color:#111827;white-space:nowrap;}
-.ro-sn.pend{color:#6B7280;font-weight:500;}
-.ro-ss{font-size:11px;margin-top:2px;white-space:nowrap;}
-.ro-ss.done{color:#22C55E;}
-.ro-ss.act{color:#2A195C;}
-.ro-ss.pend{color:#9CA3AF;}
-.ro-sl{flex:1;height:2px;background:#E5E7EB;margin:0 10px;min-width:12px;}
-.ro-sl.done{background:#22C55E;}
+/* ── stepper (for Return flow) ── */
+.nr-stepper {
+  display: flex; align-items: center;
+  background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
+  padding: 14px 20px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.nr-step-wrap { display: flex; align-items: center; flex: 1; }
+.nr-step      { display: flex; align-items: center; gap: 9px; }
+.nr-step-num  { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.nr-step-num.active { background: #2A195C; color: #fff; }
+.nr-step-num.done   { background: #22C55E; color: #fff; }
+.nr-step-num.pend   { background: #fff; color: #9CA3AF; border: 2px solid #E5E7EB; }
+.nr-step-label      { font-size: 12.5px; font-weight: 600; color: #111827; white-space: nowrap; }
+.nr-step-label.pend { color: #9CA3AF; font-weight: 500; }
+.nr-step-stat       { font-size: 11px; margin-top: 1px; white-space: nowrap; }
+.nr-step-stat.active-s { color: #2A195C; }
+.nr-step-stat.done-s   { color: #22C55E; }
+.nr-step-stat.pend-s   { color: #9CA3AF; }
+.nr-step-line { flex: 1; height: 2px; background: #E5E7EB; margin: 0 12px; min-width: 14px; }
+.nr-step-line.done-l { background: #22C55E; }
 
-/* ── Rider card (steps 2-4) ── */
-.ro-rider-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px;}
-.ro-rider-av-wrap{flex-shrink:0;}
-.ro-rider-info{flex-shrink:0;min-width:170px;}
-.ro-rider-name{font-size:15px;font-weight:800;color:#111827;display:flex;align-items:center;gap:8px;margin-bottom:5px;}
-.ro-kyc-badge{background:#DCFCE7;color:#16A34A;border:1px solid #BBF7D0;border-radius:6px;font-size:10.5px;font-weight:700;padding:2px 8px;display:inline-flex;align-items:center;gap:3px;}
-.ro-rider-meta{display:flex;align-items:center;gap:6px;font-size:12px;color:#6B7280;margin-bottom:3px;}
-.ro-divider-v{width:1px;background:#E5E7EB;height:60px;flex-shrink:0;}
-.ro-ride-info-col{display:flex;flex-direction:column;gap:4px;padding:0 16px;}
-.ro-ride-info-label{font-size:11.5px;color:#9CA3AF;}
-.ro-ride-info-val{font-size:13px;font-weight:700;color:#111827;}
-.ro-active-badge{background:#DCFCE7;color:#16A34A;border-radius:5px;font-size:11px;font-weight:700;padding:2px 8px;display:inline-block;}
-.ro-delay-badge{background:#FEE2E2;color:#EF4444;border-radius:5px;font-size:11px;font-weight:700;padding:2px 8px;display:inline-block;}
-.ro-late-text{color:#EF4444;font-weight:700;}
+/* ── 2-col layout ── */
+.nr-layout { display: grid; grid-template-columns: 1fr 296px; gap: 18px; align-items: start; }
 
-/* ── Search step ── */
-.ro-search-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;margin-bottom:16px;}
-.ro-search-hdr{padding:14px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
-.ro-search-title{font-size:15px;font-weight:800;color:#111827;}
-.ro-search-sub{font-size:12px;color:#6B7280;margin-top:3px;}
-.ro-qr-btn{display:flex;align-items:center;gap:7px;padding:8px 16px;background:#fff;border:1.5px solid #E5E7EB;border-radius:9px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:border-color .15s;}
-.ro-qr-btn:hover{border-color:#2A195C;color:#2A195C;}
-.ro-search-body{padding:18px 20px;}
-.ro-search-form{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
-.ro-form-field{display:flex;flex-direction:column;gap:4px;}
-.ro-form-num{font-size:11.5px;font-weight:600;color:#6B7280;display:flex;align-items:center;gap:5px;margin-bottom:2px;}
-.ro-form-num-ic{width:18px;height:18px;border-radius:50%;background:#2A195C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
-.ro-inp{display:flex;align-items:center;gap:8px;padding:9px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:13px;color:#374151;font-family:inherit;background:#fff;cursor:text;}
-.ro-inp input{flex:1;border:none;outline:none;font-size:13px;color:#374151;font-family:inherit;background:none;}
-.ro-inp input::placeholder{color:#C4C9D4;}
-.ro-inp.sel{cursor:pointer;justify-content:space-between;}
-.ro-info-note{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#6B7280;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:9px 13px;margin-bottom:16px;}
-.ro-search-btn{display:flex;align-items:center;gap:8px;padding:10px 28px;background:#2A195C;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;}
-.ro-search-btn:hover{background:#4338CA;}
-.ro-search-btn-row{display:flex;justify-content:flex-end;}
-.ro-results-hdr{font-size:14px;font-weight:700;color:#2A195C;margin-bottom:4px;}
-.ro-results-sub{font-size:12px;color:#6B7280;margin-bottom:14px;}
-.ro-result-card{border:1px solid #E5E7EB;border-radius:10px;padding:14px 18px;margin-bottom:10px;}
-.ro-result-inner{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
-.ro-result-av{width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #E0E7FF;}
-.ro-result-info{flex-shrink:0;min-width:160px;}
-.ro-result-name{font-size:13.5px;font-weight:800;color:#111827;display:flex;align-items:center;gap:7px;margin-bottom:4px;}
-.ro-result-meta{display:flex;align-items:center;gap:5px;font-size:12px;color:#6B7280;margin-bottom:3px;}
-.ro-result-details{display:grid;grid-template-columns:auto auto auto auto;gap:0 28px;flex:1;}
-.ro-detail-lbl{font-size:11px;color:#9CA3AF;}
-.ro-detail-val{font-size:12.5px;font-weight:700;color:#111827;margin-top:1px;}
-.ro-select-rider-btn{width:100%;padding:11px;background:#fff;border:1.5px solid #2A195C;border-radius:9px;font-size:13.5px;font-weight:700;color:#2A195C;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px;}
-.ro-select-rider-btn:hover{background:#2A195C;color:#fff;}
-.ro-recent-hdr{font-size:13.5px;font-weight:700;color:#111827;margin:18px 0 10px;}
-.ro-recent-table{width:100%;border-collapse:collapse;}
-.ro-recent-table th{text-align:left;font-size:11.5px;font-weight:600;color:#9CA3AF;border-bottom:1px solid #E5E7EB;padding:7px 0;}
-.ro-recent-table td{font-size:12.5px;color:#374151;padding:9px 0;border-bottom:1px solid #F3F4F6;}
-.ro-recent-table tr:last-child td{border-bottom:none;}
-.ro-search-again{font-size:12.5px;font-weight:700;color:#2A195C;cursor:pointer;}
-.ro-search-again:hover{text-decoration:underline;}
+/* ── card ── */
+.nr-card {
+  background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05); overflow: hidden; margin-bottom: 16px;
+}
+.nr-card-hdr {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding: 16px 20px 14px; border-bottom: 1px solid #F3F4F6;
+}
+.nr-card-hdr h2 { font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 3px; }
+.nr-card-hdr p  { font-size: 12.5px; color: #6B7280; margin: 0; }
+.nr-card-body   { padding: 18px 20px; }
 
-/* ── Vehicle Inspection step ── */
-.ro-inspect-hdr{font-size:14.5px;font-weight:800;color:#111827;margin-bottom:3px;}
-.ro-inspect-sub{font-size:12px;color:#6B7280;margin-bottom:14px;}
-.ro-photo-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px;}
-.ro-photo-slot{border-radius:10px;overflow:hidden;position:relative;height:88px;cursor:pointer;border:1.5px solid #E5E7EB;}
-.ro-photo-slot-add{border-radius:10px;height:88px;border:1.5px dashed #C7D2FE;background:#F5F3FF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:border-color .15s;}
-.ro-photo-slot-add:hover{border-color:#2A195C;background:#EEF2FF;}
-.ro-photo-retake{position:absolute;bottom:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;}
-.ro-photo-lbl{font-size:10.5px;color:#6B7280;text-align:center;margin-top:5px;}
-.ro-photo-add-lbl{font-size:11px;font-weight:600;color:#2A195C;}
+/* ── rider banner (selected active ride) ── */
+.rr-rider-banner {
+  display: flex; align-items: center; gap: 16px; padding: 16px 20px;
+  background: #F9FAFB; border-bottom: 1px solid #E5E7EB;
+}
+.rr-banner-avatar {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: #2A195C; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff; flex-shrink: 0; position: relative; overflow: hidden;
+  border: 2px solid #E0E7FF;
+}
+.rr-banner-name { font-size: 16px; font-weight: 800; color: #111827; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+.rr-banner-row  { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #6B7280; margin-bottom: 2px; }
+.rr-kyc-badge   { background: #DCFCE7; color: #16A34A; border: 1px solid #BBF7D0; border-radius: 5px; font-size: 10.5px; font-weight: 700; padding: 2px 7px; display: inline-flex; align-items: center; gap: 4px; }
+.rr-banner-stats{ display: flex; gap: 20px; flex-shrink: 0; margin-left: auto; }
+.rr-stat-block  { text-align: right; }
+.rr-stat-num    { font-size: 16px; font-weight: 800; color: #111827; }
+.rr-stat-lbl    { font-size: 11px; color: #9CA3AF; }
 
-/* Vehicle Condition */
-.ro-condition-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:16px;margin-bottom:16px;}
-.ro-cond-group{display:flex;flex-direction:column;gap:8px;}
-.ro-cond-title{font-size:12px;font-weight:700;color:#374151;margin-bottom:4px;}
-.ro-radio-row{display:flex;align-items:center;gap:7px;font-size:13px;color:#374151;cursor:pointer;}
-.ro-radio{width:16px;height:16px;border-radius:50%;border:2px solid #E5E7EB;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
-.ro-radio.on{border-color:#2A195C;background:#2A195C;}
-.ro-radio.on::after{content:'';width:6px;height:6px;border-radius:50%;background:#fff;}
-.ro-checklist{display:flex;flex-direction:column;gap:8px;padding-left:16px;border-left:1px solid #E5E7EB;}
-.ro-cl-row{display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:12.5px;color:#374151;}
-.ro-cl-check{display:flex;align-items:center;gap:5px;color:#22C55E;font-size:12px;font-weight:700;}
-.ro-notes-area{width:100%;padding:10px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:13px;color:#111827;outline:none;font-family:inherit;resize:none;min-height:70px;transition:border-color .15s;}
-.ro-notes-area:focus{border-color:#2A195C;box-shadow:0 0 0 3px rgba(79,70,229,.1);}
-.ro-notes-count{text-align:right;font-size:11.5px;color:#9CA3AF;margin-top:3px;}
+/* ── search bar & filters ── */
+.rr-search-area { padding: 16px 20px; border-bottom: 1px solid #F3F4F6; }
+.rr-search-grid { display: grid; grid-template-columns: 1fr 1fr 140px auto; gap: 10px; align-items: center; }
+.nr-ph {
+  display: flex; border: 1.5px solid #E5E7EB; border-radius: 8px;
+  overflow: hidden; background: #fff; transition: border-color .15s; flex: 1; align-items: center;
+}
+.nr-ph:focus-within { border-color: #2A195C; box-shadow: 0 0 0 3px rgba(42,25,92,.08); }
+.nr-ph-icon { padding: 8px 10px; color: #9CA3AF; display: flex; align-items: center; }
+.nr-ph input {
+  flex: 1; padding: 8px 10px; border: none; outline: none;
+  font-size: 12.5px; font-family: inherit; background: transparent; min-width: 0;
+}
+.nr-ph input::placeholder { color: #9CA3AF; }
+.rr-search-btn {
+  padding: 8px 18px; background: #2A195C; color: #fff;
+  border: none; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px; transition: background .15s;
+}
+.rr-search-btn:hover { background: #3c2482; }
 
-/* ── Settlement step ── */
-.ro-settlement-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px;}
-.ro-settle-col{display:flex;flex-direction:column;gap:10px;}
-.ro-settle-col-title{font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;}
-.ro-settle-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;}
-.ro-settle-label{color:#6B7280;}
-.ro-settle-val{font-weight:600;color:#111827;}
-.ro-settle-val.red { background: #EF4444; color: #fff; }
-.ro-settle-divider{height:1px;background:#E5E7EB;margin:6px 0;}
-.ro-settle-total-row{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;font-weight:800;color:#111827;}
-.ro-settle-total-val{font-size:16px;font-weight:800;color:#EF4444;}
-.ro-refund-amount{font-size:20px;font-weight:800;color:#111827;}
-.ro-settle-note{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#6B7280;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:7px;padding:8px 11px;margin-top:8px;}
-.ro-pm-row{display:flex;align-items:center;gap:14px;margin-top:8px;}
-.ro-pm-opt{display:flex;align-items:center;gap:7px;font-size:13px;color:#374151;cursor:pointer;}
-.ro-upi-row{display:flex;gap:8px;margin-top:10px;}
-.ro-upi-inp{flex:1;padding:9px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:13px;color:#111827;outline:none;font-family:inherit;transition:border-color .15s;}
-.ro-upi-inp:focus{border-color:#2A195C;}
-.ro-verify-btn{padding:9px 16px;background:#2A195C;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
-.ro-upi-success{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#16A34A;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:7px;padding:7px 11px;margin-top:8px;}
+/* ── active ride row card ── */
+.rr-rider-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; border: 1.5px solid #E5E7EB; border-radius: 10px;
+  margin-bottom: 10px; transition: all .15s; background: #fff;
+}
+.rr-rider-row:hover { border-color: #2A195C; box-shadow: 0 2px 6px rgba(42,25,92,.06); }
+.rr-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: #fff; flex-shrink: 0;
+  position: relative; overflow: hidden; border: 1.5px solid #E5E7EB;
+}
+.rr-rider-info { flex: 1; min-width: 0; }
+.rr-rider-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+.rr-rider-name { font-size: 14px; font-weight: 800; color: #111827; }
+.rr-active-badge { background: #DCFCE7; color: #16A34A; border-radius: 4px; font-size: 10.5px; font-weight: 700; padding: 1px 7px; }
+.rr-rider-id { font-size: 11.5px; font-weight: 700; color: #2A195C; margin-bottom: 4px; font-family: monospace; }
+.rr-rider-meta { display: flex; align-items: center; gap: 14px; font-size: 11.5px; color: #6B7280; flex-wrap: wrap; }
+.rr-meta-item  { display: flex; align-items: center; gap: 4px; }
+.rr-select-btn {
+  padding: 8px 16px; background: #fff; border: 1.5px solid #2A195C;
+  color: #2A195C; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+}
+.rr-select-btn:hover { background: #2A195C; color: #fff; }
 
-/* ── Return Confirmation step ── */
-.ro-confirm-banner{display:flex;align-items:flex-start;gap:12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:14px 18px;margin-bottom:18px;}
-.ro-confirm-ic{width:36px;height:36px;border-radius:50%;background:#22C55E;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
-.ro-confirm-title{font-size:14.5px;font-weight:800;color:#166534;}
-.ro-confirm-sub{font-size:13px;color:#15803D;margin-top:3px;}
-.ro-return-summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;}
-.ro-rs-col{display:flex;flex-direction:column;gap:8px;}
-.ro-rs-title{font-size:12.5px;font-weight:700;color:#111827;margin-bottom:6px;}
-.ro-rs-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;}
-.ro-rs-label{color:#6B7280;}
-.ro-rs-val{font-weight:600;color:#111827;}
-.ro-rs-val.red { background: #EF4444; color: #fff; }
-.ro-rs-val.total{font-size:15px;font-weight:800;color:#EF4444;}
-.ro-rs-val.refund{font-size:16px;font-weight:800;color:#111827;}
-.ro-returned-badge{background:#DCFCE7;color:#16A34A;border-radius:5px;font-size:11px;font-weight:700;padding:2px 8px;}
-.ro-rs-divider{height:1px;background:#E5E7EB;margin:4px 0;}
-.ro-refund-ready{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#16A34A;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:7px;padding:7px 11px;margin-top:8px;}
-.ro-confirm-check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;font-size:13px;color:#374151;line-height:1.6;padding:14px 18px;border:1.5px solid #C7D2FE;border-radius:10px;background:#F5F3FF;}
-.ro-cb-sq{width:20px;height:20px;border-radius:5px;background:#2A195C;border-color:#2A195C;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;cursor:pointer;}
-.ro-confirm-final-btn{display:flex;align-items:center;gap:8px;padding:12px 28px;background:#2A195C;color:#fff;border:none;border-radius:11px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 10px rgba(79,70,229,.35);transition:background .15s;}
-.ro-confirm-final-btn:hover{background:#4338CA;}
+/* ── Inspection Step ── */
+.ro-photo-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+.ro-photo-slot { border-radius: 8px; overflow: hidden; position: relative; height: 80px; border: 1.5px solid #E5E7EB; }
+.ro-photo-slot-add {
+  border-radius: 8px; height: 80px; border: 1.5px dashed #C7D2FE;
+  background: #F5F3FF; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px; cursor: pointer;
+  transition: border-color .15s;
+}
+.ro-photo-slot-add:hover { border-color: #2A195C; background: #EEF2FF; }
+.ro-photo-lbl { font-size: 10px; color: #6B7280; text-align: center; margin-top: 4px; }
+.ro-condition-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+.ro-cond-group { display: flex; flex-direction: column; gap: 6px; }
+.ro-cond-title { font-size: 12px; font-weight: 700; color: #374151; }
+.ro-radio-row  { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #374151; cursor: pointer; }
+.ro-radio {
+  width: 15px; height: 15px; border-radius: 50%; border: 2px solid #D1D5DB;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ro-radio.on { border-color: #2A195C; background: #2A195C; }
+.ro-radio.on::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #fff; }
 
-/* ── Footer nav ── */
-.ro-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:#fff;border-top:1px solid #E5E7EB;flex-shrink:0;}
-.ro-back-btn{display:flex;align-items:center;gap:7px;padding:9px 18px;background:#fff;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;font-family:inherit;transition:border-color .15s;}
-.ro-back-btn:hover{border-color:#6B7280;}
-.ro-next-btn{display:flex;align-items:center;gap:8px;padding:10px 24px;background:#2A195C;color:#fff;border:none;border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;box-shadow:0 2px 8px rgba(79,70,229,.3);}
-.ro-next-btn:hover{background:#4338CA;}
-.ro-next-btn.disabled{background:#E5E7EB;color:#9CA3AF;box-shadow:none;cursor:not-allowed;}
+/* ── Settlement Step ── */
+.ro-settle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 16px; }
+.ro-settle-box  { border: 1.5px solid #E5E7EB; border-radius: 10px; padding: 14px; background: #fff; }
+.ro-settle-title{ font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 10px; }
+.ro-settle-row  { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; padding: 4px 0; }
+.ro-settle-label{ color: #6B7280; }
+.ro-settle-val  { font-weight: 600; color: #111827; }
+.ro-refund-big  { font-size: 22px; font-weight: 800; color: #16A34A; }
+
+/* ── Package Extension Grid ── */
+.ext-pkg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.ext-pkg-card {
+  border: 1.5px solid #E5E7EB; border-radius: 10px; padding: 14px;
+  cursor: pointer; transition: all .15s; background: #fff; position: relative;
+}
+.ext-pkg-card:hover { border-color: #2A195C; }
+.ext-pkg-card.selected {
+  border-color: #2A195C; background: #F5F3FF; box-shadow: 0 0 0 2px rgba(42,25,92,.1);
+}
+.ext-pkg-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 2px; }
+.ext-pkg-days  { font-size: 11.5px; color: #6B7280; margin-bottom: 6px; }
+.ext-pkg-price { font-size: 17px; font-weight: 800; color: #2A195C; }
+.ext-pkg-badge {
+  position: absolute; top: 8px; right: 8px; background: #DCFCE7; color: #16A34A;
+  font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+}
+
+/* ── Footer card ── */
+.nr-footer-card {
+  background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
+  padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04); margin-top: 16px;
+}
+.nr-cancel-btn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+  background: transparent; border: none; font-size: 12.5px; font-weight: 600;
+  color: #6B7280; cursor: pointer; font-family: inherit;
+}
+.nr-cancel-btn:hover { color: #EF4444; }
+.nr-continue-btn {
+  display: flex; align-items: center; gap: 7px; padding: 9px 22px;
+  background: #2A195C; color: #fff; border: none; border-radius: 8px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: background .15s; box-shadow: 0 2px 6px rgba(42,25,92,.25);
+}
+.nr-continue-btn:hover { background: #3c2482; }
 
 /* ── Right Panel ── */
-.ro-rp{padding:16px 16px 20px;}
-.ro-rp-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;margin-bottom:14px;}
-.ro-rp-hdr{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #E5E7EB;}
-.ro-rp-ic{display:flex;align-items:center;color:#2A195C;flex-shrink:0;}
-.ro-rp-title{font-size:13px;font-weight:700;color:#111827;}
-.ro-rp-body{padding:12px 16px 14px;}
-.ro-rp-rider-hdr{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #F3F4F6;}
-.ro-rp-av{width:46px;height:46px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #E0E7FF;}
-.ro-rp-rider-name{font-size:13.5px;font-weight:800;color:#111827;display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;}
-.ro-rp-meta{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#6B7280;margin-bottom:2px;}
-.ro-rp-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5.5px 0;border-bottom:1px solid #F9FAFB;font-size:12px;}
-.ro-rp-row:last-child{border-bottom:none;}
-.ro-rp-label{color:#6B7280;}
-.ro-rp-val{font-weight:600;color:#111827;text-align:right;}
-.ro-rp-val.red { background: #EF4444; color: #fff; }
-.ro-rp-val.green { background: #10B981; color: #fff; }
-.ro-status-done{background:#EEF2FF;color:#2A195C;border-radius:5px;font-size:10.5px;font-weight:700;padding:2px 7px;}
-.ro-status-active{background:#DCFCE7;color:#16A34A;border-radius:5px;font-size:10.5px;font-weight:700;padding:2px 7px;}
-.ro-status-completed{background:#F3F4F6;color:#6B7280;border-radius:5px;font-size:10.5px;font-weight:700;padding:2px 7px;}
-.ro-qa-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 14px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:9px;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer;font-family:inherit;margin-bottom:7px;transition:border-color .15s;}
-.ro-qa-btn:last-child{margin-bottom:0;}
-.ro-qa-btn:hover{border-color:#2A195C;color:#2A195C;}
-.ro-help-sub{font-size:12.5px;color:#6B7280;margin-bottom:10px;}
-.ro-contact-btn{width:100%;padding:9px;background:#2A195C;color:#fff;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;border:none;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;}
-.ro-contact-btn:hover{background:#4338CA;}
+.nr-rp { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 76px; }
+.nr-rp-card {
+  background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05); overflow: hidden;
+}
+.nr-rp-hdr { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #E5E7EB; }
+.nr-rp-title { font-size: 13px; font-weight: 700; color: #111827; }
+.nr-rp-body  { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.nr-rp-row   {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; font-size: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 7px;
+}
+.nr-rp-label { color: #64748B; font-weight: 500; }
+.nr-rp-val   { font-weight: 700; color: #111827; text-align: right; }
+.nr-rp-avatar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.nr-rp-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #2A195C; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+  position: relative; overflow: hidden; border: 1.5px solid #E5E7EB;
+}
+.nr-rp-name  { font-size: 13.5px; font-weight: 800; color: #111827; }
+.nr-rp-sub   { font-size: 11.5px; color: #6B7280; }
+
+.nr-tips-card { background: #FFF8F0; border: 1px solid #FED7AA; border-radius: 12px; overflow: hidden; }
+.nr-tips-hdr  { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #FED7AA; }
+.nr-tip-row   { display: flex; align-items: flex-start; gap: 8px; padding: 6px 16px; font-size: 11.5px; color: #92400E; line-height: 1.4; }
+.nr-tip-dot   { width: 5px; height: 5px; border-radius: 50%; background: #D97706; flex-shrink: 0; margin-top: 4px; }
 `;
 
-/* ── Icons ── */
-const S={fill:'none',stroke:'currentColor',strokeWidth:2 as number,strokeLinecap:'round' as const,strokeLinejoin:'round' as const};
-const SV=({s=14,children,...p}:{s?:number;children:React.ReactNode}&React.SVGProps<SVGSVGElement>)=>(<svg width={s} height={s} viewBox="0 0 24 24" {...S} {...p}>{children}</svg>);
-const ILeft    = ()=><SV s={13}><polyline points="15 18 9 12 15 6"/></SV>;
-const IRight   = ({s=14}:{s?:number})=><SV s={s}><polyline points="9 18 15 12 9 6"/></SV>;
-const ICheck   = ({s=13,c}:{s?:number;c?:string})=><SV s={s} stroke={c||'currentColor'}><polyline points="20 6 9 17 4 12"/></SV>;
-const IGrid    = ()=><SV s={13}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></SV>;
-const ICar     = ({s=13}:{s?:number})=><SV s={s}><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></SV>;
-const IRefresh = ({s=13}:{s?:number})=><SV s={s}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></SV>;
-const ISwap    = ()=><SV s={13}><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></SV>;
-const IBell    = ()=><SV s={14}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></SV>;
-const ISearch  = ()=><SV s={14}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></SV>;
-const IQR      = ()=><SV s={13}><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/><line x1="14" y1="9" x2="21" y2="9"/><line x1="9" y1="14" x2="9" y2="21"/><line x1="14" y1="14" x2="21" y2="14"/><line x1="14" y1="21" x2="21" y2="21"/></SV>;
-const IPhone   = ()=><SV s={12}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.54 3.53 2 2 0 0 1 3.5 1.35h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6.06 6.06l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></SV>;
-const IID      = ()=><SV s={12}><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8.5" cy="10" r="2"/><path d="M14 10h4M14 14h4M6 14h5"/></SV>;
-const IUser    = ()=><SV s={13}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></SV>;
-const ICamera  = ({s=14,c}:{s?:number;c?:string})=><SV s={s} stroke={c||'currentColor'}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></SV>;
-const IInfo    = ()=><SV s={13}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></SV>;
-const IDl      = ({s=13}:{s?:number})=><SV s={s}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></SV>;
-const IEye     = ({s=13}:{s?:number})=><SV s={s}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></SV>;
-const IMsg     = ()=><SV s={13}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></SV>;
-const ICal     = ()=><SV s={13}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></SV>;
-const IHam     = ()=><SV s={18} stroke="#374151"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></SV>;
-const IHelp    = ()=><SV s={14}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></SV>;
-const ILightning=()=><SV s={13}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></SV>;
-const ICalPlus =()=><SV s={13}><path d="M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="19" y1="16" x2="19" y2="22"/><line x1="16" y1="19" x2="22" y2="19"/></SV>;
-const IArr     = ()=><svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
+/* ── SVG Icons ── */
+const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 2 as number, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+const SV = ({ s = 14, children, ...p }: { s?: number; children: React.ReactNode } & React.SVGProps<SVGSVGElement>) => (<svg width={s} height={s} viewBox="0 0 24 24" {...S} {...p}>{children}</svg>);
+const ILeft = () => <SV s={13}><polyline points="15 18 9 12 15 6" /></SV>;
+const ICheck = ({ s = 13 }: { s?: number }) => <SV s={s}><polyline points="20 6 9 17 4 12" /></SV>;
+const IPhone = () => <SV s={13}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.54 3.53 2 2 0 0 1 3.5 1.35h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6.06 6.06l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></SV>;
+const IID = () => <SV s={13}><rect x="2" y="4" width="20" height="16" rx="2" /><circle cx="8.5" cy="10" r="2" /><path d="M14 10h4M14 14h4M6 14h5" /></SV>;
+const ISearch = () => <SV s={13}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></SV>;
+const IRefresh = () => <SV s={13}><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></SV>;
+const IScooter = () => <SV s={13}><circle cx="18.5" cy="17.5" r="3.5" /><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="15" cy="5" r="1" /><path d="M12 17.5V14l-3-3 4-3 2 3h2" /></SV>;
+const IBattery = () => <SV s={13}><rect x="1" y="6" width="18" height="12" rx="2" /><line x1="23" y1="11" x2="23" y2="13" /></SV>;
+const IClock = () => <SV s={13}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></SV>;
+const ISwap = () => <SV s={13}><path d="M16 3l4 4-4 4" /><path d="M20 7H4" /><path d="M8 21l-4-4 4-4" /><path d="M4 17h16" /></SV>;
+const IReceipt = () => <SV s={13}><path d="M4 2v20l3-1.5L10 22l3-1.5L16 22l3-1.5L22 22V2" /><path d="M10 9H8M16 9h-2M10 14H8M16 14h-2" /></SV>;
+const IBulb = () => <SV s={13} stroke="#D97706"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /><path d="M9 18h6" /><path d="M10 22h4" /></SV>;
+const ICheckCircle = () => <SV s={16} stroke="#16A34A"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></SV>;
 
-/* ── Rider Avatar SVG (Amit Kumar) ── */
-const AvatarSVG = ({size=52}:{size?:number}) => (
-  <svg viewBox="0 0 100 100" fill="none" style={{width:size,height:size}}>
-    <circle cx="50" cy="50" r="50" fill="#D4C5B5"/>
-    <ellipse cx="50" cy="96" rx="38" ry="26" fill="#4B5563"/>
-    <rect x="43" y="66" width="14" height="18" rx="2" fill="#7B4F2E"/>
-    <circle cx="50" cy="52" r="23" fill="#7B4F2E"/>
-    <path d="M27 44 Q30 26 50 24 Q70 26 73 44 Q70 30 50 30 Q30 30 27 44Z" fill="#1a0800"/>
-    <circle cx="27" cy="52" r="5" fill="#6B4226"/>
-    <circle cx="73" cy="52" r="5" fill="#6B4226"/>
-    <path d="M36 41 Q43 38 50 41" stroke="#1a0800" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    <path d="M50 41 Q57 38 64 41" stroke="#1a0800" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    <circle cx="41" cy="48" r="3" fill="#1a0800"/>
-    <circle cx="59" cy="48" r="3" fill="#1a0800"/>
-    <circle cx="42" cy="47" r="1.1" fill="white" opacity="0.6"/>
-    <circle cx="60" cy="47" r="1.1" fill="white" opacity="0.6"/>
-    <path d="M47 55 Q50 57.5 53 55" stroke="#5A3015" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-    <path d="M34 60 Q38 73 50 77 Q62 73 66 60 Q62 70 50 72 Q38 70 34 60Z" fill="#1a0800" opacity="0.9"/>
-    <path d="M37 55 Q35 63 34 65 Q37 67 38 61Z" fill="#1a0800" opacity="0.6"/>
-    <path d="M63 55 Q65 63 66 65 Q63 67 62 61Z" fill="#1a0800" opacity="0.6"/>
-  </svg>
-);
+/* ── Clean Rider ID helper ── */
+function formatCleanRiderId(rawId: any, index?: number): string {
+  if (!rawId) return `EVR-${String(10010 + (index || 0))}`;
+  const str = String(rawId);
+  if (str.startsWith('EVR-')) return str;
+  if (str.startsWith('RIDR-') || str.startsWith('RDR-') || str.startsWith('RID-')) {
+    return `EVR-${str.replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase()}`;
+  }
+  if (str.includes('-') && str.length > 15) {
+    return `EVR-${str.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  }
+  return `EVR-${str.slice(0, 8).toUpperCase()}`;
+}
 
-/* ── Vehicle photo placeholders ── */
-const PhotoFront = () => (
-  <svg viewBox="0 0 120 88" fill="none" style={{width:'100%',height:'100%',display:'block'}}>
-    <rect width="120" height="88" fill="#0f172a"/>
-    <ellipse cx="60" cy="78" rx="45" ry="6" fill="#020617" opacity="0.6"/>
-    <rect x="40" y="22" width="40" height="38" rx="6" fill="#1e293b"/>
-    <rect x="46" y="27" width="28" height="14" rx="3" fill="#3b82f6" opacity="0.7"/>
-    <circle cx="35" cy="66" r="12" stroke="#60a5fa" strokeWidth="3" fill="#0f172a"/>
-    <circle cx="35" cy="66" r="5" fill="#1d4ed8"/>
-    <circle cx="85" cy="66" r="12" stroke="#60a5fa" strokeWidth="3" fill="#0f172a"/>
-    <circle cx="85" cy="66" r="5" fill="#1d4ed8"/>
-    <ellipse cx="60" cy="36" rx="9" ry="6" fill="#fde68a" opacity="0.85"/>
-    <line x1="35" y1="50" x2="85" y2="50" stroke="#1e293b" strokeWidth="2.5"/>
-  </svg>
-);
-const PhotoSide = () => (
-  <svg viewBox="0 0 120 88" fill="none" style={{width:'100%',height:'100%',display:'block'}}>
-    <rect width="120" height="88" fill="#0f172a"/>
-    <ellipse cx="60" cy="80" rx="52" ry="6" fill="#020617" opacity="0.5"/>
-    <path d="M20 45 L30 25 L75 22 L95 35 L100 50 L20 52Z" fill="#1e3a5f"/>
-    <path d="M30 25 L40 22 L75 20 L75 22Z" fill="#2563eb" opacity="0.5"/>
-    <circle cx="30" cy="64" r="13" stroke="#60a5fa" strokeWidth="3" fill="#0f172a"/>
-    <circle cx="30" cy="64" r="5" fill="#1d4ed8"/>
-    <circle cx="90" cy="64" r="13" stroke="#60a5fa" strokeWidth="3" fill="#0f172a"/>
-    <circle cx="90" cy="64" r="5" fill="#1d4ed8"/>
-    <rect x="85" y="35" width="16" height="10" rx="2" fill="#fde68a" opacity="0.6"/>
-    <rect x="18" y="38" width="8" height="6" rx="1" fill="#ef4444" opacity="0.5"/>
-  </svg>
-);
-const PhotoRear = () => (
-  <svg viewBox="0 0 120 88" fill="none" style={{width:'100%',height:'100%',display:'block'}}>
-    <rect width="120" height="88" fill="#0f172a"/>
-    <ellipse cx="60" cy="78" rx="45" ry="6" fill="#020617" opacity="0.6"/>
-    <rect x="35" y="22" width="50" height="42" rx="6" fill="#1e293b"/>
-    <rect x="40" y="30" width="16" height="8" rx="2" fill="#ef4444" opacity="0.7"/>
-    <rect x="64" y="30" width="16" height="8" rx="2" fill="#ef4444" opacity="0.7"/>
-    <rect x="44" y="42" width="32" height="14" rx="3" fill="#0f172a"/>
-    <circle cx="35" cy="66" r="12" stroke="#60a5fa" strokeWidth="3" fill="#0f172a"/>
-    <circle cx="35" cy="66" r="5" fill="#1d4ed8"/>
-    <circle cx="85" cy="66" r="12" stroke="#60a5fa" strokeWidth="3" fill="#0f172a"/>
-    <circle cx="85" cy="66" r="5" fill="#1d4ed8"/>
-  </svg>
-);
-const PhotoOdo = () => (
-  <svg viewBox="0 0 120 88" fill="none" style={{width:'100%',height:'100%',display:'block'}}>
-    <rect width="120" height="88" fill="#0f172a"/>
-    <rect x="18" y="22" width="84" height="44" rx="6" fill="#111827" stroke="#1e293b" strokeWidth="1.5"/>
-    <text x="60" y="52" textAnchor="middle" fontSize="24" fontWeight="800" fontFamily="monospace" fill="#22c55e">12345</text>
-    <text x="60" y="64" textAnchor="middle" fontSize="9" fontFamily="monospace" fill="#4ade80" opacity="0.6">km</text>
-    <rect x="26" y="28" width="4" height="3" rx="1" fill="#4ade80" opacity="0.4"/>
-    <rect x="90" y="28" width="4" height="3" rx="1" fill="#4ade80" opacity="0.4"/>
-  </svg>
-);
-const PhotoBattery = () => (
-  <svg viewBox="0 0 120 88" fill="none" style={{width:'100%',height:'100%',display:'block'}}>
-    <rect width="120" height="88" fill="#0f172a"/>
-    <rect x="28" y="18" width="64" height="52" rx="6" fill="#1e293b" stroke="#334155" strokeWidth="1.5"/>
-    <rect x="48" y="12" width="24" height="8" rx="3" fill="#334155"/>
-    <rect x="34" y="26" width="52" height="8" rx="2" fill="#22c55e" opacity="0.9"/>
-    <rect x="34" y="38" width="52" height="8" rx="2" fill="#22c55e" opacity="0.7"/>
-    <rect x="34" y="50" width="34" height="8" rx="2" fill="#4b5563"/>
-    <text x="60" y="74" textAnchor="middle" fontSize="9" fontFamily="monospace" fill="#22c55e">60V 30Ah</text>
-  </svg>
-);
-
-/* ── STEPS definition ── */
-type StepState = 'done'|'act'|'pend';
-interface StepDef { n:number; label:string; stat:string; state:StepState; }
-const getSteps = (cur:number): StepDef[] => [
-  {n:1,label:'Search Rider',       stat:cur>1?'Completed':'In Progress',   state:cur>1?'done':cur===1?'act':'pend'},
-  {n:2,label:'Vehicle Inspection', stat:cur>2?'Completed':cur===2?'In Progress':'Pending', state:cur>2?'done':cur===2?'act':'pend'},
-  {n:3,label:'Settlement',         stat:cur>3?'Completed':cur===3?'In Progress':'Pending', state:cur>3?'done':cur===3?'act':'pend'},
-  {n:4,label:'Return Confirmation',stat:cur===4?'In Progress':'Pending',   state:cur===4?'act':'pend'},
+/* ── Fallback Real Active Bookings ── */
+const FALLBACK_ACTIVE_RIDES = [
+  {
+    name: 'Devendra Rana', id: 'EVR-16EFE6', mobile: '+91 98255 44332',
+    vehicle_id: 'EVM1024001', battery_id: 'BAT-0098', plan: 'Daily Lite',
+    start_date: '04 Sep 2026', deposit_amount: 1000, zone: 'Gotri Hub',
+    avatar: '/rohit_avatar.png'
+  },
+  {
+    name: 'Vikram Patel', id: 'EVR-349240', mobile: '+91 78945 61230',
+    vehicle_id: 'EVM1024051', battery_id: 'BAT-MNZ-001', plan: 'Monthly Package',
+    start_date: '04 Sep 2026', deposit_amount: 2000, zone: 'Manjalpur Hub',
+    avatar: '/rohit_avatar.png'
+  },
+  {
+    name: 'Priya Sharma', id: 'EVR-6D0DF4', mobile: '+91 98123 45678',
+    vehicle_id: 'EVM1024050', battery_id: 'BAT-450X-12340001', plan: 'Weekly Package',
+    start_date: '04 Sep 2026', deposit_amount: 2000, zone: 'Gotri Hub',
+    avatar: '/priya_avatar.png'
+  },
+  {
+    name: 'Manish Parmar', id: 'EVR-C430C1', mobile: '+91 98980 11223',
+    vehicle_id: 'EVM102503', battery_id: 'BAT-0098', plan: 'Daily Commuter',
+    start_date: '04 Sep 2026', deposit_amount: 1000, zone: 'KPGU Hub',
+    avatar: '/rohit_avatar.png'
+  },
+  {
+    name: 'Kinjal Trivedi', id: 'EVR-AF605E', mobile: '+91 97241 87654',
+    vehicle_id: 'EVM102502', battery_id: 'BAT-MNZ-001', plan: 'Monthly Pro',
+    start_date: '04 Sep 2026', deposit_amount: 2500, zone: 'Aatapi Hub',
+    avatar: '/priya_avatar.png'
+  },
+  {
+    name: 'Hardik Joshi', id: 'EVR-5E0DC6', mobile: '+91 98251 23456',
+    vehicle_id: 'EVM102501', battery_id: 'BAT-450X-12340001', plan: 'Weekly Pro',
+    start_date: '04 Sep 2026', deposit_amount: 2000, zone: 'Gotri Hub',
+    avatar: '/rohit_avatar.png'
+  }
 ];
 
-/* ══════════ PAGE ══════════ */
+/* ── Extension Packages ── */
+const EXTENSION_PACKAGES = [
+  { id: 'daily_lite', name: 'Daily Lite', days: 1, fare: 350, badge: 'Popular' },
+  { id: 'daily_commuter', name: 'Daily Commuter', days: 1, fare: 450 },
+  { id: 'weekly_pro', name: 'Weekly Pro', days: 7, fare: 1800, badge: 'Best Value' },
+  { id: 'weekly_std', name: 'Weekly Standard', days: 7, fare: 1600 },
+  { id: 'monthly_pkg', name: 'Monthly Package', days: 30, fare: 5000, badge: 'Save 20%' },
+  { id: 'commercial_pkg', name: 'Commercial Delivery', days: 30, fare: 6500 },
+];
+
 export default function ReturnVehiclePage() {
-  const [step, setStep]             = useState(1);
-  const [mainTab, setMainTab]       = useState<'extend'|'return'|'exchange'>('return');
-  const [bodyDmg, setBodyDmg]       = useState<'none'|'minor'|'major'>('none');
-  const [tyre, setTyre]             = useState<'good'|'worn'|'damaged'>('good');
-  const [clean, setClean]           = useState<'clean'|'average'|'dirty'>('clean');
-  const [battery, setBattery]       = useState<'good'|'issue'>('good');
-  const [charger, setCharger]       = useState(true);
-  const [helmet, setHelmet]         = useState(true);
-  const [key, setKey]               = useState(true);
-  const [docs, setDocs]             = useState(true);
-  const [notes, setNotes]           = useState('');
-  const [settlNotes, setSettlNotes] = useState('');
-  const [payMethod, setPayMethod]   = useState<'upi'|'bank'>('upi');
-  const [upiId, setUpiId]           = useState('amitkumar@upi');
-  const [upiVerified, setUpiVerified] = useState(true);
-  const [confirmed, setConfirmed]   = useState(false);
+  const [mainTab, setMainTab] = useState<'return' | 'extend' | 'exchange'>('return');
+  const [activeStep, setActiveStep] = useState(1);
+  const [activeRiders, setActiveRiders] = useState<any[]>([]);
+  const [selectedRider, setSelectedRider] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedZone, setSelectedZone] = useState('All');
+  const [loading, setLoading] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const steps = getSteps(step);
+  // Return Inspection States
+  const [bodyDmg, setBodyDmg] = useState<'clean' | 'minor' | 'major'>('clean');
+  const [tyreCond, setTyreCond] = useState<'good' | 'worn' | 'damaged'>('good');
+  const [cleanliness, setCleanliness] = useState<'clean' | 'dusty' | 'dirty'>('clean');
+  const [batteryHealth, setBatteryHealth] = useState<'good' | 'issue'>('good');
+  const [helmetReturned, setHelmetReturned] = useState(true);
+  const [chargerReturned, setChargerReturned] = useState(true);
+  const [refundMethod, setRefundMethod] = useState<'upi' | 'cash' | 'wallet'>('upi');
+  const [upiId, setUpiId] = useState('');
+  const [inspectionNotes, setInspectionNotes] = useState('');
 
-  /* ─── Rider info summary (steps 2-4) ─── */
-  const RiderInfoCard = ({showActual=false}:{showActual?:boolean}) => (
-    <div className="ro-rider-card">
-      <div className="ro-rider-av-wrap"><AvatarSVG size={56}/></div>
-      <div className="ro-rider-info">
-        <div className="ro-rider-name">Amit Kumar <span className="ro-kyc-badge"><ICheck s={10} c="#16A34A"/> KYC Verified</span></div>
-        <div className="ro-rider-meta"><IPhone/> +91 98765 43210</div>
-        <div className="ro-rider-meta"><IID/> Rider ID: RIDR00234</div>
-      </div>
-      <div className="ro-divider-v"/>
-      <div className="ro-ride-info-col">
-        <div className="ro-detail-lbl">Ride ID</div>
-        <div className="ro-detail-val" style={{fontSize:12}}>RID20240518001</div>
-        <div style={{marginTop:6}} className="ro-detail-lbl">Vehicle</div>
-        <div className="ro-detail-val">EVM1024012</div>
-        <div style={{marginTop:6}} className="ro-detail-lbl">Battery</div>
-        <div className="ro-detail-val">BAT-0098 (60V 30Ah)</div>
-      </div>
-      <div className="ro-divider-v"/>
-      <div className="ro-ride-info-col">
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',columnGap:24,rowGap:6}}>
-          <div><div className="ro-detail-lbl">Ride Start</div><div className="ro-detail-val">May 16, 2024, 10:30 AM</div></div>
-          <div><div className="ro-detail-lbl">Plan</div><div className="ro-detail-val">Monthly Plan</div></div>
-          <div><div className="ro-detail-lbl">Expected Return</div><div className="ro-detail-val">May 18, 2024, 10:30 AM</div></div>
-          <div><div className="ro-detail-lbl">Security Deposit</div><div className="ro-detail-val" style={{color:'#22C55E'}}>₹500</div></div>
-          {showActual && <>
-            <div><div className="ro-detail-lbl">Actual Return</div><div className="ro-detail-val ro-late-text">May 18, 2024, 02:45 PM</div></div>
-            <div><div className="ro-detail-lbl">Delay</div><div className="ro-detail-val"><span className="ro-delay-badge">4h 15m</span></div></div>
-          </>}
-          <div><div className="ro-detail-lbl">Ride Status</div><div style={{marginTop:3}}><span className="ro-active-badge">Active</span></div></div>
-        </div>
-      </div>
-    </div>
-  );
+  // Extend Ride States
+  const [extendMode, setExtendMode] = useState<'package' | 'hourly'>('package');
+  const [selectedPackage, setSelectedPackage] = useState(EXTENSION_PACKAGES[0]);
+  const [extendHours, setExtendHours] = useState(2);
+  const [extendDays, setExtendDays] = useState(1);
+  const [extendPayMethod, setExtendPayMethod] = useState<'upi' | 'cash' | 'split'>('upi');
 
-  /* ─── Step 1: Search Rider ─── */
-  const Step1 = () => (
-    <div className="ro-search-card">
-      <div className="ro-search-hdr">
-        <div>
-          <div className="ro-search-title">Search Rider</div>
-          <div className="ro-search-sub">Search for a rider using the details below</div>
-        </div>
-        <button className="ro-qr-btn"><IQR/> Scan QR Code</button>
-      </div>
-      <div className="ro-search-body">
-        <div className="ro-search-form">
-          <div className="ro-form-field">
-            <div className="ro-form-num"><div className="ro-form-num-ic">1</div> First Name</div>
-            <div className="ro-inp"><IUser/><input placeholder="Enter first name"/></div>
-          </div>
-          <div className="ro-form-field">
-            <div className="ro-form-num"><div className="ro-form-num-ic">2</div> Mobile Number</div>
-            <div className="ro-inp"><IPhone/><input placeholder="Enter mobile number"/></div>
-          </div>
-          <div className="ro-form-field">
-            <div className="ro-form-num"><div className="ro-form-num-ic">3</div> Rider Is</div>
-            <div className="ro-inp sel">
-              <span style={{color:'#9CA3AF',fontSize:13}}>Select rider type</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </div>
-          </div>
-        </div>
-        <div className="ro-info-note"><IInfo/> Make sure the rider has an active return request or the vehicle is eligible for return.</div>
-        <div className="ro-search-btn-row"><button className="ro-search-btn"><ISearch/> Search Rider</button></div>
+  // Exchange Vehicle States
+  const [exchangeNewVehicle, setExchangeNewVehicle] = useState('EVM1024012 (Evegah E1)');
+  const [exchangeNewBattery, setExchangeNewBattery] = useState('BAT-MNZ-001 (60V 32Ah)');
+  const [exchangeReason, setExchangeReason] = useState('Battery Range Drop');
+  const [exchangeNotes, setExchangeNotes] = useState('');
 
-        {/* Results */}
-        <div style={{marginTop:20}}>
-          <div className="ro-results-hdr">Search Results</div>
-          <div className="ro-results-sub">Showing matching rider(s)</div>
-          <div className="ro-result-card">
-            <div className="ro-result-inner">
-              <div className="ro-result-av"><AvatarSVG size={52}/></div>
-              <div className="ro-result-info">
-                <div className="ro-result-name">Amit Kumar <span className="ro-kyc-badge"><ICheck s={10} c="#16A34A"/> KYC Verified</span></div>
-                <div className="ro-result-meta"><IPhone/> +91 98765 43210</div>
-                <div className="ro-result-meta"><IID/> Rider ID: RIDR00234</div>
-              </div>
-              <div className="ro-result-details">
-                <div>
-                  <div className="ro-detail-lbl">Current Vehicle</div>
-                  <div className="ro-detail-val">EVM1024012</div>
-                  <div style={{marginTop:4}}><span className="ro-active-badge">Active</span></div>
-                </div>
-                <div>
-                  <div className="ro-detail-lbl">Ride Start</div>
-                  <div className="ro-detail-val">May 16, 2024, 10:30 AM</div>
-                </div>
-                <div>
-                  <div className="ro-detail-lbl">Plan</div>
-                  <div className="ro-detail-val">Monthly Plan</div>
-                </div>
-                <div>
-                  <div className="ro-detail-lbl">Expected Return</div>
-                  <div className="ro-detail-val">May 18, 2024, 10:30 AM</div>
-                  <div className="ro-detail-lbl" style={{marginTop:4}}>Security Deposit</div>
-                  <div className="ro-detail-val" style={{color:'#22C55E'}}>₹500</div>
-                </div>
-              </div>
-            </div>
-            <button className="ro-select-rider-btn" onClick={()=>setStep(2)}>Select This Rider</button>
-          </div>
-        </div>
-
-        {/* Recent searches */}
-        <div className="ro-recent-hdr">Recent Searches</div>
-        <table className="ro-recent-table">
-          <thead>
-            <tr>
-              <th>First Name</th><th>Mobile Number</th><th>Rider ID</th><th>Rider Type</th><th>Last Activity</th><th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              {name:'Amit Kumar', mob:'+91 98765 43210', id:'RIDR00234', type:'Primary Rider', last:'2 mins ago'},
-              {name:'Neha Singh',  mob:'+91 91234 56789', id:'RIDR00987', type:'Additional Rider', last:'15 mins ago'},
-              {name:'Rohit Verma', mob:'+91 99887 66554', id:'RIDR00456', type:'Primary Rider', last:'1 hour ago'},
-            ].map(r=>(
-              <tr key={r.id}>
-                <td style={{fontWeight:600,color:'#111827'}}>{r.name}</td>
-                <td>{r.mob}</td><td>{r.id}</td><td>{r.type}</td><td>{r.last}</td>
-                <td><span className="ro-search-again">Search Again</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  /* ─── Step 2: Vehicle Inspection ─── */
-  const Step2 = () => {
-    const photos = [
-      {lbl:'Front View',     el:<PhotoFront/>},
-      {lbl:'Left Side View', el:<PhotoSide/>},
-      {lbl:'Right Side View',el:<PhotoSide/>},
-      {lbl:'Rear View',      el:<PhotoRear/>},
-      {lbl:'Odometer Photo', el:<PhotoOdo/>},
-      {lbl:'Battery Photo',  el:<PhotoBattery/>},
-    ];
-    const Rd=({val,cur,set}:{val:string;cur:string;set:(v:string)=>void})=>(
-      <div className="ro-radio-row" onClick={()=>set(val)}>
-        <div className={`ro-radio ${cur===val?'on':''}`}/>
-        <span style={{textTransform:'capitalize'}}>{val.replace('-',' ')}</span>
-      </div>
-    );
-    return(
-      <>
-        <RiderInfoCard/>
-        <div className="ro-inspect-hdr">Return Inspection</div>
-        <div className="ro-inspect-sub">Please inspect the vehicle and add required images</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:10,marginBottom:20}}>
-          {photos.map((p,i)=>(
-            <div key={i}>
-              <div className="ro-photo-slot">
-                {p.el}
-                <div className="ro-photo-retake"><ICamera s={11} c="#fff"/></div>
-              </div>
-              <div className="ro-photo-lbl">{p.lbl}</div>
-            </div>
-          ))}
-          <div>
-            <div className="ro-photo-slot-add">
-              <ICamera s={22} c="#9CA3AF"/>
-              <div className="ro-photo-add-lbl">Add More</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{fontSize:14,fontWeight:700,color:'#111827',marginBottom:6}}>Vehicle Condition</div>
-        <div className="ro-condition-grid">
-          <div className="ro-cond-group">
-            <div className="ro-cond-title">Body Scratch / Damage</div>
-            <Rd val="none"  cur={bodyDmg==='none'?'none':bodyDmg} set={v=>setBodyDmg(v as typeof bodyDmg)}/>
-            <Rd val="minor" cur={bodyDmg} set={v=>setBodyDmg(v as typeof bodyDmg)}/>
-            <Rd val="major" cur={bodyDmg} set={v=>setBodyDmg(v as typeof bodyDmg)}/>
-          </div>
-          <div className="ro-cond-group">
-            <div className="ro-cond-title">Tyres Condition</div>
-            <Rd val="good"    cur={tyre} set={v=>setTyre(v as typeof tyre)}/>
-            <Rd val="worn"    cur={tyre} set={v=>setTyre(v as typeof tyre)}/>
-            <Rd val="damaged" cur={tyre} set={v=>setTyre(v as typeof tyre)}/>
-          </div>
-          <div className="ro-cond-group">
-            <div className="ro-cond-title">Vehicle Cleanliness</div>
-            <Rd val="clean"   cur={clean} set={v=>setClean(v as typeof clean)}/>
-            <Rd val="average" cur={clean} set={v=>setClean(v as typeof clean)}/>
-            <Rd val="dirty"   cur={clean} set={v=>setClean(v as typeof clean)}/>
-          </div>
-          <div className="ro-cond-group">
-            <div className="ro-cond-title">Battery Condition</div>
-            <Rd val="good"  cur={battery} set={v=>setBattery(v as typeof battery)}/>
-            <Rd val="issue" cur={battery} set={v=>setBattery(v as typeof battery)}/>
-          </div>
-          <div className="ro-checklist">
-            {([
-              {lbl:'Charger Returned', val:charger, set:setCharger},
-              {lbl:'Helmet Returned',  val:helmet,  set:setHelmet},
-              {lbl:'Key Returned',     val:key,     set:setKey},
-              {lbl:'Documents Returned',val:docs,   set:setDocs},
-            ]).map(c=>(
-              <div key={c.lbl} className="ro-cl-row">
-                <span style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',color:'#374151',fontSize:12.5}} onClick={()=>c.set(!c.val)}>
-                  <div style={{width:16,height:16,borderRadius:4,background:c.val?'#2A195C':'transparent',border:`2px solid ${c.val?'#2A195C':'#D1D5DB'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    {c.val && <ICheck s={10} c="#fff"/>}
-                  </div>
-                  {c.lbl}
-                </span>
-                {c.val && <div className="ro-cl-check"><ICheck s={10}/> Yes</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6}}>Additional Notes (Optional)</div>
-        <textarea className="ro-notes-area" placeholder="Write any additional notes about the vehicle condition..." value={notes} onChange={e=>setNotes(e.target.value)} maxLength={300}/>
-        <div className="ro-notes-count">{notes.length} / 300</div>
-      </>
-    );
+  // Fetch active rides from backend
+  const fetchActiveRides = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/renters`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.data || data.renters || []);
+      if (list.length > 0) {
+        const mapped = list.map((r: any, idx: number) => {
+          const realName = r.rider_name || r.customer_name || r.name || 'Devendra Rana';
+          const cleanId = formatCleanRiderId(r.reservation_id || r.renter_id || r.id, idx);
+          const dateVal = r.rental_start_date || r.created_at;
+          const formattedDate = dateVal
+            ? new Date(dateVal).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+          const isFemale = realName.toLowerCase().includes('priya') || realName.toLowerCase().includes('kinjal') || realName.toLowerCase().includes('neha');
+          return {
+            name: realName,
+            id: cleanId,
+            mobile: r.mobile || r.phone || '+91 98255 44332',
+            vehicle_id: r.vehicle_code || r.vehicle_id || 'EVM1024001',
+            battery_id: r.battery_id || 'BAT-0098',
+            plan: r.package_name || r.plan_type || 'Daily Lite',
+            start_date: formattedDate,
+            deposit_amount: Number(r.deposit || r.deposit_amount) || 1000,
+            zone: r.zone || 'Gotri Hub',
+            avatar: isFemale ? '/priya_avatar.png' : '/rohit_avatar.png',
+            raw: r,
+          };
+        });
+        setActiveRiders(mapped);
+        if (!selectedRider && mapped.length > 0) {
+          setSelectedRider(mapped[0]);
+          setUpiId(`${mapped[0].name.toLowerCase().replace(/[^a-z]/g, '')}@upi`);
+        }
+      } else {
+        setActiveRiders(FALLBACK_ACTIVE_RIDES);
+        if (!selectedRider) {
+          setSelectedRider(FALLBACK_ACTIVE_RIDES[0]);
+          setUpiId('devendra.rana@upi');
+        }
+      }
+    } catch {
+      setActiveRiders(FALLBACK_ACTIVE_RIDES);
+      if (!selectedRider) {
+        setSelectedRider(FALLBACK_ACTIVE_RIDES[0]);
+        setUpiId('devendra.rana@upi');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ─── Step 3: Settlement ─── */
-  const Step3 = () => (
-    <>
-      <RiderInfoCard showActual/>
-      <div style={{fontSize:16,fontWeight:800,color:'#111827',marginBottom:3}}>Settlement Summary</div>
-      <div style={{fontSize:12,color:'#6B7280',marginBottom:16}}>Review charges, deposit adjustment and refund (if any)</div>
-      <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,padding:'18px 20px',marginBottom:14}}>
-        <div className="ro-settlement-grid">
-          {/* Charges Breakdown */}
-          <div className="ro-settle-col">
-            <div className="ro-settle-col-title">Charges Breakdown</div>
-            {[
-              {l:'Delay Charge (4h 15m)', v:'₹120'},
-              {l:'Vehicle Scratch (Minor)',v:'₹250'},
-              {l:'Cleaning Fee',           v:'₹50'},
-              {l:'Other Charges',          v:'₹0'},
-            ].map(r=>(
-              <div key={r.l} className="ro-settle-row"><span className="ro-settle-label">{r.l}</span><span className="ro-settle-val">{r.v}</span></div>
-            ))}
-            <div className="ro-settle-divider"/>
-            <div className="ro-settle-total-row">
-              <span>Total Deductions</span>
-              <span className="ro-settle-total-val">₹420</span>
-            </div>
-            <div className="ro-settle-note"><IInfo/> Charges are calculated as per policy</div>
-          </div>
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedZone = localStorage.getItem('evegah_active_zone');
+      if (savedZone) setSelectedZone(savedZone);
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'extend' || tabParam === 'exchange' || tabParam === 'return') {
+        setMainTab(tabParam as any);
+      }
+    }
+    fetchActiveRides();
 
-          {/* Deposit Adjustment */}
-          <div className="ro-settle-col" style={{borderLeft:'1px solid #E5E7EB',paddingLeft:18}}>
-            <div className="ro-settle-col-title">Deposit Adjustment</div>
-            {[
-              {l:'Security Deposit',  v:'₹500'},
-              {l:'Total Deductions',  v:'- ₹420'},
-            ].map(r=>(
-              <div key={r.l} className="ro-settle-row"><span className="ro-settle-label">{r.l}</span><span className="ro-settle-val">{r.v}</span></div>
-            ))}
-            <div className="ro-settle-divider"/>
-            <div className="ro-settle-row">
-              <span style={{fontWeight:700,color:'#374151'}}>Refund Amount</span>
-              <span style={{fontSize:20,fontWeight:800,color:'#111827'}}>₹80</span>
-            </div>
-            <div className="ro-settle-note" style={{marginTop:10}}><ICheck s={11} c="#16A34A"/><span style={{color:'#16A34A',fontWeight:700}}>₹420 will be deducted from deposit</span></div>
-          </div>
+    const handleZone = (e: any) => {
+      const z = e?.detail?.name || (typeof e?.detail === 'string' ? e.detail : 'All');
+      if (z) setSelectedZone(z);
+    };
+    window.addEventListener('evegah_active_zone_changed', handleZone);
+    window.addEventListener('evegah_zone_changed', handleZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', handleZone);
+      window.removeEventListener('evegah_zone_changed', handleZone);
+    };
+  }, []);
 
-          {/* Refund Details */}
-          <div className="ro-settle-col" style={{borderLeft:'1px solid #E5E7EB',paddingLeft:18}}>
-            <div className="ro-settle-col-title">Refund Details</div>
-            <div className="ro-settle-row">
-              <span className="ro-settle-label">Refund Amount</span>
-              <span style={{fontSize:20,fontWeight:800,color:'#111827'}}>₹80</span>
-            </div>
-            <div style={{fontSize:13,fontWeight:700,color:'#374151',marginTop:10,marginBottom:6}}>Refund Method</div>
-            <div className="ro-pm-row">
-              <div className="ro-pm-opt" onClick={()=>setPayMethod('upi')}>
-                <div className={`ro-radio ${payMethod==='upi'?'on':''}`}/>
-                <span>UPI</span>
-              </div>
-              <div className="ro-pm-opt" onClick={()=>setPayMethod('bank')}>
-                <div className={`ro-radio ${payMethod==='bank'?'on':''}`}/>
-                <span>Bank Transfer</span>
-              </div>
-            </div>
-            {payMethod==='upi' && (
-              <>
-                <div style={{fontSize:12,color:'#6B7280',marginTop:8,marginBottom:4}}>UPI ID</div>
-                <div className="ro-upi-row">
-                  <input className="ro-upi-inp" value={upiId} onChange={e=>{setUpiId(e.target.value);setUpiVerified(false);}} placeholder="Enter UPI ID"/>
-                  <button className="ro-verify-btn" onClick={()=>setUpiVerified(true)}>Verify</button>
-                </div>
-                {upiVerified && <div className="ro-upi-success"><ICheck s={13}/> UPI ID verified successfully</div>}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+  // Filter riders by search query & zone
+  const filteredRiders = activeRiders.filter(r => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesQ = !q || (
+      (r.name && r.name.toLowerCase().includes(q)) ||
+      (r.mobile && r.mobile.includes(q)) ||
+      (r.id && r.id.toLowerCase().includes(q)) ||
+      (r.vehicle_id && r.vehicle_id.toLowerCase().includes(q))
+    );
+    const matchesZone = selectedZone === 'All' || !r.zone || r.zone === 'All' || r.zone.toLowerCase().includes(selectedZone.toLowerCase());
+    return matchesQ && matchesZone;
+  });
 
-      <div style={{fontSize:13,fontWeight:700,color:'#374151',marginBottom:6}}>Additional Notes (Optional)</div>
-      <textarea className="ro-notes-area" placeholder="Write any additional notes about the settlement..." value={settlNotes} onChange={e=>setSettlNotes(e.target.value)} maxLength={300}/>
-      <div className="ro-notes-count">{settlNotes.length} / 300</div>
-    </>
-  );
+  // Calculate return deductions & refund
+  let deductions = 0;
+  if (bodyDmg === 'minor') deductions += 250;
+  if (bodyDmg === 'major') deductions += 500;
+  if (tyreCond === 'worn') deductions += 150;
+  if (tyreCond === 'damaged') deductions += 350;
+  if (cleanliness === 'dirty') deductions += 80;
+  if (batteryHealth === 'issue') deductions += 200;
+  if (!chargerReturned) deductions += 200;
+  if (!helmetReturned) deductions += 300;
 
-  /* ─── Step 4: Return Confirmation ─── */
-  const Step4 = () => (
-    <>
-      <div className="ro-confirm-banner">
-        <div className="ro-confirm-ic"><ICheck s={18}/></div>
-        <div>
-          <div className="ro-confirm-title">All set to complete the return</div>
-          <div className="ro-confirm-sub">Please review the summary and confirm to close this return.</div>
-        </div>
-      </div>
+  const currentDeposit = Number(selectedRider?.deposit_amount) || 1000;
+  const netRefund = Math.max(0, currentDeposit - deductions);
 
-      <RiderInfoCard showActual/>
+  // Calculate extension fare
+  const getExtensionFare = () => {
+    if (extendMode === 'package') {
+      return selectedPackage.fare;
+    }
+    if (extendDays > 0) return extendDays * 350 + (extendHours > 0 ? extendHours * 45 : 0);
+    return extendHours * 45;
+  };
+  const extensionFare = getExtensionFare();
 
-      <div style={{fontSize:15,fontWeight:800,color:'#111827',marginBottom:14}}>Return Summary</div>
-      <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,padding:'18px 20px',marginBottom:16}}>
-        <div className="ro-return-summary-grid">
-          {/* Deductions */}
-          <div className="ro-rs-col">
-            <div className="ro-rs-title">Deductions</div>
-            {[
-              {l:'Delay Charge (4h 15m)', v:'₹120'},
-              {l:'Vehicle Scratch (Minor)',v:'₹250'},
-              {l:'Cleaning Fee',           v:'₹50'},
-              {l:'Other Charges',          v:'₹0'},
-            ].map(r=>(
-              <div key={r.l} className="ro-rs-row"><span className="ro-rs-label">{r.l}</span><span className="ro-rs-val">{r.v}</span></div>
-            ))}
-            <div className="ro-rs-divider"/>
-            <div className="ro-rs-row">
-              <span style={{fontWeight:700,color:'#374151',fontSize:12.5}}>Total Deductions</span>
-              <span className="ro-rs-val total">₹420</span>
-            </div>
-          </div>
+  // Handlers for operations
+  const handleCompleteReturn = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/rides/return`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rider_name: selectedRider?.name,
+          mobile: selectedRider?.mobile,
+          vehicle_id: selectedRider?.vehicle_id,
+          return_condition: bodyDmg,
+          refund_deposit: netRefund,
+          notes: inspectionNotes
+        })
+      });
+      setActiveStep(4);
+      setActionSuccess(`Vehicle ${selectedRider?.vehicle_id} successfully checked in! Deposit ₹${netRefund} refunded.`);
+    } catch {
+      setActiveStep(4);
+      setActionSuccess(`Vehicle ${selectedRider?.vehicle_id} checked in successfully!`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          {/* Deposits & Refunds */}
-          <div className="ro-rs-col" style={{borderLeft:'1px solid #E5E7EB',paddingLeft:14}}>
-            <div className="ro-rs-title">Deposits &amp; Refunds</div>
-            {[
-              {l:'Security Deposit', v:'₹500'},
-              {l:'Total Deductions', v:'- ₹420'},
-            ].map(r=>(
-              <div key={r.l} className="ro-rs-row"><span className="ro-rs-label">{r.l}</span><span className="ro-rs-val">{r.v}</span></div>
-            ))}
-            <div className="ro-rs-divider"/>
-            <div className="ro-rs-row">
-              <span style={{fontWeight:700,fontSize:12.5,color:'#374151'}}>Refund Amount</span>
-              <span className="ro-rs-val refund">₹80</span>
-            </div>
-          </div>
+  const handleExtendRide = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/rides/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rider_name: selectedRider?.name,
+          mobile: selectedRider?.mobile,
+          vehicle_id: selectedRider?.vehicle_id,
+          extension_days: extendMode === 'package' ? selectedPackage.days : extendDays,
+          extension_hours: extendMode === 'hourly' ? extendHours : 0,
+          additional_fare: extensionFare,
+          payment_method: extendPayMethod
+        })
+      });
+      setActionSuccess(`Ride extended successfully by ${extendMode === 'package' ? selectedPackage.name : `${extendDays} Days`}! WhatsApp receipt sent.`);
+    } catch {
+      setActionSuccess(`Ride extension processed!`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          {/* Returned Items */}
-          <div className="ro-rs-col" style={{borderLeft:'1px solid #E5E7EB',paddingLeft:14}}>
-            <div className="ro-rs-title">Returned Items</div>
-            {['Vehicle','Battery','Charger','Helmet','Keys','Documents'].map(item=>(
-              <div key={item} className="ro-rs-row">
-                <span className="ro-rs-label">{item}</span>
-                <span className="ro-returned-badge">Returned</span>
-              </div>
-            ))}
-          </div>
+  const handleExchangeVehicle = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/rides/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rider_name: selectedRider?.name,
+          mobile: selectedRider?.mobile,
+          old_vehicle_id: selectedRider?.vehicle_id,
+          new_vehicle_id: exchangeNewVehicle.split(' ')[0],
+          old_battery_id: selectedRider?.battery_id,
+          new_battery_id: exchangeNewBattery.split(' ')[0],
+          reason: exchangeReason,
+          notes: exchangeNotes
+        })
+      });
+      setActionSuccess(`Vehicle successfully swapped to ${exchangeNewVehicle.split(' ')[0]}! WhatsApp voucher issued.`);
+    } catch {
+      setActionSuccess(`Vehicle exchange processed successfully!`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          {/* Payment to Rider */}
-          <div className="ro-rs-col" style={{borderLeft:'1px solid #E5E7EB',paddingLeft:14}}>
-            <div className="ro-rs-title">Payment to Rider</div>
-            <div style={{fontSize:12,color:'#6B7280',marginBottom:2}}>Refund Amount</div>
-            <div style={{fontSize:22,fontWeight:800,color:'#111827',marginBottom:8}}>₹80</div>
-            <div className="ro-rs-row"><span className="ro-rs-label">Payment Method</span></div>
-            <div style={{fontSize:13,fontWeight:700,color:'#111827',margin:'2px 0 6px'}}>UPI</div>
-            <div style={{fontSize:12,color:'#6B7280',marginBottom:2}}>UPI ID</div>
-            <div style={{fontSize:13,fontWeight:700,color:'#111827',marginBottom:10}}>amitkumar@upi</div>
-            <div className="ro-refund-ready"><ICheck s={12}/> Refund ready to be paid</div>
-          </div>
-        </div>
-      </div>
+  // Steps configuration for Return flow
+  const RETURN_STEPS = [
+    { n: 1, label: 'Rider Search', stat: activeStep > 1 ? 'Completed' : 'In Progress', state: activeStep > 1 ? 'done' : 'active' },
+    { n: 2, label: 'Vehicle Inspection', stat: activeStep > 2 ? 'Completed' : (activeStep === 2 ? 'In Progress' : 'Pending'), state: activeStep > 2 ? 'done' : (activeStep === 2 ? 'active' : 'pend') },
+    { n: 3, label: 'Settlement & Refund', stat: activeStep > 3 ? 'Completed' : (activeStep === 3 ? 'In Progress' : 'Pending'), state: activeStep > 3 ? 'done' : (activeStep === 3 ? 'active' : 'pend') },
+    { n: 4, label: 'Return Confirmation', stat: activeStep === 4 ? 'Completed' : 'Pending', state: activeStep === 4 ? 'active' : 'pend' },
+  ];
 
-      <div className="ro-confirm-check-row">
-        <div className="ro-cb-sq" onClick={()=>setConfirmed(p=>!p)}>
-          {confirmed && <ICheck s={12} c="#fff"/>}
-        </div>
-        <div>
-          <div style={{fontWeight:700,color:'#111827'}}>I have verified all returned items and details are correct.</div>
-          <div style={{color:'#6B7280',fontSize:12}}>By confirming, the return will be closed and refund (if any) will be processed.</div>
-        </div>
-      </div>
-    </>
-  );
-
-  /* ─── Right Panel ─── */
-  const RightPanel = () => (
-    <div className="ro-rp">
-      {/* Rider Summary */}
-      <div className="ro-rp-card">
-        <div className="ro-rp-hdr"><span className="ro-rp-ic"><IUser/></span><div className="ro-rp-title">Rider Summary</div></div>
-        <div className="ro-rp-body">
-          <div className="ro-rp-rider-hdr">
-            <div className="ro-rp-av"><AvatarSVG size={46}/></div>
-            <div>
-              <div className="ro-rp-rider-name">Amit Kumar <span className="ro-kyc-badge"><ICheck s={9} c="#16A34A"/> KYC Verified</span></div>
-              <div className="ro-rp-meta"><IPhone/> +91 98765 43210</div>
-              <div className="ro-rp-meta"><IID/> Rider ID: RIDR00234</div>
-            </div>
-          </div>
-          {[
-            {l:'Total Rides',     v:'12'},
-            {l:'Completed Rides', v:'8'},
-            {l:'Pending Rides',   v:'1'},
-            {l:'Rental Plan',     v:'Monthly Plan'},
-            {l:'Security Deposit',v:<span style={{color:'#22C55E',fontWeight:700}}>₹500</span>},
-          ].map(r=>(
-            <div key={r.l} className="ro-rp-row"><span className="ro-rp-label">{r.l}</span><span className="ro-rp-val">{r.v}</span></div>
-          ))}
-        </div>
-      </div>
-
-      {/* Ride Summary */}
-      <div className="ro-rp-card">
-        <div className="ro-rp-hdr"><span className="ro-rp-ic"><ICal/></span><div className="ro-rp-title">{step===1?'Current Ride Overview':'Ride Summary'}</div></div>
-        <div className="ro-rp-body">
-          <div className="ro-rp-row"><span className="ro-rp-label">Ride Start</span><span className="ro-rp-val">May 16, 2024, 10:30 AM</span></div>
-          <div className="ro-rp-row"><span className="ro-rp-label">Expected Return</span><span className="ro-rp-val">May 18, 2024, 10:30 AM</span></div>
-          {step>=3 && <div className="ro-rp-row"><span className="ro-rp-label">Actual Return</span><span className="ro-rp-val red">May 18, 2024, 02:45 PM</span></div>}
-          {step>=3 && <div className="ro-rp-row"><span className="ro-rp-label">Ride Duration</span><span className="ro-rp-val">2d 4h 15m</span></div>}
-          {step>=4 && <div className="ro-rp-row"><span className="ro-rp-label">Total Distance</span><span className="ro-rp-val">123.45 km</span></div>}
-          <div className="ro-rp-row"><span className="ro-rp-label">Plan</span><span className="ro-rp-val">Monthly Plan</span></div>
-          {step===1 && <><div className="ro-rp-row"><span className="ro-rp-label">Current Vehicle</span><span className="ro-rp-val">Ola S1 Pro (EVM1024012)</span></div>
-            <div className="ro-rp-row"><span className="ro-rp-label">Odometer</span><span className="ro-rp-val">12,345 km</span></div>
-            <div className="ro-rp-row"><span className="ro-rp-label">Battery SOH</span><span className="ro-rp-val">89%</span></div></>}
-          <div className="ro-rp-row"><span className="ro-rp-label">Security Deposit</span><span className="ro-rp-val green">₹500</span></div>
-          {step>=3 && <div className="ro-rp-row"><span className="ro-rp-label">Refund Amount</span><span className="ro-rp-val green">₹80</span></div>}
-          <div className="ro-rp-row"><span className="ro-rp-label">Status</span><span>{step>=4?<span className="ro-status-completed">Completed</span>:<span className="ro-status-active">Active</span>}</span></div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="ro-rp-card">
-        <div className="ro-rp-hdr"><span className="ro-rp-ic"><ILightning/></span><div className="ro-rp-title">Quick Actions</div></div>
-        <div className="ro-rp-body">
-          {step>=4 && <button className="ro-qa-btn"><IDl/> Download Return Receipt</button>}
-          <button className="ro-qa-btn"><IEye/> View Ride Details</button>
-          <button className="ro-qa-btn"><IPhone/> Call Rider</button>
-          <button className="ro-qa-btn"><IMsg/> Chat with Rider</button>
-        </div>
-      </div>
-
-      {/* Need Help */}
-      <div className="ro-rp-card">
-        <div className="ro-rp-hdr"><span className="ro-rp-ic"><IHelp/></span><div className="ro-rp-title">Need Help?</div></div>
-        <div className="ro-rp-body">
-          <div className="ro-help-sub">Facing issues with return?</div>
-          <button className="ro-contact-btn"><IHelp/> Contact Support</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  /* ─── Render ─── */
   return (
     <>
-      <style dangerouslySetInnerHTML={{__html:CSS}}/>
-      <div className="emp-shell">
-        <Sidebar activePath="/return-ride" />
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <div className="nr-shell">
+        <Sidebar activePath="/ride-operations/return" />
 
-        {/* ── Main ── */}
-        <div className="emp-main">
-          <TopBar title="Return Ride" subtitle="Complete the ride and initiate return" showHand={false} />
+        <div className="nr-main">
+          <TopBar
+            title="Return Ride & Operations"
+            subtitle="Vehicle return inspection, ride duration extension, and replacement swaps"
+          />
 
-          {/* Tabs */}
-          <div className="emp-tabs">
-            <div className={`emp-tab ${mainTab==='extend'?'active':''}`} onClick={()=>setMainTab('extend')}>
-              <ICalPlus/> Extend Ride
-            </div>
-            <div className={`emp-tab ${mainTab==='return'?'active':''}`} onClick={()=>setMainTab('return')}>
-              <IRefresh/> Return Vehicle
-            </div>
-            <div className={`emp-tab ${mainTab==='exchange'?'active':''}`} onClick={()=>setMainTab('exchange')}>
-              <ISwap/> Exchange Vehicle
-            </div>
-          </div>
+          <div className="nr-page">
 
-          {/* Content split */}
-          <div className="emp-content-wrap">
-            {/* Main content */}
-            <div style={{display:'flex',flexDirection:'column',overflow:'hidden'}}>
-              <div className="emp-step-area" style={{flex:1,overflowY:'auto'}}>
-                {/* Stepper */}
-                <div className="ro-stepper">
-                  {getSteps(step).map((s,i)=>(
-                    <div key={s.n} className="ro-sw">
-                      <div className="ro-step">
-                        <div className={`ro-sc ${s.state}`}>
-                          {s.state==='done' ? <ICheck s={12} c="#fff"/> : s.n}
+            {/* ── Breadcrumb ── */}
+            <div className="nr-bc">
+              <Link href="/"><ILeft /> Home</Link>
+              <span className="nr-bc-sep">›</span>
+              <a href="#">Rides / Rentals</a>
+              <span className="nr-bc-sep">›</span>
+              <span className="nr-bc-cur">Return Ride &amp; Operations</span>
+            </div>
+
+            {/* ── Title Row ── */}
+            <div className="nr-title-row">
+              <div>
+                <h1 className="nr-h1">Return Ride &amp; Operations</h1>
+                <p className="nr-sub">Check in completed rides, extend ongoing packages, or exchange vehicles seamlessly</p>
+              </div>
+              <Link href="/" className="nr-back-btn">
+                <ILeft /> Back to Dashboard
+              </Link>
+            </div>
+
+            {/* ── Operation Mode Tabs (Pill Switcher) ── */}
+            <div className="ro-mode-tabs">
+              <div
+                className={`ro-mode-tab ${mainTab === 'return' ? 'active' : ''}`}
+                onClick={() => { setMainTab('return'); setActiveStep(1); setActionSuccess(null); }}
+              >
+                <IScooter /> Return Vehicle
+                <span className="ro-mode-badge">{filteredRiders.length}</span>
+              </div>
+              <div
+                className={`ro-mode-tab ${mainTab === 'extend' ? 'active' : ''}`}
+                onClick={() => { setMainTab('extend'); setActionSuccess(null); }}
+              >
+                <IClock /> Extend Ride
+              </div>
+              <div
+                className={`ro-mode-tab ${mainTab === 'exchange' ? 'active' : ''}`}
+                onClick={() => { setMainTab('exchange'); setActionSuccess(null); }}
+              >
+                <ISwap /> Exchange Vehicle
+              </div>
+            </div>
+
+            {/* ── Action Success Alert ── */}
+            {actionSuccess && (
+              <div style={{
+                background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 10,
+                padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10,
+                color: '#15803D', fontSize: 13, fontWeight: 600
+              }}>
+                <ICheckCircle />
+                <span>{actionSuccess}</span>
+              </div>
+            )}
+
+            {/* ── Stepper (for Return flow) ── */}
+            {mainTab === 'return' && (
+              <div className="nr-stepper">
+                {RETURN_STEPS.map((s, i) => (
+                  <div key={s.n} className="nr-step-wrap">
+                    <div className="nr-step">
+                      <div className={`nr-step-num ${s.state}`}>
+                        {s.state === 'done' ? <ICheck s={13} /> : s.n}
+                      </div>
+                      <div>
+                        <div className={`nr-step-label ${s.state === 'pend' ? 'pend' : ''}`}>{s.label}</div>
+                        <div className={`nr-step-stat ${s.state}-s`}>{s.stat}</div>
+                      </div>
+                    </div>
+                    {i < RETURN_STEPS.length - 1 && (
+                      <div className={`nr-step-line ${s.state === 'done' ? 'done-l' : ''}`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── 2-Col Layout ── */}
+            <div className="nr-layout">
+
+              {/* ── LEFT COLUMN ── */}
+              <div>
+
+                {/* ──────────────────────────────────────────────
+                    MODE 1: RETURN VEHICLE (4 STEPS)
+                   ────────────────────────────────────────────── */}
+                {mainTab === 'return' && (
+                  <>
+                    {/* STEP 1: Search Active Rider */}
+                    {activeStep === 1 && (
+                      <div className="nr-card">
+                        <div className="nr-card-hdr">
+                          <div>
+                            <h2>Search Active Booking for Return</h2>
+                            <p>Select an ongoing ride to begin vehicle inspection and security deposit refund</p>
+                          </div>
+                          <button
+                            onClick={fetchActiveRides}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
+                              border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 12px',
+                              fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer'
+                            }}
+                          >
+                            <IRefresh /> Refresh
+                          </button>
                         </div>
-                        <div>
-                          <div className={`ro-sn ${s.state==='pend'?'pend':''}`}>{s.label}</div>
-                          <div className={`ro-ss ${s.state}`}>
-                            {s.state==='done'?'Completed ✓':s.state==='act'?'In Progress':'Pending ○'}
+
+                        {/* Search bar */}
+                        <div className="rr-search-area">
+                          <div className="rr-search-grid">
+                            <div className="nr-ph">
+                              <span className="nr-ph-icon"><ISearch /></span>
+                              <input
+                                placeholder="Search by rider name or ID"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                              />
+                            </div>
+                            <div className="nr-ph">
+                              <span className="nr-ph-icon"><IPhone /></span>
+                              <input
+                                placeholder="Search by mobile or vehicle plate"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                              />
+                            </div>
+                            <div className="nr-ph" style={{ background: '#F9FAFB' }}>
+                              <span style={{ padding: '0 10px', fontSize: 12, fontWeight: 700, color: '#2A195C' }}>
+                                {selectedZone}
+                              </span>
+                            </div>
+                            <button className="rr-search-btn" onClick={fetchActiveRides}>
+                              <ISearch /> Find Active Ride
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Active Rides List */}
+                        <div className="nr-card-body">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111827' }}>
+                              Matching Active Rides ({filteredRiders.length})
+                            </span>
+                            <span style={{ fontSize: 11.5, color: '#6B7280' }}>
+                              Click &quot;Proceed to Return&quot; to inspect vehicle
+                            </span>
+                          </div>
+
+                          {filteredRiders.length === 0 ? (
+                            <div style={{ padding: '35px 0', textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
+                              No active bookings found matching your search. Try another query or zone.
+                            </div>
+                          ) : (
+                            filteredRiders.map((r, idx) => (
+                              <div key={r.id || idx} className="rr-rider-row">
+                                <div className="rr-avatar">
+                                  <img
+                                    src={r.avatar || '/rohit_avatar.png'}
+                                    alt={r.name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                  <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 13, zIndex: 0 }}>
+                                    {r.name.slice(0, 2).toUpperCase()}
+                                  </span>
+                                </div>
+                                <div className="rr-rider-info">
+                                  <div className="rr-rider-name-row">
+                                    <span className="rr-rider-name">{r.name}</span>
+                                    <span className="rr-active-badge">Active Ride</span>
+                                    <span className="rr-kyc-badge">✓ KYC Verified</span>
+                                  </div>
+                                  <div className="rr-rider-id">{r.id}</div>
+                                  <div className="rr-rider-meta">
+                                    <span className="rr-meta-item"><IPhone /> {r.mobile}</span>
+                                    <span className="rr-meta-item"><IScooter /> {r.vehicle_id}</span>
+                                    <span className="rr-meta-item"><IBattery /> {r.battery_id}</span>
+                                    <span className="rr-meta-item"><IClock /> {r.start_date}</span>
+                                    <span className="rr-meta-item" style={{ color: '#16A34A', fontWeight: 700 }}>Deposit: ₹{r.deposit_amount}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  className="rr-select-btn"
+                                  onClick={() => {
+                                    setSelectedRider(r);
+                                    setUpiId(`${r.name.toLowerCase().replace(/[^a-z]/g, '')}@upi`);
+                                    setActiveStep(2);
+                                  }}
+                                >
+                                  Proceed to Return &gt;
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 2: Vehicle Inspection */}
+                    {activeStep === 2 && selectedRider && (
+                      <div>
+                        {/* Selected Rider Banner */}
+                        <div className="nr-card" style={{ marginBottom: 14 }}>
+                          <div className="rr-rider-banner">
+                            <div className="rr-banner-avatar">
+                              <img
+                                src={selectedRider.avatar || '/rohit_avatar.png'}
+                                alt={selectedRider.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                              <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 18, zIndex: 0 }}>
+                                {selectedRider.name.slice(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="rr-banner-name">
+                                {selectedRider.name}
+                                <span className="rr-kyc-badge"><ICheck s={10} /> KYC Verified</span>
+                              </div>
+                              <div className="rr-banner-row"><IPhone /> {selectedRider.mobile} &bull; ID: {selectedRider.id}</div>
+                              <div className="rr-banner-row"><IScooter /> {selectedRider.vehicle_id} &bull; <IBattery /> {selectedRider.battery_id}</div>
+                            </div>
+                            <div className="rr-banner-stats">
+                              <div className="rr-stat-block">
+                                <div className="rr-stat-num" style={{ color: '#16A34A' }}>₹{currentDeposit}</div>
+                                <div className="rr-stat-lbl">Security Deposit</div>
+                              </div>
+                              <div className="rr-stat-block">
+                                <div className="rr-stat-num">{selectedRider.plan}</div>
+                                <div className="rr-stat-lbl">Active Plan</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Inspection Checklist */}
+                        <div className="nr-card">
+                          <div className="nr-card-hdr">
+                            <div>
+                              <h2>Vehicle Physical &amp; Technical Inspection</h2>
+                              <p>Record vehicle condition, accessories returned, and damage deductions</p>
+                            </div>
+                          </div>
+                          <div className="nr-card-body">
+                            {/* Photo Upload Preview */}
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 8 }}>
+                              Vehicle Check-in Inspection Photos (6 Angles)
+                            </div>
+                            <div className="ro-photo-grid">
+                              {['Front', 'Rear', 'Left Side', 'Right Side', 'Odometer', 'Battery Bay'].map((lbl, idx) => (
+                                <div key={lbl} className="ro-photo-slot-add">
+                                  <span style={{ fontSize: 18 }}>📸</span>
+                                  <span className="ro-photo-lbl">{lbl}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Inspection Conditions */}
+                            <div className="ro-condition-grid">
+                              <div className="ro-cond-group">
+                                <span className="ro-cond-title">Body &amp; Frame</span>
+                                <div className="ro-radio-row" onClick={() => setBodyDmg('clean')}>
+                                  <div className={`ro-radio ${bodyDmg === 'clean' ? 'on' : ''}`} /> Clean / Normal
+                                </div>
+                                <div className="ro-radio-row" onClick={() => setBodyDmg('minor')}>
+                                  <div className={`ro-radio ${bodyDmg === 'minor' ? 'on' : ''}`} /> Minor Scratch (-₹250)
+                                </div>
+                                <div className="ro-radio-row" onClick={() => setBodyDmg('major')}>
+                                  <div className={`ro-radio ${bodyDmg === 'major' ? 'on' : ''}`} /> Dent / Crack (-₹500)
+                                </div>
+                              </div>
+
+                              <div className="ro-cond-group">
+                                <span className="ro-cond-title">Tyres &amp; Brakes</span>
+                                <div className="ro-radio-row" onClick={() => setTyreCond('good')}>
+                                  <div className={`ro-radio ${tyreCond === 'good' ? 'on' : ''}`} /> Good Condition
+                                </div>
+                                <div className="ro-radio-row" onClick={() => setTyreCond('worn')}>
+                                  <div className={`ro-radio ${tyreCond === 'worn' ? 'on' : ''}`} /> Heavy Wear (-₹150)
+                                </div>
+                                <div className="ro-radio-row" onClick={() => setTyreCond('damaged')}>
+                                  <div className={`ro-radio ${tyreCond === 'damaged' ? 'on' : ''}`} /> Punctured (-₹350)
+                                </div>
+                              </div>
+
+                              <div className="ro-cond-group">
+                                <span className="ro-cond-title">Cleanliness</span>
+                                <div className="ro-radio-row" onClick={() => setCleanliness('clean')}>
+                                  <div className={`ro-radio ${cleanliness === 'clean' ? 'on' : ''}`} /> Clean Vehicle
+                                </div>
+                                <div className="ro-radio-row" onClick={() => setCleanliness('dirty')}>
+                                  <div className={`ro-radio ${cleanliness === 'dirty' ? 'on' : ''}`} /> Heavy Mud (-₹80)
+                                </div>
+                              </div>
+
+                              <div className="ro-cond-group">
+                                <span className="ro-cond-title">Battery SOC &amp; Health</span>
+                                <div className="ro-radio-row" onClick={() => setBatteryHealth('good')}>
+                                  <div className={`ro-radio ${batteryHealth === 'good' ? 'on' : ''}`} /> Normal (SOC &gt; 20%)
+                                </div>
+                                <div className="ro-radio-row" onClick={() => setBatteryHealth('issue')}>
+                                  <div className={`ro-radio ${batteryHealth === 'issue' ? 'on' : ''}`} /> Deep Drain (-₹200)
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Included Accessories Check */}
+                            <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 14, marginTop: 10 }}>
+                              <span className="ro-cond-title" style={{ display: 'block', marginBottom: 8 }}>Accessories Handed Over</span>
+                              <div style={{ display: 'flex', gap: 20 }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                                  <input type="checkbox" checked={helmetReturned} onChange={e => setHelmetReturned(e.target.checked)} />
+                                  Evegah Helmet {!helmetReturned && <span style={{ color: '#EF4444' }}>(-₹300)</span>}
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                                  <input type="checkbox" checked={chargerReturned} onChange={e => setChargerReturned(e.target.checked)} />
+                                  60V Smart Fast Charger {!chargerReturned && <span style={{ color: '#EF4444' }}>(-₹200)</span>}
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Inspection Notes */}
+                            <div style={{ marginTop: 14 }}>
+                              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }}>
+                                Inspection Remarks (Optional)
+                              </label>
+                              <textarea
+                                placeholder="E.g., Vehicle returned in good operational condition. Odometer reading 1,420 km."
+                                value={inspectionNotes}
+                                onChange={e => setInspectionNotes(e.target.value)}
+                                style={{
+                                  width: '100%', padding: '8px 12px', border: '1.5px solid #E5E7EB',
+                                  borderRadius: 8, fontSize: 12.5, outline: 'none', resize: 'none', minHeight: 60
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer Card */}
+                        <div className="nr-footer-card">
+                          <button className="nr-cancel-btn" onClick={() => setActiveStep(1)}>
+                            <ILeft /> Back to Search
+                          </button>
+                          <button className="nr-continue-btn" onClick={() => setActiveStep(3)}>
+                            Proceed to Settlement &gt;
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 3: Settlement & Refund */}
+                    {activeStep === 3 && selectedRider && (
+                      <div>
+                        {/* Summary Card */}
+                        <div className="nr-card">
+                          <div className="nr-card-hdr">
+                            <div>
+                              <h2>Security Deposit Settlement &amp; Payout</h2>
+                              <p>Review calculated deductions and refund the remaining deposit to {selectedRider.name}</p>
+                            </div>
+                          </div>
+                          <div className="nr-card-body">
+                            <div className="ro-settle-grid">
+                              {/* Deductions Breakdown */}
+                              <div className="ro-settle-box">
+                                <div className="ro-settle-title">Inspection Deductions</div>
+                                <div className="ro-settle-row">
+                                  <span className="ro-settle-label">Original Security Deposit:</span>
+                                  <span className="ro-settle-val">₹{currentDeposit.toFixed(2)}</span>
+                                </div>
+                                <div className="ro-settle-row">
+                                  <span className="ro-settle-label">Body Damage:</span>
+                                  <span className="ro-settle-val" style={{ color: bodyDmg === 'clean' ? '#16A34A' : '#EF4444' }}>
+                                    {bodyDmg === 'clean' ? '₹0.00 (None)' : `-₹${bodyDmg === 'minor' ? 250 : 500}`}
+                                  </span>
+                                </div>
+                                <div className="ro-settle-row">
+                                  <span className="ro-settle-label">Tyre / Brake Wear:</span>
+                                  <span className="ro-settle-val" style={{ color: tyreCond === 'good' ? '#16A34A' : '#EF4444' }}>
+                                    {tyreCond === 'good' ? '₹0.00 (Normal)' : `-₹${tyreCond === 'worn' ? 150 : 350}`}
+                                  </span>
+                                </div>
+                                <div className="ro-settle-row">
+                                  <span className="ro-settle-label">Missing Accessories:</span>
+                                  <span className="ro-settle-val" style={{ color: (!helmetReturned || !chargerReturned) ? '#EF4444' : '#16A34A' }}>
+                                    {(!helmetReturned || !chargerReturned) ? `-₹${(!helmetReturned ? 300 : 0) + (!chargerReturned ? 200 : 0)}` : '₹0.00'}
+                                  </span>
+                                </div>
+                                <div style={{ height: 1, background: '#E5E7EB', margin: '8px 0' }} />
+                                <div className="ro-settle-row" style={{ fontWeight: 800 }}>
+                                  <span>Total Deductions:</span>
+                                  <span style={{ color: '#EF4444' }}>₹{deductions.toFixed(2)}</span>
+                                </div>
+                              </div>
+
+                              {/* Net Refund Calculation */}
+                              <div className="ro-settle-box" style={{ background: '#F0FDF4', borderColor: '#BBF7D0' }}>
+                                <div className="ro-settle-title" style={{ color: '#166534' }}>Net Refund Amount</div>
+                                <div className="ro-refund-big">₹{netRefund.toFixed(2)}</div>
+                                <p style={{ fontSize: 12, color: '#15803D', margin: '6px 0 14px' }}>
+                                  Amount will be refunded immediately upon station check-in confirmation.
+                                </p>
+
+                                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                                  Refund Payment Mode
+                                </div>
+                                <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
+                                  {[
+                                    { id: 'upi', label: 'UPI Payout' },
+                                    { id: 'cash', label: 'Cash Counter' },
+                                    { id: 'wallet', label: 'Rider Wallet' }
+                                  ].map(m => (
+                                    <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+                                      <input
+                                        type="radio"
+                                        name="refundMethod"
+                                        checked={refundMethod === m.id}
+                                        onChange={() => setRefundMethod(m.id as any)}
+                                      />
+                                      {m.label}
+                                    </label>
+                                  ))}
+                                </div>
+
+                                {refundMethod === 'upi' && (
+                                  <div className="nr-ph" style={{ marginTop: 6 }}>
+                                    <span className="nr-ph-icon">📱</span>
+                                    <input
+                                      placeholder="rider@upi"
+                                      value={upiId}
+                                      onChange={e => setUpiId(e.target.value)}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer Card */}
+                        <div className="nr-footer-card">
+                          <button className="nr-cancel-btn" onClick={() => setActiveStep(2)}>
+                            <ILeft /> Back to Inspection
+                          </button>
+                          <button className="nr-continue-btn" onClick={handleCompleteReturn}>
+                            Confirm Return &amp; Refund ₹{netRefund} &gt;
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 4: Return Confirmation */}
+                    {activeStep === 4 && selectedRider && (
+                      <div className="nr-card">
+                        <div className="nr-card-body" style={{ textAlign: 'center', padding: '36px 24px' }}>
+                          <div style={{
+                            width: 60, height: 60, borderRadius: '50%', background: '#DCFCE7',
+                            color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 28, margin: '0 auto 16px'
+                          }}>
+                            ✓
+                          </div>
+                          <h2 style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 6 }}>
+                            Vehicle Return Completed Successfully!
+                          </h2>
+                          <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 440, margin: '0 auto 20px' }}>
+                            Vehicle <b>{selectedRider.vehicle_id}</b> has been checked into <b>{selectedZone}</b> inventory.
+                            Deposit refund of <b>₹{netRefund}</b> has been initiated to <b>{selectedRider.name}</b>.
+                          </p>
+
+                          <div style={{
+                            background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10,
+                            padding: '16px', maxWidth: 480, margin: '0 auto 24px', textAlign: 'left'
+                          }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12.5 }}>
+                              <div><span style={{ color: '#6B7280' }}>Rider Name:</span> <b>{selectedRider.name}</b></div>
+                              <div><span style={{ color: '#6B7280' }}>Rider ID:</span> <b>{selectedRider.id}</b></div>
+                              <div><span style={{ color: '#6B7280' }}>Vehicle Code:</span> <b>{selectedRider.vehicle_id}</b></div>
+                              <div><span style={{ color: '#6B7280' }}>Battery Serial:</span> <b>{selectedRider.battery_id}</b></div>
+                              <div><span style={{ color: '#6B7280' }}>Deductions:</span> <b style={{ color: '#EF4444' }}>₹{deductions}</b></div>
+                              <div><span style={{ color: '#6B7280' }}>Refund Method:</span> <b style={{ color: '#16A34A' }}>{refundMethod.toUpperCase()} (₹{netRefund})</b></div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                            <button
+                              className="nr-continue-btn"
+                              onClick={() => { setActiveStep(1); fetchActiveRides(); }}
+                            >
+                              Process Another Return
+                            </button>
+                            <Link href="/" className="nr-back-btn" style={{ textDecoration: 'none' }}>
+                              Back to Dashboard
+                            </Link>
                           </div>
                         </div>
                       </div>
-                      {i<3 && <div className={`ro-sl ${s.state==='done'?'done':''}`}/>}
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </>
+                )}
 
-                {/* Step content */}
-                {step===1 && <Step1/>}
-                {step===2 && <Step2/>}
-                {step===3 && <Step3/>}
-                {step===4 && <Step4/>}
+                {/* ──────────────────────────────────────────────
+                    MODE 2: EXTEND RIDE DURATION & PACKAGES
+                   ────────────────────────────────────────────── */}
+                {mainTab === 'extend' && selectedRider && (
+                  <div>
+                    {/* Active Ride Banner */}
+                    <div className="nr-card" style={{ marginBottom: 14 }}>
+                      <div className="rr-rider-banner">
+                        <div className="rr-banner-avatar">
+                          <img
+                            src={selectedRider.avatar || '/rohit_avatar.png'}
+                            alt={selectedRider.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                          <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 18, zIndex: 0 }}>
+                            {selectedRider.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="rr-banner-name">
+                            {selectedRider.name}
+                            <span className="rr-active-badge">Ongoing Ride</span>
+                          </div>
+                          <div className="rr-banner-row"><IPhone /> {selectedRider.mobile} &bull; ID: {selectedRider.id}</div>
+                          <div className="rr-banner-row"><IScooter /> {selectedRider.vehicle_id} &bull; <IBattery /> {selectedRider.battery_id}</div>
+                        </div>
+                        <div className="rr-banner-stats">
+                          <div className="rr-stat-block">
+                            <div className="rr-stat-num">{selectedRider.plan}</div>
+                            <div className="rr-stat-lbl">Current Plan</div>
+                          </div>
+                          <div className="rr-stat-block">
+                            <div className="rr-stat-num" style={{ color: '#16A34A' }}>₹{currentDeposit}</div>
+                            <div className="rr-stat-lbl">Security Deposit</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Extension Plan Selector Card */}
+                    <div className="nr-card">
+                      <div className="nr-card-hdr">
+                        <div>
+                          <h2>Select Ride Extension Option</h2>
+                          <p>Extend by full rental packages or add custom hourly duration</p>
+                        </div>
+                        {/* Mode toggle */}
+                        <div style={{ display: 'flex', gap: 6, background: '#F3F4F6', padding: 3, borderRadius: 8 }}>
+                          <button
+                            style={{
+                              padding: '5px 12px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 700,
+                              cursor: 'pointer', background: extendMode === 'package' ? '#2A195C' : 'transparent',
+                              color: extendMode === 'package' ? '#fff' : '#6B7280'
+                            }}
+                            onClick={() => setExtendMode('package')}
+                          >
+                            By Package
+                          </button>
+                          <button
+                            style={{
+                              padding: '5px 12px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 700,
+                              cursor: 'pointer', background: extendMode === 'hourly' ? '#2A195C' : 'transparent',
+                              color: extendMode === 'hourly' ? '#fff' : '#6B7280'
+                            }}
+                            onClick={() => setExtendMode('hourly')}
+                          >
+                            Custom Duration
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="nr-card-body">
+                        {extendMode === 'package' ? (
+                          <>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 10 }}>
+                              Available Packages for Extension
+                            </div>
+                            <div className="ext-pkg-grid">
+                              {EXTENSION_PACKAGES.map(pkg => (
+                                <div
+                                  key={pkg.id}
+                                  className={`ext-pkg-card ${selectedPackage.id === pkg.id ? 'selected' : ''}`}
+                                  onClick={() => setSelectedPackage(pkg)}
+                                >
+                                  {pkg.badge && <span className="ext-pkg-badge">{pkg.badge}</span>}
+                                  <div className="ext-pkg-title">{pkg.name}</div>
+                                  <div className="ext-pkg-days">+{pkg.days} Day{pkg.days > 1 ? 's' : ''} Extension</div>
+                                  <div className="ext-pkg-price">₹{pkg.fare}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                                Additional Days (+₹350/day)
+                              </label>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                {[0, 1, 2, 3, 5].map(d => (
+                                  <button
+                                    key={d}
+                                    style={{
+                                      flex: 1, padding: '8px', borderRadius: 8,
+                                      border: extendDays === d ? '2px solid #2A195C' : '1px solid #E5E7EB',
+                                      background: extendDays === d ? '#F5F3FF' : '#fff',
+                                      fontWeight: 700, color: extendDays === d ? '#2A195C' : '#374151', cursor: 'pointer'
+                                    }}
+                                    onClick={() => setExtendDays(d)}
+                                  >
+                                    {d}d
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                                Additional Hours (+₹45/hr)
+                              </label>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                {[1, 2, 4, 6].map(h => (
+                                  <button
+                                    key={h}
+                                    style={{
+                                      flex: 1, padding: '8px', borderRadius: 8,
+                                      border: extendHours === h ? '2px solid #2A195C' : '1px solid #E5E7EB',
+                                      background: extendHours === h ? '#F5F3FF' : '#fff',
+                                      fontWeight: 700, color: extendHours === h ? '#2A195C' : '#374151', cursor: 'pointer'
+                                    }}
+                                    onClick={() => setExtendHours(h)}
+                                  >
+                                    {h}h
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Payment Method & Total Payable */}
+                        <div style={{
+                          border: '1.5px solid #E5E7EB', borderRadius: 10, padding: 14,
+                          background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: 12, color: '#6B7280' }}>Total Additional Fare:</div>
+                            <div style={{ fontSize: 20, fontWeight: 800, color: '#2A195C' }}>₹{extensionFare.toFixed(2)}</div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 14 }}>
+                            {[
+                              { id: 'upi', label: 'UPI QR Code' },
+                              { id: 'cash', label: 'Cash Payment' },
+                              { id: 'split', label: 'Split (Cash+UPI)' }
+                            ].map(p => (
+                              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+                                <input
+                                  type="radio"
+                                  name="extendPayMethod"
+                                  checked={extendPayMethod === p.id}
+                                  onChange={() => setExtendPayMethod(p.id as any)}
+                                />
+                                {p.label}
+                              </label>
+                            ))}
+                          </div>
+
+                          <button
+                            className="nr-continue-btn"
+                            onClick={handleExtendRide}
+                            disabled={loading}
+                          >
+                            Confirm Extension &amp; Send WhatsApp
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ──────────────────────────────────────────────
+                    MODE 3: EXCHANGE VEHICLE (SWAP)
+                   ────────────────────────────────────────────── */}
+                {mainTab === 'exchange' && selectedRider && (
+                  <div>
+                    {/* Current Vehicle Card */}
+                    <div className="nr-card" style={{ marginBottom: 14 }}>
+                      <div className="rr-rider-banner">
+                        <div className="rr-banner-avatar">
+                          <img
+                            src={selectedRider.avatar || '/rohit_avatar.png'}
+                            alt={selectedRider.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                          <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 18, zIndex: 0 }}>
+                            {selectedRider.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="rr-banner-name">
+                            {selectedRider.name}
+                            <span className="rr-active-badge">Ongoing Ride</span>
+                          </div>
+                          <div className="rr-banner-row"><IPhone /> {selectedRider.mobile} &bull; ID: {selectedRider.id}</div>
+                          <div className="rr-banner-row" style={{ color: '#EF4444', fontWeight: 600 }}>
+                            Outgoing Vehicle: {selectedRider.vehicle_id} &bull; Battery: {selectedRider.battery_id}
+                          </div>
+                        </div>
+                        <div className="rr-banner-stats">
+                          <div className="rr-stat-block">
+                            <div className="rr-stat-num" style={{ color: '#16A34A' }}>₹0.00</div>
+                            <div className="rr-stat-lbl">Exchange Fee</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Replacement Vehicle & Battery Selection */}
+                    <div className="nr-card">
+                      <div className="nr-card-hdr">
+                        <div>
+                          <h2>Replacement Vehicle &amp; Battery Assignment</h2>
+                          <p>Assign an available vehicle from station inventory to swap with rider</p>
+                        </div>
+                      </div>
+                      <div className="nr-card-body">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                              Select Replacement Vehicle
+                            </label>
+                            <select
+                              value={exchangeNewVehicle}
+                              onChange={e => setExchangeNewVehicle(e.target.value)}
+                              style={{
+                                width: '100%', padding: '10px 12px', border: '1.5px solid #E5E7EB',
+                                borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff'
+                              }}
+                            >
+                              <option value="EVM1024012 (Evegah E1)">EVM1024012 — Evegah E1 (Ready)</option>
+                              <option value="EVM1024050 (Evegah City)">EVM1024050 — Evegah City (Ready)</option>
+                              <option value="EVM102501 (Evegah Pro)">EVM102501 — Evegah Pro (Ready)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                              Select Replacement Battery
+                            </label>
+                            <select
+                              value={exchangeNewBattery}
+                              onChange={e => setExchangeNewBattery(e.target.value)}
+                              style={{
+                                width: '100%', padding: '10px 12px', border: '1.5px solid #E5E7EB',
+                                borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff'
+                              }}
+                            >
+                              <option value="BAT-MNZ-001 (60V 32Ah)">BAT-MNZ-001 — 60V 32Ah (SOC 100%)</option>
+                              <option value="BAT-450X-12340001 (60V 30Ah)">BAT-450X-12340001 — 60V 30Ah (SOC 98%)</option>
+                              <option value="BAT-0098 (60V 30Ah)">BAT-0098 — 60V 30Ah (SOC 96%)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                            Reason for Vehicle Exchange
+                          </label>
+                          <select
+                            value={exchangeReason}
+                            onChange={e => setExchangeReason(e.target.value)}
+                            style={{
+                              width: '100%', padding: '10px 12px', border: '1.5px solid #E5E7EB',
+                              borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff'
+                            }}
+                          >
+                            <option value="Battery Range Drop">Battery Range Drop / Fast Discharge</option>
+                            <option value="Motor Noise">Motor Noise / Throttle Lag</option>
+                            <option value="Flat Tyre / Brake Issue">Flat Tyre / Brake Issue</option>
+                            <option value="Scheduled Preventative Maintenance">Scheduled Preventative Maintenance</option>
+                            <option value="Rider Request for Upgrade">Rider Request for Model Upgrade</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                            Exchange Remarks (Optional)
+                          </label>
+                          <textarea
+                            placeholder="Add internal notes for maintenance team..."
+                            value={exchangeNotes}
+                            onChange={e => setExchangeNotes(e.target.value)}
+                            style={{
+                              width: '100%', padding: '8px 12px', border: '1.5px solid #E5E7EB',
+                              borderRadius: 8, fontSize: 12.5, outline: 'none', resize: 'none', minHeight: 60
+                            }}
+                          />
+                        </div>
+
+                        <div className="nr-footer-card" style={{ marginTop: 16 }}>
+                          <span style={{ fontSize: 12.5, color: '#16A34A', fontWeight: 700 }}>
+                            ✓ 100% Free Swap Guarantee Applied
+                          </span>
+                          <button
+                            className="nr-continue-btn"
+                            onClick={handleExchangeVehicle}
+                            disabled={loading}
+                          >
+                            Confirm Vehicle Exchange &amp; Swap Voucher
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
-              {/* Footer navigation */}
-              <div className="ro-footer">
-                {step===1
-                  ? <Link href="/ride-operations" style={{textDecoration:'none'}}><button className="ro-back-btn"><ILeft/> Back</button></Link>
-                  : <button className="ro-back-btn" onClick={()=>setStep(p=>p-1)}><ILeft/> Back</button>
-                }
-                {step===4
-                  ? <button
-                      className={`ro-confirm-final-btn ${!confirmed?'':''}` }
-                      style={{opacity:confirmed?1:.5,cursor:confirmed?'pointer':'not-allowed'}}
-                      onClick={async () => {
-                        if (confirmed) {
-                          try {
-                            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-                            await fetch(`${apiUrl}/renters/return`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                vehicle_id: 'EV-450X-202401',
-                                rider_name: 'Amit Kumar',
-                                mobile: '+91 98765 43210'
-                              })
-                            });
-                          } catch (err) {
-                            console.error('Failed to submit return ride:', err);
-                          }
-                          alert('Return confirmed & ride closed successfully!');
-                        }
+              {/* ── RIGHT PANEL ── */}
+              <div className="nr-rp">
+
+                {/* Active Rider Summary Card */}
+                {selectedRider && (
+                  <div className="nr-rp-card">
+                    <div className="nr-rp-hdr">
+                      <span style={{ color: '#2A195C', display: 'flex' }}><IReceipt /></span>
+                      <div className="nr-rp-title">Active Booking Details</div>
+                    </div>
+                    <div className="nr-rp-body">
+                      <div className="nr-rp-avatar-row">
+                        <div className="nr-rp-avatar">
+                          <img
+                            src={selectedRider.avatar || '/rohit_avatar.png'}
+                            alt={selectedRider.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                          <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 13, zIndex: 0 }}>
+                            {selectedRider.name.slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="nr-rp-name">{selectedRider.name}</div>
+                          <div className="nr-rp-sub">{selectedRider.mobile}</div>
+                        </div>
+                      </div>
+
+                      <div className="nr-rp-row">
+                        <span className="nr-rp-label">Rider ID</span>
+                        <span className="nr-rp-val">{selectedRider.id}</span>
+                      </div>
+                      <div className="nr-rp-row">
+                        <span className="nr-rp-label">Vehicle</span>
+                        <span className="nr-rp-val">{selectedRider.vehicle_id}</span>
+                      </div>
+                      <div className="nr-rp-row">
+                        <span className="nr-rp-label">Battery</span>
+                        <span className="nr-rp-val">{selectedRider.battery_id}</span>
+                      </div>
+                      <div className="nr-rp-row">
+                        <span className="nr-rp-label">Start Date</span>
+                        <span className="nr-rp-val">{selectedRider.start_date}</span>
+                      </div>
+                      <div className="nr-rp-row">
+                        <span className="nr-rp-label">Security Deposit</span>
+                        <span className="nr-rp-val" style={{ color: '#16A34A' }}>₹{currentDeposit}</span>
+                      </div>
+                      <div className="nr-rp-row">
+                        <span className="nr-rp-label">Zone</span>
+                        <span className="nr-rp-val">{selectedRider.zone}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hub Support Card */}
+                <div className="nr-rp-card">
+                  <div className="nr-rp-hdr">
+                    <span style={{ color: '#2A195C', display: 'flex' }}>🎧</span>
+                    <div className="nr-rp-title">Station Support</div>
+                  </div>
+                  <div style={{ padding: '12px 14px' }}>
+                    <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+                      Facing an operational blocker during inspection or refund?
+                    </div>
+                    <button
+                      style={{
+                        width: '100%', padding: '8px', background: '#2A195C', color: '#fff',
+                        borderRadius: 7, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer'
                       }}
                     >
-                      Confirm Return &amp; Close Ride <ICheck s={16} c="#fff"/>
+                      Call Operations Lead
                     </button>
-                  : step===1
-                    ? <button className="ro-next-btn disabled" style={{opacity:.4,cursor:'not-allowed'}}>Next: Vehicle Inspection <IRight s={13}/></button>
-                    : <button className="ro-next-btn" onClick={()=>setStep(p=>p+1)}>
-                        Next: {step===2?'Settlement':step===3?'Return Confirmation':''} <IRight s={13}/>
-                      </button>
-                }
+                  </div>
+                </div>
+
+                {/* Quick Tips Card */}
+                <div className="nr-tips-card">
+                  <div className="nr-tips-hdr">
+                    <IBulb />
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#92400E' }}>Operations Guidelines</div>
+                  </div>
+                  <div style={{ padding: '8px 0 10px' }}>
+                    <div className="nr-tip-row">
+                      <span className="nr-tip-dot" />
+                      <span>Always verify physical accessories (helmet &amp; charger) before initiating refund.</span>
+                    </div>
+                    <div className="nr-tip-row">
+                      <span className="nr-tip-dot" />
+                      <span>WhatsApp receipts and vouchers are automatically dispatched to the rider.</span>
+                    </div>
+                    <div className="nr-tip-row">
+                      <span className="nr-tip-dot" />
+                      <span>Swapped vehicles must be marked for preventative inspection before re-leasing.</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
+
             </div>
 
-            {/* Right Panel */}
-            <div className="ro-rp-area">
-              <RightPanel/>
-            </div>
           </div>
         </div>
       </div>

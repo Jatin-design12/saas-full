@@ -1,10 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { getCache, setCache, delByPattern } = require('../redis');
 
 // GET /api/maintenance/stats - Fetch stats and breakdown summary
 router.get('/stats', async (req, res) => {
   try {
+    const cacheKey = 'maintenance:stats';
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const totalRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders`);
     const upcomingRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status IN ('Scheduled', 'Due Soon', 'In Progress')`);
     const completedRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status = 'Completed'`);
@@ -18,7 +25,7 @@ router.get('/stats', async (req, res) => {
       ORDER BY count DESC
     `);
 
-    res.json({
+    const payload = {
       status: 'success',
       data: {
         total: parseInt(totalRes.rows[0].count) || 24,
@@ -27,7 +34,10 @@ router.get('/stats', async (req, res) => {
         overdue: parseInt(overdueRes.rows[0].count) || 2,
         breakdown: typeBreakdown.rows
       }
-    });
+    };
+
+    res.json(payload);
+    setCache(cacheKey, payload, 60);
   } catch (err) {
     console.error('Error fetching maintenance stats:', err);
     res.status(500).json({ status: 'error', message: err.message });
@@ -75,6 +85,11 @@ router.post('/reminder', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { status, type, technician, search, page = 1, limit = 50 } = req.query;
+    const cacheKey = `maintenance:list:${status || 'all'}:${type || 'all'}:${technician || 'all'}:${search || 'none'}`;
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     let query = 'SELECT * FROM maintenance_orders WHERE 1=1';
     const params = [];
@@ -107,7 +122,9 @@ router.get('/', async (req, res) => {
     query += ' ORDER BY created_at DESC';
 
     const result = await db.query(query, params);
-    res.json({ status: 'success', data: result.rows, total: result.rows.length });
+    const payload = { status: 'success', data: result.rows, total: result.rows.length };
+    res.json(payload);
+    setCache(cacheKey, payload, 60);
   } catch (err) {
     console.error('Error fetching maintenance orders:', err);
     res.status(500).json({ status: 'error', message: err.message });
@@ -139,6 +156,7 @@ router.post('/', async (req, res) => {
       zone || 'Alkapuri Zone'
     ]);
 
+    delByPattern('maintenance:*');
     res.status(201).json({ status: 'success', data: result.rows[0] });
   } catch (err) {
     console.error('Error creating maintenance order:', err);
@@ -167,6 +185,7 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Work order not found' });
     }
 
+    delByPattern('maintenance:*');
     res.json({ status: 'success', data: result.rows[0] });
   } catch (err) {
     console.error('Error updating maintenance order:', err);
@@ -179,6 +198,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     await db.query(`DELETE FROM maintenance_orders WHERE id = $1 OR ticket_id = $1`, [id]);
+    delByPattern('maintenance:*');
     res.json({ status: 'success', message: 'Maintenance record deleted' });
   } catch (err) {
     console.error('Error deleting maintenance record:', err);

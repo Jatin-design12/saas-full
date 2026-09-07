@@ -39,6 +39,9 @@ app.use('/api/audit-logs', require('./routes/auditLogs'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/referral', require('./routes/referral'));
 app.use('/api/wallet', require('./routes/wallet'));
+app.use('/api/rides', require('./routes/rides'));
+app.use('/api/retain-rider', require('./routes/rides'));
+app.use('/api/payments/icici', require('./routes/icici'));
 
 
 // API endpoints for the Rider App

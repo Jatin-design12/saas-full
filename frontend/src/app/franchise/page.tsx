@@ -176,14 +176,14 @@ interface Franchise {
 }
 
 const INITIAL_FRANCHISES: Franchise[] = [
-  { id: 'FRN-CP-0001', name: 'CP E-Vegah Hub', ownerName: 'Rahul Sharma', location: 'Connaught Place, Delhi', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '12 Jan 2024', revenue: 324850.0 },
-  { id: 'FRN-KR-0002', name: 'Karol Bagh E-Vegah', ownerName: 'Aarav Verma', location: 'Karol Bagh, Delhi', type: 'Battery Swapping', status: 'Active', approvalStatus: 'Approved', joinedOn: '18 Jan 2024', revenue: 288650.0 },
-  { id: 'FRN-JM-0003', name: 'Janakpuri E-Vegah', ownerName: 'Neha Gupta', location: 'Janakpuri, Delhi', type: 'Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '22 Jan 2024', revenue: 245320.0 },
-  { id: 'FRN-RJ-0004', name: 'Raja Garden E-Vegah', ownerName: 'Mohit Singh', location: 'Raja Garden, Delhi', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '02 Feb 2024', revenue: 312750.0 },
-  { id: 'FRN-DW-0005', name: 'Dwarka E-Vegah', ownerName: 'Pooja Mehta', location: 'Dwarka, Delhi', type: 'Battery Swapping', status: 'Inactive', approvalStatus: 'N/A', joinedOn: '10 Feb 2024', revenue: 0.0 },
-  { id: 'FRN-PK-0006', name: 'Pitampura E-Vegah', ownerName: 'Vikram Arora', location: 'Pitampura, Delhi', type: 'Rental', status: 'Pending', approvalStatus: 'Pending', joinedOn: '15 Feb 2024', revenue: 0.0 },
-  { id: 'FRN-NR-0007', name: 'Nehru Place E-Vegah', ownerName: 'Sandeep Kumar', location: 'Nehru Place, Delhi', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '20 Feb 2024', revenue: 295600.0 },
-  { id: 'FRN-LJ-0008', name: 'Lajpat Nagar E-Vegah', ownerName: 'Karan Malhotra', location: 'Lajpat Nagar, Delhi', type: 'Battery Swapping', status: 'Suspended', approvalStatus: 'Approved', joinedOn: '05 Mar 2024', revenue: 0.0 }
+  { id: 'FRN-GT-0001', name: 'Gotri E-Vegah Hub', ownerName: 'Rahul Sharma', location: 'Gotri, Vadodara', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '12 Jan 2024', revenue: 324850.0 },
+  { id: 'FRN-MJ-0002', name: 'Manjalpur E-Vegah', ownerName: 'Aarav Verma', location: 'Manjalpur, Vadodara', type: 'Battery Swapping', status: 'Active', approvalStatus: 'Approved', joinedOn: '18 Jan 2024', revenue: 288650.0 },
+  { id: 'FRN-KP-0003', name: 'KPGU E-Vegah Hub', ownerName: 'Neha Gupta', location: 'KPGU Campus, Vadodara', type: 'Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '22 Jan 2024', revenue: 245320.0 },
+  { id: 'FRN-AT-0004', name: 'Aatapi E-Vegah', ownerName: 'Mohit Singh', location: 'Aatapi, Vadodara', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '02 Feb 2024', revenue: 312750.0 },
+  { id: 'FRN-MD-0005', name: 'Moti Daman E-Vegah', ownerName: 'Pooja Mehta', location: 'Moti Daman, Daman', type: 'Battery Swapping', status: 'Inactive', approvalStatus: 'N/A', joinedOn: '10 Feb 2024', revenue: 0.0 },
+  { id: 'FRN-AL-0006', name: 'Alkapuri E-Vegah', ownerName: 'Vikram Arora', location: 'Alkapuri, Vadodara', type: 'Rental', status: 'Pending', approvalStatus: 'Pending', joinedOn: '15 Feb 2024', revenue: 0.0 },
+  { id: 'FRN-SY-0007', name: 'Sayajigunj E-Vegah', ownerName: 'Sandeep Kumar', location: 'Sayajigunj, Vadodara', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '20 Feb 2024', revenue: 295600.0 },
+  { id: 'FRN-AK-0008', name: 'Akota E-Vegah', ownerName: 'Karan Malhotra', location: 'Akota, Vadodara', type: 'Battery Swapping', status: 'Suspended', approvalStatus: 'Approved', joinedOn: '05 Mar 2024', revenue: 0.0 }
 ];
 
 export default function FranchisePage() {
@@ -198,7 +198,7 @@ export default function FranchisePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newFranchiseName, setNewFranchiseName] = useState('');
   const [newOwnerName, setNewOwnerName] = useState('');
-  const [newLocation, setNewLocation] = useState('Connaught Place, Delhi');
+  const [newLocation, setNewLocation] = useState('Gotri, Vadodara');
   const [newType, setNewType] = useState('Battery Swapping + Rental');
 
   // Filter list
@@ -354,14 +354,14 @@ export default function FranchisePage() {
                 </div>
                 <select className="fr-select" value={selectedZone} onChange={(e) => setSelectedZone(e.target.value)}>
                   <option value="All Zones">All Zones</option>
-                  <option value="Connaught Place">Connaught Place</option>
-                  <option value="Karol Bagh">Karol Bagh</option>
-                  <option value="Janakpuri">Janakpuri</option>
-                  <option value="Raja Garden">Raja Garden</option>
-                  <option value="Dwarka">Dwarka</option>
-                  <option value="Pitampura">Pitampura</option>
-                  <option value="Nehru Place">Nehru Place</option>
-                  <option value="Lajpat Nagar">Lajpat Nagar</option>
+                  <option value="Gotri">Gotri</option>
+                  <option value="Manjalpur">Manjalpur</option>
+                  <option value="KPGU">KPGU</option>
+                  <option value="Aatapi">Aatapi</option>
+                  <option value="Moti Daman">Moti Daman</option>
+                  <option value="Alkapuri">Alkapuri</option>
+                  <option value="Sayajigunj">Sayajigunj</option>
+                  <option value="Akota">Akota</option>
                 </select>
                 <select className="fr-select" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
                   <option value="All Status">All Status</option>
@@ -513,14 +513,12 @@ export default function FranchisePage() {
                     value={newLocation}
                     onChange={(e) => setNewLocation(e.target.value)}
                   >
-                    <option value="Connaught Place, Delhi">Connaught Place, Delhi</option>
-                    <option value="Karol Bagh, Delhi">Karol Bagh, Delhi</option>
-                    <option value="Janakpuri, Delhi">Janakpuri, Delhi</option>
-                    <option value="Raja Garden, Delhi">Raja Garden, Delhi</option>
-                    <option value="Dwarka, Delhi">Dwarka, Delhi</option>
-                    <option value="Pitampura, Delhi">Pitampura, Delhi</option>
-                    <option value="Nehru Place, Delhi">Nehru Place, Delhi</option>
-                    <option value="Lajpat Nagar, Delhi">Lajpat Nagar, Delhi</option>
+                    <option value="Gotri, Vadodara">Gotri, Vadodara</option>
+                    <option value="Manjalpur, Vadodara">Manjalpur, Vadodara</option>
+                    <option value="KPGU Campus, Vadodara">KPGU Campus, Vadodara</option>
+                    <option value="Aatapi, Vadodara">Aatapi, Vadodara</option>
+                    <option value="Moti Daman, Daman">Moti Daman, Daman</option>
+                    <option value="Alkapuri, Vadodara">Alkapuri, Vadodara</option>
                   </select>
                 </div>
                 <div className="form-group">

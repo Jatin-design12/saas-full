@@ -51,11 +51,11 @@ export default function InstalledDevicesPage() {
   const [status, setStatus] = useState('all');
 
   const devices = [
-    { id: 'IOT-9182', vehicle: 'EV-12KA-1234', installDate: 'May 10, 2024', zone: 'South Depot Zone', status: 'active' },
-    { id: 'IOT-4821', vehicle: 'EV-12KA-5678', installDate: 'May 12, 2024', zone: 'Connaught Place', status: 'active' },
-    { id: 'IOT-3011', vehicle: 'EV-12KA-6789', installDate: 'May 14, 2024', zone: 'Koramangala', status: 'inactive' },
-    { id: 'IOT-8492', vehicle: 'EV-12KA-9012', installDate: 'May 15, 2024', zone: 'Indiranagar', status: 'active' },
-    { id: 'IOT-2741', vehicle: 'EV-12KA-3456', installDate: 'May 18, 2024', zone: 'Banjara Hills', status: 'active' }
+    { id: 'IOT-9182', vehicle: 'EVM1024011', installDate: 'May 10, 2024', zone: 'Gotri Zone', status: 'active' },
+    { id: 'IOT-4821', vehicle: 'EVM1024012', installDate: 'May 12, 2024', zone: 'Gotri Zone', status: 'active' },
+    { id: 'IOT-3011', vehicle: 'EVM1024023', installDate: 'May 14, 2024', zone: 'Manjalpur Zone', status: 'inactive' },
+    { id: 'IOT-8492', vehicle: 'EVM102501', installDate: 'May 15, 2024', zone: 'KPGU Zone', status: 'active' },
+    { id: 'IOT-2741', vehicle: 'EVM102502', installDate: 'May 18, 2024', zone: 'Aatapi Zone', status: 'active' }
   ];
 
   const filtered = devices.filter(d => {

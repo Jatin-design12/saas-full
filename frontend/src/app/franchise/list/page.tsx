@@ -147,14 +147,14 @@ interface Franchise {
 }
 
 const INITIAL_FRANCHISES: Franchise[] = [
-  { code: 'FRN-CP-0001', name: 'CP E-Vegah Hub', ownerName: 'Rahul Sharma', zone: 'Connaught Place, Delhi', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '12 Jan 2024', revenue: 324850 },
-  { code: 'FRN-KR-0002', name: 'Karol Bagh E-Vegah', ownerName: 'Aarav Verma', zone: 'Karol Bagh, Delhi', type: 'Battery Swapping', status: 'Active', approvalStatus: 'Approved', joinedOn: '18 Jan 2024', revenue: 288650 },
-  { code: 'FRN-JM-0003', name: 'Janakpuri E-Vegah', ownerName: 'Neha Gupta', zone: 'Janakpuri, Delhi', type: 'Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '22 Jan 2024', revenue: 245320 },
-  { code: 'FRN-RJ-0004', name: 'Raja Garden E-Vegah', ownerName: 'Mohit Singh', zone: 'Raja Garden, Delhi', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '02 Feb 2024', revenue: 312750 },
-  { code: 'FRN-DW-0005', name: 'Dwarka E-Vegah', ownerName: 'Pooja Mehta', zone: 'Dwarka, Delhi', type: 'Battery Swapping', status: 'Inactive', approvalStatus: 'N/A', joinedOn: '10 Feb 2024', revenue: 0 },
-  { code: 'FRN-PK-0006', name: 'Pitampura E-Vegah', ownerName: 'Vikram Arora', zone: 'Pitampura, Delhi', type: 'Rental', status: 'Pending', approvalStatus: 'Pending', joinedOn: '15 Feb 2024', revenue: 0 },
-  { code: 'FRN-NR-0007', name: 'Nehru Place E-Vegah', ownerName: 'Sandeep Kumar', zone: 'Nehru Place, Delhi', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '20 Feb 2024', revenue: 295600 },
-  { code: 'FRN-LJ-0008', name: 'Lajpat Nagar E-Vegah', ownerName: 'Karan Malhotra', zone: 'Lajpat Nagar, Delhi', type: 'Battery Swapping', status: 'Suspended', approvalStatus: 'Approved', joinedOn: '05 Mar 2024', revenue: 0 }
+  { code: 'FRN-GT-0001', name: 'Gotri E-Vegah Hub', ownerName: 'Rahul Sharma', zone: 'Gotri, Vadodara', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '12 Jan 2024', revenue: 324850 },
+  { code: 'FRN-MJ-0002', name: 'Manjalpur E-Vegah', ownerName: 'Aarav Verma', zone: 'Manjalpur, Vadodara', type: 'Battery Swapping', status: 'Active', approvalStatus: 'Approved', joinedOn: '18 Jan 2024', revenue: 288650 },
+  { code: 'FRN-KP-0003', name: 'KPGU E-Vegah Hub', ownerName: 'Neha Gupta', zone: 'KPGU Campus, Vadodara', type: 'Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '22 Jan 2024', revenue: 245320 },
+  { code: 'FRN-AT-0004', name: 'Aatapi E-Vegah', ownerName: 'Mohit Singh', zone: 'Aatapi, Vadodara', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '02 Feb 2024', revenue: 312750 },
+  { code: 'FRN-MD-0005', name: 'Moti Daman E-Vegah', ownerName: 'Pooja Mehta', zone: 'Moti Daman, Daman', type: 'Battery Swapping', status: 'Inactive', approvalStatus: 'N/A', joinedOn: '10 Feb 2024', revenue: 0 },
+  { code: 'FRN-AL-0006', name: 'Alkapuri E-Vegah', ownerName: 'Vikram Arora', zone: 'Alkapuri, Vadodara', type: 'Rental', status: 'Pending', approvalStatus: 'Pending', joinedOn: '15 Feb 2024', revenue: 0 },
+  { code: 'FRN-SY-0007', name: 'Sayajigunj E-Vegah', ownerName: 'Sandeep Kumar', zone: 'Sayajigunj, Vadodara', type: 'Battery Swapping + Rental', status: 'Active', approvalStatus: 'Approved', joinedOn: '20 Feb 2024', revenue: 295600 },
+  { code: 'FRN-AK-0008', name: 'Akota E-Vegah', ownerName: 'Karan Malhotra', zone: 'Akota, Vadodara', type: 'Battery Swapping', status: 'Suspended', approvalStatus: 'Approved', joinedOn: '05 Mar 2024', revenue: 0 }
 ];
 
 export default function FranchiseManagementPage() {
@@ -175,7 +175,7 @@ export default function FranchiseManagementPage() {
     const matchesZone = selectedZone === 'All' || f.zone.includes(selectedZone);
     const matchesStatus = selectedStatus === 'All' || f.status === selectedStatus;
     const matchesApproval = selectedApproval === 'All' || f.approvalStatus === selectedApproval;
-    const matchesType = selectedType === 'All' || f.type === selectedType;
+    const matchesType = selectedType === 'All' || f.type.toLowerCase().includes(selectedType.toLowerCase());
 
     return matchesSearch && matchesZone && matchesStatus && matchesApproval && matchesType;
   });
@@ -194,7 +194,7 @@ export default function FranchiseManagementPage() {
       <div className="ev-shell">
         <Sidebar activePath="/franchise/list" />
         <div className="ev-main">
-          <TopBar title="Akash Verma" subtitle="Zone Employee" />
+          <TopBar />
           
           <div className="ev-body">
             
@@ -327,14 +327,11 @@ export default function FranchiseManagementPage() {
 
                 <select className="fr-select" value={selectedZone} onChange={e => setSelectedZone(e.target.value)}>
                   <option value="All">All Zones</option>
-                  <option value="Connaught Place">Connaught Place</option>
-                  <option value="Karol Bagh">Karol Bagh</option>
-                  <option value="Janakpuri">Janakpuri</option>
-                  <option value="Raja Garden">Raja Garden</option>
-                  <option value="Dwarka">Dwarka</option>
-                  <option value="Pitampura">Pitampura</option>
-                  <option value="Nehru Place">Nehru Place</option>
-                  <option value="Lajpat Nagar">Lajpat Nagar</option>
+                  <option value="Gotri Zone">Gotri Zone</option>
+                  <option value="Manjalpur Zone">Manjalpur Zone</option>
+                  <option value="KPGU Zone">KPGU Zone</option>
+                  <option value="Aatapi Zone">Aatapi Zone</option>
+                  <option value="Moti Daman Zone">Moti Daman Zone</option>
                 </select>
 
                 <select className="fr-select" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
@@ -490,11 +487,11 @@ export default function FranchiseManagementPage() {
 
                   <div className="blegend">
                     {[
-                      { color: '#6366F1', label: 'Connaught Place', count: 12, pct: '25%' },
-                      { color: '#10B981', label: 'Karol Bagh', count: 8, pct: '16.7%' },
-                      { color: '#F59E0B', label: 'Janakpuri', count: 6, pct: '12.5%' },
-                      { color: '#EC4899', label: 'Raja Garden', count: 5, pct: '10.4%' },
-                      { color: '#06B6D4', label: 'Nehru Place', count: 5, pct: '10.4%' }
+                      { color: '#6366F1', label: 'Gotri Zone', count: 18, pct: '37.5%' },
+                      { color: '#10B981', label: 'Manjalpur Zone', count: 14, pct: '29.2%' },
+                      { color: '#F59E0B', label: 'KPGU Zone', count: 8, pct: '16.7%' },
+                      { color: '#EC4899', label: 'Aatapi Zone', count: 5, pct: '10.4%' },
+                      { color: '#06B6D4', label: 'Moti Daman Zone', count: 3, pct: '6.2%' }
                     ].map(item => (
                       <div className="bleg-row" key={item.label}>
                         <div className="bleg-row-l">

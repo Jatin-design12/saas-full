@@ -56,11 +56,28 @@ const CSS = `
 /* List View table */
 .vl-table-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.02);overflow:hidden;}
 .vl-table-wrap{width:100%;overflow-x:auto;}
-.vl-table{width:100%;border-collapse:collapse;text-align:left;}
+.vl-table{width:100%;min-width:1100px;border-collapse:collapse;text-align:left;}
 .vl-table th{background:#F8FAFC;padding:12px 16px;font-size:9.5px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #F1F5F9;}
 .vl-table td{padding:12px 16px;font-size:12.5px;color:#334155;border-bottom:1px solid #F1F5F9;vertical-align:middle;}
 .vl-table tr:last-child td{border-bottom:none;}
 .vl-table tr:hover td{background:#F8FAFC;}
+
+/* 14-inch Laptop Responsive Layout */
+@media (max-width: 1440px) {
+  .vl-page { padding: 16px 20px 40px; }
+  .vl-stats-row { gap: 12px; margin-bottom: 16px; }
+  .vl-stat-card { padding: 12px 14px; gap: 10px; }
+  .vl-stat-val { font-size: 20px; }
+  .vl-stat-ic { width: 34px; height: 34px; }
+  .vl-filter-card { padding: 12px 16px; gap: 10px; margin-bottom: 16px; }
+  .vl-table th, .vl-table td { padding: 10px 14px; }
+}
+@media (max-width: 1220px) {
+  .vl-stats-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 820px) {
+  .vl-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
 
 .vl-veh-cell{display:flex;align-items:center;gap:12px;}
 .vl-code{font-size:13.5px;font-weight:800;color:#0F172A;font-family:'Outfit',sans-serif;}
@@ -102,10 +119,14 @@ const Sv = (p: React.SVGProps<SVGSVGElement> & { s?: number }) => (
   <svg width={p.s || 14} height={p.s || 14} viewBox="0 0 24 24" {...SI} {...p} />
 );
 
-const IPlus    = () => <Sv><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Sv>;
-const IFilter  = () => <Sv><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Sv>;
-const ISearch  = () => <Sv><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Sv>;
-const IScooter = ({ s = 14 }) => <Sv s={s}><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></Sv>;
+const IPlus        = () => <Sv><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Sv>;
+const IFilter      = () => <Sv><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Sv>;
+const ISearch      = () => <Sv><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Sv>;
+const IScooter     = ({ s = 14 }) => <Sv s={s}><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></Sv>;
+const ICheckCircle = ({ s = 14 }) => <Sv s={s}><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></Sv>;
+const IRide        = ({ s = 14 }) => <Sv s={s}><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></Sv>;
+const IOffline     = ({ s = 14 }) => <Sv s={s}><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><circle cx="12" cy="20" r="1"/></Sv>;
+const IWrench      = ({ s = 14 }) => <Sv s={s}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></Sv>;
 
 interface EVListItem {
   code: string;
@@ -342,15 +363,15 @@ export default function VehicleListPage() {
             {/* Metric KPI cards */}
             <div className="vl-stats-row">
               {[
-                { lbl: 'Total Vehicles', val: filtered.length, ic: <IScooter s={16}/> },
-                { lbl: 'Available', val: filtered.filter(v => v.status === 'Available').length, dot: 'online' },
-                { lbl: 'In Ride', val: filtered.filter(v => v.status === 'In Ride').length, dot: 'in_ride' },
-                { lbl: 'Offline', val: filtered.filter(v => v.status === 'Offline').length, dot: 'offline' },
-                { lbl: 'Maintenance', val: filtered.filter(v => v.status === 'Maintenance').length, dot: 'low_bat' }
+                { lbl: 'Total Vehicles', val: filtered.length, ic: <IScooter s={18}/>, bg: '#EEF2FF', clr: '#6366F1' },
+                { lbl: 'Available', val: filtered.filter(v => v.status === 'Available').length, ic: <ICheckCircle s={18}/>, bg: '#DCFCE7', clr: '#16A34A' },
+                { lbl: 'In Ride', val: filtered.filter(v => v.status === 'In Ride').length, ic: <IRide s={18}/>, bg: '#DBEAFE', clr: '#2563EB' },
+                { lbl: 'Offline', val: filtered.filter(v => v.status === 'Offline').length, ic: <IOffline s={18}/>, bg: '#F1F5F9', clr: '#64748B' },
+                { lbl: 'Maintenance', val: filtered.filter(v => v.status === 'Maintenance').length, ic: <IWrench s={18}/>, bg: '#FEF9C3', clr: '#D97706' }
               ].map(s => (
                 <div className="vl-stat-card" key={s.lbl}>
-                  <div className="vl-stat-ic">
-                    {s.ic ? s.ic : <div className={`vl-dot ${s.dot}`}/>}
+                  <div className="vl-stat-ic" style={{ background: s.bg, color: s.clr }}>
+                    {s.ic}
                   </div>
                   <div className="vl-stat-info">
                     <div className="vl-stat-lbl">{s.lbl}</div>
@@ -487,8 +508,12 @@ export default function VehicleListPage() {
                           <td>
                             <div>
                               <div style={{ fontWeight: 600, color: '#111827' }}>{v.hub}</div>
-                              {v.renter !== 'None (Available)' && (
-                                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Renter: {v.renter}</div>
+                              {v.status === 'Available' || !v.renter || v.renter === 'None (Available)' ? (
+                                <div style={{ fontSize: 11, color: '#16A34A', marginTop: 2, fontWeight: 600 }}>● Ready for allocation</div>
+                              ) : v.status === 'In Ride' && v.renter && v.renter !== 'None (Available)' ? (
+                                <div style={{ fontSize: 11, color: '#2563EB', marginTop: 2, fontWeight: 600 }}>Renter: {v.renter}</div>
+                              ) : (
+                                <div style={{ fontSize: 11, color: '#16A34A', marginTop: 2, fontWeight: 600 }}>● Ready for allocation</div>
                               )}
                             </div>
                           </td>
@@ -497,7 +522,10 @@ export default function VehicleListPage() {
                           </td>
                           <td>
                             <div className="vl-actions" style={{ justifyContent: 'flex-end' }}>
-                              <Link href={`/vehicles/map?code=${v.code}`} className="vl-act-btn view" title="View details on live map">
+                              <Link href={`/vehicles/detail?code=${v.code}`} className="vl-act-btn view" title="View Vehicle Details" style={{ color: '#4C28BC', background: '#F5F3FF', borderColor: '#C7D2FE' }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                              </Link>
+                              <Link href={`/vehicles/map?code=${v.code}`} className="vl-act-btn view" title="View location on live map">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
                               </Link>
                               <Link href={`/vehicles/edit?code=${v.code}`} className="vl-act-btn edit" title="Edit vehicle details">

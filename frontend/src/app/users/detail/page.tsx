@@ -249,7 +249,7 @@ const PERM_ROWS: PermissionRow[] = [
   {
     name: 'Vehicles',
     subtitle: 'Manage vehicles and documents',
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></svg>,
     access: 'granted', create: 'granted', view: 'granted', edit: 'granted', delete: 'restricted', export: 'granted'
   },
   {
@@ -300,15 +300,15 @@ const USERS_DATA: Record<string, {
 }> = {
   'USR-001': {
     id: 'USR-001',
-    name: 'Akash Verma',
-    email: 'akash.verma@evegah.com',
+    name: 'Himanshu',
+    email: 'himanshu@evegah.com',
     mobile: '+91 98765 43210',
-    role: 'Zone Admin',
-    zone: 'Connaught Place Zone',
+    role: 'Super Admin',
+    zone: 'Gotri Zone',
     status: 'Active',
-    reportingTo: 'None (System Admin)',
-    avatar: '/priya_avatar.png',
-    initials: 'AV',
+    reportingTo: 'None (System Owner)',
+    avatar: '',
+    initials: 'H',
     avatarBg: '#F5F3FF',
     avatarCls: 'purple'
   },
@@ -318,9 +318,9 @@ const USERS_DATA: Record<string, {
     email: 'rohit.sharma@evegah.com',
     mobile: '+91 87654 32109',
     role: 'Operations Manager',
-    zone: 'Connaught Place Zone',
+    zone: 'Gotri Zone',
     status: 'Active',
-    reportingTo: 'Akash Verma (Zone Admin)',
+    reportingTo: 'Himanshu (Super Admin)',
     avatar: '/rohit_avatar.png',
     initials: 'RS',
     avatarBg: '#ECFDF5',
@@ -332,9 +332,9 @@ const USERS_DATA: Record<string, {
     email: 'neha.pahuja@evegah.com',
     mobile: '+91 96543 21098',
     role: 'Franchise Manager',
-    zone: 'Connaught Place Zone',
+    zone: 'Manjalpur Zone',
     status: 'Active',
-    reportingTo: 'Akash Verma (Zone Admin)',
+    reportingTo: 'Himanshu (Super Admin)',
     avatar: '',
     initials: 'NP',
     avatarBg: '#FFF7ED',
@@ -348,7 +348,7 @@ const USERS_DATA: Record<string, {
     role: 'Battery Technician',
     zone: 'Multiple Zones',
     status: 'Active',
-    reportingTo: 'Akash Verma (Zone Admin)',
+    reportingTo: 'Himanshu (Super Admin)',
     avatar: '',
     initials: 'SK',
     avatarBg: '#EFF6FF',
@@ -360,9 +360,9 @@ const USERS_DATA: Record<string, {
     email: 'pooja.mehta@evegah.com',
     mobile: '+91 99887 77665',
     role: 'Support Executive',
-    zone: 'Connaught Place Zone',
+    zone: 'Gotri Zone',
     status: 'Inactive',
-    reportingTo: 'Akash Verma (Zone Admin)',
+    reportingTo: 'Himanshu (Super Admin)',
     avatar: '',
     initials: 'PM',
     avatarBg: '#FDF2F8',
@@ -521,7 +521,7 @@ function UserDetailContent() {
       {
         name: 'Vehicles',
         subtitle: 'Manage vehicles and documents',
-        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></svg>,
         supported: { access: true, create: true, view: true, edit: true, delete: true, export: true },
         subPages: [
           { name: 'Vehicle List', subtitle: 'Catalog of EV fleet' },
@@ -747,8 +747,6 @@ function UserDetailContent() {
         <Sidebar activePath="/users" />
         <div className="ud-main">
           <TopBar 
-            title="Hello, Akash" 
-            subtitle="Zone Admin" 
             notificationCount={3}
             showSearch={false}
             hideZone={false}

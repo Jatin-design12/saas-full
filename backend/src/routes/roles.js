@@ -2,6 +2,139 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+const DEFAULT_ROLES = [
+  {
+    name: 'Super Admin',
+    code: 'SUPER_ADMIN',
+    description: 'Master system administrator with unrestricted access to all modules, financial settings, and platform configuration.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Riders: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Vehicles: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Battery: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Maintenance: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Reports: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Alerts: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      'Zone Management': { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Franchise: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      'Users & Roles': { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Settings: { access: true, create: true, view: true, edit: true, delete: true, export: true }
+    }
+  },
+  {
+    name: 'Platform Admin',
+    code: 'ADMIN',
+    description: 'Platform administrator with operational authority over zones, vehicles, battery inventory, and rider accounts.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Riders: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Vehicles: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Battery: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Maintenance: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Reports: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Alerts: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      'Zone Management': { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Franchise: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      'Users & Roles': { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Settings: { access: true, create: true, view: true, edit: true, delete: false, export: true }
+    }
+  },
+  {
+    name: 'Zone Admin',
+    code: 'ZONE_ADMIN',
+    description: 'Zone administrator responsible for managing single or multiple assigned hub stations, vehicle check-ins, and local inventory.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Riders: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Vehicles: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Battery: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Maintenance: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Reports: { access: true, create: false, view: true, edit: false, delete: false, export: true },
+      Alerts: { access: true, create: true, view: true, edit: true, delete: false, export: false },
+      'Zone Management': { access: true, create: false, view: true, edit: false, delete: false, export: false }
+    }
+  },
+  {
+    name: 'Operations Manager',
+    code: 'OPS_MANAGER',
+    description: 'Manages live ride tracking, fleet allocations, turnaround times, and operational performance metrics.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Riders: { access: true, create: false, view: true, edit: false, delete: false, export: true },
+      Vehicles: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Battery: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Maintenance: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Reports: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Alerts: { access: true, create: true, view: true, edit: true, delete: true, export: true }
+    }
+  },
+  {
+    name: 'Franchise Manager',
+    code: 'FRANCHISE_MANAGER',
+    description: 'Oversees franchise partner hubs, vehicle deployments, package allocations, and revenue splits.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Riders: { access: true, create: false, view: true, edit: false, delete: false, export: true },
+      Vehicles: { access: true, create: false, view: true, edit: false, delete: false, export: true },
+      Franchise: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Reports: { access: true, create: false, view: true, edit: false, delete: false, export: true }
+    }
+  },
+  {
+    name: 'Battery Technician',
+    code: 'BATTERY_TECH',
+    description: 'Technician managing battery inventory, health diagnostics, charging schedules, and swap station operations.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Battery: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Maintenance: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Alerts: { access: true, create: true, view: true, edit: false, delete: false, export: false }
+    }
+  },
+  {
+    name: 'Zone Employee',
+    code: 'EMPLOYEE',
+    description: 'On-ground station staff handling rider KYC verification, bike handovers, inspections, and returns.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Riders: { access: true, create: true, view: true, edit: false, delete: false, export: false },
+      Vehicles: { access: true, create: false, view: true, edit: false, delete: false, export: false }
+    }
+  }
+];
+
+const initDefaultRoles = async () => {
+  try {
+    for (const r of DEFAULT_ROLES) {
+      const existing = await db.query('SELECT id FROM roles WHERE name = $1 OR code = $2', [r.name, r.code]);
+      if (existing.rows.length === 0) {
+        await db.query(`
+          INSERT INTO roles (name, code, description, status, permissions, custom_permissions)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [r.name, r.code, r.description, r.status, JSON.stringify(r.permissions), JSON.stringify([])]);
+        console.log('Seeded default role:', r.name);
+      }
+    }
+  } catch (e) {
+    console.error('Error initializing default roles:', e);
+  }
+};
+
+initDefaultRoles();
+
 // GET /api/roles - List all roles with dynamic user counts
 router.get('/', async (req, res) => {
   try {
@@ -14,7 +147,11 @@ router.get('/', async (req, res) => {
       GROUP BY r.id
       ORDER BY r.created_at ASC
     `;
-    const result = await db.query(query);
+    let result = await db.query(query);
+    if (!result.rows || result.rows.length === 0) {
+      await initDefaultRoles();
+      result = await db.query(query);
+    }
     res.json({ status: 'success', data: result.rows });
   } catch (err) {
     console.error('Error fetching roles:', err);

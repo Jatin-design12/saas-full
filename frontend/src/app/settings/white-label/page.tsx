@@ -171,7 +171,7 @@ export default function WhiteLabelManagement() {
   const [invoiceFooter, setInvoiceFooter] = useState('Thank you for choosing Evegah. Smart. Green. Reliable.');
   const [gstNo, setGstNo] = useState('07ABCDE1234F1Z5');
   const [panNo, setPanNo] = useState('ABCDE1234F');
-  const [invoiceAddress, setInvoiceAddress] = useState('Shop No. 12, Connaught Place, New Delhi - 110001, India');
+  const [invoiceAddress, setInvoiceAddress] = useState('Shop No. 12, Gotri Road, Vadodara - 390021, Gujarat, India');
   const [activeInvoiceTab, setActiveInvoiceTab] = useState('invoice');
 
   // Preview tab state
@@ -249,7 +249,7 @@ export default function WhiteLabelManagement() {
               <div>
                 <strong style="color: #64748B; text-transform: uppercase; font-size: 11px; display: block; margin-bottom: 4px;">Bill To:</strong>
                 <strong>Rahul Sharma</strong><br/>
-                Connaught Place, New Delhi - 110001<br/>
+                Gotri Road, Vadodara - 390021<br/>
                 Mobile: +91 98765 43210
               </div>
               <div style="text-align: right;">

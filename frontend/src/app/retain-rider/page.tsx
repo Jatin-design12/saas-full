@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -218,13 +218,12 @@ const IDoc = ({ s = 12 }: { s?: number }) => <SV s={s}><path d="M14 2H6a2 2 0 0 
 const IMagnify = ({ s = 14 }: { s?: number }) => <SV s={s}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></SV>;
 const IHead = ({ s = 14 }: { s?: number }) => <SV s={s}><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></SV>;
 
-/* ── stepper data ── */
+/* ── stepper data (4 Steps for Retain Rider, skipping KYC re-upload) ── */
 const STEPS = [
   { n: 1, label: 'Rider Search', stat: 'In Progress', state: 'active' },
   { n: 2, label: 'Rental Details', stat: 'Pending', state: 'pend' },
   { n: 3, label: 'Payment & Charges', stat: 'Pending', state: 'pend' },
-  { n: 4, label: 'Documents', stat: 'Pending', state: 'pend' },
-  { n: 5, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
+  { n: 4, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
 ];
 
 /* ── search tabs ── */
@@ -235,32 +234,51 @@ const TABS = [
   { id: 'name', label: 'Name', Icon: IPerson },
 ];
 
+/* ── Helper: Clean Rider ID format ── */
+function formatCleanRiderId(rawId: any, index?: number): string {
+  if (!rawId) return `EVR-${String(10010 + (index || 0))}`;
+  const str = String(rawId);
+  if (str.startsWith('EVR-')) return str;
+  if (str.startsWith('RIDR-') || str.startsWith('RDR-') || str.startsWith('RID-')) {
+    return `EVR-${str.replace(/[^A-Za-z0-9]/g, '').slice(-6).toUpperCase()}`;
+  }
+  if (str.includes('-') && str.length > 15) {
+    return `EVR-${str.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  }
+  return `EVR-${str.slice(0, 8).toUpperCase()}`;
+}
+
 /* ── rider data ── */
 const RIDERS = [
   {
-    initials: 'AV', gradient: 'linear-gradient(135deg,#2a195c,#2A195C)',
-    name: 'Akash Verma', id: 'RDR00124', phone: '+91 98765 43210',
-    aadhaar: 'XXXX XXXX 1234', lastRide: '18 May 2024', vehicle: 'E-Rickshaw',
+    initials: 'DR', gradient: 'linear-gradient(135deg,#2a195c,#2A195C)',
+    name: 'Devendra Rana', id: 'EVR-16EFE6', phone: '+91 98255 44332',
+    aadhaar: 'XXXX XXXX 4432', lastRide: 'Active Booking', vehicle: 'Evegah E1',
+    avatar: '/rohit_avatar.png',
   },
   {
-    initials: 'RK', gradient: 'linear-gradient(135deg,#2A195C,#A855F7)',
-    name: 'Rahul Kumar', id: 'RDR00118', phone: '+91 91234 56789',
-    aadhaar: 'XXXX XXXX 5678', lastRide: '10 May 2024', vehicle: 'E-Rickshaw',
+    initials: 'VP', gradient: 'linear-gradient(135deg,#2A195C,#A855F7)',
+    name: 'Vikram Patel', id: 'EVR-349240', phone: '+91 78945 61230',
+    aadhaar: 'XXXX XXXX 6123', lastRide: 'Active Booking', vehicle: 'Evegah City',
+    avatar: '/rohit_avatar.png',
   },
   {
-    initials: 'VS', gradient: 'linear-gradient(135deg,#2563EB,#0EA5E9)',
-    name: 'Vikram Singh', id: 'RDR00105', phone: '+91 99987 66554',
-    aadhaar: 'XXXX XXXX 9012', lastRide: '02 May 2024', vehicle: 'E-Rickshaw',
+    initials: 'PS', gradient: 'linear-gradient(135deg,#DB2777,#F472B6)',
+    name: 'Priya Sharma', id: 'EVR-6D0DF4', phone: '+91 98123 45678',
+    aadhaar: 'XXXX XXXX 5678', lastRide: 'Active Booking', vehicle: 'Evegah Pro',
+    avatar: '/priya_avatar.png',
   },
   {
-    initials: 'NS', gradient: 'linear-gradient(135deg,#DB2777,#F472B6)',
-    name: 'Neha Sharma', id: 'RDR00102', phone: '+91 87654 32109',
-    aadhaar: 'XXXX XXXX 3456', lastRide: '28 Apr 2024', vehicle: 'E-Rickshaw',
+    initials: 'MP', gradient: 'linear-gradient(135deg,#EA580C,#FBBF24)',
+    name: 'Manish Parmar', id: 'EVR-C430C1', phone: '+91 98980 11223',
+    aadhaar: 'XXXX XXXX 1122', lastRide: 'Active Booking', vehicle: 'Evegah E1',
+    avatar: '/rohit_avatar.png',
   },
   {
-    initials: 'AY', gradient: 'linear-gradient(135deg,#EA580C,#FBBF24)',
-    name: 'Amit Yadav', id: 'RDR00089', phone: '+91 97777 88990',
-    aadhaar: 'XXXX XXXX 7788', lastRide: '20 Apr 2024', vehicle: 'E-Rickshaw',
+    initials: 'KT', gradient: 'linear-gradient(135deg,#2563EB,#0EA5E9)',
+    name: 'Kinjal Trivedi', id: 'EVR-AF605E', phone: '+91 97241 87654',
+    aadhaar: 'XXXX XXXX 8765', lastRide: 'Active Booking', vehicle: 'Evegah City',
+    avatar: '/priya_avatar.png',
   },
 ];
 
@@ -328,6 +346,10 @@ function RightPanel() {
 ═══════════════════════════════════════════════════════════════ */
 export default function RetainRiderPage() {
   const [activeTab, setActiveTab] = useState('mobile');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [riders, setRiders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedZone, setSelectedZone] = useState<string>('All');
   const router = useRouter();
 
   const chevSvg = (
@@ -335,6 +357,99 @@ export default function RetainRiderPage() {
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
+
+  const fetchRiders = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/renters`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.data || data.renters || []);
+      if (list.length > 0) {
+        setRiders(list.map((item: any, idx: number) => {
+          const realName = item.rider_name || item.customer_name || item.name || 'Devendra Rana';
+          const riderId = formatCleanRiderId(item.reservation_id || item.renter_id || item.id, idx);
+          const dateVal = item.rental_start_date || item.created_at;
+          const lastRideFormatted = dateVal
+            ? new Date(dateVal).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            : 'Active Booking';
+          const isFemale = realName.toLowerCase().includes('priya') || realName.toLowerCase().includes('kinjal') || realName.toLowerCase().includes('neha');
+          return {
+            initials: realName.slice(0, 2).toUpperCase(),
+            gradient: isFemale ? 'linear-gradient(135deg,#DB2777,#F472B6)' : 'linear-gradient(135deg,#2a195c,#2A195C)',
+            name: realName,
+            id: riderId,
+            phone: item.mobile || item.phone || '+91 98765 43210',
+            aadhaar: item.aadhaar || 'XXXX XXXX 1234',
+            lastRide: lastRideFormatted,
+            vehicle: item.vehicle_name || item.vehicle_code || item.vehicle_id || 'Evegah E1',
+            vehicle_id: item.vehicle_id || item.vehicle_code || 'EVM1024012',
+            battery_id: item.battery_id || 'BAT-0098',
+            deposit: item.deposit || item.deposit_amount || 500,
+            zone: item.zone || 'All',
+            avatar: isFemale ? '/priya_avatar.png' : '/rohit_avatar.png',
+            raw: item,
+          };
+        }));
+      } else {
+        setRiders(RIDERS);
+      }
+    } catch {
+      setRiders(RIDERS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('evegah_active_zone');
+      if (saved) setSelectedZone(saved);
+    }
+    fetchRiders();
+
+    const handleZone = (e: any) => {
+      const z = e?.detail?.name || (typeof e?.detail === 'string' ? e.detail : 'All');
+      if (z) setSelectedZone(z);
+    };
+    window.addEventListener('evegah_active_zone_changed', handleZone);
+    window.addEventListener('evegah_zone_changed', handleZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', handleZone);
+      window.removeEventListener('evegah_zone_changed', handleZone);
+    };
+  }, []);
+
+  // Filter riders based on search query and active zone
+  const filteredRiders = riders.filter(r => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || (
+      (r.name && r.name.toLowerCase().includes(q)) ||
+      (r.phone && r.phone.toLowerCase().includes(q)) ||
+      (r.id && r.id.toLowerCase().includes(q)) ||
+      (r.vehicle && r.vehicle.toLowerCase().includes(q)) ||
+      (r.aadhaar && r.aadhaar.toLowerCase().includes(q))
+    );
+    const matchesZone = selectedZone === 'All' || !r.zone || r.zone === 'All' || r.zone.toLowerCase().includes(selectedZone.toLowerCase());
+    return matchesSearch && matchesZone;
+  });
+
+  const handleSelectRider = (rider: any) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('evegah_retain_rider', JSON.stringify(rider));
+      // also seed retain_ride_kyc for full compatibility
+      localStorage.setItem('evegah_retain_ride_kyc', JSON.stringify({
+        fullName: rider.name,
+        mobile: rider.phone,
+        riderId: rider.id,
+        vehicle: rider.vehicle,
+        deposit: rider.deposit,
+        aadhaar: rider.aadhaar,
+        isReturning: true
+      }));
+    }
+    router.push('/retain-rider/rental');
+  };
 
   return (
     <>
@@ -362,7 +477,7 @@ export default function RetainRiderPage() {
                 <h1 className="nr-h1">Retain Ride Registration</h1>
                 <p className="nr-sub">Search and select an existing rider to create a new ride</p>
               </div>
-              <button className="nr-back-btn" onClick={() => router.push('/')}><ILeft /> Back to Rides</button>
+              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
             </div>
 
             {/* ── Stepper ── */}
@@ -394,7 +509,7 @@ export default function RetainRiderPage() {
                   <div className="nr-card-hdr">
                     <div>
                       <h2>Search Existing Rider</h2>
-                      <p>Search by any one of the following</p>
+                      <p>Search by mobile number, rider ID, or name from registered riders</p>
                     </div>
                   </div>
 
@@ -422,22 +537,43 @@ export default function RetainRiderPage() {
                           <div className="nr-ph-pre">
                             <span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}
                           </div>
-                          <input placeholder="Enter 10 digit mobile number" maxLength={10} />
+                          <input
+                            placeholder="Enter 10 digit mobile number"
+                            maxLength={10}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
                         </div>
                       ) : activeTab === 'riderid' ? (
                         <div className="nr-ph" style={{ flex: 1 }}>
-                          <input style={{ padding: '10px 13px' }} placeholder="Enter Rider ID (e.g. RDR00124)" />
+                          <input
+                            style={{ padding: '10px 13px' }}
+                            placeholder="Enter Rider ID (e.g. RDR00124)"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
                         </div>
                       ) : activeTab === 'aadhaar' ? (
                         <div className="nr-ph" style={{ flex: 1 }}>
-                          <input style={{ padding: '10px 13px' }} placeholder="Enter 12 digit Aadhaar number" maxLength={12} />
+                          <input
+                            style={{ padding: '10px 13px' }}
+                            placeholder="Enter 12 digit Aadhaar number"
+                            maxLength={12}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
                         </div>
                       ) : (
                         <div className="nr-ph" style={{ flex: 1 }}>
-                          <input style={{ padding: '10px 13px' }} placeholder="Enter rider full name" />
+                          <input
+                            style={{ padding: '10px 13px' }}
+                            placeholder="Enter rider full name"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
                         </div>
                       )}
-                      <button className="rr-search-btn">
+                      <button className="rr-search-btn" onClick={fetchRiders}>
                         <ISearch s={14} /> Search
                       </button>
                     </div>
@@ -447,42 +583,62 @@ export default function RetainRiderPage() {
                   <div className="rr-results">
                     <div className="rr-results-hdr">
                       <span className="rr-results-title">Search Results</span>
-                      <span className="rr-found-badge">5 Riders Found</span>
-                      <button className="rr-refresh-btn" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <IRefresh s={12} /> Refresh
+                      <span className="rr-found-badge">{filteredRiders.length} Rider{filteredRiders.length !== 1 ? 's' : ''} Found</span>
+                      <button
+                        className="rr-refresh-btn"
+                        style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+                        onClick={fetchRiders}
+                      >
+                        <IRefresh s={12} /> {loading ? 'Refreshing...' : 'Refresh'}
                       </button>
                     </div>
 
-                    {RIDERS.map(r => (
-                      <div key={r.id} className="rr-rider-row">
-                        <div className="rr-avatar" style={{ background: r.gradient }}>{r.initials}</div>
-                        <div className="rr-rider-info">
-                          <div className="rr-rider-name-row">
-                            <span className="rr-rider-name">{r.name}</span>
-                            <span className="rr-returning-badge">Returning Rider</span>
-                            <span className="rr-kyc-badge">✓ KYC Verified</span>
-                          </div>
-                          <div className="rr-rider-id">{r.id}</div>
-                          <div className="rr-rider-meta">
-                            <span className="rr-meta-item"><IPhone s={12} /> {r.phone}</span>
-                            <span className="rr-meta-item"><ICard s={12} /> {r.aadhaar}</span>
-                            <span className="rr-meta-item"><ICal s={12} /> Last Ride: {r.lastRide}</span>
-                            <span className="rr-meta-item"><IScooter s={12} /> {r.vehicle}</span>
-                          </div>
-                        </div>
-                        <button
-                          className="rr-select-btn"
-                          onClick={() => router.push('/retain-rider/rental')}
-                        >
-                          Select Rider &gt;
-                        </button>
+                    {filteredRiders.length === 0 ? (
+                      <div style={{ padding: '30px 0', textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
+                        No matching registered riders found. Please try a different search term.
                       </div>
-                    ))}
+                    ) : (
+                      filteredRiders.map((r, idx) => (
+                        <div key={r.id || idx} className="rr-rider-row">
+                          <div className="rr-avatar" style={{ position: 'relative', overflow: 'hidden', background: r.gradient || 'linear-gradient(135deg,#2a195c,#2A195C)' }}>
+                            <img
+                              src={r.avatar || '/rohit_avatar.png'}
+                              alt={r.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13, zIndex: 0 }}>
+                              {r.initials}
+                            </span>
+                          </div>
+                          <div className="rr-rider-info">
+                            <div className="rr-rider-name-row">
+                              <span className="rr-rider-name">{r.name}</span>
+                              <span className="rr-returning-badge">Returning Rider</span>
+                              <span className="rr-kyc-badge">✓ KYC On File</span>
+                            </div>
+                            <div className="rr-rider-id">{r.id}</div>
+                            <div className="rr-rider-meta">
+                              <span className="rr-meta-item"><IPhone s={12} /> {r.phone}</span>
+                              <span className="rr-meta-item"><ICard s={12} /> {r.aadhaar}</span>
+                              <span className="rr-meta-item"><ICal s={12} /> Last Ride: {r.lastRide}</span>
+                              <span className="rr-meta-item"><IScooter s={12} /> {r.vehicle}</span>
+                            </div>
+                          </div>
+                          <button
+                            className="rr-select-btn"
+                            onClick={() => handleSelectRider(r)}
+                          >
+                            Select Rider &gt;
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   {/* Pagination */}
                   <div className="rr-paging">
-                    <span className="rr-paging-info">Showing 1 to 5 of 5 riders</span>
+                    <span className="rr-paging-info">Showing {filteredRiders.length} registered rider(s)</span>
                     <div className="rr-paging-btns">
                       <button className="rr-pg-btn"><ILeft /></button>
                       <button className="rr-pg-btn active">1</button>

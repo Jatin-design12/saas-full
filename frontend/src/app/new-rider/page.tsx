@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -353,34 +354,142 @@ const DigiIllus = () => (
 );
 
 /* ── Manual form ── */
-function ManualForm() {
+function ManualForm({ formData, setFormData }: { formData: any; setFormData: (fn: any) => void }) {
+  const router = useRouter();
   const chevSvg = (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round">
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 
+  const [sameAsPresent, setSameAsPresent] = useState(false);
+  const [mobileRegistered, setMobileRegistered] = useState<any>(null);
+
+  const handleChange = (field: string, value: any) => {
+    setFormData((prev: any) => {
+      const updated = { ...prev, [field]: value };
+      if (sameAsPresent && field.startsWith('address')) {
+        const permField = field.replace('address', 'permAddress');
+        updated[permField] = value;
+      }
+      return updated;
+    });
+
+    if (field === 'mobile' && value.length === 10) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      fetch(`${apiUrl}/renters/check-mobile/${value}`)
+        .then(res => res.json())
+        .then(res => {
+          if (res && res.is_registered) {
+            setMobileRegistered(res.renter);
+          } else {
+            setMobileRegistered(null);
+          }
+        }).catch(() => {});
+    }
+  };
+
+  const handleSameAsPresentToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setSameAsPresent(checked);
+    if (checked) {
+      setFormData((prev: any) => ({
+        ...prev,
+        permAddress1: prev.address1 || '',
+        permAddress2: prev.address2 || '',
+        permCity: prev.city || '',
+        permState: prev.state || '',
+        permPincode: prev.pincode || ''
+      }));
+    }
+  };
+
+  // Age calculation
+  const getAge = (dobString: string) => {
+    if (!dobString) return 0;
+    const today = new Date();
+    const birthDate = new Date(dobString);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const currentAge = getAge(formData.dob);
+  const isUnderage = formData.dob && currentAge < 16;
+
   return (
     <div className="nr-form">
+      {/* Registered mobile alert banner */}
+      {mobileRegistered && (
+        <div style={{
+          background: '#FEF2F2', border: '1.5px solid #FCA5A5', borderRadius: '12px',
+          padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: '16px'
+        }}>
+          <div>
+            <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#991B1B' }}>
+              ⚠️ Rider Already Registered!
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#B91C1C', marginTop: '2px' }}>
+              Mobile number <strong>+91 {formData.mobile}</strong> is registered under <strong>{mobileRegistered.rider_name}</strong> with an active subscription.
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={() => router.push('/retain-rider')}
+            style={{
+              padding: '9px 16px', background: '#DC2626', color: '#FFF', border: 'none',
+              borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Fill Retain Rider Form ›
+          </button>
+        </div>
+      )}
+
       {/* 1. Personal Details */}
       <div className="nr-sec-hd">1. Personal Details</div>
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>Full Name<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="Enter full name as per Aadhaar" />
+          <input 
+            className="nr-inp" 
+            placeholder="Enter full name" 
+            value={formData.fullName || ''}
+            onChange={e => handleChange('fullName', e.target.value)}
+          />
         </div>
         <div className="nr-fld">
-          <label>Date of Birth<span className="req"> *</span></label>
+          <label>Date of Birth (Minimum 16 Years)<span className="req"> *</span></label>
           <div className="nr-inp-wrap">
-            <input className="nr-inp" placeholder="DD / MM / YYYY" />
-            <span className="nr-inp-wrap-ic"><ICal s={14} /></span>
+            <input 
+              type="date"
+              className="nr-inp" 
+              value={formData.dob || ''}
+              onChange={e => handleChange('dob', e.target.value)}
+            />
           </div>
+          {isUnderage && (
+            <div style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700, marginTop: '4px' }}>
+              ⚠️ Rider must be at least 16 years old to register (Current age: {currentAge} years).
+            </div>
+          )}
         </div>
         <div className="nr-fld">
           <label>Gender<span className="req"> *</span></label>
-          <select className="nr-sel">
+          <select 
+            className="nr-sel"
+            value={formData.gender || ''}
+            onChange={e => handleChange('gender', e.target.value)}
+          >
             <option value="">Select gender</option>
-            <option>Male</option><option>Female</option><option>Other</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
           </select>
         </div>
       </div>
@@ -390,99 +499,233 @@ function ManualForm() {
           <label>Mobile Number<span className="req"> *</span></label>
           <div className="nr-ph">
             <div className="nr-ph-pre"><span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}</div>
-            <input placeholder="Enter mobile number" />
+            <input 
+              placeholder="Enter mobile number" 
+              maxLength={10}
+              value={formData.mobile || ''}
+              onChange={e => handleChange('mobile', e.target.value.replace(/\D/g, ''))}
+            />
           </div>
         </div>
         <div className="nr-fld">
           <label>Email Address<span className="opt">(Optional)</span></label>
-          <input className="nr-inp" placeholder="Enter email address" type="email" />
+          <input 
+            className="nr-inp" 
+            placeholder="Enter email address" 
+            type="email" 
+            value={formData.email || ''}
+            onChange={e => handleChange('email', e.target.value)}
+          />
         </div>
         <div className="nr-fld">
           <label>Father / Guardian Name<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="Enter father / guardian name" />
+          <input 
+            className="nr-inp" 
+            placeholder="Enter father / guardian name" 
+            value={formData.fatherName || ''}
+            onChange={e => handleChange('fatherName', e.target.value)}
+          />
         </div>
       </div>
 
+      {/* Reference Name & Reference Number */}
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
-          <label>Aadhaar Number<span className="req"> *</span></label>
-          <div className="nr-inp-wrap">
-            <input className="nr-inp" placeholder="Enter 12 digit Aadhaar number" maxLength={12} />
-            <span className="nr-inp-wrap-ic"><IScan /></span>
+          <label>Reference Name<span className="req"> *</span></label>
+          <input 
+            className="nr-inp" 
+            placeholder="Enter reference person name" 
+            value={formData.refName || ''}
+            onChange={e => handleChange('refName', e.target.value)}
+          />
+        </div>
+        <div className="nr-fld">
+          <label>Reference Mobile / Number<span className="req"> *</span></label>
+          <div className="nr-ph">
+            <div className="nr-ph-pre"><span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}</div>
+            <input 
+              placeholder="Enter reference contact number" 
+              maxLength={10}
+              value={formData.refNumber || ''}
+              onChange={e => handleChange('refNumber', e.target.value.replace(/\D/g, ''))}
+            />
           </div>
         </div>
         <div className="nr-fld">
-          <label>PAN Number<span className="opt">(Optional)</span></label>
-          <input className="nr-inp" placeholder="Enter PAN number" />
-        </div>
-        <div className="nr-fld">
-          <label>Alternate Mobile<span className="opt">(Optional)</span></label>
+          <label>Emergency Contact<span className="req"> *</span></label>
           <div className="nr-ph">
             <div className="nr-ph-pre"><span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}</div>
-            <input placeholder="Enter alternate number" />
+            <input 
+              placeholder="Enter alternate number" 
+              maxLength={10}
+              value={formData.altMobile || ''}
+              onChange={e => handleChange('altMobile', e.target.value.replace(/\D/g, ''))}
+            />
           </div>
         </div>
       </div>
 
-      {/* 2. Address Details */}
-      <div className="nr-sec-hd" style={{ marginTop: 8 }}>2. Address Details</div>
+      {/* 2. Present Address Details */}
+      <div className="nr-sec-hd" style={{ marginTop: 12 }}>2. Present Address Details</div>
       <div className="nr-row nr-row-2">
         <div className="nr-fld">
           <label>Address Line 1<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="House / Flat / Building, Street" />
+          <input 
+            className="nr-inp" 
+            placeholder="House / Flat / Building, Street" 
+            value={formData.address1 || ''}
+            onChange={e => handleChange('address1', e.target.value)}
+          />
         </div>
         <div className="nr-fld">
           <label>Address Line 2<span className="opt">(Optional)</span></label>
-          <input className="nr-inp" placeholder="Area / Landmark" />
+          <input 
+            className="nr-inp" 
+            placeholder="Area / Landmark" 
+            value={formData.address2 || ''}
+            onChange={e => handleChange('address2', e.target.value)}
+          />
         </div>
       </div>
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>City<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="Enter city" />
+          <input 
+            className="nr-inp" 
+            placeholder="Enter present city" 
+            value={formData.city || ''}
+            onChange={e => handleChange('city', e.target.value)}
+          />
         </div>
         <div className="nr-fld">
           <label>State<span className="req"> *</span></label>
-          <select className="nr-sel">
+          <select 
+            className="nr-sel"
+            value={formData.state || ''}
+            onChange={e => handleChange('state', e.target.value)}
+          >
             <option value="">Select state</option>
-            {['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Uttar Pradesh', 'Gujarat', 'Rajasthan', 'West Bengal', 'Telangana', 'Kerala'].map(s => (
-              <option key={s}>{s}</option>
+            {['Gujarat', 'Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Uttar Pradesh', 'Rajasthan', 'West Bengal', 'Telangana', 'Kerala'].map(s => (
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
         <div className="nr-fld">
           <label>Pincode<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="Enter 6 digit pincode" maxLength={6} />
+          <input 
+            className="nr-inp" 
+            placeholder="Enter 6 digit pincode" 
+            maxLength={6} 
+            value={formData.pincode || ''}
+            onChange={e => handleChange('pincode', e.target.value.replace(/\D/g, ''))}
+          />
         </div>
       </div>
 
-      {/* 3. Identity Proof */}
-      <div className="nr-sec-hd" style={{ marginTop: 8 }}>3. Identity Proof Details</div>
+      {/* 3. Permanent Address Details */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
+        <div className="nr-sec-hd" style={{ margin: 0 }}>3. Permanent Address Details</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#2A195C', cursor: 'pointer' }}>
+          <input 
+            type="checkbox" 
+            checked={sameAsPresent} 
+            onChange={handleSameAsPresentToggle}
+            style={{ width: 16, height: 16, accentColor: '#2A195C' }}
+          />
+          Permanent Address same as Present Address
+        </label>
+      </div>
+
+      <div className="nr-row nr-row-2">
+        <div className="nr-fld">
+          <label>Address Line 1<span className="req"> *</span></label>
+          <input 
+            className="nr-inp" 
+            placeholder="Permanent House / Flat, Street" 
+            value={sameAsPresent ? (formData.address1 || '') : (formData.permAddress1 || '')}
+            disabled={sameAsPresent}
+            onChange={e => handleChange('permAddress1', e.target.value)}
+          />
+        </div>
+        <div className="nr-fld">
+          <label>Address Line 2<span className="opt">(Optional)</span></label>
+          <input 
+            className="nr-inp" 
+            placeholder="Permanent Area / Landmark" 
+            value={sameAsPresent ? (formData.address2 || '') : (formData.permAddress2 || '')}
+            disabled={sameAsPresent}
+            onChange={e => handleChange('permAddress2', e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="nr-row nr-row-3">
+        <div className="nr-fld">
+          <label>City<span className="req"> *</span></label>
+          <input 
+            className="nr-inp" 
+            placeholder="Enter permanent city" 
+            value={sameAsPresent ? (formData.city || '') : (formData.permCity || '')}
+            disabled={sameAsPresent}
+            onChange={e => handleChange('permCity', e.target.value)}
+          />
+        </div>
+        <div className="nr-fld">
+          <label>State<span className="req"> *</span></label>
+          <select 
+            className="nr-sel"
+            value={sameAsPresent ? (formData.state || '') : (formData.permState || '')}
+            disabled={sameAsPresent}
+            onChange={e => handleChange('permState', e.target.value)}
+          >
+            <option value="">Select state</option>
+            {['Gujarat', 'Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Uttar Pradesh', 'Rajasthan', 'West Bengal', 'Telangana', 'Kerala'].map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div className="nr-fld">
+          <label>Pincode<span className="req"> *</span></label>
+          <input 
+            className="nr-inp" 
+            placeholder="Enter 6 digit pincode" 
+            maxLength={6} 
+            value={sameAsPresent ? (formData.pincode || '') : (formData.permPincode || '')}
+            disabled={sameAsPresent}
+            onChange={e => handleChange('permPincode', e.target.value.replace(/\D/g, ''))}
+          />
+        </div>
+      </div>
+
+      {/* 4. Identity Proof Details */}
+      <div className="nr-sec-hd" style={{ marginTop: 12 }}>4. Identity Proof Details</div>
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>Identity Type<span className="req"> *</span></label>
-          <select className="nr-sel">
-            <option value="">Select identity type</option>
-            <option>Aadhaar Card</option><option>Driving License</option>
-            <option>Voter ID</option><option>Passport</option>
+          <select 
+            className="nr-sel"
+            value={formData.idType || 'Aadhaar Card'}
+            onChange={e => handleChange('idType', e.target.value)}
+          >
+            <option value="Aadhaar Card">Aadhaar Card</option>
+            <option value="Driving License">Driving License</option>
+            <option value="Voter ID">Voter ID</option>
+            <option value="Passport">Passport</option>
           </select>
         </div>
         <div className="nr-fld">
           <label>Identity Number<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="Enter identity number" />
-        </div>
-        <div className="nr-fld">
-          <label>Issue Date<span className="opt">(Optional)</span></label>
-          <div className="nr-inp-wrap">
-            <input className="nr-inp" placeholder="DD / MM / YYYY" />
-            <span className="nr-inp-wrap-ic"><ICal s={14} /></span>
-          </div>
+          <input 
+            className="nr-inp" 
+            placeholder="Enter identity number" 
+            value={formData.idNumber || ''}
+            onChange={e => handleChange('idNumber', e.target.value)}
+          />
         </div>
       </div>
 
       <div className="nr-form-note">
         <span style={{ color: '#2563EB', display: 'flex', flexShrink: 0 }}><IInfo s={14} /></span>
-        <span className="nr-form-note-t">You can upload documents in the next step. Verification will be completed later.</span>
+        <span className="nr-form-note-t">Documents can be uploaded in Step 4.</span>
       </div>
     </div>
   );
@@ -580,10 +823,60 @@ function RightPanel({ mode }: { mode: 'select' | 'manual' }) {
    PAGE
 ═══════════════════════════════════════════════════════════════ */
 export default function NewRiderPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<'select' | 'manual'>('select');
   const [method, setMethod] = useState<'digi' | 'manual'>('digi');
+  const [formData, setFormData] = useState<any>({
+    fullName: '',
+    dob: '01/01/2000',
+    gender: 'Male',
+    mobile: '',
+    email: '',
+    fatherName: '',
+    aadhaar: '',
+    altMobile: '',
+    address1: '',
+    address2: '',
+    city: 'Vadodara',
+    state: 'Gujarat',
+    pincode: '',
+    idType: 'Aadhaar Card',
+    idNumber: ''
+  });
 
   const goManual = () => { setMethod('manual'); setMode('manual'); };
+
+  const handleNextStep = () => {
+    if (mode === 'manual') {
+      if (!formData.fullName || !formData.dob || !formData.mobile || !formData.refName || !formData.refNumber || !formData.address1 || !formData.city || !formData.pincode) {
+        alert('Please fill in all required fields (*): Full Name, Date of Birth, Mobile Number, Reference Name, Reference Number, Present Address Line 1, City, Pincode.');
+        return;
+      }
+
+      // Check age >= 16
+      const today = new Date();
+      const birthDate = new Date(formData.dob);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      if (age < 16) {
+        alert(`Rider must be at least 16 years old to register. (Current calculated age: ${age} years).`);
+        return;
+      }
+
+      if (formData.mobile.replace(/\D/g, '').length < 10) {
+        alert('Mobile number must be 10 digits.');
+        return;
+      }
+    }
+    localStorage.setItem('evegah_new_ride_kyc', JSON.stringify({
+      ...formData,
+      verified: mode === 'select' ? 'Verified (DigiLocker)' : 'Manual Entry'
+    }));
+    router.push('/new-rider/rental');
+  };
 
   return (
     <>
@@ -609,9 +902,9 @@ export default function NewRiderPage() {
             <div className="nr-title-row">
               <div>
                 <h1 className="nr-h1">New Ride Registration</h1>
-                <p className="nr-sub">Register a new ride for the rider</p>
+                <p className="nr-sub">Register a new rider and assign EV assets</p>
               </div>
-              <button className="nr-back-btn"><ILeft /> Back to Rides</button>
+              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
             </div>
 
             {/* ── Stepper ── */}
@@ -735,7 +1028,7 @@ export default function NewRiderPage() {
                       </div>
                     </>
                   ) : (
-                    <ManualForm />
+                    <ManualForm formData={formData} setFormData={setFormData} />
                   )}
                 </div>
 
@@ -751,7 +1044,7 @@ export default function NewRiderPage() {
                         </div>
                       </div>
                     </div>
-                    <button className="nr-later-btn">Do KYC Later</button>
+                    <button className="nr-later-btn" onClick={handleNextStep}>Do KYC Later</button>
                   </div>
                 )}
 
@@ -767,17 +1060,15 @@ export default function NewRiderPage() {
 
                 {/* Footer actions */}
                 <div className="nr-footer-actions">
-                  <button className="nr-cancel">Cancel</button>
+                  <button className="nr-cancel" onClick={() => router.push('/renters')}>Cancel</button>
                   {mode === 'select' ? (
-                    <button className="nr-continue" disabled>
+                    <button className="nr-save" onClick={handleNextStep}>
                       Continue to Rental Details <IArr s={12} />
                     </button>
                   ) : (
-                    <Link href="/new-rider/rental" style={{ textDecoration: 'none' }}>
-                      <button className="nr-save">
-                        Save &amp; Continue <IArr s={12} />
-                      </button>
-                    </Link>
+                    <button className="nr-save" onClick={handleNextStep}>
+                      Save &amp; Continue <IArr s={12} />
+                    </button>
                   )}
                 </div>
               </div>

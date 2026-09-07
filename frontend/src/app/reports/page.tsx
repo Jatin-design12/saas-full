@@ -297,11 +297,11 @@ const TABS_CONFIG: Record<string, TabConfig> = {
       donutTitle: 'Revenue by Franchise',
       donutTotal: '₹3.24L',
       donutSlices: [
-        { name: 'Connaught Place', val: '₹1.24L', pct: '38.3%', color: '#2A195C', dashArray: '38.3 61.7', dashOffset: '0' },
-        { name: 'Karol Bagh', val: '₹98K', pct: '30.2%', color: '#3B82F6', dashArray: '30.2 69.8', dashOffset: '-38.3' },
-        { name: 'Paharganj', val: '₹76K', pct: '23.7%', color: '#EAB308', dashArray: '23.7 76.3', dashOffset: '-68.5' },
-        { name: 'Rajendra Place', val: '₹24K', pct: '7.5%', color: '#10B981', dashArray: '7.5 92.5', dashOffset: '-92.2' },
-        { name: 'Pragati Maidan', val: '₹840', pct: '0.3%', color: '#F97316', dashArray: '0.3 99.7', dashOffset: '-99.7' }
+        { name: 'Gotri Zone', val: '₹1.24L', pct: '38.3%', color: '#2A195C', dashArray: '38.3 61.7', dashOffset: '0' },
+        { name: 'Manjalpur Zone', val: '₹98K', pct: '30.2%', color: '#3B82F6', dashArray: '30.2 69.8', dashOffset: '-38.3' },
+        { name: 'KPGU Zone', val: '₹76K', pct: '23.7%', color: '#EAB308', dashArray: '23.7 76.3', dashOffset: '-68.5' },
+        { name: 'Aatapi Zone', val: '₹24K', pct: '7.5%', color: '#10B981', dashArray: '7.5 92.5', dashOffset: '-92.2' },
+        { name: 'Moti Daman Zone', val: '₹840', pct: '0.3%', color: '#F97316', dashArray: '0.3 99.7', dashOffset: '-99.7' }
       ],
       barTitle: 'Rental Trend',
       barHeights: [78, 84, 94, 108, 98, 102, 115],
@@ -311,18 +311,18 @@ const TABS_CONFIG: Record<string, TabConfig> = {
       title: 'Franchise Performance',
       headers: ['Franchise Name', 'Total Vehicles', 'Total Rentals', 'Total Revenue (₹)', 'Total Transactions', 'Battery Swaps', 'Utilization Rate', 'Collection %', 'Overdue Rentals'],
       rows: [
-        ['Connaught Place', 160, 180, '₹1,24,560', 620, 245, '74.6%', '98.2%', 8],
-        ['Karol Bagh', 152, 152, '₹98,230', 480, 190, '71.2%', '96.5%', 6],
-        ['Paharganj', 120, 120, '₹76,890', 392, 152, '68.4%', '95.1%', 12],
-        ['Rajendra Place', 98, 98, '₹24,450', 210, 98, '65.1%', '97.3%', 5],
-        ['Pragati Maidan', 86, 86, '₹840', 54, 45, '61.3%', '94.8%', 25]
+        ['Gotri Zone', 160, 180, '₹1,24,560', 620, 245, '74.6%', '98.2%', 8],
+        ['Manjalpur Zone', 152, 152, '₹98,230', 480, 190, '71.2%', '96.5%', 6],
+        ['KPGU Zone', 120, 120, '₹76,890', 392, 152, '68.4%', '95.1%', 12],
+        ['Aatapi Zone', 98, 98, '₹24,450', 210, 98, '65.1%', '97.3%', 5],
+        ['Moti Daman Zone', 86, 86, '₹840', 54, 45, '61.3%', '94.8%', 25]
       ]
     }
   },
   'Vehicle Report': {
     subtitle: 'Track fleet utilization, vehicle statuses, and average active cycles.',
     kpis: [
-      { label: 'Total Fleet Size', value: '616', delta: '5.4%', trend: 'up', theme: 'blue', iconText: '', iconSvg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
+      { label: 'Total Fleet Size', value: '616', delta: '5.4%', trend: 'up', theme: 'blue', iconText: '', iconSvg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></svg> },
       { label: 'Active Vehicles', value: '458', delta: '8.2%', trend: 'up', theme: 'green', iconText: '', iconSvg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> },
       { label: 'Idle Vehicles', value: '122', delta: '4.1%', trend: 'down', theme: 'purple', iconText: '', iconSvg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> },
       { label: 'Under Maintenance', value: '36', delta: '12.5%', trend: 'down', theme: 'orange', iconText: '', iconSvg: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
@@ -382,7 +382,7 @@ const TABS_CONFIG: Record<string, TabConfig> = {
       ],
       barTitle: 'Rentals by Station Hub',
       barHeights: [90, 80, 75, 60, 45, 55, 65],
-      barXLabels: ['CP', 'Karol Bagh', 'Paharganj', 'Rajendra Pl', 'Pragati M', 'Noida 62', 'Gurgaon']
+      barXLabels: ['Gotri Hub', 'Manjalpur', 'KPGU Hub', 'Aatapi Hub', 'Moti Daman', 'Vadodara Central', 'Alkapuri']
     },
     table: {
       title: 'Rental Bookings Log',
@@ -427,11 +427,11 @@ const TABS_CONFIG: Record<string, TabConfig> = {
       title: 'Battery Health and SoC Diagnostics',
       headers: ['Battery ID', 'Status', 'State of Charge', 'State of Health', 'Voltage', 'Current', 'Cycles', 'Current Station', 'Last Swap'],
       rows: [
-        ['BAT-450X-12340001', 'Idle', '85%', '98%', '51.2V', '2.1A', 42, 'Connaught Place', '1 hr ago'],
-        ['BAT-450X-12340002', 'Assigned', '12%', '95%', '48.1V', '8.4A', 105, 'Karol Bagh', '12 mins ago'],
-        ['BAT-450X-12340003', 'Charging', '94%', '99%', '53.4V', '-15.0A', 14, 'Connaught Place', '30 mins ago'],
-        ['BAT-450X-12340004', 'Alert', '8%', '72%', '46.2V', '0.0A', 280, 'Paharganj', '2 days ago'],
-        ['BAT-450X-12340005', 'Assigned', '45%', '91%', '49.5V', '4.2A', 198, 'Rajendra Place', '4 hrs ago']
+        ['BAT-450X-12340001', 'Idle', '85%', '98%', '51.2V', '2.1A', 42, 'Gotri Hub', '1 hr ago'],
+        ['BAT-450X-12340002', 'Assigned', '12%', '95%', '48.1V', '8.4A', 105, 'Manjalpur Hub', '12 mins ago'],
+        ['BAT-450X-12340003', 'Charging', '94%', '99%', '53.4V', '-15.0A', 14, 'Gotri Hub', '30 mins ago'],
+        ['BAT-450X-12340004', 'Alert', '8%', '72%', '46.2V', '0.0A', 280, 'KPGU Hub', '2 days ago'],
+        ['BAT-450X-12340005', 'Assigned', '45%', '91%', '49.5V', '4.2A', 198, 'Aatapi Hub', '4 hrs ago']
       ]
     }
   },
@@ -557,6 +557,20 @@ const TABS_CONFIG: Record<string, TabConfig> = {
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('Franchise Report');
+  const [selectedZone, setSelectedZone] = useState('Manjalpur Zone');
+  const [userRole, setUserRole] = useState('');
+  const [availableZones, setAvailableZones] = useState<string[]>([
+    'All Zones',
+    'Gotri Zone',
+    'Manjalpur Zone',
+    'KPGU Zone',
+    'Aatapi Zone',
+    'Moti Daman Zone'
+  ]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [liveReport, setLiveReport] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
   const tabs = [
     'Franchise Report',
@@ -568,27 +582,137 @@ export default function ReportsPage() {
     'User Activity Report'
   ];
 
+  const toYMD = (d: Date) => d.toISOString().split('T')[0];
+
+  // Helper date initialization and zone listener
+  useEffect(() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const s = toYMD(first);
+    const e = toYMD(last);
+    setStartDate(s);
+    setEndDate(e);
+
+    const role = localStorage.getItem('evegah_user_role_name') || localStorage.getItem('evegah_user_role') || '';
+    setUserRole(role);
+
+    const savedZone = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_user_zone');
+    if (savedZone) {
+      setSelectedZone(savedZone);
+    }
+
+    // Fetch zones from backend
+    fetch('/api/zones')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const names = data.map((z: any) => z.name);
+          setAvailableZones(['All Zones', ...names]);
+        }
+      })
+      .catch(() => {});
+
+    // Listen to zone change events from TopBar
+    const handleZoneChange = (evt: any) => {
+      if (evt.detail && evt.detail.zone) {
+        setSelectedZone(evt.detail.zone);
+      }
+    };
+    window.addEventListener('evegah_active_zone_changed', handleZoneChange);
+    window.addEventListener('evegah_zone_changed', handleZoneChange);
+
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', handleZoneChange);
+      window.removeEventListener('evegah_zone_changed', handleZoneChange);
+    };
+  }, []);
+
+  const fetchReport = (z = selectedZone, tab = activeTab, s = startDate, e = endDate) => {
+    setLoading(true);
+    const params = new URLSearchParams({
+      zone: z,
+      tab: tab
+    });
+    if (s && e) {
+      params.append('startDate', s);
+      params.append('endDate', e);
+    }
+    fetch(`/api/stats/reports?${params.toString()}`)
+      .then(res => res.json())
+      .then(resData => {
+        if (resData.status === 'success' && resData.data) {
+          setLiveReport(resData.data);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching live report:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    if (selectedZone) {
+      fetchReport(selectedZone, activeTab, startDate, endDate);
+    }
+  }, [selectedZone, activeTab]);
+
+  const handleApplyFilters = () => {
+    fetchReport(selectedZone, activeTab, startDate, endDate);
+  };
+
+  const handleResetFilters = () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const s = toYMD(first);
+    const e = toYMD(last);
+    setStartDate(s);
+    setEndDate(e);
+    const defaultZone = localStorage.getItem('evegah_user_zone') || 'Manjalpur Zone';
+    setSelectedZone(defaultZone);
+    fetchReport(defaultZone, activeTab, s, e);
+  };
+
+  const isSuperAdmin = userRole === 'Super Admin' || userRole === 'Platform Admin';
+  const isZoneLocked = !isSuperAdmin && !!userRole;
+
   const currentTabConfig = TABS_CONFIG[activeTab] || TABS_CONFIG['Franchise Report'];
+
+  const activeSubtitle = liveReport?.subtitle || currentTabConfig.subtitle;
+  const activeKpis = liveReport?.kpis || currentTabConfig.kpis;
+  const activeCharts = {
+    lineTitle: liveReport?.charts?.lineTitle || currentTabConfig.charts.lineTitle,
+    lineXLabels: liveReport?.charts?.lineXLabels || currentTabConfig.charts.lineXLabels,
+    lineHeights: liveReport?.charts?.lineHeights || currentTabConfig.charts.barHeights,
+    donutTitle: liveReport?.charts?.donutTitle || currentTabConfig.charts.donutTitle,
+    donutTotal: liveReport?.donutTotal || liveReport?.charts?.donutTotal || currentTabConfig.charts.donutTotal,
+    donutSlices: liveReport?.donutSlices || liveReport?.charts?.donutSlices || currentTabConfig.charts.donutSlices,
+    barTitle: liveReport?.charts?.barTitle || currentTabConfig.charts.barTitle,
+    barXLabels: liveReport?.charts?.barXLabels || currentTabConfig.charts.barXLabels,
+    barHeights: liveReport?.charts?.barHeights || currentTabConfig.charts.barHeights,
+  };
+  const activeTable = liveReport?.table || currentTabConfig.table;
 
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const config = TABS_CONFIG[activeTab] || TABS_CONFIG['Franchise Report'];
-
-    const tableHeaderHtml = config.table.headers.map(h => `<th>${h}</th>`).join('');
-    const tableRowsHtml = config.table.rows.map(row => {
-      return `<tr>${row.map((cell, cidx) => {
+    const tableHeaderHtml = activeTable.headers.map((h: string) => `<th>${h}</th>`).join('');
+    const tableRowsHtml = activeTable.rows.map((row: any[]) => {
+      return `<tr>${row.map((cell: any, cidx: number) => {
         const isStrong = cidx === 0 || (activeTab === 'Franchise Report' && cidx === 3) || (activeTab === 'Financial Report' && cidx === 5);
         return `<td class="${isStrong ? 'strong-cell' : ''}">${cell}</td>`;
       }).join('')}</tr>`;
     }).join('');
 
-    const kpisHtml = config.kpis.map(kpi => `
+    const kpisHtml = activeKpis.map((kpi: any) => `
       <div class="kpi-card">
         <div class="kpi-lbl">${kpi.label}</div>
         <div class="kpi-val">${kpi.value}</div>
-        <div class="kpi-delta">${kpi.delta} vs last month</div>
+        <div class="kpi-delta">${kpi.delta}</div>
       </div>
     `).join('');
 
@@ -612,19 +736,6 @@ export default function ReportsPage() {
             .kpi-val { font-size: 16px; font-weight: 800; color: #0F172A; }
             .kpi-delta { font-size: 9px; color: #10B981; margin-top: 4px; font-weight: bold; }
 
-            /* Charts Layout */
-            .charts-section { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 24px; page-break-inside: avoid; }
-            .chart-box { border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; background: #fff; }
-            .chart-title { font-size: 12px; font-weight: 700; color: #0F172A; margin-bottom: 12px; border-bottom: 1px solid #F1F5F9; padding-bottom: 6px; }
-            
-            /* Donut Chart representation */
-            .donut-layout { display: flex; align-items: center; gap: 20px; }
-            .donut-vis { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-            .donut-legend { width: 100%; display: flex; flex-direction: column; gap: 6px; }
-            .legend-item { display: flex; justify-content: space-between; font-size: 10.5px; }
-            .legend-name { color: #64748B; }
-            .legend-val { font-weight: 700; color: #1E293B; }
-
             /* Table Styles */
             .table-section { margin-top: 20px; }
             .table-title { font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 10px; }
@@ -636,7 +747,6 @@ export default function ReportsPage() {
 
             @media print {
               body { padding: 0; }
-              .charts-section { page-break-inside: avoid; }
               table { page-break-inside: auto; }
               tr { page-break-inside: avoid; page-break-after: auto; }
             }
@@ -647,72 +757,18 @@ export default function ReportsPage() {
             <div class="logo">Evegah</div>
             <div class="title-info">
               <div class="report-title">${activeTab}</div>
-              <div class="report-date">Zone: Connaught Place Zone | Date: 20 May 2024</div>
+              <div class="report-date">Zone: ${selectedZone} | Period: ${startDate || 'All'} to ${endDate || 'Present'} | Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
             </div>
           </div>
           
-          <div class="subtitle">${config.subtitle}</div>
+          <div class="subtitle">${activeSubtitle}</div>
 
           <div class="kpis-grid">
             ${kpisHtml}
           </div>
 
-          <div class="charts-section">
-            <div class="chart-box">
-              <div class="chart-title">${config.charts.lineTitle}</div>
-              <svg width="100%" height="150" viewBox="0 0 500 180" style="overflow: visible;">
-                <line x1="0" y1="160" x2="500" y2="160" stroke="#F1F5F9" stroke-width="1" />
-                <line x1="0" y1="120" x2="500" y2="120" stroke="#F1F5F9" stroke-width="1" />
-                <line x1="0" y1="80" x2="500" y2="80" stroke="#F1F5F9" stroke-width="1" />
-                <line x1="0" y1="40" x2="500" y2="40" stroke="#F1F5F9" stroke-width="1" />
-                <line x1="0" y1="10" x2="500" y2="10" stroke="#F1F5F9" stroke-width="1" />
-                
-                <path d="${config.charts.linePath}" fill="none" stroke="#2A195C" stroke-width="2.5" />
-                ${config.charts.linePoints.map(pt => `<circle cx="${pt.cx}" cy="${pt.cy}" r="4" fill="#fff" stroke="#2A195C" stroke-width="2" />`).join('')}
-                
-                ${config.charts.lineXLabels.map((lbl, idx) => `
-                  <text x="${10 + idx * 80}" y="178" font-size="10.5" fill="#64748B" text-anchor="middle">${lbl}</text>
-                `).join('')}
-              </svg>
-            </div>
-
-            <div class="chart-box">
-              <div class="chart-title">${config.charts.donutTitle}</div>
-              <div class="donut-layout">
-                <div class="donut-vis">
-                  <svg width="120" height="120" viewBox="0 0 36 36" style="transform: rotate(-90deg); overflow: visible;">
-                    ${config.charts.donutSlices.map(slice => `
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.91"
-                        fill="transparent"
-                        stroke="${slice.color}"
-                        stroke-width="4.2"
-                        stroke-dasharray="${slice.dashArray}"
-                        stroke-dashoffset="${slice.dashOffset}"
-                      />
-                    `).join('')}
-                  </svg>
-                  <div style="position: absolute; text-align: center; width: 120px; top: 48px; left: 0; font-family: sans-serif;">
-                    <div style="font-size: 13.5px; font-weight: 800; color: #1E293B;">${config.charts.donutTotal}</div>
-                    <div style="font-size: 9px; color: #64748B; margin-top: 1px; font-weight: 500; text-transform: uppercase;">Total</div>
-                  </div>
-                </div>
-                <div class="donut-legend">
-                  ${config.charts.donutSlices.map(slice => `
-                    <div class="legend-item">
-                      <span class="legend-name">${slice.name}</span>
-                      <span class="legend-val">${slice.val} (${slice.pct})</span>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div class="table-section">
-            <div class="table-title">${config.table.title}</div>
+            <div class="table-title">${activeTable.title}</div>
             <table>
               <thead>
                 <tr>${tableHeaderHtml}</tr>
@@ -754,49 +810,14 @@ export default function ReportsPage() {
       <div className="rep-shell">
         <Sidebar activePath="/reports" />
         <div className="rep-main">
-          {/* Custom Top bar for user welcome & zone */}
-          <div className="rep-top-info">
-            <div className="rep-user-greet">
-              <div className="rep-user-avatar" style={{ background: '#2a195c', color: '#fff', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: '2px' }}>
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </div>
-              <div className="rep-user-text">
-                <span className="rep-user-name">Hello, Akash 👋</span>
-                <span className="rep-user-role">Zone Employee</span>
-              </div>
-            </div>
-
-            <div className="rep-top-actions">
-              <button className="rep-zone-select">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                Connaught Place Zone
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-
-              <button className="rep-bell-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                <span className="rep-bell-badge">3</span>
-              </button>
-            </div>
-          </div>
+          <TopBar />
 
           <div className="rep-page">
             {/* Page Title */}
             <div className="rep-title-row">
               <div>
                 <h1 className="rep-h1">Reports</h1>
-                <p className="rep-sub">{currentTabConfig.subtitle}</p>
+                <p className="rep-sub">{activeSubtitle}</p>
               </div>
               <div className="rep-actions">
                 <button className="rep-btn" onClick={() => window.location.href = '/reports/custom'}>
@@ -846,76 +867,100 @@ export default function ReportsPage() {
 
             {/* Filters panel */}
             <div className="rep-filter-card">
-              <div className="rep-filter-grid">
-                <div>
-                  <select className="rep-select" defaultValue="All Zones">
-                    <option>All Zones</option>
-                    <option>Connaught Place Zone</option>
+              <div className="rep-filter-grid" style={{ gridTemplateColumns: '1.2fr 1fr 1.6fr auto auto' }}>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    className="rep-select"
+                    value={selectedZone}
+                    disabled={isZoneLocked}
+                    onChange={e => {
+                      setSelectedZone(e.target.value);
+                      localStorage.setItem('evegah_active_zone', e.target.value);
+                      window.dispatchEvent(new CustomEvent('evegah_active_zone_changed', { detail: { zone: e.target.value } }));
+                    }}
+                    style={isZoneLocked ? { background: '#F8FAFC', color: '#475569', cursor: 'not-allowed', paddingRight: '72px' } : undefined}
+                    title={isZoneLocked ? 'Locked to assigned zone' : 'Select operational zone'}
+                  >
+                    {availableZones.map(z => (
+                      <option key={z} value={z}>{z}</option>
+                    ))}
                   </select>
+                  {isZoneLocked && (
+                    <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '10px', background: '#EEF2FF', color: '#6366F1', padding: '2px 6px', borderRadius: 4, fontWeight: 700, pointerEvents: 'none' }}>
+                      Assigned
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <select className="rep-select" defaultValue="All Franchise">
-                    <option>All Franchise</option>
-                    <option>Connaught Place Hub</option>
-                  </select>
-                </div>
+
                 <div>
                   <select className="rep-select" defaultValue="Performance Summary">
                     <option>Performance Summary</option>
-                    <option>Financial Summary</option>
+                    <option>Operational Audit</option>
+                    <option>Financial Breakdown</option>
                   </select>
                 </div>
-                <button className="rep-date-picker">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="rep-date-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                    </span>
-                    20 May 2024 - 20 May 2024
-                  </span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748B' }}>
-                    <polyline points="6 9 12 15 18 9" />
+
+                {/* Customizable Date Range Pickers */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '6px 12px' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.2" style={{ flexShrink: 0 }}>
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    style={{ border: 'none', outline: 'none', fontSize: '12px', fontWeight: 600, color: '#334155', background: 'transparent', width: '115px' }}
+                    title="From Date"
+                  />
+                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 700 }}>to</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    style={{ border: 'none', outline: 'none', fontSize: '12px', fontWeight: 600, color: '#334155', background: 'transparent', width: '115px' }}
+                    title="To Date"
+                  />
+                </div>
+
+                <button className="rep-reset-btn" onClick={handleResetFilters} type="button">
+                  Reset
                 </button>
-                <button className="rep-filter-btn">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
-                    <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
-                    <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" />
-                  </svg>
+                <button className="rep-apply-btn" onClick={handleApplyFilters} type="button">
+                  {loading ? 'Loading...' : 'Apply Filters'}
                 </button>
-                <button className="rep-reset-btn">Reset</button>
-                <button className="rep-apply-btn">Apply Filters</button>
               </div>
             </div>
 
             {/* KPI Cards Row */}
             <div className="rep-kpis-grid">
-              {currentTabConfig.kpis.map((kpi, idx) => (
+              {activeKpis.map((kpi: any, idx: number) => (
                 <div key={idx} className="rep-kpi-card">
                   <div className={`rep-kpi-ic ${getKpiIconThemeClass(kpi.theme)}`}>
                     {kpi.iconText ? (
                       <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{kpi.iconText}</span>
                     ) : (
-                      kpi.iconSvg
+                      kpi.iconSvg || (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 6v6l4 2" />
+                        </svg>
+                      )
                     )}
                   </div>
                   <div className="rep-kpi-info">
                     <span className="rep-kpi-lbl">{kpi.label}</span>
                     <span className="rep-kpi-val"><AnimatedCount value={kpi.value} /></span>
                     <span className={`rep-kpi-delta ${kpi.trend === 'up' && kpi.delta !== '0.0%' ? 'delta-up' : kpi.trend === 'down' ? 'delta-down' : ''}`} style={kpi.delta === '0.0%' ? { color: '#64748B' } : undefined}>
-                      {kpi.delta !== '0.0%' && (
+                      {kpi.delta !== '0.0%' && kpi.delta && (
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                           <polyline points={kpi.trend === 'up' ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
                         </svg>
                       )}
                       {kpi.delta}
-                      <span className="delta-lbl">vs last month</span>
+                      <span className="delta-lbl">in period</span>
                     </span>
                   </div>
                 </div>
@@ -927,17 +972,17 @@ export default function ReportsPage() {
               {/* Chart 1: Interactive Area Spline Chart */}
               <div className="rep-chart-card">
                 <div className="rep-chart-hdr">
-                  <span className="rep-chart-tit">{currentTabConfig.charts.lineTitle}</span>
-                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 'bold' }}>• Live Analytics</span>
+                  <span className="rep-chart-tit">{activeCharts.lineTitle}</span>
+                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 'bold' }}>• Live Telemetry</span>
                 </div>
                 <div className="rep-chart-body" style={{ height: '220px', width: '100%' }}>
                   <Line
                     data={{
-                      labels: currentTabConfig.charts.lineXLabels,
+                      labels: activeCharts.lineXLabels,
                       datasets: [
                         {
-                          label: currentTabConfig.charts.lineTitle,
-                          data: currentTabConfig.charts.barHeights.map(h => Math.round(h * 32.5)),
+                          label: activeCharts.lineTitle,
+                          data: activeCharts.lineHeights,
                           borderColor: '#6366F1',
                           backgroundColor: 'rgba(99, 102, 241, 0.12)',
                           fill: true,
@@ -953,6 +998,7 @@ export default function ReportsPage() {
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
+                      animation: { duration: 900, easing: 'easeInOutQuart' },
                       plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -975,17 +1021,17 @@ export default function ReportsPage() {
               {/* Chart 2: Interactive Doughnut Chart */}
               <div className="rep-chart-card">
                 <div className="rep-chart-hdr">
-                  <span className="rep-chart-tit">{currentTabConfig.charts.donutTitle}</span>
+                  <span className="rep-chart-tit">{activeCharts.donutTitle}</span>
                 </div>
                 <div className="rep-chart-body" style={{ flexDirection: 'column', height: '220px', justifyContent: 'center' }}>
                   <div className="rep-donut-vis" style={{ height: '130px', width: '130px' }}>
                     <Doughnut
                       data={{
-                        labels: currentTabConfig.charts.donutSlices.map(s => s.name),
+                        labels: activeCharts.donutSlices.map((s: any) => s.name),
                         datasets: [
                           {
-                            data: currentTabConfig.charts.donutSlices.map(s => parseFloat(s.pct)),
-                            backgroundColor: currentTabConfig.charts.donutSlices.map(s => s.color),
+                            data: activeCharts.donutSlices.map((s: any) => parseFloat(s.pct) || 0),
+                            backgroundColor: activeCharts.donutSlices.map((s: any) => s.color || '#6366F1'),
                             borderWidth: 2,
                             borderColor: '#FFFFFF',
                           }
@@ -995,6 +1041,7 @@ export default function ReportsPage() {
                         responsive: true,
                         maintainAspectRatio: false,
                         cutout: '72%',
+                        animation: { duration: 900, easing: 'easeInOutQuart' },
                         plugins: {
                           legend: { display: false },
                           tooltip: { cornerRadius: 8 }
@@ -1002,16 +1049,16 @@ export default function ReportsPage() {
                       }}
                     />
                     <div className="rep-donut-center">
-                      <div className="rep-donut-num">{currentTabConfig.charts.donutTotal}</div>
-                      <div className="rep-donut-lbl">Total Share</div>
+                      <div className="rep-donut-num">{activeCharts.donutTotal}</div>
+                      <div className="rep-donut-lbl">Total</div>
                     </div>
                   </div>
 
                   <div className="rep-donut-legend" style={{ marginTop: '12px' }}>
-                    {currentTabConfig.charts.donutSlices.slice(0, 3).map((slice, index) => (
+                    {activeCharts.donutSlices.slice(0, 3).map((slice: any, index: number) => (
                       <div key={index} className="rep-leg-item">
                         <div className="rep-leg-l">
-                          <span className="rep-leg-dot" style={{ background: slice.color }} />
+                          <span className="rep-leg-dot" style={{ background: slice.color || '#6366F1' }} />
                           <span className="rep-leg-name">{slice.name}</span>
                         </div>
                         <span className="rep-leg-val">{slice.val} <span className="rep-leg-pct">({slice.pct})</span></span>
@@ -1024,16 +1071,16 @@ export default function ReportsPage() {
               {/* Chart 3: Interactive Bar Chart */}
               <div className="rep-chart-card">
                 <div className="rep-chart-hdr">
-                  <span className="rep-chart-tit">{currentTabConfig.charts.barTitle}</span>
+                  <span className="rep-chart-tit">{activeCharts.barTitle}</span>
                 </div>
                 <div className="rep-chart-body" style={{ height: '220px', width: '100%' }}>
                   <Bar
                     data={{
-                      labels: currentTabConfig.charts.barXLabels,
+                      labels: activeCharts.barXLabels,
                       datasets: [
                         {
-                          label: currentTabConfig.charts.barTitle,
-                          data: currentTabConfig.charts.barHeights,
+                          label: activeCharts.barTitle,
+                          data: activeCharts.barHeights,
                           backgroundColor: 'rgba(99, 102, 241, 0.85)',
                           hoverBackgroundColor: '#4F46E5',
                           borderRadius: 6,
@@ -1044,6 +1091,7 @@ export default function ReportsPage() {
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
+                      animation: { duration: 900, easing: 'easeInOutQuart' },
                       plugins: {
                         legend: { display: false },
                         tooltip: { cornerRadius: 8 }
@@ -1061,14 +1109,14 @@ export default function ReportsPage() {
             {/* Performance/Details Table */}
             <div className="rep-tcard">
               <div className="rep-tcard-hdr">
-                <span className="rep-tcard-tit">{currentTabConfig.table.title}</span>
-                <button className="rep-btn" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                <span className="rep-tcard-tit">{activeTable.title}</span>
+                <button className="rep-btn" onClick={handleExportPDF} style={{ padding: '6px 12px', fontSize: '12px' }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ marginRight: 2 }}>
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  Export
+                  Export PDF
                 </button>
               </div>
 
@@ -1076,16 +1124,16 @@ export default function ReportsPage() {
                 <table className="rep-tbl">
                   <thead>
                     <tr>
-                      {currentTabConfig.table.headers.map((hdr, idx) => (
+                      {activeTable.headers.map((hdr: string, idx: number) => (
                         <th key={idx}>{hdr}</th>
                       ))}
                       <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {currentTabConfig.table.rows.map((row, index) => (
+                    {activeTable.rows.map((row: any[], index: number) => (
                       <tr key={index}>
-                        {row.map((cell, cidx) => {
+                        {row.map((cell: any, cidx: number) => {
                           const isStrong = cidx === 0 || (activeTab === 'Franchise Report' && cidx === 3) || (activeTab === 'Financial Report' && cidx === 5);
                           return (
                             <td key={cidx} className={isStrong ? "rep-tbl-strong" : ""}>
@@ -1110,7 +1158,7 @@ export default function ReportsPage() {
 
               {/* Table Footer */}
               <div className="rep-tcard-ft">
-                <span className="rep-tcard-ft-lbl">Showing 1 to {currentTabConfig.table.rows.length} of {currentTabConfig.table.rows.length} entries</span>
+                <span className="rep-tcard-ft-lbl">Showing 1 to {activeTable.rows.length} of {activeTable.rows.length} entries</span>
                 <div className="rep-pg">
                   <button className="rep-pgb" disabled type="button">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

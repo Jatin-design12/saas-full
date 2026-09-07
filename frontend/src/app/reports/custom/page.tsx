@@ -180,8 +180,10 @@ export default function CustomReportPage() {
                   <select className="cr-select" value={selectedZone} onChange={(e) => setSelectedZone(e.target.value)}>
                     <option value="All Zones">All Zones (Multi-Zone View)</option>
                     <option value="Gotri Zone">Gotri Zone</option>
+                    <option value="Manjalpur Zone">Manjalpur Zone</option>
+                    <option value="KPGU Zone">KPGU Zone</option>
                     <option value="Aatapi Zone">Aatapi Zone</option>
-                    <option value="Connaught Place Zone">Connaught Place Zone</option>
+                    <option value="Moti Daman Zone">Moti Daman Zone</option>
                   </select>
                 </div>
 
@@ -352,7 +354,7 @@ export default function CustomReportPage() {
                     {[
                       { zone: 'Gotri Zone', period: 'Jul 2026', fleet: '180 EV', rentals: 420, swaps: 284, rev: '₹1,85,400', st: 'Verified' },
                       { zone: 'Aatapi Zone', period: 'Jul 2026', fleet: '145 EV', rentals: 380, swaps: 240, rev: '₹1,42,800', st: 'Verified' },
-                      { zone: 'Connaught Place Zone', period: 'Jul 2026', fleet: '160 EV', rentals: 410, swaps: 310, rev: '₹1,57,400', st: 'Verified' }
+                      { zone: 'Manjalpur Zone', period: 'Jul 2026', fleet: '160 EV', rentals: 410, swaps: 310, rev: '₹1,57,400', st: 'Verified' }
                     ].map((row, idx) => (
                       <tr key={idx}>
                         <td style={{ fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>

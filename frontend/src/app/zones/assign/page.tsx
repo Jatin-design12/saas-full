@@ -4,6 +4,27 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 // CSS Stylesheet to inject for pixel perfect copy-to-copy matching
 const CSS = `
@@ -1157,15 +1178,11 @@ export default function AssignZonePage() {
   // Dynamically compute zones list with real resource counts
   const zones = useMemo(() => {
     const ZONE_AREAS: Record<string, string> = {
-      'Connaught Place': '2.45 km²',
-      'Karol Bagh': '1.80 km²',
-      'Paharganj': '1.25 km²',
-      'Rajendra Place': '1.10 km²',
-      'Pragati Maidan': '1.05 km²',
-      'Dwarka Sector 12': '2.10 km²',
-      'Rohini Sector 18': '1.75 km²',
-      'Okhla Phase 1': '1.60 km²',
-      'Lajpat Nagar': '1.50 km²'
+      'Gotri Zone': '2.45 km²',
+      'Manjalpur Zone': '1.80 km²',
+      'KPGU Zone': '1.25 km²',
+      'Aatapi Zone': '1.10 km²',
+      'Moti Daman Zone': '1.05 km²'
     };
     return rawZones.map((z: any) => {
       const zoneVehicles = rawVehicles.filter((v: any) => v.zone === z.name).length;
@@ -1285,9 +1302,9 @@ export default function AssignZonePage() {
         let dbZones = (res && res.status === 'success' && res.data) ? res.data : [];
         if (dbZones.length === 0) {
           dbZones = [
-            { name: 'Connaught Place', code: 'ZONE-CP-001', type: 'Operational', priority: 'Medium', status: 'active', start_date: '2024-04-15' },
-            { name: 'Karol Bagh', code: 'ZONE-KB-002', type: 'Operational', priority: 'Medium', status: 'active', start_date: '2024-04-16' },
-            { name: 'Paharganj', code: 'ZONE-PG-003', type: 'Operational', priority: 'Medium', status: 'active', start_date: '2024-04-17' },
+            { name: 'Gotri Zone', code: 'ZONE-GT-001', type: 'Operational', priority: 'High', status: 'active', start_date: '2024-04-15' },
+            { name: 'Manjalpur Zone', code: 'ZONE-MJ-002', type: 'Operational', priority: 'Medium', status: 'active', start_date: '2024-04-16' },
+            { name: 'KPGU Zone', code: 'ZONE-KP-003', type: 'Operational', priority: 'Medium', status: 'active', start_date: '2024-04-17' },
           ];
         }
         setRawZones(dbZones);
@@ -1653,8 +1670,6 @@ export default function AssignZonePage() {
 
       <div className="za-main">
         <TopBar
-          title="Hello, Akash"
-          subtitle="Zone Employee"
           notificationCount={3}
           hideZone={false}
         />
@@ -1946,67 +1961,141 @@ export default function AssignZonePage() {
               </div>
 
               {/* Dynamic Charts Grid Rendered Below Table */}
-              <div className="za-charts-grid" style={{ marginTop: '24px' }}>
-                <div className="za-chart-card">
-                  <div className="za-chart-card-header">
-                    <h3 className="za-chart-title">Zone Resource Distribution</h3>
-                    <div className="za-chart-legends">
-                      <div className="za-legend"><span className="za-dot za-dot-red" />Vehicles</div>
-                      <div className="za-legend"><span className="za-dot za-dot-green" />Batteries</div>
-                      <div className="za-legend"><span className="za-dot za-dot-purple" />Users</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginTop: '24px' }}>
+                <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Zone Resource Distribution</h3>
+                      <p style={{ fontSize: '12px', color: '#64748B', marginTop: '3px' }}>Allocated vehicles, swappable batteries & active users across zones</p>
                     </div>
                   </div>
-                  <div className="za-bar-chart">
-                    {zones.slice(0, 7).map(z => {
-                      const maxVal = Math.max(...zones.map(zone => Math.max(zone.vehicles, zone.batteries, zone.users)), 10);
-                      const vehPct = (z.vehicles / maxVal) * 100;
-                      const batPct = (z.batteries / maxVal) * 100;
-                      const usrPct = (z.users / maxVal) * 100;
-                      return (
-                        <div className="za-bar-group" key={z.id}>
-                          <div className="za-bars-wrapper">
-                            <div className="za-bar za-bar-red" style={{ height: `${vehPct}%` }} title={`${z.vehicles} Vehicles`}></div>
-                            <div className="za-bar za-bar-green" style={{ height: `${batPct}%` }} title={`${z.batteries} Batteries`}></div>
-                            <div className="za-bar za-bar-purple" style={{ height: `${usrPct}%` }} title={`${z.users} Users`}></div>
-                          </div>
-                          <span className="za-bar-label">{z.id.split(' ')[0]}</span>
-                        </div>
-                      );
-                    })}
+                  <div style={{ height: '280px', width: '100%', position: 'relative' }}>
+                    <Bar
+                      data={{
+                        labels: zones.slice(0, 7).map(z => z.id.replace(/ Zone| Vadodara/gi, '')),
+                        datasets: [
+                          {
+                            label: 'Vehicles',
+                            data: zones.slice(0, 7).map(z => z.vehicles),
+                            backgroundColor: '#3B82F6',
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.7
+                          },
+                          {
+                            label: 'Batteries',
+                            data: zones.slice(0, 7).map(z => z.batteries),
+                            backgroundColor: '#10B981',
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.7
+                          },
+                          {
+                            label: 'Users',
+                            data: zones.slice(0, 7).map(z => z.users),
+                            backgroundColor: '#8B5CF6',
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.7
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'top' as const,
+                            align: 'end' as const,
+                            labels: {
+                              font: { family: 'Inter', size: 12, weight: 'bold' as const },
+                              usePointStyle: true,
+                              boxWidth: 8,
+                              padding: 16
+                            }
+                          },
+                          tooltip: {
+                            backgroundColor: '#0F172A',
+                            titleFont: { family: 'Inter', size: 12, weight: 'bold' as const },
+                            bodyFont: { family: 'Inter', size: 12 },
+                            padding: 10,
+                            cornerRadius: 8
+                          }
+                        },
+                        scales: {
+                          x: {
+                            grid: { display: false },
+                            ticks: { font: { family: 'Inter', size: 11, weight: 'bold' as const }, color: '#64748B' }
+                          },
+                          y: {
+                            beginAtZero: true,
+                            grid: { color: '#F1F5F9' },
+                            ticks: { font: { family: 'Inter', size: 11 }, color: '#94A3B8' }
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 
-                <div className="za-chart-card">
-                  <div className="za-chart-card-header">
-                    <h3 className="za-chart-title">Resource Summary</h3>
+                <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '22px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ marginBottom: '14px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Resource Summary</h3>
+                    <p style={{ fontSize: '12px', color: '#64748B', marginTop: '3px' }}>Overall inventory proportion</p>
                   </div>
-                  <div className="za-donut-wrapper">
-                    <svg width="110" height="110" viewBox="0 0 42 42">
-                      <circle cx="21" cy="21" r="15.915" fill="#fff"></circle>
-                      <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#F1F5F9" strokeWidth="4.5"></circle>
-                      {totalStats.total > 0 && (
-                        <>
-                          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#22c55e" strokeWidth="4.5" strokeDasharray={`${totalStats.batPct} ${100 - totalStats.batPct}`} strokeDashoffset="25"></circle>
-                          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ef4444" strokeWidth="4.5" strokeDasharray={`${totalStats.vehPct} ${100 - totalStats.vehPct}`} strokeDashoffset={`${25 - totalStats.batPct}`}></circle>
-                          <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#2A195C" strokeWidth="4.5" strokeDasharray={`${totalStats.usrPct} ${100 - totalStats.usrPct}`} strokeDashoffset={`${25 - totalStats.batPct - totalStats.vehPct}`}></circle>
-                        </>
-                      )}
-                      <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" className="donut-text">{totalStats.total}</text>
-                    </svg>
-
-                    <div className="za-donut-legend-list">
-                      <div className="za-donut-legend-item">
-                        <span className="za-legend"><span className="za-dot za-dot-red" />Vehicles</span>
-                        <span>{totalStats.vehicles} ({totalStats.vehPct.toFixed(1)}%)</span>
-                      </div>
-                      <div className="za-donut-legend-item">
-                        <span className="za-legend"><span className="za-dot za-dot-green" />Batteries</span>
-                        <span>{totalStats.batteries} ({totalStats.batPct.toFixed(1)}%)</span>
-                      </div>
-                      <div className="za-donut-legend-item">
-                        <span className="za-legend"><span className="za-dot za-dot-purple" />Users</span>
-                        <span>{totalStats.users} ({totalStats.usrPct.toFixed(1)}%)</span>
-                      </div>
+                  <div style={{ height: '190px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Doughnut
+                      data={{
+                        labels: ['Vehicles', 'Batteries', 'Users'],
+                        datasets: [
+                          {
+                            data: [totalStats.vehicles || 1, totalStats.batteries || 1, totalStats.users || 1],
+                            backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6'],
+                            borderWidth: 3,
+                            borderColor: '#FFFFFF'
+                          }
+                        ]
+                      }}
+                      options={{
+                        cutout: '72%',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            backgroundColor: '#0F172A',
+                            padding: 10,
+                            cornerRadius: 8
+                          }
+                        }
+                      }}
+                    />
+                    <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+                      <span style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>{totalStats.total}</span>
+                      <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '3px' }}>TOTAL ASSETS</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '6px 10px', background: '#EFF6FF', borderRadius: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#1E40AF' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3B82F6' }}></span>
+                        Vehicles
+                      </span>
+                      <span style={{ fontWeight: 800, color: '#1E40AF' }}>{totalStats.vehicles} ({totalStats.vehPct?.toFixed(1) || 0}%)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '6px 10px', background: '#ECFDF5', borderRadius: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#065F46' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}></span>
+                        Batteries
+                      </span>
+                      <span style={{ fontWeight: 800, color: '#065F46' }}>{totalStats.batteries} ({totalStats.batPct?.toFixed(1) || 0}%)</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '6px 10px', background: '#F5F3FF', borderRadius: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#5B21B6' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#8B5CF6' }}></span>
+                        Users
+                      </span>
+                      <span style={{ fontWeight: 800, color: '#5B21B6' }}>{totalStats.users} ({totalStats.usrPct?.toFixed(1) || 0}%)</span>
                     </div>
                   </div>
                 </div>

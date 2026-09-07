@@ -105,14 +105,14 @@ interface SwapItem {
 }
 
 const INITIAL_SWAPS: SwapItem[] = [
-  { id: 'SW-2024-05892', batteryId: 'BAT-450X-12340001', vehiclePlate: 'DL-01-AB-1234', socOld: 14, socNew: 98, location: 'Palika Bazaar, CP', operator: 'Self-Service', duration: '42s', type: 'Automated', status: 'Completed', time: '20 May 2024, 10:15 AM' },
-  { id: 'SW-2024-05891', batteryId: 'BAT-450X-12340002', vehiclePlate: 'DL-01-AB-5678', socOld: 8, socNew: 95, location: 'Karol Bagh', operator: 'Rajesh Sharma', duration: '1m 12s', type: 'Manual Hub', status: 'Completed', time: '20 May 2024, 10:02 AM' },
-  { id: 'SW-2024-05890', batteryId: 'BAT-450X-12340003', vehiclePlate: 'DL-01-AB-9012', socOld: 22, socNew: 92, location: 'Palika Bazaar, CP', operator: 'Self-Service', duration: '48s', type: 'Automated', status: 'Completed', time: '20 May 2024, 09:48 AM' },
-  { id: 'SW-2024-05889', batteryId: 'BAT-450X-12340004', vehiclePlate: 'DL-01-AB-3456', socOld: 15, socNew: 15, location: 'Raja Garden', operator: 'Amit Singh', duration: '2m 15s', type: 'Manual Hub', status: 'Failed', time: '20 May 2024, 09:30 AM' },
-  { id: 'SW-2024-05888', batteryId: 'BAT-450X-12340005', vehiclePlate: 'DL-01-AB-7890', socOld: 19, socNew: 97, location: 'Jantar Mantar, CP', operator: 'Self-Service', duration: '40s', type: 'Automated', status: 'Completed', time: '20 May 2024, 09:12 AM' },
-  { id: 'SW-2024-05887', batteryId: 'BAT-450X-12340006', vehiclePlate: 'DL-01-AB-1122', socOld: 5, socNew: 24, location: 'Karol Bagh', operator: 'Rajesh Sharma', duration: '45s', type: 'Manual Hub', status: 'Ongoing', time: '20 May 2024, 09:05 AM' },
-  { id: 'SW-2024-05886', batteryId: 'BAT-450X-12340007', vehiclePlate: 'DL-01-AB-4455', socOld: 12, socNew: 96, location: 'Raja Garden', operator: 'Self-Service', duration: '44s', type: 'Automated', status: 'Completed', time: '19 May 2024, 06:40 PM' },
-  { id: 'SW-2024-05885', batteryId: 'BAT-450X-12340002', vehiclePlate: 'DL-01-AB-5678', socOld: 17, socNew: 99, location: 'Palika Bazaar, CP', operator: 'Self-Service', duration: '51s', type: 'Automated', status: 'Completed', time: '19 May 2024, 05:22 PM' },
+  { id: 'SW-2024-05892', batteryId: 'BAT-450X-12340001', vehiclePlate: 'GJ-06-EV-1024', socOld: 14, socNew: 98, location: 'Gotri Hub', operator: 'Self-Service', duration: '42s', type: 'Automated', status: 'Completed', time: '20 May 2024, 10:15 AM' },
+  { id: 'SW-2024-05891', batteryId: 'BAT-450X-12340002', vehiclePlate: 'GJ-06-EV-1025', socOld: 8, socNew: 95, location: 'Manjalpur Hub', operator: 'Rajesh Sharma', duration: '1m 12s', type: 'Manual Hub', status: 'Completed', time: '20 May 2024, 10:02 AM' },
+  { id: 'SW-2024-05890', batteryId: 'BAT-450X-12340003', vehiclePlate: 'GJ-06-EV-1026', socOld: 22, socNew: 92, location: 'Gotri Hub', operator: 'Self-Service', duration: '48s', type: 'Automated', status: 'Completed', time: '20 May 2024, 09:48 AM' },
+  { id: 'SW-2024-05889', batteryId: 'BAT-450X-12340004', vehiclePlate: 'GJ-06-EV-1027', socOld: 15, socNew: 15, location: 'KPGU Hub', operator: 'Amit Singh', duration: '2m 15s', type: 'Manual Hub', status: 'Failed', time: '20 May 2024, 09:30 AM' },
+  { id: 'SW-2024-05888', batteryId: 'BAT-450X-12340005', vehiclePlate: 'GJ-06-EV-1028', socOld: 19, socNew: 97, location: 'Aatapi Hub', operator: 'Self-Service', duration: '40s', type: 'Automated', status: 'Completed', time: '20 May 2024, 09:12 AM' },
+  { id: 'SW-2024-05887', batteryId: 'BAT-450X-12340006', vehiclePlate: 'GJ-06-EV-1029', socOld: 5, socNew: 24, location: 'Manjalpur Hub', operator: 'Rajesh Sharma', duration: '45s', type: 'Manual Hub', status: 'Ongoing', time: '20 May 2024, 09:05 AM' },
+  { id: 'SW-2024-05886', batteryId: 'BAT-450X-12340007', vehiclePlate: 'GJ-06-EV-1030', socOld: 12, socNew: 96, location: 'Moti Daman Hub', operator: 'Self-Service', duration: '44s', type: 'Automated', status: 'Completed', time: '19 May 2024, 06:40 PM' },
+  { id: 'SW-2024-05885', batteryId: 'BAT-450X-12340002', vehiclePlate: 'GJ-06-EV-1025', socOld: 17, socNew: 99, location: 'Gotri Hub', operator: 'Self-Service', duration: '51s', type: 'Automated', status: 'Completed', time: '19 May 2024, 05:22 PM' },
 ];
 
 export default function SwapHistoryPage() {
@@ -301,10 +301,11 @@ export default function SwapHistoryPage() {
                 </select>
                 <select className="sh-select" value={locationFilter} onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}>
                   <option value="">All Locations</option>
-                  <option value="Palika Bazaar, CP">Palika Bazaar, CP</option>
-                  <option value="Karol Bagh">Karol Bagh</option>
-                  <option value="Jantar Mantar, CP">Jantar Mantar, CP</option>
-                  <option value="Raja Garden">Raja Garden</option>
+                  <option value="Gotri Hub">Gotri Hub</option>
+                  <option value="Manjalpur Hub">Manjalpur Hub</option>
+                  <option value="KPGU Hub">KPGU Hub</option>
+                  <option value="Aatapi Hub">Aatapi Hub</option>
+                  <option value="Moti Daman Hub">Moti Daman Hub</option>
                 </select>
                 <div style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600 }}>
                   Showing {filteredSwaps.length} results

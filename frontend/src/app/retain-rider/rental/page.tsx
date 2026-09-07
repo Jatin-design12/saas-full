@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -91,14 +92,17 @@ const CSS = `
 .nr-rp-hdr{display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #E5E7EB;}
 .nr-rp-hdr-ic{display:flex;align-items:center;flex-shrink:0;}
 .nr-rp-title{font-size:13.5px;font-weight:700;color:#111827;}
-.nr-rp-body{padding:12px 18px 14px;}
-.nr-rp-row{display:flex;align-items:center;justify-content:space-between;padding:6.5px 0;border-bottom:1px solid #F9FAFB;font-size:12.5px;}
-.nr-rp-row:last-child{border-bottom:none;}
-.nr-rp-label{color:#6B7280;} .nr-rp-val{font-weight:600;color:#111827;text-align:right;}
+.nr-rp-body{padding:10px 14px 12px;display:flex;flex-direction:column;gap:7px;}
+.nr-rp-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;font-size:13px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;}
+.nr-rp-label{color:#64748B;font-weight:500;} .nr-rp-val{font-weight:700;color:#111827;text-align:right;}
 .nr-rp-kyc{background:#DCFCE7;color:#16A34A;border-radius:5px;font-size:11px;font-weight:700;padding:2px 8px;}
-.nr-rp-avatar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.nr-rp-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2A195C,#2A195C);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0;}
+.nr-rp-avatar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.nr-rp-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2A195C,#2A195C);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;}
 .nr-rp-name{font-size:14px;font-weight:800;color:#111827;} .nr-rp-sub{font-size:12px;color:#6B7280;}
+.nr-rp-divider{height:1px;background:#E2E8F0;margin:2px 0;}
+.nr-rp-total{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;margin:2px 0 0;border-radius:10px;background:#F5F3FF;border:1.5px solid #DDD6FE;}
+.nr-rp-total-l{font-size:13px;font-weight:700;color:#111827;}
+.nr-rp-total-r{font-size:17px;font-weight:800;color:#2A195C;}
 .nr-help-body{padding:14px 18px 16px;}
 .nr-help-sub{font-size:13px;color:#6B7280;margin-bottom:12px;}
 .nr-help-btn{width:100%;padding:10px;background:#2A195C;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;}
@@ -125,19 +129,95 @@ const IClose = () => <SV s={13}><line x1="18" y1="6" x2="6" y2="18" /><line x1="
 const MiniScooter = () => (<svg viewBox="0 0 80 50" style={{ width: 60, height: 40 }} fill="none"><circle cx="15" cy="38" r="10" stroke="#2A195C" strokeWidth="2.5" fill="#EEF2FF" /><circle cx="65" cy="38" r="10" stroke="#2A195C" strokeWidth="2.5" fill="#EEF2FF" /><path d="M15 28 L20 15 L45 15 L55 28 Z" fill="#2A195C" opacity="0.9" /><path d="M45 15 L55 10 L60 20 L55 28 Z" fill="#3730A3" /><path d="M20 15 L25 10 L28 15" fill="#6366F1" /><rect x="23" y="10" width="6" height="3" rx="1" fill="#A5B4FC" /><line x1="15" y1="28" x2="65" y2="28" stroke="#2A195C" strokeWidth="2.5" /></svg>);
 const MiniBattery = () => (<svg viewBox="0 0 50 70" style={{ width: 36, height: 50 }} fill="none"><rect x="8" y="8" width="34" height="54" rx="5" fill="#1E1B4B" stroke="#2A195C" strokeWidth="2" /><rect x="18" y="2" width="14" height="8" rx="2" fill="#2A195C" /><rect x="12" y="18" width="26" height="5" rx="2" fill="#22C55E" /><rect x="12" y="27" width="26" height="5" rx="2" fill="#22C55E" /><rect x="12" y="36" width="26" height="5" rx="2" fill="#22C55E" /><rect x="12" y="45" width="16" height="5" rx="2" fill="#374151" /></svg>);
 
+/* ── 4 Steps for Retain Rider ── */
 const STEPS = [
   { n: 1, label: 'Rider Search', stat: 'Completed', state: 'done' },
   { n: 2, label: 'Rental Details', stat: 'In Progress', state: 'active' },
   { n: 3, label: 'Payment & Charges', stat: 'Pending', state: 'pend' },
-  { n: 4, label: 'Documents', stat: 'Pending', state: 'pend' },
-  { n: 5, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
+  { n: 4, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
 ];
 const ACCESSORIES = ['Helmet', 'Charger', 'Mobile Holder', 'Rain Cover'];
 
+const VEHICLE_OPTIONS = [
+  { id: 'EVM1024012', name: 'Evegah E1', img: '/City-1.png', status: 'Available' },
+  { id: 'EV-CTY-098', name: 'Evegah City', img: '/City-2.png', status: 'Available' },
+  { id: 'EV-PRO-102', name: 'Evegah Pro', img: '/City-3.png', status: 'Available' },
+];
+
+const BATTERY_OPTIONS = [
+  { id: 'BAT-0098', name: 'Evegah 60V 30Ah Lithium-ion', img: '/ev_batttery.png' },
+  { id: 'BAT-MNZ-001', name: 'Evegah 60V 32Ah Advanced', img: '/ev_batttery.png' },
+];
+
+const PLANS: Record<string, { label: string; rate: number; days: number }> = {
+  daily: { label: 'Daily Plan', rate: 600, days: 1 },
+  weekly: { label: 'Weekly Plan', rate: 2800, days: 7 },
+  monthly: { label: 'Monthly Plan', rate: 7500, days: 30 },
+};
+
 export default function RetainRiderRentalPage() {
+  const router = useRouter();
+  const [rider, setRider] = useState<any>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState(VEHICLE_OPTIONS[0]);
+  const [selectedBattery, setSelectedBattery] = useState(BATTERY_OPTIONS[0]);
+  const [planKey, setPlanKey] = useState<'daily'|'weekly'|'monthly'>('daily');
   const [accessories, setAccessories] = useState([true, true, false, false]);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('evegah_retain_rider');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setRider(parsed);
+          if (parsed.vehicle_id) {
+            const foundV = VEHICLE_OPTIONS.find(v => v.id === parsed.vehicle_id || v.name === parsed.vehicle);
+            if (foundV) setSelectedVehicle(foundV);
+          }
+          if (parsed.battery_id) {
+            const foundB = BATTERY_OPTIONS.find(b => b.id === parsed.battery_id);
+            if (foundB) setSelectedBattery(foundB);
+          }
+        }
+      } catch {}
+    }
+  }, []);
+
   const toggleAcc = (i: number) => setAccessories(p => { const a = [...p]; a[i] = !a[i]; return a; });
+
+  const activePlan = PLANS[planKey];
+  const rentPrice = activePlan.rate;
+  const depositAmount = Number(rider?.deposit) || 500;
+  const totalAmount = rentPrice + depositAmount;
+
+  const handleContinue = () => {
+    if (typeof window !== 'undefined') {
+      const rentalData = {
+        vehicle_code: selectedVehicle.id,
+        vehicle_name: selectedVehicle.name,
+        battery_id: selectedBattery.id,
+        battery_name: selectedBattery.name,
+        plan_type: activePlan.label,
+        plan_rate: rentPrice,
+        total_days: activePlan.days,
+        deposit_amount: depositAmount,
+        notes: notes,
+        accessories: ACCESSORIES.filter((_, idx) => accessories[idx]),
+      };
+      localStorage.setItem('evegah_retain_rental', JSON.stringify(rentalData));
+      // also seed evegah_new_ride_rental for backward compatibility
+      localStorage.setItem('evegah_new_ride_rental', JSON.stringify(rentalData));
+    }
+    router.push('/retain-rider/payment');
+  };
+
+  const riderName = rider?.name || 'Devendra Rana';
+  const riderPhone = rider?.phone || '+91 98255 44332';
+  const riderId = rider?.id || 'EVR-16EFE6';
+  const isFemale = riderName.toLowerCase().includes('priya') || riderName.toLowerCase().includes('kinjal') || riderName.toLowerCase().includes('neha');
+  const avatarUrl = rider?.avatar || (isFemale ? '/priya_avatar.png' : '/rohit_avatar.png');
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -152,8 +232,8 @@ export default function RetainRiderRentalPage() {
               <span className="nr-bc-cur">Retain Ride Registration</span>
             </div>
             <div className="nr-title-row">
-              <div><h1 className="nr-h1">Retain Ride Registration</h1><p className="nr-sub">Search and select an existing rider to create a new ride</p></div>
-              <button className="nr-back-btn"><ILeft /> Back to Rides</button>
+              <div><h1 className="nr-h1">Retain Ride Registration</h1><p className="nr-sub">Configure vehicle and rental plan for returning rider</p></div>
+              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
             </div>
             <div className="nr-stepper">
               {STEPS.map((s, i) => (
@@ -173,81 +253,108 @@ export default function RetainRiderRentalPage() {
               <div>
                 <div className="nr-card">
                   <div className="rr-rider-banner">
-                    <div className="rr-banner-avatar">AV</div>
+                    <div className="rr-banner-avatar" style={{ position: 'relative', overflow: 'hidden' }}>
+                      <img
+                        src={avatarUrl}
+                        alt={riderName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, zIndex: 0 }}>
+                        {riderName.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
                     <div>
-                      <div className="rr-banner-name">Akash Verma</div>
-                      <div className="rr-banner-row"><IPhone /> +91 98765 43210</div>
-                      <div className="rr-banner-row"><IID /> Rider ID: RDR00124</div>
+                      <div className="rr-banner-name">{riderName}</div>
+                      <div className="rr-banner-row"><IPhone /> {riderPhone}</div>
+                      <div className="rr-banner-row"><IID /> Rider ID: {riderId}</div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, marginLeft: 'auto' }}>
-                      <span className="rr-kyc-badge"><ICheck s={11} /> KYC Verified</span>
-                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>Verified on: 12 Mar 2024</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 20, marginLeft: 16, flexShrink: 0 }}>
-                      <div className="rr-stat-block">
-                        <div style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>18 May 2024</div>
-                        <div className="rr-stat-lbl">Last Ride</div>
-                      </div>
-                      <div className="rr-stat-block">
-                        <div className="rr-stat-num">24</div>
-                        <div className="rr-stat-lbl">Total Rides</div>
-                      </div>
+                      <span className="rr-kyc-badge"><ICheck s={11} /> Documents On File</span>
+                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>Returning Rider</span>
                     </div>
                   </div>
                   <div className="nr-card-body">
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 14 }}>Rental Details</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 14 }}>Rental Configuration</div>
                     <div className="rr-form-grid">
                       <div className="rr-field">
                         <label className="rr-label">Ride Start Date &amp; Time <span>*</span></label>
                         <div className="rr-input-row">
-                          <input className="rr-inp" style={{ flex: 1 }} defaultValue="21 May 2024" />
-                          <input className="rr-inp" style={{ width: 110 }} defaultValue="10:00 AM" />
+                          <input className="rr-inp" style={{ flex: 1 }} defaultValue="Today, 10:00 AM" />
                         </div>
                       </div>
                       <div className="rr-field">
-                        <label className="rr-label">Rental Plan <span>*</span></label>
-                        <select className="rr-inp rr-select"><option>Monthly</option><option>Daily</option><option>Weekly</option></select>
-                      </div>
-                      <div className="rr-field">
-                        <label className="rr-label">Expected Return Date &amp; Time <span>*</span></label>
-                        <div className="rr-input-row">
-                          <input className="rr-inp" style={{ flex: 1 }} defaultValue="20 Jun 2024" />
-                          <input className="rr-inp" style={{ width: 110 }} defaultValue="10:00 AM" />
-                        </div>
-                      </div>
-                      <div className="rr-field">
-                        <label className="rr-label">Purpose of Ride (Optional)</label>
-                        <select className="rr-inp rr-select"><option>Personal Use</option><option>Commercial</option></select>
+                        <label className="rr-label">Rental Package Plan <span>*</span></label>
+                        <select
+                          className="rr-inp rr-select"
+                          value={planKey}
+                          onChange={e => setPlanKey(e.target.value as any)}
+                        >
+                          <option value="daily">Daily Plan (1 Day) - ₹600</option>
+                          <option value="weekly">Weekly Plan (7 Days) - ₹2,800</option>
+                          <option value="monthly">Monthly Plan (30 Days) - ₹7,500</option>
+                        </select>
                       </div>
                     </div>
+
                     <div className="rr-vb-grid">
                       <div className="rr-vb-card">
-                        <div className="rr-vb-label">Select Vehicle <span>*</span></div>
+                        <div className="rr-vb-label">Assigned Vehicle <span>*</span></div>
                         <div className="rr-vb-inner">
-                          <div className="rr-vb-img"><MiniScooter /></div>
+                          <div className="rr-vb-img" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
+                            <img src={selectedVehicle.img} alt={selectedVehicle.name} style={{ width: 52, height: 40, objectFit: 'contain' }} />
+                          </div>
                           <div>
-                            <div className="rr-vb-id">EVM1024012</div>
-                            <div className="rr-vb-name">Evegah E1</div>
-                            <span className="rr-avail-badge">Available</span>
+                            <div className="rr-vb-id">{selectedVehicle.id}</div>
+                            <div className="rr-vb-name">{selectedVehicle.name}</div>
+                            <span className="rr-avail-badge">Ready for Delivery</span>
                           </div>
                         </div>
-                        <select className="rr-inp rr-select" style={{ marginTop: 4 }}><option>Change Vehicle</option></select>
+                        <select
+                          className="rr-inp rr-select"
+                          style={{ marginTop: 4 }}
+                          value={selectedVehicle.id}
+                          onChange={e => {
+                            const v = VEHICLE_OPTIONS.find(opt => opt.id === e.target.value);
+                            if (v) setSelectedVehicle(v);
+                          }}
+                        >
+                          {VEHICLE_OPTIONS.map(v => (
+                            <option key={v.id} value={v.id}>{v.name} ({v.id})</option>
+                          ))}
+                        </select>
                       </div>
+
                       <div className="rr-vb-card">
-                        <div className="rr-vb-label">Select Battery <span>*</span></div>
+                        <div className="rr-vb-label">Assigned Battery <span>*</span></div>
                         <div className="rr-vb-inner">
-                          <div className="rr-vb-img"><MiniBattery /></div>
+                          <div className="rr-vb-img" style={{ background: '#fff', border: '1px solid #E2E8F0' }}>
+                            <img src={selectedBattery.img} alt={selectedBattery.name} style={{ width: 26, height: 40, objectFit: 'contain' }} />
+                          </div>
                           <div>
-                            <div className="rr-vb-id">BAT-0098</div>
-                            <div className="rr-vb-name">60V 30Ah Lithium-ion</div>
-                            <span className="rr-avail-badge">Available</span>
+                            <div className="rr-vb-id">{selectedBattery.id}</div>
+                            <div className="rr-vb-name">{selectedBattery.name}</div>
+                            <span className="rr-avail-badge">100% Charged</span>
                           </div>
                         </div>
-                        <select className="rr-inp rr-select" style={{ marginTop: 4 }}><option>Change Battery</option></select>
+                        <select
+                          className="rr-inp rr-select"
+                          style={{ marginTop: 4 }}
+                          value={selectedBattery.id}
+                          onChange={e => {
+                            const b = BATTERY_OPTIONS.find(opt => opt.id === e.target.value);
+                            if (b) setSelectedBattery(b);
+                          }}
+                        >
+                          {BATTERY_OPTIONS.map(b => (
+                            <option key={b.id} value={b.id}>{b.name} ({b.id})</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
+
                     <div className="rr-acc-box">
-                      <div className="rr-acc-label">Accessories (Optional)</div>
+                      <div className="rr-acc-label">Included Accessories</div>
                       <div className="rr-acc-row">
                         {ACCESSORIES.map((a, i) => (
                           <div key={a} className="rr-acc-item" onClick={() => toggleAcc(i)}>
@@ -258,35 +365,64 @@ export default function RetainRiderRentalPage() {
                     </div>
                     <div>
                       <label className="rr-label" style={{ display: 'block', marginBottom: 6 }}>Additional Notes (Optional)</label>
-                      <textarea className="rr-textarea" placeholder="Enter any additional information..." maxLength={200} value={notes} onChange={e => setNotes(e.target.value)} />
+                      <textarea className="rr-textarea" placeholder="Enter notes for this retain ride..." maxLength={200} value={notes} onChange={e => setNotes(e.target.value)} />
                       <div className="rr-char-count">{notes.length} / 200</div>
                     </div>
                   </div>
                 </div>
+
                 <div className="nr-footer-card">
-                  <button className="nr-cancel-btn"><IClose /> Cancel</button>
-                  <Link href="/retain-rider/payment" style={{ textDecoration: 'none' }}>
-                    <button className="nr-continue-btn">Save &amp; Continue <IArr s={12} /></button>
+                  <Link href="/retain-rider" className="nr-cancel-btn" style={{ textDecoration: 'none' }}>
+                    <ILeft /> Back to Search
                   </Link>
+                  <button className="nr-continue-btn" onClick={handleContinue}>
+                    Save &amp; Continue <IArr s={12} />
+                  </button>
                 </div>
               </div>
+
               <div className="nr-rp">
                 <div className="nr-rp-card">
-                  <div className="nr-rp-hdr"><span className="nr-rp-hdr-ic" style={{ color: '#2A195C' }}><IReceipt /></span><div className="nr-rp-title">Ride Summary</div></div>
+                  <div className="nr-rp-hdr"><span className="nr-rp-hdr-ic" style={{ color: '#2A195C' }}><IReceipt /></span><div className="nr-rp-title">Rental Summary</div></div>
                   <div className="nr-rp-body">
                     <div className="nr-rp-avatar-row">
-                      <div className="nr-rp-avatar">AV</div>
-                      <div><div className="nr-rp-name">Akash Verma</div><div className="nr-rp-sub">+91 98765 43210</div></div>
+                      <div className="nr-rp-avatar" style={{ position: 'relative', overflow: 'hidden' }}>
+                        <img
+                          src={avatarUrl}
+                          alt={riderName}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                        <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14, zIndex: 0 }}>
+                          {riderName.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                      <div><div className="nr-rp-name">{riderName}</div><div className="nr-rp-sub">{riderPhone}</div></div>
                     </div>
-                    {[{ l: 'Rider ID', v: 'RDR00124' }, { l: 'KYC Status', v: <span className="nr-rp-kyc">KYC Verified</span> }, { l: 'Last Ride', v: '18 May 2024' }, { l: 'Total Rides', v: '24' }].map(r => (
-                      <div key={r.l} className="nr-rp-row"><span className="nr-rp-label">{r.l}</span><span className="nr-rp-val">{r.v}</span></div>
+                    {[
+                      { l: 'Rider ID', v: riderId },
+                      { l: 'KYC Status', v: <span className="nr-rp-kyc">Verified On File</span> },
+                      { l: 'Vehicle', v: `${selectedVehicle.name} (${selectedVehicle.id})` },
+                      { l: 'Battery', v: selectedBattery.id },
+                      { l: 'Plan Rate', v: `₹${rentPrice.toFixed(2)}` },
+                      { l: 'Security Deposit', v: `₹${depositAmount.toFixed(2)}` },
+                    ].map(r => (
+                      <div key={r.l} className="nr-rp-row">
+                        <span className="nr-rp-label">{r.l}</span>
+                        <span className="nr-rp-val">{r.v}</span>
+                      </div>
                     ))}
+                    <div className="nr-rp-divider" />
+                    <div className="nr-rp-total">
+                      <span className="nr-rp-total-l">Est. Total (Zero GST)</span>
+                      <span className="nr-rp-total-r">₹{totalAmount.toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="nr-tips-card">
                   <div className="nr-tips-hdr"><span style={{ color: '#D97706', display: 'flex' }}><IBulb /></span><div style={{ fontSize: '13.5px', fontWeight: 700, color: '#92400E' }}>Tips</div></div>
                   <div className="nr-tips-body">
-                    {['Select the right vehicle and battery based on availability.', 'Ensure expected return date & time is correct.', 'You can add accessories if required.'].map((t, i) => (
+                    {['Vehicle and battery are synced with active zone inventory.', 'Security Deposit is 100% refundable upon vehicle return.', 'Returning riders do not need to re-upload identity documents.'].map((t, i) => (
                       <div key={i} className="nr-tip-row"><div className="nr-tip-dot" />{t}</div>
                     ))}
                   </div>

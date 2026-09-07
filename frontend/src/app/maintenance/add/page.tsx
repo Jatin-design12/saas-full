@@ -390,11 +390,11 @@ export default function AddMaintenancePage() {
   const router = useRouter();
 
   // Active zone state
-  const [activeZone, setActiveZone] = useState("Koramangala, Bengaluru");
+  const [activeZone, setActiveZone] = useState("Gotri Hub");
 
   useEffect(() => {
-    const z = localStorage.getItem("evegah_active_zone") || "Connaught Place Zone";
-    setActiveZone(z.includes("Koramangala") ? "Koramangala Hub" : "Connaught Place Hub");
+    const z = localStorage.getItem("evegah_active_zone") || "Gotri Zone";
+    setActiveZone(z.includes("Manjalpur") ? "Manjalpur Hub" : z.includes("KPGU") ? "KPGU Hub" : "Gotri Hub");
   }, []);
 
   // Form Fields State
@@ -492,7 +492,7 @@ export default function AddMaintenancePage() {
       dueDate: new Date(serviceDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       dueText: "Scheduled",
       lastService: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      zone: activeZone === "Koramangala Hub" ? "Koramangala, Bengaluru" : "Connaught Place Zone"
+      zone: activeZone
     };
 
     try {
@@ -537,8 +537,6 @@ export default function AddMaintenancePage() {
 
       <div className="ma-main">
         <TopBar 
-          title="Hello, Akash" 
-          subtitle="Franchise Admin" 
           notificationCount={5}
           hideZone={false}
         />
@@ -604,8 +602,11 @@ export default function AddMaintenancePage() {
                   <div className="ma-field">
                     <span className="ma-field-label">Assigned Station</span>
                     <select className="ma-select-field" value={activeZone} onChange={(e) => setActiveZone(e.target.value)}>
-                      <option value="Koramangala Hub">Koramangala Hub</option>
-                      <option value="Connaught Place Hub">Connaught Place Hub</option>
+                      <option value="Gotri Hub">Gotri Hub</option>
+                      <option value="Manjalpur Hub">Manjalpur Hub</option>
+                      <option value="KPGU Hub">KPGU Hub</option>
+                      <option value="Aatapi Hub">Aatapi Hub</option>
+                      <option value="Moti Daman Hub">Moti Daman Hub</option>
                     </select>
                   </div>
                   <div className="ma-field">

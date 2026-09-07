@@ -262,12 +262,12 @@ export default function ZoneMapPage() {
     const container = document.getElementById('mockup-zone-map');
     if (!container || mapRef.current) return;
 
-    // Center coordinates for Delhi Karol Bagh - Connaught Place - Pragati Maidan path
-    const cpCenter = [28.6304, 77.2177];
+    // Center coordinates for Vadodara Gotri - Manjalpur - KPGU zones
+    const cpCenter = [22.3072, 73.1812];
 
     const map = L.map('mockup-zone-map', {
       center: cpCenter,
-      zoom: 14,
+      zoom: 13,
       zoomControl: false,
       attributionControl: false
     });
@@ -278,37 +278,37 @@ export default function ZoneMapPage() {
       maxZoom: 20
     }).addTo(map);
 
-    // Karol Bagh Marker (Green, circular, "KB")
+    // Manjalpur Zone Marker (Green, circular, "MJ")
     const kbIcon = L.divIcon({
       html: `
-        <div class="zm-marker-circle" style="background: #10B981;">KB</div>
-        <div class="zm-marker-label">Karol Bagh</div>
+        <div class="zm-marker-circle" style="background: #10B981;">MJ</div>
+        <div class="zm-marker-label">Manjalpur Zone</div>
       `,
       className: 'zm-custom-marker',
       iconSize: [34, 34],
       iconAnchor: [17, 17]
     });
-    L.marker([28.6441, 77.1882], { icon: kbIcon }).addTo(map);
+    L.marker([22.2700, 73.1950], { icon: kbIcon }).addTo(map);
 
-    // Pragati Maidan Marker (Red, circular, "PM")
+    // KPGU Zone Marker (Red, circular, "KP")
     const pmIcon = L.divIcon({
       html: `
-        <div class="zm-marker-circle" style="background: #EF4444;">PM</div>
-        <div class="zm-marker-label">Pragati Maidan</div>
+        <div class="zm-marker-circle" style="background: #EF4444;">KP</div>
+        <div class="zm-marker-label">KPGU Zone</div>
       `,
       className: 'zm-custom-marker',
       iconSize: [34, 34],
       iconAnchor: [17, 17]
     });
-    L.marker([28.6232, 77.2478], { icon: pmIcon }).addTo(map);
+    L.marker([22.3400, 73.2200], { icon: pmIcon }).addTo(map);
 
-    // Connaught Place Marker (Purple, circular, Bus symbol, dashed radius, EV-12KA-1234 popup label)
+    // Gotri Zone Marker (Purple, circular, Bus symbol, dashed radius, EVM1024011 popup label)
     const cpIcon = L.divIcon({
       html: `
-        <div class="zm-marker-circle" style="background: #2A195C;">🚌</div>
-        <div class="zm-marker-label" style="color: #2A195C; font-weight: 800;">Connaught Place</div>
+        <div class="zm-marker-circle" style="background: #2A195C;">🛵</div>
+        <div class="zm-marker-label" style="color: #2A195C; font-weight: 800;">Gotri Zone</div>
         <div class="zm-popup-card">
-          <div class="zm-popup-title">EV-12KA-1234</div>
+          <div class="zm-popup-title">EVM1024011</div>
           <div class="zm-popup-sub">● 25 km/h</div>
         </div>
       `,
@@ -316,24 +316,24 @@ export default function ZoneMapPage() {
       iconSize: [34, 34],
       iconAnchor: [17, 17]
     });
-    L.marker([28.6304, 77.2177], { icon: cpIcon }).addTo(map);
+    L.marker([22.3160, 73.1550], { icon: cpIcon }).addTo(map);
 
-    // Dashed radius circle surrounding Connaught Place
-    L.circle([28.6304, 77.2177], {
+    // Dashed radius circle surrounding Gotri Zone
+    L.circle([22.3160, 73.1550], {
       color: '#3B82F6',
       fillColor: '#3B82F6',
       fillOpacity: 0.05,
-      radius: 400,
+      radius: 800,
       weight: 1.5,
       dashArray: '5, 5'
     }).addTo(map);
 
-    // Polyline connector (Purple path Karol Bagh -> CP -> Pragati Maidan)
+    // Polyline connector (Purple path Manjalpur -> Gotri -> KPGU)
     const routeCoords = [
-      [28.6441, 77.1882], // Karol Bagh
-      [28.6350, 77.2050], // Midpoint curve
-      [28.6304, 77.2177], // Connaught Place
-      [28.6232, 77.2478]  // Pragati Maidan
+      [22.2700, 73.1950], // Manjalpur
+      [22.2900, 73.1700], // Midpoint curve
+      [22.3160, 73.1550], // Gotri
+      [22.3400, 73.2200]  // KPGU
     ];
     L.polyline(routeCoords, {
       color: '#2A195C',
@@ -364,10 +364,8 @@ export default function ZoneMapPage() {
 
       <div className="zm-main">
         <TopBar 
-          title="Hello, Akash" 
-          subtitle="Zone Admin" 
           notificationCount={3}
-          hideZone={true}
+          hideZone={false}
         />
 
         <div className="zm-body">

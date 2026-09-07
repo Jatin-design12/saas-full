@@ -174,7 +174,7 @@ export default function FranchiseDetailPage() {
       <div className="fd-shell">
         <Sidebar activePath="/franchise" />
         <div className="fd-main">
-          <TopBar title="Franchise Details" subtitle="CP E-Vegah Hub" />
+          <TopBar title="Franchise Details" subtitle="Gotri E-Vegah Hub" />
           <div className="fd-page">
 
             {/* Breadcrumb */}
@@ -185,48 +185,44 @@ export default function FranchiseDetailPage() {
               <span className="fd-bc-sep">&gt;</span>
               <a href="/franchise">Franchise List</a>
               <span className="fd-bc-sep">&gt;</span>
-              <span className="fd-bc-cur">CP E-Vegah Hub (FRN-CP-0001)</span>
+              <span className="fd-bc-cur">Gotri E-Vegah Hub (FRN-GOT-0001)</span>
             </div>
 
             {/* Title / Action Row */}
             <div className="fd-actions-row">
               <div className="fd-title-wrap">
-                <h1 className="fd-h1">CP E-Vegah Hub</h1>
+                <h1 className="fd-h1">Gotri E-Vegah Hub</h1>
                 <span className="fd-badge-active">Active</span>
-                <span style={{ fontSize: '12.5px', color: '#64748B', fontWeight: '500', marginLeft: '6px' }}>FRN-CP-0001 | Battery Swapping + Rental</span>
+                <span style={{ fontSize: '12.5px', color: '#64748B', fontWeight: '500', marginLeft: '6px' }}>FRN-GOT-0001 | Battery Swapping + Rental</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button className="fd-btn-outline" onClick={() => alert('Opening Edit Franchise modal...')}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  Edit Franchise
+                  Edit
                 </button>
-                <button className="fd-btn-outline" onClick={() => alert('More actions: Deactivate, Audit, etc.')}>
-                  More Actions
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                <button className="fd-btn-danger" onClick={() => alert('Opening Suspend Franchise prompt...')}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                  Suspend
                 </button>
               </div>
             </div>
 
-            {/* Profile Overview Header Card */}
-            <div className="fd-profile-card">
-              <div className="fd-img-box">
-                <img src="/evegah_hub_storefront.png" alt="Hub Storefront" />
-              </div>
-              
-              {/* Middle column: Core store details */}
+            {/* Quick Summary Grid */}
+            <div className="fd-summary-card">
+              {/* Left column: Contact details */}
               <div className="fd-details-col">
                 <div className="fd-detail-item">
                   <span className="fd-detail-ic">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   </span>
-                  <span className="fd-detail-lbl">Owner Name</span>
+                  <span className="fd-detail-lbl">Franchise Owner</span>
                   <span className="fd-detail-val">Rahul Sharma</span>
                 </div>
                 <div className="fd-detail-item">
                   <span className="fd-detail-ic">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                   </span>
-                  <span className="fd-detail-lbl">Mobile Number</span>
+                  <span className="fd-detail-lbl">Contact Number</span>
                   <span className="fd-detail-val">+91 98765 43210</span>
                 </div>
                 <div className="fd-detail-item">
@@ -238,17 +234,17 @@ export default function FranchiseDetailPage() {
                 </div>
                 <div className="fd-detail-item">
                   <span className="fd-detail-ic">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>
                   </span>
                   <span className="fd-detail-lbl">Zone / Location</span>
-                  <span className="fd-detail-val">Connaught Place, Delhi</span>
+                  <span className="fd-detail-val">Gotri Zone, Vadodara</span>
                 </div>
                 <div className="fd-detail-item">
                   <span className="fd-detail-ic">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                   </span>
                   <span className="fd-detail-lbl">Address</span>
-                  <span className="fd-detail-val">Shop No. 12, Connaught Place, New Delhi - 110001</span>
+                  <span className="fd-detail-val">Shop No. 12, Gotri Road, Vadodara - 390021</span>
                 </div>
               </div>
 
@@ -578,7 +574,7 @@ export default function FranchiseDetailPage() {
                         </g>
                       </svg>
                       <div style={{ position: 'absolute', bottom: '6px', left: '8px', background: 'rgba(255,255,255,0.9)', padding: '2px 6px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 'bold', border: '1px solid #E2E8F0', color: '#334155' }}>
-                        Shop No. 12, Connaught Place, New Delhi
+                        Shop No. 12, Gotri Road, Vadodara
                       </div>
                     </div>
                   </div>

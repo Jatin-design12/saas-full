@@ -125,13 +125,13 @@ interface ExpenseItem {
 }
 
 const INITIAL_EXPENSES: ExpenseItem[] = [
-  { id: 'EXP-2024-0052', name: 'Karol Bagh Hub Rent Payment', category: 'Rent', amount: 45000, date: '15 May 2024', payMethod: 'Bank Transfer', status: 'Approved' },
-  { id: 'EXP-2024-0051', name: 'CP Hub Centralized Electricity Bill', category: 'Electricity', amount: 25000, date: '12 May 2024', payMethod: 'UPI', status: 'Approved' },
+  { id: 'EXP-2024-0052', name: 'Manjalpur Hub Rent Payment', category: 'Rent', amount: 45000, date: '15 May 2024', payMethod: 'Bank Transfer', status: 'Approved' },
+  { id: 'EXP-2024-0051', name: 'Gotri Hub Centralized Electricity Bill', category: 'Electricity', amount: 25000, date: '12 May 2024', payMethod: 'UPI', status: 'Approved' },
   { id: 'EXP-2024-0050', name: 'May staff salary partial advance', category: 'Staff Salaries', amount: 18000, date: '10 May 2024', payMethod: 'Bank Transfer', status: 'Approved' },
   { id: 'EXP-2024-0049', name: 'Micro-station and AC servicing charge', category: 'Maintenance', amount: 12000, date: '08 May 2024', payMethod: 'UPI', status: 'Approved' },
   { id: 'EXP-2024-0048', name: 'Stationary & Water Dispenser refilling', category: 'Misc', amount: 5000, date: '05 May 2024', payMethod: 'Cash', status: 'Approved' },
   { id: 'EXP-2024-0047', name: 'Fire Extinguisher refill audit clearance', category: 'Maintenance', amount: 4800, date: '03 May 2024', payMethod: 'Card', status: 'Approved' },
-  { id: 'EXP-2024-0046', name: 'CP Hub Office internet router upgrade', category: 'Misc', amount: 2200, date: '01 May 2024', payMethod: 'UPI', status: 'Approved' }
+  { id: 'EXP-2024-0046', name: 'Gotri Hub Office internet router upgrade', category: 'Misc', amount: 2200, date: '01 May 2024', payMethod: 'UPI', status: 'Approved' }
 ];
 
 export default function FranchiseExpensesPage() {
@@ -509,7 +509,7 @@ export default function FranchiseExpensesPage() {
             <div className="ex-modal-body">
               <div className="ex-form-group">
                 <label className="ex-form-lbl">Expense Description / Name</label>
-                <input type="text" className="ex-form-inp" placeholder="e.g. Karol Bagh rent, Staff snacks" value={newExpName} onChange={(e) => setNewExpName(e.target.value)} />
+                <input type="text" className="ex-form-inp" placeholder="e.g. Manjalpur rent, Staff snacks" value={newExpName} onChange={(e) => setNewExpName(e.target.value)} />
               </div>
               <div className="ex-form-group">
                 <label className="ex-form-lbl">Category</label>

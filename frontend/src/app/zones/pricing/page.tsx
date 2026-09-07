@@ -433,55 +433,73 @@ export default function ZonePricingPage() {
                           <div className="zp-cell-sub">{config.updatedBy}</div>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <div className="zp-action-wrap">
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             <button 
-                              className="zp-action-btn"
-                              onClick={(e) => handleActionClick(e, config.id)}
+                              onClick={() => router.push(`/zones/pricing/new?id=${config.id}`)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '6px 12px',
+                                background: '#EEF2FF',
+                                border: '1.5px solid #C7D2FE',
+                                borderRadius: '8px',
+                                color: '#2a195c',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                whiteSpace: 'nowrap'
+                              }}
                             >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <circle cx="12" cy="12" r="1" />
-                                <circle cx="12" cy="5" r="1" />
-                                <circle cx="12" cy="19" r="1" />
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                              Edit Pricing
+                            </button>
+                            <button 
+                              onClick={() => setDetailConfig(config)}
+                              title="View Details"
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #E2E8F0',
+                                background: '#fff',
+                                color: '#64748B',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
                               </svg>
                             </button>
-                            
-                            {activeMenuId === config.id && (
-                              <div className="zp-dropdown" onClick={(e) => e.stopPropagation()}>
-                                <button 
-                                  className="zp-dropdown-item"
-                                  onClick={() => {
-                                    setDetailConfig(config);
-                                    setActiveMenuId(null);
-                                  }}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                  </svg>
-                                  View Details
-                                </button>
-                                <button 
-                                  className="zp-dropdown-item"
-                                  onClick={() => router.push(`/zones/pricing/new?id=${config.id}`)}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                  </svg>
-                                  Edit Pricing
-                                </button>
-                                <button 
-                                  className="zp-dropdown-item zp-dropdown-item-danger"
-                                  onClick={() => handleDelete(config.id)}
-                                >
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                  </svg>
-                                  Delete
-                                </button>
-                              </div>
-                            )}
+                            <button 
+                              onClick={() => handleDelete(config.id)}
+                              title="Delete Pricing"
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #FEE2E2',
+                                background: '#fff',
+                                color: '#EF4444',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
                           </div>
                         </td>
                       </tr>

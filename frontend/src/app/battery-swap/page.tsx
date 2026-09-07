@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -305,11 +305,28 @@ const IQrCode = () => (
 );
 
 export default function BatterySwapPage() {
+  const [selectedZone, setSelectedZone] = useState('All Zones');
   const [selectedRiderName, setSelectedRiderName] = useState<string>('Amit Kumar');
   const [vehicleNo, setVehicleNo] = useState<string>('Ola S1 Pro (EVM1024012)');
   const [batteryRemove, setBatteryRemove] = useState<string>('BAT-0098 (18%)');
   const [batteryAdd, setBatteryAdd] = useState<string>('BAT-0199 (100% Charged)');
   const [notes, setNotes] = useState<string>('');
+
+  useEffect(() => {
+    const updateZone = () => {
+      if (typeof window !== 'undefined') {
+        const z = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones';
+        setSelectedZone(z);
+      }
+    };
+    updateZone();
+    window.addEventListener('evegah_active_zone_changed', updateZone);
+    window.addEventListener('evegah_zone_changed', updateZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', updateZone);
+      window.removeEventListener('evegah_zone_changed', updateZone);
+    };
+  }, []);
   
   // Selected Battery from Table
   const [selectedBatteryId, setSelectedBatteryId] = useState<string>('BAT-0199');
@@ -404,7 +421,7 @@ export default function BatterySwapPage() {
             userName="Priya Sharma"
             userRole="Employee"
             userAvatar="/priya_avatar.png"
-            hideZone={true}
+            hideZone={false}
             hideLeftAvatar={true}
             showHand={false}
           />

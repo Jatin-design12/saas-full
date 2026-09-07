@@ -433,16 +433,16 @@ interface LogEntry {
 }
 
 const LOGS: LogEntry[] = [
-  { time: '20 May 2024, 10:35:24 AM', vehicle: 'EV-12KA-1234', type: 'Electric Scooter', zone: 'Connaught Place', event: 'Entered', location: 'Near Palika Bazaar New Delhi, Delhi', status: 'Completed', color: '#2A195C' },
-  { time: '20 May 2024, 10:18:07 AM', vehicle: 'EV-12KA-5678', type: 'Electric Scooter', zone: 'Karol Bagh', event: 'Exited', location: 'Ajmal Khan Road New Delhi, Delhi', status: 'Completed', color: '#10B981' },
-  { time: '20 May 2024, 09:47:52 AM', vehicle: 'EV-12KA-9012', type: 'Electric Scooter', zone: 'Paharganj', event: 'Entered', location: 'Main Bazar New Delhi, Delhi', status: 'Completed', color: '#F97316' },
-  { time: '20 May 2024, 09:32:15 AM', vehicle: 'EV-12KA-3456', type: 'Electric Scooter', zone: 'Rajendra Place', event: 'Exited', location: 'Pusa Road New Delhi, Delhi', status: 'Completed', color: '#3B82F6' },
-  { time: '20 May 2024, 09:05:41 AM', vehicle: 'EV-12KA-6789', type: 'Electric Scooter', zone: 'Connaught Place', event: 'Entered', location: 'Hanuman Road Area New Delhi, Delhi', status: 'Completed', color: '#2A195C' },
-  { time: '20 May 2024, 08:56:12 AM', vehicle: 'EV-12KA-1122', type: 'Electric Scooter', zone: 'Pragati Maidan', event: 'Exited', location: 'Bhairon Marg New Delhi, Delhi', status: 'Completed', color: '#8B5CF6' },
-  { time: '20 May 2024, 08:33:55 AM', vehicle: 'EV-12KA-7788', type: 'Electric Scooter', zone: 'Karol Bagh', event: 'Entered', location: 'Gaffar Market New Delhi, Delhi', status: 'Completed', color: '#10B981' },
-  { time: '20 May 2024, 08:10:23 AM', vehicle: 'EV-12KA-3344', type: 'Electric Scooter', zone: 'Paharganj', event: 'Exited', location: 'Arakashan Road New Delhi, Delhi', status: 'Completed', color: '#F97316' },
-  { time: '20 May 2024, 07:55:48 AM', vehicle: 'EV-12KA-8899', type: 'Electric Scooter', zone: 'Rajendra Place', event: 'Entered', location: 'Old Rajinder Nagar New Delhi, Delhi', status: 'Completed', color: '#3B82F6' },
-  { time: '20 May 2024, 07:32:17 AM', vehicle: 'EV-12KA-5566', type: 'Electric Scooter', zone: 'Pragati Maidan', event: 'Exited', location: 'Ring Road New Delhi, Delhi', status: 'Completed', color: '#8B5CF6' }
+  { time: '20 May 2024, 10:35:24 AM', vehicle: 'EVM1024011', type: 'Electric Scooter', zone: 'Gotri Zone', event: 'Entered', location: 'Gotri Main Road, Vadodara', status: 'Completed', color: '#2A195C' },
+  { time: '20 May 2024, 10:18:07 AM', vehicle: 'EVM102501', type: 'Electric Scooter', zone: 'Manjalpur Zone', event: 'Exited', location: 'Manjalpur Hub, Vadodara', status: 'Completed', color: '#10B981' },
+  { time: '20 May 2024, 09:47:52 AM', vehicle: 'EVM1024012', type: 'Electric Scooter', zone: 'KPGU Zone', event: 'Entered', location: 'KPGU Campus, Vadodara', status: 'Completed', color: '#F97316' },
+  { time: '20 May 2024, 09:32:15 AM', vehicle: 'EVM102502', type: 'Electric Scooter', zone: 'Aatapi Zone', event: 'Exited', location: 'Aatapi Hub, Vadodara', status: 'Completed', color: '#3B82F6' },
+  { time: '20 May 2024, 09:05:41 AM', vehicle: 'EVM1024023', type: 'Electric Scooter', zone: 'Gotri Zone', event: 'Entered', location: 'Sevasi Crossing, Vadodara', status: 'Completed', color: '#2A195C' },
+  { time: '20 May 2024, 08:56:12 AM', vehicle: 'EVM102503', type: 'Electric Scooter', zone: 'Moti Daman Zone', event: 'Exited', location: 'Fort Road, Daman', status: 'Completed', color: '#8B5CF6' },
+  { time: '20 May 2024, 08:33:55 AM', vehicle: 'EVM102504', type: 'Electric Scooter', zone: 'Manjalpur Zone', event: 'Entered', location: 'GIDC Crossing, Vadodara', status: 'Completed', color: '#10B981' },
+  { time: '20 May 2024, 08:10:23 AM', vehicle: 'EVM102505', type: 'Electric Scooter', zone: 'KPGU Zone', event: 'Exited', location: 'Waghodia Road, Vadodara', status: 'Completed', color: '#F97316' },
+  { time: '20 May 2024, 07:55:48 AM', vehicle: 'EVM1024011', type: 'Electric Scooter', zone: 'Aatapi Zone', event: 'Entered', location: 'Ajwa Garden, Vadodara', status: 'Completed', color: '#3B82F6' },
+  { time: '20 May 2024, 07:32:17 AM', vehicle: 'EVM1024012', type: 'Electric Scooter', zone: 'Moti Daman Zone', event: 'Exited', location: 'Light House Area, Daman', status: 'Completed', color: '#8B5CF6' }
 ];
 
 const PEAK_HOURS_DATA = [
@@ -633,7 +633,7 @@ function ZoneManagementContent() {
       };
 
       const assignedManager = dbUsers.find(u => u.zone === dbz.name);
-      const managerName = assignedManager ? assignedManager.name : (matchedStatic?.manager || 'Akash Verma');
+      const managerName = assignedManager ? assignedManager.name : (matchedStatic?.manager || 'Himanshu');
 
       return {
         id: String(dbz.id),
@@ -987,14 +987,12 @@ function ZoneManagementContent() {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+<style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="zm-shell">
         <Sidebar activePath="/zones" />
         <div className="zm-main">
 
           <TopBar
-            title="Hello, Akash"
-            subtitle="Zone Employee"
             notificationCount={3}
             showSearch={false}
             hideZone={false}
@@ -1291,7 +1289,7 @@ function ZoneManagementContent() {
 
                     <div className="zm-detail-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', borderTop: '1px solid #F1F5F9', paddingTop: '14px', fontSize: '12px' }}>
                       <div>Created On: <span className="zm-detail-metaval">{selectedZone.createdOn || '15 Apr 2024, 10:30 AM'}</span></div>
-                      <div>Created By: <span className="zm-detail-metaval">{selectedZone.manager || 'Akash Verma'}</span></div>
+                      <div>Created By: <span className="zm-detail-metaval">{selectedZone.manager || 'Himanshu'}</span></div>
                     </div>
                   </div>
 
@@ -1580,11 +1578,11 @@ function ZoneManagementContent() {
 
                       <select className="zl-select" value={logFilterZone} onChange={(e) => setLogFilterZone(e.target.value)}>
                         <option value="All Zones">All Zones</option>
-                        <option value="Connaught Place">Connaught Place</option>
-                        <option value="Karol Bagh">Karol Bagh</option>
-                        <option value="Paharganj">Paharganj</option>
-                        <option value="Rajendra Place">Rajendra Place</option>
-                        <option value="Pragati Maidan">Pragati Maidan</option>
+                        <option value="Gotri Zone">Gotri Zone</option>
+                        <option value="Manjalpur Zone">Manjalpur Zone</option>
+                        <option value="KPGU Zone">KPGU Zone</option>
+                        <option value="Aatapi Zone">Aatapi Zone</option>
+                        <option value="Moti Daman Zone">Moti Daman Zone</option>
                       </select>
 
                       <select className="zl-select" value={logFilterEvent} onChange={(e) => setLogFilterEvent(e.target.value)}>
@@ -1692,7 +1690,7 @@ function ZoneManagementContent() {
                   <div className="zl-card">
                     <span className="zl-card-tit">Zone Overview</span>
                     <div className="zl-overview-map">
-                      {/* Mini Map preview of selected Connaught Place polygon */}
+                      {/* Mini Map preview of selected Gotri Zone polygon */}
                       <svg viewBox="150 140 220 180" style={{ width: '100%', height: '100%', background: '#E2E8F0' }}>
                         <rect x="0" y="0" width="500" height="480" fill="#EBF0F5" />
                         <line x1="250" y1="0" x2="250" y2="480" stroke="#FFF" strokeWidth="4" />
@@ -1709,7 +1707,7 @@ function ZoneManagementContent() {
                         <circle cx="250" cy="230" r="5" fill="#2A195C" />
                         <g fill="#2a195c" fontStyle="bold">
                           <rect x="200" y="210" width="100" height="18" rx="3" fill="#2a195c" />
-                          <text x="250" y="222" fill="#fff" fontSize="8" fontWeight="800" textAnchor="middle">Connaught Place</text>
+                          <text x="250" y="222" fill="#fff" fontSize="8" fontWeight="800" textAnchor="middle">Gotri Zone</text>
                         </g>
 
                         {/* Map controls overlay inside mini map */}
@@ -1786,7 +1784,7 @@ function ZoneManagementContent() {
                         <span className="zl-alert-dot" />
                         <div className="zl-alert-info">
                           <div className="zl-alert-txt">Zone Violation Detected</div>
-                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>EV-12KA-9012 exited Connaught Place zone</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>EVM1024012 exited Gotri Zone</div>
                           <div className="zl-alert-time">09:47 AM</div>
                         </div>
                       </div>
@@ -1795,7 +1793,7 @@ function ZoneManagementContent() {
                         <span className="zl-alert-dot" />
                         <div className="zl-alert-info">
                           <div className="zl-alert-txt">Zone Entered</div>
-                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>EV-12KA-1234 entered Connaught Place zone</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>EVM1024011 entered Gotri Zone</div>
                           <div className="zl-alert-time">10:35 AM</div>
                         </div>
                       </div>
@@ -1804,7 +1802,7 @@ function ZoneManagementContent() {
                         <span className="zl-alert-dot" />
                         <div className="zl-alert-info">
                           <div className="zl-alert-txt">Zone Exited</div>
-                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>EV-12KA-5678 exited Karol Bagh zone</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>EVM102501 exited Manjalpur Zone</div>
                           <div className="zl-alert-time">10:18 AM</div>
                         </div>
                       </div>
@@ -1851,8 +1849,13 @@ function ZoneManagementContent() {
 
                   <div className="zs-kpi-card">
                     <div className="zs-kpi-ic purple">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                        <rect x="1" y="3" width="15" height="13" rx="2" /><path d="M16 8h4l3 5v3h-7V8z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="5.5" cy="17.5" r="3.5" />
+                        <circle cx="18.5" cy="17.5" r="3.5" />
+                        <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                        <path d="M5.5 17.5l4-8h4l2.5 8" />
+                        <path d="M8.5 12h5" />
+                        <path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" />
                       </svg>
                     </div>
                     <div className="zs-kpi-info">
@@ -2215,31 +2218,31 @@ function ZoneManagementContent() {
                       </thead>
                       <tbody>
                         <tr>
-                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Connaught Place</td>
+                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Gotri Zone</td>
                           <td style={{ padding: '8px 10px' }}>₹1,24,560</td>
                           <td style={{ padding: '8px 10px' }}>180</td>
                           <td style={{ padding: '8px 10px' }}>74.6%</td>
                         </tr>
                         <tr>
-                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Karol Bagh</td>
+                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Manjalpur Zone</td>
                           <td style={{ padding: '8px 10px' }}>₹98,230</td>
                           <td style={{ padding: '8px 10px' }}>152</td>
                           <td style={{ padding: '8px 10px' }}>71.2%</td>
                         </tr>
                         <tr>
-                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Paharganj</td>
+                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>KPGU Zone</td>
                           <td style={{ padding: '8px 10px' }}>₹76,890</td>
                           <td style={{ padding: '8px 10px' }}>120</td>
                           <td style={{ padding: '8px 10px' }}>68.4%</td>
                         </tr>
                         <tr>
-                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Rajendra Place</td>
+                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Aatapi Zone</td>
                           <td style={{ padding: '8px 10px' }}>₹62,450</td>
                           <td style={{ padding: '8px 10px' }}>98</td>
                           <td style={{ padding: '8px 10px' }}>65.1%</td>
                         </tr>
                         <tr>
-                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Pragati Maidan</td>
+                          <td style={{ padding: '8px 10px', fontWeight: '700' }}>Moti Daman Zone</td>
                           <td style={{ padding: '8px 10px' }}>₹58,340</td>
                           <td style={{ padding: '8px 10px' }}>86</td>
                           <td style={{ padding: '8px 10px' }}>61.3%</td>
@@ -2303,7 +2306,7 @@ function ZoneManagementContent() {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                         </div>
                         <div className="zs-alert-info">
-                          <span className="zs-alert-txt">High vehicle demand detected near Karol Bagh area</span>
+                          <span className="zs-alert-txt">High vehicle demand detected near Gotri Zone area</span>
                           <span className="zs-alert-time">10 min ago</span>
                         </div>
                       </div>

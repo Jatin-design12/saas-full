@@ -71,7 +71,7 @@ export default function WhiteLabelSettings() {
       <div className="ev-shell">
         <Sidebar activePath="/franchise/white-label" />
         <div className="ev-main">
-          <TopBar title="Akash Verma" subtitle="Zone Employee" />
+          <TopBar />
 
           <div className="ev-body">
             

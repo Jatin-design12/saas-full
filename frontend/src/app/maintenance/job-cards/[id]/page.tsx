@@ -514,8 +514,6 @@ export default function JobCardDetailsPage() {
 
       <div className="jc-main">
         <TopBar 
-          title="Hello, Akash" 
-          subtitle="Franchise Admin" 
           notificationCount={5}
           hideZone={false}
         />
@@ -830,8 +828,8 @@ export default function JobCardDetailsPage() {
 
                 {activeTab === 'history' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', color: '#475569' }}>
-                    <div>• 19 Jun 2026, 09:45 AM - Job Card created by Akash Verma.</div>
-                    <div>• 19 Jun 2026, 09:50 AM - Status updated to Scheduled by Akash Verma.</div>
+                    <div>• 19 Jun 2026, 09:45 AM - Job Card created by Admin.</div>
+                    <div>• 19 Jun 2026, 09:50 AM - Status updated to Scheduled by Admin.</div>
                     <div>• 19 Jun 2026, 09:55 AM - Mechanic Ravi Kumar assigned.</div>
                     <div>• 20 Jun 2026, 09:05 AM - Vehicle received at station by Ravi Kumar.</div>
                   </div>
@@ -966,14 +964,14 @@ export default function JobCardDetailsPage() {
                   <div className="jc-timeline-item">
                     <div className="jc-timeline-bullet" />
                     <div>
-                      <div className="jc-timeline-text">Job card created by <b>Akash Verma</b> (You)</div>
+                      <div className="jc-timeline-text">Job card created by <b>Admin</b> (You)</div>
                       <div className="jc-timeline-time">19 Jun 2026, 09:45 AM</div>
                     </div>
                   </div>
                   <div className="jc-timeline-item">
                     <div className="jc-timeline-bullet" />
                     <div>
-                      <div className="jc-timeline-text">Scheduled for service by <b>Akash Verma</b> (You)</div>
+                      <div className="jc-timeline-text">Scheduled for service by <b>Admin</b> (You)</div>
                       <div className="jc-timeline-time">19 Jun 2026, 09:50 AM</div>
                     </div>
                   </div>

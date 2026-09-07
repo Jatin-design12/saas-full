@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -212,10 +212,10 @@ interface LoggedActivity {
 }
 
 const LOGGED_ACTIVITIES: LoggedActivity[] = [
-  { time: '20 May 2024, 10:30 AM', action: 'Login', module: 'Authentication', details: 'User logged in to the system', ip: '192.168.1.10', performedBy: 'Akash Verma', performedByInitials: 'AV', avatarCls: 'purple' },
-  { time: '20 May 2024, 10:15 AM', action: 'Update', module: 'Settings', details: 'Configured Connaught Place Zone threshold variables', ip: '192.168.1.10', performedBy: 'Akash Verma', performedByInitials: 'AV', avatarCls: 'purple' },
-  { time: '20 May 2024, 09:40 AM', action: 'Create', module: 'Users', details: 'Created a new employee account USR-005 (Pooja Mehta)', ip: '192.168.1.10', performedBy: 'Akash Verma', performedByInitials: 'AV', avatarCls: 'purple' },
-  { time: '19 May 2024, 05:15 PM', action: 'Update', module: 'Franchise', details: 'Approved Franchise Application #FA-2309', ip: '192.168.1.10', performedBy: 'Akash Verma', performedByInitials: 'AV', avatarCls: 'purple' }
+  { time: '20 May 2024, 10:30 AM', action: 'Login', module: 'Authentication', details: 'User logged in to the system', ip: '192.168.1.10', performedBy: 'Himanshu', performedByInitials: 'H', avatarCls: 'purple' },
+  { time: '20 May 2024, 10:15 AM', action: 'Update', module: 'Settings', details: 'Configured Gotri Zone threshold variables', ip: '192.168.1.10', performedBy: 'Himanshu', performedByInitials: 'H', avatarCls: 'purple' },
+  { time: '20 May 2024, 09:40 AM', action: 'Create', module: 'Users', details: 'Created a new employee account USR-005 (Pooja Mehta)', ip: '192.168.1.10', performedBy: 'Himanshu', performedByInitials: 'H', avatarCls: 'purple' },
+  { time: '19 May 2024, 05:15 PM', action: 'Update', module: 'Franchise', details: 'Approved Franchise Application #FA-2309', ip: '192.168.1.10', performedBy: 'Himanshu', performedByInitials: 'H', avatarCls: 'purple' }
 ];
 
 interface PermissionRow {
@@ -229,6 +229,21 @@ interface PermissionRow {
   delete: 'granted' | 'restricted' | 'na';
   export: 'granted' | 'restricted' | 'na';
 }
+
+const DEFAULT_USER_INFO = {
+  id: 'USR-001',
+  name: 'Himanshu',
+  email: 'himanshu@evegah.com',
+  mobile: '+91 98765 43210',
+  role: 'Super Admin',
+  zone: 'Gotri Zone',
+  status: 'Active',
+  reportingTo: 'System Owner',
+  avatar: '',
+  initials: 'H',
+  avatarBg: '#F5F3FF',
+  avatarCls: 'purple'
+};
 
 const PERM_ROWS: PermissionRow[] = [
   {
@@ -246,7 +261,7 @@ const PERM_ROWS: PermissionRow[] = [
   {
     name: 'Vehicles',
     subtitle: 'Manage vehicles and documents',
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></svg>,
     access: 'granted', create: 'granted', view: 'granted', edit: 'granted', delete: 'granted', export: 'granted'
   },
   {
@@ -281,26 +296,31 @@ const PERM_ROWS: PermissionRow[] = [
   }
 ];
 
-const USER_INFO = {
-  id: 'USR-001',
-  name: 'Akash Verma',
-  email: 'akash.verma@evegah.com',
-  mobile: '+91 98765 43210',
-  role: 'Zone Admin',
-  zone: 'Connaught Place Zone',
-  status: 'Active',
-  reportingTo: 'None (System Admin)',
-  avatar: '/priya_avatar.png', // Fallback or loaded profile image
-  initials: 'AV',
-  avatarBg: '#F5F3FF',
-  avatarCls: 'purple'
-};
-
 function UserProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'Overview';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [userInfo, setUserInfo] = useState(DEFAULT_USER_INFO);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedName = localStorage.getItem('evegah_user_name');
+      const storedEmail = localStorage.getItem('evegah_user_email');
+      const storedRole = localStorage.getItem('evegah_user_role') || localStorage.getItem('evegah_user_role_name');
+      const storedZone = localStorage.getItem('evegah_user_zone') || localStorage.getItem('evegah_active_zone');
+      const initials = storedName ? storedName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'H';
+
+      setUserInfo(prev => ({
+        ...prev,
+        name: storedName || prev.name,
+        email: storedEmail || prev.email,
+        role: storedRole || prev.role,
+        zone: storedZone || prev.zone,
+        initials: initials || prev.initials
+      }));
+    }
+  }, []);
 
   // Search & filter states for Activity Log
   const [searchQuery, setSearchQuery] = useState('');
@@ -366,8 +386,6 @@ function UserProfileContent() {
         <Sidebar activePath="/users" />
         <div className="ud-main">
           <TopBar 
-            title="Hello, Akash" 
-            subtitle="Zone Admin" 
             notificationCount={3}
             showSearch={false}
             hideZone={false}
@@ -416,7 +434,7 @@ function UserProfileContent() {
                   </>
                 ) : (
                   <>
-                    <button className="ud-btn-primary" onClick={() => router.push(`/users/add?edit=${USER_INFO.id}`)}>
+                    <button className="ud-btn-primary" onClick={() => router.push(`/users/add?edit=${userInfo.id}`)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Edit Profile
                     </button>
@@ -430,28 +448,28 @@ function UserProfileContent() {
               {/* Left Column: Avatar + Profile details */}
               <div className="ud-profile-left">
                 <div className="ud-avatar-circle">
-                  {USER_INFO.avatar ? (
-                    <img src={USER_INFO.avatar} alt={`${USER_INFO.name} avatar`} />
+                  {userInfo.avatar ? (
+                    <img src={userInfo.avatar} alt={`${userInfo.name} avatar`} />
                   ) : (
-                    <div className={`usr-avatar ${USER_INFO.avatarCls}`} style={{ width: '100%', height: '100%', borderRadius: '50%', fontSize: '32px' }}>
-                      {USER_INFO.initials}
+                    <div className={`usr-avatar ${userInfo.avatarCls}`} style={{ width: '100%', height: '100%', borderRadius: '50%', fontSize: '32px' }}>
+                      {userInfo.initials}
                     </div>
                   )}
                 </div>
                 <div className="ud-profile-details">
                   <div className="ud-profile-name-row">
-                    <span className="ud-profile-name">{USER_INFO.name}</span>
-                    <span className="badge-active">{USER_INFO.status}</span>
+                    <span className="ud-profile-name">{userInfo.name}</span>
+                    <span className="badge-active">{userInfo.status}</span>
                   </div>
-                  <div className="ud-profile-role">{USER_INFO.role}</div>
+                  <div className="ud-profile-role">{userInfo.role}</div>
                   <div className="ud-profile-meta-line" style={{ marginTop: '4px' }}>
-                    User ID: <span>{USER_INFO.id}</span>
+                    User ID: <span>{userInfo.id}</span>
                   </div>
                   <div className="ud-profile-meta-line">
-                    Email: <span>{USER_INFO.email}</span>
+                    Email: <span>{userInfo.email}</span>
                   </div>
                   <div className="ud-profile-meta-line">
-                    Mobile: <span>{USER_INFO.mobile}</span>
+                    Mobile: <span>{userInfo.mobile}</span>
                   </div>
                 </div>
               </div>
@@ -460,15 +478,15 @@ function UserProfileContent() {
               <div className="ud-profile-mid">
                 <div className="ud-mid-row">
                   <span className="ud-mid-lbl">Role</span>
-                  <span className="badge-purple-role">{USER_INFO.role}</span>
+                  <span className="badge-purple-role">{userInfo.role}</span>
                 </div>
                 <div className="ud-mid-row" style={{ marginTop: '4px' }}>
                   <span className="ud-mid-lbl">Zone / Scope</span>
-                  <span className="ud-mid-val">{USER_INFO.zone}</span>
+                  <span className="ud-mid-val">{userInfo.zone}</span>
                 </div>
                 <div className="ud-mid-row" style={{ marginTop: '4px' }}>
                   <span className="ud-mid-lbl">Reporting To</span>
-                  <span className="ud-mid-val">{USER_INFO.reportingTo}</span>
+                  <span className="ud-mid-val">{userInfo.reportingTo}</span>
                 </div>
               </div>
 
@@ -842,7 +860,7 @@ function UserProfileContent() {
                   <div className="ud-card" style={{ padding: '24px' }}>
                     <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', margin: '0 0 12px 0' }}>Role Information</h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div className="badge-purple-role" style={{ width: 'fit-content', padding: '4px 10px', fontSize: '12px' }}>{USER_INFO.role}</div>
+                      <div className="badge-purple-role" style={{ width: 'fit-content', padding: '4px 10px', fontSize: '12px' }}>{userInfo.role}</div>
                       
                       <div style={{ marginTop: '8px' }}>
                         <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</div>
@@ -954,7 +972,7 @@ function UserProfileContent() {
                   </select>
                   <select className="bi-select">
                     <option>All Performed By</option>
-                    <option>{USER_INFO.name}</option>
+                    <option>{userInfo.name}</option>
                   </select>
                   <div className="fr-search-wrap">
                     <span className="fr-search-icon">

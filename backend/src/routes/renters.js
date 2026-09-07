@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { getCache, setCache, delByPattern } = require('../redis');
 
 // Ensure renters profile columns exist in Postgres
 (async () => {
@@ -26,6 +27,43 @@ let MOCK_RENTERS = [
   { id: '8', rider_name: 'Pooja Patel', mobile: '+91 99123 45678', vehicle_id: 'EV-450X-202408', battery_id: 'BAT-450X-12340008', package_name: 'Monthly Starter', rental_start_date: '2026-05-20T00:00:00.000Z', return_date: '2026-06-20T00:00:00.000Z', status: 'Active Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' }
 ];
 
+// GET /api/renters/check-mobile/:mobile
+router.get('/check-mobile/:mobile', async (req, res) => {
+  const { mobile } = req.params;
+  const cleanMobile = mobile.replace(/\D/g, '');
+  if (!cleanMobile || cleanMobile.length < 10) {
+    return res.json({ status: 'success', is_registered: false });
+  }
+
+  try {
+    const dbRes = await db.query(
+      "SELECT * FROM renters WHERE REPLACE(mobile, ' ', '') LIKE $1 ORDER BY id DESC LIMIT 1",
+      [`%${cleanMobile.slice(-10)}%`]
+    );
+
+    if (dbRes.rows.length > 0) {
+      return res.json({
+        status: 'success',
+        is_registered: true,
+        renter: dbRes.rows[0]
+      });
+    }
+
+    const foundMock = MOCK_RENTERS.find(r => (r.mobile || '').replace(/\D/g, '').includes(cleanMobile.slice(-10)));
+    if (foundMock) {
+      return res.json({
+        status: 'success',
+        is_registered: true,
+        renter: foundMock
+      });
+    }
+
+    res.json({ status: 'success', is_registered: false });
+  } catch (err) {
+    res.json({ status: 'success', is_registered: false });
+  }
+});
+
 // GET /api/renters
 router.get('/', async (req, res) => {
   try {
@@ -34,6 +72,13 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const search = req.query.search || '';
     const status = req.query.status || '';
+
+    // Check Redis cache
+    const cacheKey = `renters:list:${page}:${limit}:${search}:${status}`;
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
 
     // Fetch existing renters
     let query = 'SELECT * FROM renters WHERE 1=1';
@@ -96,7 +141,7 @@ router.get('/', async (req, res) => {
     const total = combinedRenters.length;
     const paginated = combinedRenters.slice(offset, offset + limit);
 
-    res.json({
+    const responsePayload = {
       status: 'success',
       data: paginated,
       pagination: {
@@ -105,7 +150,9 @@ router.get('/', async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit) || 1
       }
-    });
+    };
+    await setCache(cacheKey, responsePayload, 60);
+    res.json(responsePayload);
   } catch (err) {
     console.warn('Postgres query failed, returning fallback mock data:', err.message);
     
@@ -133,7 +180,7 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const paginated = filtered.slice(offset, offset + limit);
 
-    res.json({
+    const fallbackPayload = {
       status: 'success',
       data: paginated,
       pagination: {
@@ -142,12 +189,15 @@ router.get('/', async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit) || 1
       }
-    });
+    };
+    await setCache(cacheKey, fallbackPayload, 30);
+    res.json(fallbackPayload);
   }
 });
 
 // POST /api/renters (create or update renter profile)
 router.post('/', async (req, res) => {
+  await delByPattern('renters:*');
   const {
     id,
     rider_name,
@@ -251,6 +301,7 @@ router.delete('/', async (req, res) => {
   const targetMobiles = Array.isArray(mobiles) ? mobiles : (req.query.mobiles ? req.query.mobiles.split(',') : []);
 
   try {
+    await delByPattern('renters:*');
     if (targetIds.length > 0) {
       try {
         await db.query('DELETE FROM renters WHERE id::text = ANY($1::text[])', [targetIds]);
@@ -289,6 +340,7 @@ router.delete('/', async (req, res) => {
 
 // POST /api/renters/return - Return ride registration
 router.post('/return', async (req, res) => {
+  await delByPattern('renters:*');
   const { vehicle_id, rider_name, mobile, return_notes } = req.body;
   try {
     const result = await db.query(`
@@ -311,6 +363,7 @@ router.post('/return', async (req, res) => {
 
 // POST /api/renters/extend - Extend ride duration
 router.post('/extend', async (req, res) => {
+  await delByPattern('renters:*');
   const { vehicle_id, rider_name, additional_days, extension_fee, new_return_date } = req.body;
   try {
     const result = await db.query(`
@@ -367,6 +420,8 @@ router.post('/kyc', async (req, res) => {
     updated_at: new Date()
   };
 
+  await delByPattern('renters:*');
+
   try {
     const cleanMobile = (mobile || '').replace(/\D/g, '');
     const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
@@ -381,7 +436,7 @@ router.post('/kyc', async (req, res) => {
     `, [
       rider_name || null, 
       kyc_status || 'Under Review', 
-      ocr_details?.dob || null,
+      ocr_details?.dob || null, 
       ocr_details?.gender || null,
       ocr_details?.address || null,
       `%${last10}%`, 
@@ -398,6 +453,7 @@ router.post('/kyc', async (req, res) => {
 
 // POST /api/renters/kyc/verify - Admin endpoint to approve rider KYC
 router.post('/kyc/verify', async (req, res) => {
+  await delByPattern('renters:*');
   const { mobile, status = 'Verified' } = req.body;
   const cleanMobile = (mobile || '').replace(/\D/g, '');
   const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;

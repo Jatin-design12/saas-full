@@ -24,7 +24,7 @@ const Ic = (p: React.SVGProps<SVGSVGElement>) => <svg width="16" height="16" vie
 const icons: Record<string, React.ReactNode> = {
   dashboard: <Ic><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></Ic>,
   reg: <Ic><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></Ic>,
-  vehicle: <Ic><rect x="1" y="3" width="15" height="13" rx="2" /><path d="M16 8h4l3 5v3h-7V8z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></Ic>,
+  vehicle: <Ic><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" /><path d="M5.5 17.5l4-8h4l2.5 8" /><path d="M8.5 12h5" /><path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" /></Ic>,
   user: <Ic><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></Ic>,
   renter: <Ic><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></Ic>,
   battery: <Ic><rect x="1" y="6" width="18" height="12" rx="2" /><line x1="23" y1="13" x2="23" y2="11" /><line x1="7" y1="12" x2="11" y2="8" /><line x1="11" y1="8" x2="11" y2="12" /><line x1="11" y1="12" x2="15" y2="12" /></Ic>,
@@ -73,7 +73,6 @@ const NAV: NavGroup[] = [
       { label: 'Map', href: '/vehicles/map' },
       { label: 'Active Rides', href: '/vehicles/active' },
       { label: 'History', href: '/vehicles/history' },
-      { label: 'Vehicle Details', href: '/vehicles/detail' },
     ]
   },
   {
@@ -406,8 +405,8 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   const router = useRouter();
   const active = activePath || pathname;
 
-  const [userName, setUserName] = useState('Akash Verma');
-  const [userRole, setUserRole] = useState('Super Admin');
+  const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
   const [rawRole, setRawRole] = useState('super_admin');
   const [userRoleCode, setUserRoleCode] = useState('super_admin');
@@ -416,17 +415,15 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
 
   useEffect(() => {
     const loadSession = () => {
-      const name = localStorage.getItem("evegah_user_name");
-      const roleVal = localStorage.getItem("evegah_role");
-      const roleNameVal = localStorage.getItem("evegah_user_role_name");
-      const avatar = localStorage.getItem("evegah_user_avatar");
-      if (name) setUserName(name);
+      const name = localStorage.getItem("evegah_user_name") || 'Himanshu';
+      const roleVal = localStorage.getItem("evegah_role") || 'super_admin';
+      const roleNameVal = localStorage.getItem("evegah_user_role_name") || 'Super Admin';
+      const avatar = localStorage.getItem("evegah_user_avatar") || '';
+      setUserName(name);
       if (avatar) setUserAvatar(avatar);
 
-      if (roleVal) {
-        setRawRole(roleVal);
-        setUserRoleCode(roleVal);
-      }
+      setRawRole(roleVal);
+      setUserRoleCode(roleVal);
 
       if (roleNameVal) {
         setUserRole(roleNameVal);
@@ -474,9 +471,14 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   const handleLogout = () => {
     localStorage.removeItem("evegah_role");
     localStorage.removeItem("evegah_user_name");
+    localStorage.removeItem("evegah_user_role_name");
     localStorage.removeItem("evegah_user_email");
+    localStorage.removeItem("evegah_user_zone");
+    localStorage.removeItem("evegah_active_zone");
+    localStorage.removeItem("evegah_selected_zone");
     localStorage.removeItem("evegah_user_avatar");
     localStorage.removeItem("evegah_user_permissions");
+    localStorage.removeItem("evegah_assigned_dashboard");
     window.dispatchEvent(new Event("evegah_role_changed"));
     router.push('/login');
   };

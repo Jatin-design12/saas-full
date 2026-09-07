@@ -82,7 +82,7 @@ export default function FranchiseOnboarding() {
     phone: '',
     email: '',
     regNo: '',
-    zone: 'Connaught Place Zone',
+    zone: 'Gotri Zone',
     address: '',
     launchDate: '',
     plan: 'Standard',
@@ -222,10 +222,11 @@ export default function FranchiseOnboarding() {
                           value={formData.zone}
                           onChange={e => setFormData({ ...formData, zone: e.target.value })}
                         >
-                          <option>Connaught Place Zone</option>
-                          <option>Karol Bagh Zone</option>
-                          <option>Dwarka Zone</option>
-                          <option>Nehru Place Zone</option>
+                          <option>Gotri Zone</option>
+                          <option>Manjalpur Zone</option>
+                          <option>KPGU Zone</option>
+                          <option>Aatapi Zone</option>
+                          <option>Moti Daman Zone</option>
                         </select>
                       </div>
                       <div className="form-group">

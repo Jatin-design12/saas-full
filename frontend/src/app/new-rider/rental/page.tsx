@@ -1,12 +1,15 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
 /* ──────────────────────────────────────────────────────────────
    STEP 2 · RENTAL DETAILS — pixel-perfect
    ────────────────────────────────────────────────────────────── */
+
+
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -195,14 +198,14 @@ const CSS = `
 .nr-rp-hdr  { display: flex; align-items: center; gap: 9px; padding: 14px 18px; border-bottom: 1px solid #E5E7EB; }
 .nr-rp-hdr-ic { display: flex; align-items: center; flex-shrink: 0; }
 .nr-rp-title  { font-size: 13.5px; font-weight: 700; color: #111827; }
-.nr-sum-body  { padding: 4px 0 8px; }
-.nr-sum-row   { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px; font-size: 13px; }
-.nr-sum-label { color: #6B7280; }
-.nr-sum-val   { font-weight: 600; color: #111827; }
-.nr-sum-divider { height: 1px; background: #F3F4F6; margin: 4px 0; }
+.nr-sum-body  { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
+.nr-sum-row   { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }
+.nr-sum-label { color: #64748B; font-weight: 500; }
+.nr-sum-val   { font-weight: 700; color: #111827; }
+.nr-sum-divider { height: 1px; background: #E2E8F0; margin: 4px 0; }
 .nr-sum-total {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 18px; margin: 8px 12px 12px; border-radius: 10px; background: #F5F3FF;
+  padding: 12px 14px; margin: 4px 0 0; border-radius: 10px; background: #F5F3FF; border: 1.5px solid #DDD6FE;
 }
 .nr-sum-total-l { font-size: 13px; font-weight: 700; color: #111827; }
 .nr-sum-total-r { font-size: 18px; font-weight: 800; color: #2a195c; }
@@ -275,7 +278,7 @@ const ScooterSVG = () => (
     {/* Body panel */}
     <path d="M108 60 L162 55 L166 74 L108 80 Z" fill="#3730A3" opacity="0.45" />
     {/* Logo */}
-    <text x="136" y="70" fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" fill="white" textAnchor="middle" opacity="0.9">EVEGAH E1</text>
+    <text x="136" y="70" fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" fill="white" textAnchor="middle" opacity="0.9">EVEGAH CITY</text>
     {/* Kickstand */}
     <rect x="155" y="103" width="4" height="22" fill="#6B7280" rx="2" transform="rotate(8 155 103)" />
   </svg>
@@ -317,8 +320,15 @@ const STEPS = [
 ];
 
 /* ── Right Panel ── */
-function RightPanel({ selectedModel }: { selectedModel: 'city' | 'mink' | 'v2' }) {
-  const vehicleName = selectedModel === 'city' ? 'Evegah City' : selectedModel === 'mink' ? 'Evegah Mink' : 'Evegah E2';
+function RightPanel({ 
+  zoneName, vehicleCode, vehicleModel, batteryName, planName, planPrice, depositAmount, durationDays 
+}: { 
+  zoneName: string; vehicleCode: string; vehicleModel: string; batteryName: string; planName: string; planPrice: number; depositAmount: number; durationDays: number; 
+}) {
+  const subtotal = planPrice || 0;
+  const deposit = Number(depositAmount ?? 0);
+  const total = subtotal + deposit;
+
   return (
     <div className="nr-rp">
       {/* Rental Summary */}
@@ -329,29 +339,24 @@ function RightPanel({ selectedModel }: { selectedModel: 'city' | 'mink' | 'v2' }
         </div>
         <div className="nr-sum-body">
           {[
-            { l: 'Vehicle', v: vehicleName },
-            { l: 'Battery', v: 'Evegah 60V 30Ah' },
-            { l: 'Plan', v: 'Daily Plan' },
-            { l: 'Plan Rate (Daily)', v: '₹600.00' },
-            { l: 'Expected Duration', v: '1 Day' },
+            { l: 'Assigned Zone', v: zoneName || 'Gotri Zone' },
+            { l: 'Vehicle Number', v: vehicleCode || 'Not selected' },
+            { l: 'Vehicle Model', v: vehicleModel || 'Evegah City' },
+            { l: 'Swappable Battery', v: batteryName || 'Evegah 60V 30Ah' },
+            { l: 'Rental Package', v: planName || 'Daily Pass' },
+            { l: 'Package Duration', v: `${durationDays} ${durationDays === 1 ? 'Day' : 'Days'}` },
+            { l: 'Rental Rent Price', v: `₹${subtotal.toFixed(2)}` },
+            { l: 'Refundable Security Deposit', v: `₹${deposit.toFixed(2)}` },
           ].map(r => (
             <div key={r.l} className="nr-sum-row">
               <span className="nr-sum-label">{r.l}</span>
-              <span className="nr-sum-val">{r.v}</span>
+              <span className="nr-sum-val" style={{ textAlign: 'right', fontWeight: r.l.includes('Deposit') ? 700 : 500 }}>{r.v}</span>
             </div>
           ))}
           <div className="nr-sum-divider" />
-          <div className="nr-sum-row">
-            <span className="nr-sum-label">Est. Sub Total</span>
-            <span className="nr-sum-val">₹600.00</span>
-          </div>
-          <div className="nr-sum-row">
-            <span className="nr-sum-label">GST (18%)</span>
-            <span className="nr-sum-val">₹108.00</span>
-          </div>
           <div className="nr-sum-total">
             <span className="nr-sum-total-l">Est. Total Payable</span>
-            <span className="nr-sum-total-r">₹708.00</span>
+            <span className="nr-sum-total-r">₹{total.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -360,12 +365,13 @@ function RightPanel({ selectedModel }: { selectedModel: 'city' | 'mink' | 'v2' }
       <div className="nr-rp-card">
         <div className="nr-rp-hdr">
           <span className="nr-rp-hdr-ic" style={{ color: '#D97706' }}><IInfo s={14} /></span>
-          <div className="nr-rp-title">Important Note</div>
+          <div className="nr-rp-title">Zone &amp; Deposit Policy</div>
         </div>
         <div className="nr-imp-body">
           {[
-            'Plan and rates are subject to change as per company policy.',
-            'Actual charges may vary based on the final return time.',
+            'Vehicles and batteries are automatically filtered per assigned zone.',
+            'Security Deposit is 100% refundable upon vehicle return in good condition.',
+            'Rental package rates and deposits are synced directly with Zone Pricing API.',
           ].map((n, i) => (
             <div key={i} className="nr-imp-item">
               <span style={{ color: '#D97706', fontWeight: 700, marginTop: 1 }}>•</span>
@@ -394,11 +400,10 @@ const VEHICLE_MODELS = {
   city: {
     name: 'Evegah City',
     type: 'Electric Scooter',
-    image: '/city.png',
+    image: '/City-1.png',
     specs: [
-      { l: 'Top Speed', v: '25 km/h' },
-      { l: 'Range', v: '60 km/charge' },
-      { l: 'Battery Type', v: 'Li-ion' },
+      { l: 'Top Speed', v: '45 km/h' },
+      { l: 'Range', v: '80 km/charge' },
     ],
   },
   mink: {
@@ -406,19 +411,26 @@ const VEHICLE_MODELS = {
     type: 'Electric Scooter',
     image: '/mink.png',
     specs: [
-      { l: 'Top Speed', v: '45 km/h' },
-      { l: 'Range', v: '90 km/charge' },
-      { l: 'Battery Type', v: 'Li-ion (Removable)' },
+      { l: 'Top Speed', v: '30 km/h' },
+      { l: 'Range', v: '70 km/charge' },
     ],
   },
-  v2: {
-    name: 'Evegah E2',
+  pro: {
+    name: 'Evegah Pro',
     type: 'Electric Scooter',
-    image: '/v2.webp',
+    image: '/pro-1.png',
     specs: [
-      { l: 'Top Speed', v: '65 km/h' },
+      { l: 'Top Speed', v: '75 km/h' },
       { l: 'Range', v: '120 km/charge' },
-      { l: 'Battery Type', v: 'Li-ion (Dual)' },
+    ],
+  },
+  fly: {
+    name: 'Evegah Fly',
+    type: 'Electric Cycle',
+    image: '/fly-1.png',
+    specs: [
+      { l: 'Top Speed', v: '25 km/h' },
+      { l: 'Range', v: '60 km/charge' },
     ],
   },
 };
@@ -426,9 +438,371 @@ const VEHICLE_MODELS = {
 /* ═══════════════════════════════════════════════════════════════
    PAGE
    ═══════════════════════════════════════════════════════════════ */
+const IPin = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
+function normalizeModel(m: string): string {
+  if (!m) return 'Evegah City';
+  const l = m.toLowerCase().trim();
+  if (l.includes('mink')) return 'Evegah Mink';
+  if (l.includes('city')) return 'Evegah City';
+  if (l.includes('pro')) return 'Evegah Pro';
+  if (l.includes('fly')) return 'Evegah Fly';
+  return m;
+}
+
 export default function RentalDetailsPage() {
-  const [selectedModel, setSelectedModel] = useState<'city' | 'mink' | 'v2'>('city');
-  const vehicle = VEHICLE_MODELS[selectedModel];
+  const router = useRouter();
+
+  // Zone allocation state (synced with top header & role)
+  const [zonesCatalog, setZonesCatalog] = useState<any[]>([]);
+  const zonesCatalogRef = useRef<any[]>([]);
+  const [selectedZone, setSelectedZone] = useState<any>(null);
+  const [activeZoneName, setActiveZoneName] = useState<string>('Gotri Zone');
+
+  // Dynamic available models connected with assigned vehicles in the selected zone
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [selectedModelName, setSelectedModelName] = useState('Evegah City');
+  const [vehiclesList, setVehiclesList] = useState<any[]>([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<any[]>([]);
+  const [selectedVehicleCode, setSelectedVehicleCode] = useState('');
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+
+  // Batteries allocated to zone
+  const [batteriesList, setBatteriesList] = useState<any[]>([]);
+  const [selectedBatteryId, setSelectedBatteryId] = useState('');
+
+  // Zone Pricing & Rental Packages
+  const [packagesList, setPackagesList] = useState<any[]>([]);
+  const [selectedPackage, setSelectedPackage] = useState<any>(null);
+
+  // Timing
+  const todayStr = new Date().toISOString().split('T')[0];
+  
+  // Format current local time HH:MM AM/PM
+  const getCurrentTimeFormatted = () => {
+    const d = new Date();
+    let hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const strMinutes = minutes < 10 ? '0' + minutes : minutes;
+    return `${hours}:${strMinutes} ${ampm}`;
+  };
+
+  const [startDate, setStartDate] = useState(todayStr);
+  const [startTime, setStartTime] = useState(getCurrentTimeFormatted());
+  const [returnDate, setReturnDate] = useState('');
+  const [returnTime, setReturnTime] = useState(getCurrentTimeFormatted());
+  const [totalDays, setTotalDays] = useState(1);
+
+  // Handle direct zone switch from on-page dropdown or header
+  const handleZoneChange = (zoneName: string) => {
+    if (!zoneName || zoneName === 'All Zones') return;
+    const zones = zonesCatalogRef.current.length > 0 ? zonesCatalogRef.current : zonesCatalog;
+    const matched = zones.find((z: any) =>
+      (z.name || '').toLowerCase() === zoneName.toLowerCase() ||
+      (z.name || '').toLowerCase().includes(zoneName.toLowerCase()) ||
+      zoneName.toLowerCase().includes((z.name || '').toLowerCase())
+    );
+    if (matched) {
+      setSelectedZone(matched);
+      setActiveZoneName(matched.name);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('evegah_active_zone', matched.name);
+        localStorage.setItem('evegah_selected_zone', matched.name);
+        window.dispatchEvent(new Event('evegah_active_zone_changed'));
+        window.dispatchEvent(new Event('evegah_zone_changed'));
+      }
+    }
+  };
+
+  // Sync active zone from header / localStorage (role-aware & real-time)
+  const syncZoneFromStorage = (catalog?: any[]) => {
+    if (typeof window === 'undefined') return;
+    const zones = (catalog && catalog.length > 0)
+      ? catalog
+      : (zonesCatalogRef.current.length > 0 ? zonesCatalogRef.current : zonesCatalog);
+    if (!zones || zones.length === 0) return;
+
+    const storedActive = localStorage.getItem('evegah_active_zone');
+    const storedSelected = localStorage.getItem('evegah_selected_zone');
+    const userAssignedZone = localStorage.getItem('evegah_user_zone');
+
+    let targetZoneName = '';
+    if (storedActive && storedActive !== 'All Zones') {
+      targetZoneName = storedActive;
+    } else if (storedSelected && storedSelected !== 'All Zones') {
+      targetZoneName = storedSelected;
+    } else if (userAssignedZone) {
+      targetZoneName = userAssignedZone;
+    } else {
+      targetZoneName = zones[0]?.name || 'Gotri Zone';
+    }
+
+    const matched = zones.find((z: any) =>
+      (z.name || '').toLowerCase() === targetZoneName.toLowerCase() ||
+      (z.name || '').toLowerCase().includes(targetZoneName.toLowerCase()) ||
+      targetZoneName.toLowerCase().includes((z.name || '').toLowerCase())
+    ) || zones[0];
+
+    if (matched) {
+      setActiveZoneName(matched.name);
+      setSelectedZone(matched);
+    }
+  };
+
+  // Load all zones catalog and listen for top header zone changes
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/zones`)
+      .then(res => res.json())
+      .then(res => {
+        const data = (res && res.data && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : []);
+        // Operational zones only
+        const operationalZones = data.filter((z: any) => {
+          const t = (z.type || '').toLowerCase();
+          return !t.includes('service zone') && !t.includes('maintenance hub');
+        });
+        const finalZones = operationalZones.length > 0 ? operationalZones : data;
+        if (finalZones.length > 0) {
+          zonesCatalogRef.current = finalZones;
+          setZonesCatalog(finalZones);
+          syncZoneFromStorage(finalZones);
+        }
+      }).catch(() => {});
+
+    const onZoneChange = () => syncZoneFromStorage();
+    window.addEventListener('evegah_active_zone_changed', onZoneChange);
+    window.addEventListener('evegah_zone_changed', onZoneChange);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', onZoneChange);
+      window.removeEventListener('evegah_zone_changed', onZoneChange);
+    };
+  }, []);
+
+  // 1. When selectedZone changes, load available vehicles & derive available models
+  useEffect(() => {
+    if (!selectedZone) return;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    setLoadingVehicles(true);
+
+    // Fetch available vehicles for this zone
+    fetch(`${apiUrl}/vehicles?zone=${encodeURIComponent(selectedZone.name)}&status=Available`)
+      .then(res => res.json())
+      .then(res => {
+        const vData = (res && res.data && Array.isArray(res.data)) ? res.data : [];
+        const availableOnly = vData.filter((v: any) => {
+          const vStatus = (v.vehicle_status || v.status || '').toLowerCase();
+          return !['in ride', 'active', 'rented', 'maintenance', 'offline'].includes(vStatus);
+        });
+
+        setVehiclesList(availableOnly);
+
+        // Derive models strictly from available vehicles in this assigned zone
+        const modelsWithVehicles: string[] = Array.from(new Set<string>(
+          availableOnly
+            .map((v: any) => normalizeModel(v.evegah_model_name || v.vehicle_model))
+            .filter(Boolean)
+        ));
+
+        let finalModels: string[] = modelsWithVehicles;
+        // If no available vehicles, check all vehicles assigned to this zone
+        if (finalModels.length === 0) {
+          const allAssignedModels: string[] = Array.from(new Set<string>(
+            vData
+              .map((v: any) => normalizeModel(v.evegah_model_name || v.vehicle_model))
+              .filter(Boolean)
+          ));
+          if (allAssignedModels.length > 0) {
+            finalModels = allAssignedModels;
+          }
+        }
+
+        // If still no vehicles, check models configured in zone pricing packages
+        if (finalModels.length === 0 && selectedZone?.pricing) {
+          const zPricing = selectedZone.pricing;
+          const pricingModels = new Set<string>();
+          if (Array.isArray(zPricing.packages)) {
+            zPricing.packages.forEach((p: any) => {
+              if (p.model) pricingModels.add(normalizeModel(p.model));
+            });
+          }
+          if (zPricing.modelPackages && typeof zPricing.modelPackages === 'object') {
+            Object.keys(zPricing.modelPackages).forEach((m: string) => {
+              pricingModels.add(normalizeModel(m));
+            });
+          }
+          if (pricingModels.size > 0) {
+            finalModels = Array.from(pricingModels);
+          }
+        }
+
+        if (finalModels.length === 0) {
+          finalModels = ['Evegah City'];
+        }
+
+        setAvailableModels(finalModels);
+
+        // Auto-select first available model if current model is not present in this zone
+        setSelectedModelName(prev => (finalModels.includes(prev) ? prev : finalModels[0]));
+        setLoadingVehicles(false);
+      })
+      .catch(() => {
+        setVehiclesList([]);
+        setAvailableModels(['Evegah City']);
+        setLoadingVehicles(false);
+      });
+
+    // 2. Fetch batteries for this zone (Available only)
+    fetch(`${apiUrl}/batteries?zone=${encodeURIComponent(selectedZone.name)}&status=available`)
+      .then(res => res.json())
+      .then(res => {
+        const bData = Array.isArray(res) ? res : (res.data || []);
+        setBatteriesList(bData);
+        if (bData.length > 0) {
+          setSelectedBatteryId(bData[0].battery_id || bData[0].id);
+        } else {
+          setSelectedBatteryId('');
+        }
+      }).catch(() => {
+        setBatteriesList([]);
+        setSelectedBatteryId('');
+      });
+  }, [selectedZone]);
+
+  // 2. Filter vehicles matching current model and auto-select vehicle code
+  useEffect(() => {
+    const currentModelVehicles = vehiclesList.filter((v: any) =>
+      normalizeModel(v.evegah_model_name || v.vehicle_model) === selectedModelName
+    );
+
+    setFilteredVehicles(currentModelVehicles);
+    if (currentModelVehicles.length > 0) {
+      const exists = currentModelVehicles.some((v: any) => (v.code || v.id) === selectedVehicleCode);
+      if (!exists) {
+        setSelectedVehicleCode(currentModelVehicles[0].code || currentModelVehicles[0].id);
+        setSelectedVehicle(currentModelVehicles[0]);
+      }
+    } else {
+      setSelectedVehicleCode('');
+      setSelectedVehicle(null);
+    }
+  }, [selectedModelName, vehiclesList]);
+
+  // 3. Extract model-specific packages from zone pricing
+  useEffect(() => {
+    if (!selectedZone) return;
+    let pkgs: any[] = [];
+    const zPricing = selectedZone.pricing || {};
+
+    // Check modelPackages[selectedModelName]
+    if (zPricing.modelPackages && Array.isArray(zPricing.modelPackages[selectedModelName])) {
+      pkgs = zPricing.modelPackages[selectedModelName].filter((p: any) => Number(p.price) > 0);
+    }
+
+    // Check packages matching selectedModelName
+    if (pkgs.length === 0 && Array.isArray(zPricing.packages)) {
+      pkgs = zPricing.packages.filter((p: any) => {
+        if (!p.model) return false;
+        return normalizeModel(p.model) === selectedModelName && Number(p.price) > 0;
+      });
+    }
+
+    // Check general packages without model
+    if (pkgs.length === 0 && Array.isArray(zPricing.packages)) {
+      pkgs = zPricing.packages.filter((p: any) => !p.model && Number(p.price) > 0);
+    }
+
+    // Default fallbacks if none configured in zone pricing
+    if (pkgs.length === 0) {
+      if (selectedModelName === 'Evegah Mink') {
+        pkgs = [
+          { id: 201, name: 'Daily Pass', duration: 1, price: 250, deposit: 500 },
+          { id: 202, name: 'Weekly Pass', duration: 7, price: 1500, deposit: 500 },
+          { id: 203, name: 'Monthly Pass', duration: 30, price: 5500, deposit: 1500 }
+        ];
+      } else if (selectedModelName === 'Evegah Fly') {
+        pkgs = [
+          { id: 401, name: 'Daily Pass', duration: 1, price: 100, deposit: 0 },
+          { id: 402, name: 'Weekly Pass', duration: 7, price: 650, deposit: 0 }
+        ];
+      } else if (selectedModelName === 'Evegah Pro') {
+        pkgs = [
+          { id: 301, name: 'Daily Pass', duration: 1, price: 200, deposit: 100 },
+          { id: 302, name: 'Weekly Pass', duration: 7, price: 1200, deposit: 100 }
+        ];
+      } else {
+        pkgs = [
+          { id: 101, name: 'Daily Pass', duration: 1, price: 350, deposit: 500 },
+          { id: 102, name: 'Weekly Pass', duration: 7, price: 1750, deposit: 1000 },
+          { id: 103, name: 'Monthly Pass', duration: 30, price: 6500, deposit: 2500 }
+        ];
+      }
+    }
+
+    setPackagesList(pkgs);
+    setSelectedPackage(pkgs[0]);
+  }, [selectedZone, selectedModelName]);
+
+  // Auto-calculate return date & return time based on package duration
+  useEffect(() => {
+    if (!selectedPackage) return;
+    const duration = selectedPackage.duration || 1;
+    setTotalDays(duration);
+
+    if (startDate) {
+      const d = new Date(startDate);
+      if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + duration);
+        setReturnDate(d.toISOString().split('T')[0]);
+      }
+    }
+    setReturnTime(startTime);
+  }, [startDate, startTime, selectedPackage]);
+
+  const handleNextStep = () => {
+    if (!selectedVehicleCode) {
+      alert(`No available vehicle in ${selectedZone?.name || 'this zone'} for ${selectedModelName}. Please choose another model or change zone.`);
+      return;
+    }
+    if (!startDate || !returnDate) {
+      alert('Please specify valid start and return dates.');
+      return;
+    }
+    const rentalData = {
+      zone_name: selectedZone?.name || 'Gotri Zone',
+      vehicle_code: selectedVehicleCode,
+      vehicle_name: `${selectedModelName} (${selectedVehicleCode})`,
+      vehicle_model: selectedModelName,
+      battery_id: selectedBatteryId || 'BAT-GT-60V-01',
+      plan_type: selectedPackage?.name || 'Daily Pass',
+      plan_rate: Number(selectedPackage?.price || 0),
+      deposit_amount: Number(selectedPackage?.deposit ?? 0),
+      start_date: startDate,
+      start_time: startTime,
+      return_date: returnDate,
+      return_time: returnTime,
+      total_days: totalDays
+    };
+    localStorage.setItem('evegah_new_ride_rental', JSON.stringify(rentalData));
+    router.push('/new-rider/payment');
+  };
+
+  const getVehicleImage = () => {
+    if (selectedVehicle?.vehicle_image) return selectedVehicle.vehicle_image;
+    if (selectedModelName === 'Evegah Mink') return '/Mink-1.png';
+    if (selectedModelName === 'Evegah Pro') return '/pro-1.png';
+    if (selectedModelName === 'Evegah Fly') return '/fly-1.png';
+    return '/City-1.png';
+  };
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -451,9 +825,9 @@ export default function RentalDetailsPage() {
             <div className="nr-title-row">
               <div>
                 <h1 className="nr-h1">New Ride Registration</h1>
-                <p className="nr-sub">Register a new ride for the rider</p>
+                <p className="nr-sub">Register a new ride for assigned zone ({selectedZone?.name || 'Gotri Zone'})</p>
               </div>
-              <button className="nr-back-btn"><ILeft /> Back to Rides</button>
+              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
             </div>
 
             {/* Stepper */}
@@ -476,6 +850,8 @@ export default function RentalDetailsPage() {
               ))}
             </div>
 
+
+
             {/* 2-col outer layout */}
             <div className="nr-layout">
               <div>
@@ -483,35 +859,56 @@ export default function RentalDetailsPage() {
                 <div className="nr-card">
                   <div className="rd-3col">
 
-                    {/* 1. Select Vehicle */}
+                    {/* 1. Select Vehicle (2 Tier Selection) */}
                     <div className="rd-panel">
                       <div className="rd-ph">
                         <span className="rd-ph-title">1. Select Vehicle</span>
-                        <span className="rd-avail">Available</span>
+                        <span className="rd-avail" style={{ background: filteredVehicles.length > 0 ? '#DCFCE7' : '#FEE2E2', color: filteredVehicles.length > 0 ? '#15803D' : '#B91C1C' }}>
+                          {loadingVehicles ? 'Loading...' : `${filteredVehicles.length} Available`}
+                        </span>
                       </div>
-                      <div className="rd-img-wrap">
+                      <div className="rd-img-wrap" style={{ height: '170px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', borderRadius: '12px', padding: '10px', marginBottom: '12px' }}>
                         <img
-                          src={vehicle.image}
-                          alt={vehicle.name}
-                          style={{ maxHeight: '110px', maxWidth: '100%', objectFit: 'contain' }}
+                          src={getVehicleImage()}
+                          alt={selectedModelName}
+                          style={{ maxHeight: '160px', maxWidth: '100%', objectFit: 'contain', filter: 'drop-shadow(0px 8px 16px rgba(0,0,0,0.12))' }}
                         />
                       </div>
-                      <div className="rd-veh-name">{vehicle.name}</div>
-                      <div className="rd-veh-type">{vehicle.type}</div>
-                      {vehicle.specs.map(r => (
-                        <div key={r.l} className="rd-spec">
-                          <span className="rd-spec-l">{r.l}</span>
-                          <span className="rd-spec-v">{r.v}</span>
-                        </div>
-                      ))}
+
+                      {/* Dropdown 1: Select Vehicle Model */}
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginTop: 6, display: 'block' }}>Vehicle Model</label>
+                      <select 
+                        className="rd-chg-sel"
+                        style={{ marginBottom: 8, fontWeight: 700 }}
+                        value={selectedModelName}
+                        onChange={(e) => setSelectedModelName(e.target.value)}
+                      >
+                        {availableModels.map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+
+                      {/* Dropdown 2: Select Vehicles / Code */}
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#64748B', display: 'block' }}>Vehicle Number</label>
                       <select
                         className="rd-chg-sel"
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value as 'city' | 'mink' | 'v2')}
+                        value={selectedVehicleCode}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          setSelectedVehicleCode(code);
+                          const found = filteredVehicles.find(v => (v.code || v.id) === code);
+                          if (found) setSelectedVehicle(found);
+                        }}
                       >
-                        <option value="city">Evegah City</option>
-                        <option value="mink">Evegah Mink</option>
-                        <option value="v2">Evegah E2</option>
+                        {filteredVehicles.length > 0 ? (
+                          filteredVehicles.map(v => (
+                            <option key={v.code || v.id} value={v.code || v.id}>
+                              {v.code || v.id} ({v.registration_number ? `${v.registration_number} • ` : ''}Available)
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">No available {selectedModelName} in {selectedZone?.name || 'zone'}</option>
+                        )}
                       </select>
                     </div>
 
@@ -519,13 +916,15 @@ export default function RentalDetailsPage() {
                     <div className="rd-panel">
                       <div className="rd-ph">
                         <span className="rd-ph-title">2. Select Battery</span>
-                        <span className="rd-avail">Available</span>
+                        <span className="rd-avail" style={{ background: batteriesList.length > 0 ? '#DCFCE7' : '#FEE2E2', color: batteriesList.length > 0 ? '#15803D' : '#B91C1C' }}>
+                          {batteriesList.length > 0 ? `${batteriesList.length} Assigned` : 'No Battery'}
+                        </span>
                       </div>
                       <div className="rd-img-wrap">
                         <BatterySVG />
                       </div>
-                      <div className="rd-veh-name">Evegah 60V 30Ah</div>
-                      <div className="rd-veh-type">Portable Battery</div>
+                      <div className="rd-veh-name">{selectedBatteryId || 'No Battery Allocated'}</div>
+                      <div className="rd-veh-type">Portable Swappable Battery</div>
                       {[
                         { l: 'Type', v: 'Li-ion' },
                         { l: 'Capacity', v: '60V / 30Ah' },
@@ -536,35 +935,59 @@ export default function RentalDetailsPage() {
                           <span className="rd-spec-v">{r.v}</span>
                         </div>
                       ))}
-                      <select className="rd-chg-sel">
-                        <option>Change Battery</option>
-                        <option>Evegah 72V 40Ah</option>
-                        <option>Evegah 48V 20Ah</option>
+                      <select 
+                        className="rd-chg-sel"
+                        value={selectedBatteryId}
+                        onChange={(e) => setSelectedBatteryId(e.target.value)}
+                      >
+                        {batteriesList.length > 0 ? (
+                          batteriesList.map(b => (
+                            <option key={b.battery_id || b.id} value={b.battery_id || b.id}>
+                              {b.battery_id || b.id} ({b.soc ? `${b.soc}%` : '100%'} • {b.capacity || '60V 30Ah'})
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">No batteries available in {selectedZone?.name || 'zone'}</option>
+                        )}
                       </select>
                     </div>
 
-                    {/* 3. Select Rental Plan */}
+                    {/* 3. Select Rental Plan & Deposit (Zone Pricing API) */}
                     <div className="rd-panel">
                       <div className="rd-ph">
-                        <span className="rd-ph-title">3. Select Rental Plan</span>
+                        <span className="rd-ph-title">3. Zone Package Plan</span>
+                        <span className="rd-avail" style={{ background: '#EDE9FE', color: '#2a195c' }}>
+                          {selectedModelName}
+                        </span>
                       </div>
-                      <select className="rd-plan-sel">
-                        <option>Daily Plan</option>
-                        <option>Weekly Plan</option>
-                        <option>Monthly Plan</option>
+                      <select 
+                        className="rd-plan-sel"
+                        value={selectedPackage?.id || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const found = packagesList.find(p => String(p.id) === String(val));
+                          if (found) setSelectedPackage(found);
+                        }}
+                      >
+                        {packagesList.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.duration} {p.duration === 1 ? 'Day' : 'Days'}) - Rent: ₹{p.price} | Dep: ₹{Number(p.deposit ?? 0)}
+                          </option>
+                        ))}
                       </select>
                       <div className="rd-price-box">
                         <div>
-                          <span className="rd-price-amount">₹600.00</span>
-                          <span className="rd-price-unit"> / Day</span>
+                          <span className="rd-price-amount">₹{(selectedPackage?.price || 0).toFixed(2)}</span>
+                          <span className="rd-price-unit"> / {totalDays} {totalDays === 1 ? 'Day' : 'Days'}</span>
                         </div>
-                        <div className="rd-price-from">24 hours from activation</div>
+                        <div className="rd-price-from" style={{ color: '#059669', fontWeight: 700 }}>
+                          + Refundable Deposit: ₹{Number(selectedPackage?.deposit ?? 0).toFixed(2)}
+                        </div>
                       </div>
                       {[
-                        { label: 'Unlimited kms', green: true },
+                        { label: 'Unlimited kms in zone', green: true },
                         { label: 'Battery swap included', green: true },
-                        { label: 'Roadside assistance', green: true },
-                        { label: 'GST included', green: false },
+                        { label: '100% Refundable Deposit', green: true },
                       ].map(f => (
                         <div key={f.label} className="rd-feature">
                           {f.green
@@ -574,7 +997,7 @@ export default function RentalDetailsPage() {
                           {f.label}
                         </div>
                       ))}
-                      <button className="rd-view-plans">View all plans <IArr s={11} /></button>
+                      <button className="rd-view-plans">View zone pricing <IArr s={11} /></button>
                     </div>
 
                   </div>
@@ -585,8 +1008,8 @@ export default function RentalDetailsPage() {
                   <div className="rd-timing-hdr">
                     <span className="rd-timing-hdr-ic"><IClock s={18} /></span>
                     <div>
-                      <div className="rd-timing-title">Ride Timing</div>
-                      <div className="rd-timing-sub">Set expected ride start and return time.</div>
+                      <div className="rd-timing-title">Ride Timing (Zone Package Synced)</div>
+                      <div className="rd-timing-sub">Start time defaults to current time. Return date/time auto-calculates per package (fully editable).</div>
                     </div>
                   </div>
                   <div className="rd-timing-body">
@@ -596,11 +1019,21 @@ export default function RentalDetailsPage() {
                         <label>Expected Start Date &amp; Time<span className="req" style={{ color: '#EF4444', marginLeft: 2 }}> *</span></label>
                         <div className="rd-dt-row">
                           <div className="nr-inp-wrap">
-                            <input className="nr-inp" defaultValue="20/05/2024" placeholder="DD/MM/YYYY" />
-                            <span className="nr-inp-wrap-ic"><ICal s={14} /></span>
+                            <input 
+                              type="date"
+                              className="nr-inp" 
+                              value={startDate} 
+                              onChange={(e) => setStartDate(e.target.value)} 
+                            />
                           </div>
-                          <div className="nr-inp-wrap" style={{ width: 115 }}>
-                            <input className="nr-inp" defaultValue="10:00 AM" placeholder="HH:MM" />
+                          <div className="nr-inp-wrap" style={{ width: 130 }}>
+                            <input 
+                              type="text"
+                              className="nr-inp" 
+                              value={startTime} 
+                              onChange={(e) => setStartTime(e.target.value)} 
+                              placeholder="10:00 AM"
+                            />
                             <span className="nr-inp-wrap-ic"><IClock s={13} /></span>
                           </div>
                         </div>
@@ -610,11 +1043,21 @@ export default function RentalDetailsPage() {
                         <label>Expected Return Date &amp; Time<span style={{ color: '#EF4444', marginLeft: 2 }}> *</span></label>
                         <div className="rd-dt-row">
                           <div className="nr-inp-wrap">
-                            <input className="nr-inp" defaultValue="21/05/2024" placeholder="DD/MM/YYYY" />
-                            <span className="nr-inp-wrap-ic"><ICal s={14} /></span>
+                            <input 
+                              type="date"
+                              className="nr-inp" 
+                              value={returnDate} 
+                              onChange={(e) => setReturnDate(e.target.value)} 
+                            />
                           </div>
-                          <div className="nr-inp-wrap" style={{ width: 115 }}>
-                            <input className="nr-inp" defaultValue="10:00 AM" placeholder="HH:MM" />
+                          <div className="nr-inp-wrap" style={{ width: 130 }}>
+                            <input 
+                              type="text"
+                              className="nr-inp" 
+                              value={returnTime} 
+                              onChange={(e) => setReturnTime(e.target.value)} 
+                              placeholder="10:00 AM"
+                            />
                             <span className="nr-inp-wrap-ic"><IClock s={13} /></span>
                           </div>
                         </div>
@@ -622,13 +1065,13 @@ export default function RentalDetailsPage() {
                       {/* Duration */}
                       <div className="rd-dur-box">
                         <div className="rd-dur-lbl">Total Duration</div>
-                        <div className="rd-dur-val">1 Day</div>
-                        <div className="rd-dur-sub">(24 Hours)</div>
+                        <div className="rd-dur-val">{totalDays} {totalDays === 1 ? 'Day' : 'Days'}</div>
+                        <div className="rd-dur-sub">({totalDays * 24} Hours)</div>
                       </div>
                     </div>
                     <div className="rd-timing-note">
                       <span style={{ color: '#2563EB', display: 'flex', flexShrink: 0 }}><IInfo s={14} /></span>
-                      <span>The actual return time may vary. Final charges will be calculated as per the plan and duration.</span>
+                      <span>Return date auto-calculates based on package duration. You can customize start and return times.</span>
                     </div>
                   </div>
                 </div>
@@ -636,16 +1079,24 @@ export default function RentalDetailsPage() {
                 {/* Footer */}
                 <div className="nr-footer-actions">
                   <Link href="/new-rider" className="nr-prev-btn"><ILeft /> Previous</Link>
-                  <Link href="/new-rider/payment" className="nr-continue-btn">
+                  <button className="nr-continue-btn" onClick={handleNextStep}>
                     Continue to Payment &amp; Charges <IArr s={12} />
-                  </Link>
+                  </button>
                 </div>
               </div>
 
               {/* Right Panel */}
-              <RightPanel selectedModel={selectedModel} />
+              <RightPanel 
+                zoneName={selectedZone?.name || 'Gotri Zone'}
+                vehicleCode={selectedVehicleCode}
+                vehicleModel={selectedModelName}
+                batteryName={selectedBatteryId || 'No battery allocated'}
+                planName={selectedPackage?.name || 'Daily Pass'}
+                planPrice={Number(selectedPackage?.price || 0)}
+                depositAmount={Number(selectedPackage?.deposit ?? 0)}
+                durationDays={totalDays}
+              />
             </div>
-
           </div>
         </div>
       </div>

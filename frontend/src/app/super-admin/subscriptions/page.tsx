@@ -69,8 +69,8 @@ const INITIAL_SUBSCRIPTIONS: Subscription[] = [
   { tenantName: 'VoltEdge Rentals', plan: 'Standard', billing: 'Monthly', mrr: 24999, nextInvoice: '22 Jun 2026', status: 'active', paymentMethod: 'ICICI Card **** 9012' },
   { tenantName: 'EvoFleet Services', plan: 'Enterprise', billing: 'Monthly', mrr: 59999, nextInvoice: '02 Jun 2026', status: 'active', paymentMethod: 'Bank Transfer' },
   { tenantName: 'NextGen Mobility', plan: 'Starter', billing: 'Monthly', mrr: 9999, nextInvoice: '10 Jun 2026', status: 'trial', paymentMethod: 'None' },
-  { tenantName: 'EcoRide Hub CP', plan: 'Starter', billing: 'Monthly', mrr: 9999, nextInvoice: 'N/A', status: 'suspended', paymentMethod: 'HDFC Card **** 8820' },
-  { tenantName: 'Karol Bagh E-Wheels', plan: 'Starter', billing: 'Monthly', mrr: 9999, nextInvoice: '15 Dec 2025', status: 'expired', paymentMethod: 'UPI Auto-pay' }
+  { tenantName: 'Gotri E-Wheels Hub', plan: 'Starter', billing: 'Monthly', mrr: 9999, nextInvoice: 'N/A', status: 'suspended', paymentMethod: 'HDFC Card **** 8820' },
+  { tenantName: 'Manjalpur E-Wheels', plan: 'Starter', billing: 'Monthly', mrr: 9999, nextInvoice: '15 Dec 2025', status: 'expired', paymentMethod: 'UPI Auto-pay' }
 ];
 
 export default function Subscriptions() {
