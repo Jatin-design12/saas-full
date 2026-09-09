@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import FranchiseOnboard from "./franchise/onboard/page";
-import { Line, Doughnut } from "react-chartjs-2";
+import { Line, Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Title,
   Tooltip,
@@ -24,6 +25,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Title,
   Tooltip,
@@ -91,11 +93,11 @@ const SUPER_DESIGN_CSS = `
 }
 
 .ev-main {
-  margin-left: 230px;
+  margin-left: 240px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  width: calc(100% - 230px);
+  width: calc(100% - 240px);
   min-width: 0;
 }
 
@@ -712,6 +714,7 @@ export default function DynamicDashboard() {
     const rolePermissionsMap: Record<string, any> = {
       super_admin: null,
       platform_admin: null,
+      employee: { Dashboard: { access: true }, Registrations: { access: true }, Vehicles: { access: true }, Battery: { access: true }, Attendance: { access: true }, Payments: { access: true } },
       zone_admin: { Dashboard: { access: true }, Registrations: { access: true }, Vehicles: { access: true }, Riders: { access: true }, 'Zone Management': { access: true }, Maintenance: { access: true }, Reports: { access: true }, Alerts: { access: true }, Attendance: { access: true } },
       operations_manager: { Dashboard: { access: true }, Registrations: { access: true }, Vehicles: { access: true }, Battery: { access: true }, Maintenance: { access: true }, 'IoT Devices': { access: true }, Reports: { access: true }, Alerts: { access: true }, Attendance: { access: true } },
       franchise_manager: { Dashboard: { access: true }, Franchise: { access: true }, Riders: { access: true }, Vehicles: { access: true }, Payments: { access: true }, Reports: { access: true }, Settings: { access: true } },
@@ -732,6 +735,12 @@ export default function DynamicDashboard() {
     setRole(newRoleKey);
     setShowRoleMenu(false);
     window.dispatchEvent(new Event("evegah_role_changed"));
+
+    if (newRoleKey === 'employee') {
+      router.push('/employee-dashboard');
+    } else if (newRoleKey === 'super_admin') {
+      router.push('/super-admin');
+    }
   };
 
   const handleSaveKey = (val: string) => {
@@ -785,6 +794,7 @@ export default function DynamicDashboard() {
   const roleList = [
     { key: "super_admin", label: "Super Admin", icon: "👑" },
     { key: "platform_admin", label: "Platform Admin", icon: "🛡️" },
+    { key: "employee", label: "Zone Employee", icon: "🛠️" },
     { key: "zone_admin", label: "Zone Admin", icon: "📍" },
     { key: "operations_manager", label: "Operations Manager", icon: "⚡" },
     { key: "franchise_manager", label: "Franchise Manager", icon: "🏢" },
@@ -879,6 +889,19 @@ export default function DynamicDashboard() {
         const roleName = typeof window !== 'undefined' ? localStorage.getItem('evegah_user_role_name') || '' : '';
         const normRoleName = roleName.toLowerCase();
         const normRole = (role || '').toLowerCase();
+
+        // 0. Employee check FIRST - redirect immediately to employee dashboard
+        if (
+          assignedDash === 'Employee Operations Dashboard' ||
+          (assignedDash && assignedDash.toLowerCase().includes('employee')) ||
+          normRole.includes('employee') ||
+          normRoleName.includes('employee')
+        ) {
+          if (typeof window !== 'undefined') {
+            router.replace('/employee-dashboard');
+          }
+          return null;
+        }
 
         if (
           assignedDash === 'Super Admin Dashboard' || 
@@ -1069,6 +1092,43 @@ function SuperAdminRoleDashboard() {
                 <a href="/super-admin/subscriptions" className="sa-link-all">View All</a>
               </div>
               <div className="sa-card-body">
+                {/* Real interactive horizontal bar graph */}
+                <div style={{ height: '80px', width: '100%', marginBottom: '14px' }}>
+                  <Bar
+                    data={{
+                      labels: ['Enterprise', 'Business', 'Pro', 'Starter'],
+                      datasets: [
+                        {
+                          data: [4567890, 2834560, 1245230, 567890],
+                          backgroundColor: ['#1E3A8A', '#10B981', '#F59E0B', '#6366F1'],
+                          borderRadius: 4,
+                          barThickness: 8
+                        }
+                      ]
+                    }}
+                    options={{
+                      indexAxis: 'y' as const,
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          callbacks: {
+                            label: (ctx: any) => ` Revenue: ₹${ctx.raw?.toLocaleString()}`
+                          }
+                        }
+                      },
+                      scales: {
+                        x: { display: false, grid: { display: false } },
+                        y: {
+                          grid: { display: false },
+                          ticks: { font: { size: 9.5, weight: 'bold' as const }, color: '#64748B' }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+
                 <div className="sa-rank-list">
                   {(liveStats?.topPlans || [
                     { name: 'Enterprise Plan', val: '₹45,67,890', color: '#1E3A8A' },

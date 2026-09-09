@@ -275,10 +275,15 @@ const SUPER_ADMIN_NAV: NavGroup[] = [
 
 const CSS = `
 .ev-sb {
-  position:fixed;inset:0 auto 0 0;width:230px;
+  position:fixed;
+  top:0;
+  left:0;
+  bottom:0;
+  height:100vh;
+  width:240px;
   background:var(--sb-bg, #fff);
   border-right:1px solid var(--sb-border, #E5E7EB);
-  display:flex;flex-direction:column;z-index:100;
+  display:flex;flex-direction:column;z-index:1000;
   overflow-y:auto;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -287,15 +292,15 @@ const CSS = `
   display: none;
 }
 .ev-sb-group-hdr {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: #94A3B8;
-  padding: 16px 20px 4px;
+  padding: 14px 18px 4px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 .ev-sb-logo {
-  display:flex;align-items:center;padding:14px 18px 13px;
+  display:flex;align-items:center;padding:16px 18px 14px;
   border-bottom:1px solid var(--sb-border, #E5E7EB);
   flex-shrink:0;
 }
@@ -308,7 +313,7 @@ const CSS = `
   display: none;
 }
 .ev-sb-ni {
-  display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:12.5px;font-weight:500;
+  display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13px;font-weight:500;
   color:var(--sb-text, #374151);
   cursor:pointer;position:relative;transition:background .1s;border-radius:0;justify-content:space-between;
 }
@@ -327,9 +332,9 @@ const CSS = `
 }
 .ev-sb-ni-l{display:flex;align-items:center;gap:10px}
 .ev-sb-ni-ic{width:16px;height:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.ev-sb-sub { padding:0 0 0 42px; }
+.ev-sb-sub { padding:0 0 0 40px; }
 .ev-sb-sub-item {
-  display:block;padding:6px 16px;font-size:12px;
+  display:block;padding:6.5px 14px;font-size:12.5px;
   color:var(--sb-sub-text, #6B7280);
   cursor:pointer;transition:background .1s,color .1s;border-radius:0;
 }
@@ -344,9 +349,10 @@ const CSS = `
   border-radius:6px;margin:1px 8px 1px 0;
 }
 .ev-sb-help {
-  padding:16px;
+  padding:14px;
   border-top:1px solid var(--sb-border, #E5E7EB);
   flex-shrink:0;
+  margin-top:auto;
 }
 .ev-sb-help-box {
   background:var(--sb-help-bg, #FAF5FF);
@@ -644,8 +650,15 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <aside className="ev-sb" style={{ display: isOpen ? undefined : 'none', ...themeStyles }}>
         {/* Logo */}
-        <div className="ev-sb-logo" style={{ filter: theme === 'dark' ? 'invert(1) brightness(100)' : 'none' }}>
-          <EvegahLogo height={50} />
+        <div
+          className="ev-sb-logo"
+          style={{ filter: theme === 'dark' ? 'invert(1) brightness(100)' : 'none', cursor: 'pointer' }}
+          onClick={() => {
+            const isEmp = userRoleCode.toLowerCase().includes('employee') || rawRole.toLowerCase().includes('employee') || userRole.toLowerCase().includes('employee');
+            router.push(isEmp ? '/employee-dashboard' : (isSuperAdmin ? '/super-admin' : '/'));
+          }}
+        >
+          <EvegahLogo height={46} />
         </div>
 
         {/* Nav */}
@@ -662,12 +675,13 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
             const isOpen = open[g.key];
 
             const currentPermKey = KEY_MAP[g.key];
+            const isEmp = userRoleCode.toLowerCase().includes('employee') || rawRole.toLowerCase().includes('employee') || userRole.toLowerCase().includes('employee');
 
             return (
               <div key={g.key}>
                 {g.href ? (
                   <Link
-                    href={g.href}
+                    href={g.key === 'dashboard' ? (isEmp ? '/employee-dashboard' : (isSuperAdmin ? '/super-admin' : '/')) : g.href}
                     className={`ev-sb-ni ${isGroupActive ? 'act' : ''}`}
                   >
                     <div className="ev-sb-ni-l">

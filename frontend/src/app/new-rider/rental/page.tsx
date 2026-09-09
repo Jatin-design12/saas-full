@@ -565,12 +565,13 @@ export default function RentalDetailsPage() {
       .then(res => res.json())
       .then(res => {
         const data = (res && res.data && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : []);
-        // Operational zones only
+        // Operational zones only (Evegah Service Center is strictly excluded)
         const operationalZones = data.filter((z: any) => {
           const t = (z.type || '').toLowerCase();
-          return !t.includes('service zone') && !t.includes('maintenance hub');
+          const n = (z.name || '').toLowerCase();
+          return !t.includes('service zone') && !t.includes('maintenance hub') && !n.includes('service center');
         });
-        const finalZones = operationalZones.length > 0 ? operationalZones : data;
+        const finalZones = operationalZones;
         if (finalZones.length > 0) {
           zonesCatalogRef.current = finalZones;
           setZonesCatalog(finalZones);

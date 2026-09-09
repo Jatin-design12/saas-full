@@ -171,10 +171,17 @@ const MOCK_ZONES = [
   }
 ];
 
+// Helper to identify maintenance service centers
+const isServiceCenter = (z) => {
+  const t = (z.type || '').toLowerCase();
+  const n = (z.name || '').toLowerCase();
+  return t.includes('service zone') || t.includes('maintenance hub') || n.includes('service center');
+};
+
 // GET /api/zones
 router.get('/', async (req, res) => {
-  const { type } = req.query;
-  const cacheKey = `zones:list:${type || 'all'}`;
+  const { type, context } = req.query;
+  const cacheKey = `zones:list:${type || 'default'}:${context || 'all'}`;
 
   const cached = await getCache(cacheKey);
   if (cached) {
@@ -182,32 +189,38 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    let query = 'SELECT * FROM zones';
-    const params = [];
-    if (type === 'operational') {
-      query += " WHERE LOWER(COALESCE(type, '')) NOT LIKE '%service zone%' AND LOWER(COALESCE(type, '')) NOT LIKE '%maintenance hub%'";
-    } else if (type === 'service') {
-      query += " WHERE LOWER(COALESCE(type, '')) LIKE '%service zone%' OR LOWER(COALESCE(type, '')) LIKE '%maintenance hub%'";
-    }
-    query += ' ORDER BY created_at DESC';
-
-    const result = await db.query(query, params);
+    const result = await db.query('SELECT * FROM zones ORDER BY created_at DESC');
     const rows = result.rows && result.rows.length > 0 ? result.rows : MOCK_ZONES;
-    const finalData = type === 'operational'
-      ? rows.filter(z => !((z.type || '').toLowerCase().includes('service zone') || (z.type || '').toLowerCase().includes('maintenance hub')))
-      : rows;
+
+    let finalData;
+    if (type === 'service' || type === 'maintenance') {
+      // Return exclusively maintenance service centers
+      finalData = rows.filter(z => isServiceCenter(z));
+    } else if (type === 'all') {
+      // Return all zones including service centers (for zone management admin)
+      finalData = rows;
+    } else {
+      // By default (and for operational, registration, and rider mobile app):
+      // Evegah Service Center must NEVER be visible
+      finalData = rows.filter(z => !isServiceCenter(z));
+    }
 
     const payload = {
       status: 'success',
       data: finalData
     };
-    await setCache(cacheKey, payload, 120);
+    await setCache(cacheKey, payload, 60);
     res.json(payload);
   } catch (err) {
     console.warn('Failed to get zones from DB, returning MOCK_ZONES fallback:', err.message);
-    const finalData = type === 'operational'
-      ? MOCK_ZONES.filter(z => !((z.type || '').toLowerCase().includes('service zone') || (z.type || '').toLowerCase().includes('maintenance hub')))
-      : MOCK_ZONES;
+    let finalData;
+    if (type === 'service' || type === 'maintenance') {
+      finalData = MOCK_ZONES.filter(z => isServiceCenter(z));
+    } else if (type === 'all') {
+      finalData = MOCK_ZONES;
+    } else {
+      finalData = MOCK_ZONES.filter(z => !isServiceCenter(z));
+    }
 
     const payload = {
       status: 'success',

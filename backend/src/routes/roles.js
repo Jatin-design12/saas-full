@@ -113,6 +113,21 @@ const DEFAULT_ROLES = [
       Riders: { access: true, create: true, view: true, edit: false, delete: false, export: false },
       Vehicles: { access: true, create: false, view: true, edit: false, delete: false, export: false }
     }
+  },
+  {
+    name: 'Employee Dashboard',
+    code: 'EMPLOYEE_DASHBOARD',
+    description: 'Ground staff executing rider registrations, vehicle dispatches, swaps, returns, and dues collection.',
+    status: 'Active',
+    permissions: {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Registrations: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Riders: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Vehicles: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Battery: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Attendance: { access: true, create: true, view: true, edit: true, delete: false, export: true },
+      Payments: { access: true, create: true, view: true, edit: true, delete: false, export: true }
+    }
   }
 ];
 

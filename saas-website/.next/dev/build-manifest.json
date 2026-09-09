@@ -1,0 +1,50 @@
+{
+  "pages": {
+    "/_app": [
+      "static/chunks/09ad_next_dist_compiled_0zi7yqi._.js",
+      "static/chunks/09ad_next_dist_shared_lib_00bulpw._.js",
+      "static/chunks/09ad_next_dist_client_1gqs9ib._.js",
+      "static/chunks/09ad_next_dist_16e5bbi._.js",
+      "static/chunks/09ad_next_app_1z2360d.js",
+      "static/chunks/[next]_entry_page-loader_ts_0z4t-il._.js",
+      "static/chunks/09ad_react-dom_1e412a9._.js",
+      "static/chunks/09ad_0wnjii6._.js",
+      "static/chunks/[root-of-the-server]__03s4p90._.js",
+      "static/chunks/saas-website_pages__app_0du2_q-._.js",
+      "static/chunks/turbopack-saas-website_pages__app_0r70khp._.js"
+    ],
+    "/_error": [
+      "static/chunks/09ad_next_dist_compiled_0zi7yqi._.js",
+      "static/chunks/09ad_next_dist_shared_lib_0-6emks._.js",
+      "static/chunks/09ad_next_dist_client_1gqs9ib._.js",
+      "static/chunks/09ad_next_dist_0aomd1g._.js",
+      "static/chunks/[next]_entry_page-loader_ts_0vkr_o7._.js",
+      "static/chunks/09ad_react-dom_1e412a9._.js",
+      "static/chunks/09ad_0wnjii6._.js",
+      "static/chunks/[root-of-the-server]__1dwse3z._.js",
+      "static/chunks/saas-website_pages__error_0du2_q-._.js",
+      "static/chunks/turbopack-saas-website_pages__error_1ak9dm0._.js"
+    ]
+  },
+  "devFiles": [],
+  "polyfillFiles": [
+    "static/chunks/09ad_next_dist_build_polyfills_polyfill-nomodule.js"
+  ],
+  "lowPriorityFiles": [
+    "static/development/_buildManifest.js",
+    "static/development/_ssgManifest.js",
+    "static/development/_clientMiddlewareManifest.js"
+  ],
+  "rootMainFiles": [
+    "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_1zijse1._.js",
+    "static/chunks/09ad_next_dist_compiled_next-devtools_index_0nmq06v.js",
+    "static/chunks/09ad_next_dist_compiled_react-dom_1921gg9._.js",
+    "static/chunks/09ad_next_dist_compiled_react-server-dom-turbopack_127mh-q._.js",
+    "static/chunks/09ad_next_dist_compiled_0-61bbk._.js",
+    "static/chunks/09ad_next_dist_client_1t3j031._.js",
+    "static/chunks/09ad_next_dist_0b7pe7f._.js",
+    "static/chunks/09ad_@swc_helpers_cjs_0ul8wez._.js",
+    "static/chunks/saas-website_1anvha4._.js",
+    "static/chunks/turbopack-saas-website_19ets2c._.js"
+  ]
+}

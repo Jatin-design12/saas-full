@@ -37,6 +37,142 @@ const MOCK_USERS = [
   { id: 4, name: 'Dev Patel', email: 'dev@evegah.com', role: 'Support Agent', mobile: '+91 88776 54321', zone: 'Gotri Zone', status: 'Inactive', last_login: new Date().toISOString(), avatar_url: '', created_at: '2026-04-12T00:00:00.000Z' }
 ];
 
+// POST /api/users/login — Secure Role & Zone Based Login for Authorized Users
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Email and password are required'
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Query user by email from PostgreSQL
+    const userResult = await db.query(
+      `SELECT id, name, email, role, zone, status, password, mobile, avatar_url 
+       FROM users 
+       WHERE LOWER(email) = $1`,
+      [cleanEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Access Denied: Account not found. Only authorized accounts created in the system can log in.'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Check account status
+    if (user.status && user.status.toLowerCase() !== 'active') {
+      return res.status(403).json({
+        status: 'error',
+        message: `Account is ${user.status}. Please contact the Super Administrator.`
+      });
+    }
+
+    // Check password
+    if (user.password && user.password !== password) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Access Denied: Invalid credentials provided for this account.'
+      });
+    }
+
+    // Update last_login
+    await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]).catch(() => {});
+
+    // Fetch assigned role permissions from roles table
+    let permissions = {
+      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Vehicles: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Riders: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Batteries: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Payments: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Zones: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+      Settings: { access: true, create: true, view: true, edit: true, delete: true, export: true }
+    };
+
+    try {
+      const roleRes = await db.query(
+        'SELECT permissions, code FROM roles WHERE LOWER(name) = $1 OR LOWER(code) = $1 LIMIT 1',
+        [(user.role || '').toLowerCase()]
+      );
+      if (roleRes.rows.length > 0 && roleRes.rows[0].permissions) {
+        permissions = roleRes.rows[0].permissions;
+      }
+    } catch (e) {
+      console.warn('Could not fetch role permissions:', e.message);
+    }
+
+    // Determine normalized role key
+    const normRole = (user.role || '').toLowerCase().replace(/[\s_-]+/g, '_');
+    let evegahRole = 'super_admin';
+    let defaultDashboard = 'Super Admin Dashboard';
+
+    if (normRole.includes('super_admin') || normRole === 'super_admin' || normRole.includes('platform_admin') || normRole === 'admin') {
+      evegahRole = 'super_admin';
+      defaultDashboard = 'Super Admin Dashboard';
+    } else if (normRole.includes('employee') || normRole.includes('zone_employee') || normRole.includes('hub_staff')) {
+      evegahRole = 'employee';
+      defaultDashboard = 'Employee Operations Dashboard';
+    } else if (normRole.includes('zone_admin') || normRole.includes('zone_manager')) {
+      evegahRole = 'zone_manager';
+      defaultDashboard = 'Zone Admin Dashboard';
+    } else if (normRole.includes('franchise')) {
+      evegahRole = 'franchise_manager';
+      defaultDashboard = 'Franchise Dashboard';
+    } else if (normRole.includes('operation') || normRole.includes('fleet')) {
+      evegahRole = 'operations_manager';
+      defaultDashboard = 'Operations Dashboard';
+    } else if (normRole.includes('battery') || normRole.includes('tech')) {
+      evegahRole = 'battery_technician';
+      defaultDashboard = 'BMS Battery Dashboard';
+    } else if (normRole.includes('finance')) {
+      evegahRole = 'finance_manager';
+      defaultDashboard = 'Finance & Accounts';
+    }
+
+    const userPayload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      evegahRole,
+      defaultDashboard,
+      zone: user.zone || 'Multiple Zones',
+      status: user.status,
+      avatar_url: user.avatar_url || '/rohit_avatar.png'
+    };
+    const secureToken = `EVG_SECURE_TOKEN_${Date.now()}`;
+
+    res.json({
+      status: 'success',
+      success: true,
+      message: 'Login successful',
+      user: userPayload,
+      evegahRole,
+      defaultDashboard,
+      permissions,
+      token: secureToken,
+      data: {
+        user: userPayload,
+        evegahRole,
+        defaultDashboard,
+        permissions,
+        token: secureToken
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ status: 'error', message: 'Authentication service error: ' + err.message });
+  }
+});
+
 // GET /api/users - List all users
 router.get('/', async (req, res) => {
   try {

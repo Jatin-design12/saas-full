@@ -4,161 +4,103 @@ import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@evegah.com');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
-  const [activeDemoTab, setActiveDemoTab] = useState<string | null>(null);
 
   // Clear previous role session on mount
   useEffect(() => {
     localStorage.removeItem("evegah_role");
   }, []);
 
-  const handleLoginSubmit = async (e?: React.FormEvent, customEmail?: string) => {
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    setErrorMessage(null);
     setLoading(true);
-
-    const loginEmail = customEmail || email;
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiUrl}/users`);
+      const response = await fetch(`${apiUrl}/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password })
+      });
 
-      if (response.ok) {
-        const result = await response.json();
-        const usersList = result.data || [];
+      const result = await response.json();
 
-        // Match user by email or fallback to dynamic login
-        const matchedUser = usersList.find((u: any) => (u.email || '').toLowerCase() === loginEmail.toLowerCase()) || {
-          id: Date.now(),
-          name: loginEmail.split('@')[0].toUpperCase() || 'Admin User',
-          email: loginEmail,
-          role: loginEmail.toLowerCase().includes('admin') ? 'Super Admin' : 'Zone Manager',
-          zone: 'Gotri Zone'
-        };
+      // Check success cleanly across both backend formats
+      const isSuccess = response.ok && (result.success === true || result.status === 'success');
 
-        const userRole = matchedUser.role || 'Super Admin';
-        let evegahRole = 'super_admin';
-        let defaultAssignedDash = 'Super Admin Dashboard';
-
-        const normR = userRole.toLowerCase().replace(/[\s_-]+/g, '_');
-        if (normR.includes('super_admin') || normR === 'super_admin' || normR.includes('platform_admin')) {
-          evegahRole = 'super_admin';
-          defaultAssignedDash = 'Super Admin Dashboard';
-        } else if (normR.includes('franchise')) {
-          evegahRole = 'franchise_manager';
-          defaultAssignedDash = 'Franchise Dashboard';
-        } else if (normR.includes('zone_admin') || normR === 'zone_manager') {
-          evegahRole = 'zone_manager';
-          defaultAssignedDash = 'Zone Admin Dashboard';
-        } else if (normR.includes('sf_admin') || normR.includes('sf_001') || normR.includes('operation') || normR.includes('employee')) {
-          evegahRole = 'operations_manager';
-          defaultAssignedDash = 'Operations Dashboard';
-        } else if (normR.includes('battery') || normR.includes('technician')) {
-          evegahRole = 'battery_technician';
-          defaultAssignedDash = 'BMS Battery Dashboard';
-        } else if (normR.includes('finance')) {
-          evegahRole = 'finance_manager';
-          defaultAssignedDash = 'Finance & Accounts';
-        }
-
-        localStorage.setItem("evegah_role", evegahRole);
-        localStorage.setItem("evegah_user_role_name", userRole);
-        localStorage.setItem("evegah_assigned_dashboard", defaultAssignedDash);
-        localStorage.setItem("evegah_user_name", matchedUser.name);
-        localStorage.setItem("evegah_user_email", matchedUser.email);
-        localStorage.setItem("evegah_user_zone", matchedUser.zone || 'Gotri Zone');
-        localStorage.setItem("evegah_active_zone", matchedUser.zone || 'Gotri Zone');
-        localStorage.setItem("evegah_selected_zone", matchedUser.zone || 'Gotri Zone');
-        if (matchedUser.avatar_url) {
-          localStorage.setItem("evegah_user_avatar", matchedUser.avatar_url);
-        }
-
-        const fullAccessPerms = {
-          Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-          Vehicles: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-          Riders: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-          Batteries: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-          Payments: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-          Zones: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-          Settings: { access: true, create: true, view: true, edit: true, delete: true, export: true }
-        };
-
-        try {
-          const resRoles = await fetch(`${apiUrl}/roles`);
-          if (resRoles.ok) {
-            const rolesResult = await resRoles.json();
-            const matchedRole = rolesResult.data?.find((r: any) =>
-              r.name.toLowerCase() === userRole.toLowerCase() ||
-              r.code.toLowerCase() === userRole.toLowerCase()
-            );
-            if (matchedRole?.assigned_dashboard_view && matchedRole.assigned_dashboard_view !== 'Auto-Detect from Role') {
-              localStorage.setItem("evegah_assigned_dashboard", matchedRole.assigned_dashboard_view);
-            }
-            const perms = matchedRole?.permissions ? { ...matchedRole.permissions } : fullAccessPerms;
-            localStorage.setItem("evegah_user_permissions", JSON.stringify(perms));
-          } else {
-            localStorage.setItem("evegah_user_permissions", JSON.stringify(fullAccessPerms));
-          }
-        } catch (err) {
-          localStorage.setItem("evegah_user_permissions", JSON.stringify(fullAccessPerms));
-        }
-
-        window.dispatchEvent(new Event("evegah_role_changed"));
-        router.push(evegahRole === 'super_admin' ? '/super-admin' : '/');
+      if (!isSuccess) {
+        setErrorMessage(
+          result.message ||
+          result.error ||
+          'Access Denied: Invalid credentials or account not authorized.'
+        );
+        setLoading(false);
         return;
       }
 
-      // Offline / API Fallback
-      const fallbackUser = {
-        name: loginEmail.split('@')[0].toUpperCase() || 'Admin User',
-        email: loginEmail,
-        role: 'Super Admin',
-        zone: 'Gotri Zone'
-      };
-      localStorage.setItem("evegah_role", "super_admin");
-      localStorage.setItem("evegah_user_role_name", "Super Admin");
-      localStorage.setItem("evegah_assigned_dashboard", "Super Admin Dashboard");
-      localStorage.setItem("evegah_user_name", fallbackUser.name);
-      localStorage.setItem("evegah_user_email", fallbackUser.email);
-      localStorage.setItem("evegah_user_zone", fallbackUser.zone);
-      localStorage.setItem("evegah_active_zone", fallbackUser.zone);
-      localStorage.setItem("evegah_selected_zone", fallbackUser.zone);
-      localStorage.setItem("evegah_user_permissions", JSON.stringify({
-        Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-        Vehicles: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-        Riders: { access: true, create: true, view: true, edit: true, delete: true, export: true }
-      }));
+      // Extract user information safely from root or data payload
+      const user = result.user || result.data?.user || {};
+      const evegahRole = result.evegahRole || result.data?.evegahRole || user.evegahRole || 'super_admin';
+      const userRole = user.role || (evegahRole === 'super_admin' ? 'Super Admin' : evegahRole === 'employee' ? 'Zone Employee' : 'Zone Admin');
+      const defaultAssignedDash = result.defaultDashboard || result.data?.defaultDashboard || 'Super Admin Dashboard';
+      const assignedZone = user.zone || 'Gotri Zone';
+      const token = result.token || result.data?.token || `EVG_TOKEN_${Date.now()}`;
+      const permissions = result.permissions || result.data?.permissions;
+
+      // Save user session
+      localStorage.setItem("evegah_role", evegahRole);
+      localStorage.setItem("evegah_user_role_name", userRole);
+      localStorage.setItem("evegah_assigned_dashboard", defaultAssignedDash);
+      localStorage.setItem("evegah_user_name", user.name || email.split('@')[0]);
+      localStorage.setItem("evegah_user_email", user.email || email);
+      localStorage.setItem("evegah_user_zone", assignedZone);
+      localStorage.setItem("evegah_active_zone", assignedZone);
+      localStorage.setItem("evegah_selected_zone", assignedZone);
+      localStorage.setItem("evegah_token", token);
+
+      if (user.avatar_url) {
+        localStorage.setItem("evegah_user_avatar", user.avatar_url);
+      }
+      if (permissions) {
+        localStorage.setItem("evegah_user_permissions", JSON.stringify(permissions));
+      }
+
       window.dispatchEvent(new Event("evegah_role_changed"));
-      router.push('/super-admin');
-    } catch (err) {
-      console.error(err);
-      localStorage.setItem("evegah_role", "super_admin");
-      localStorage.setItem("evegah_user_role_name", "Super Admin");
-      localStorage.setItem("evegah_user_name", loginEmail.split('@')[0].toUpperCase() || "Admin");
-      localStorage.setItem("evegah_user_email", loginEmail);
-      window.dispatchEvent(new Event("evegah_role_changed"));
-      router.push('/super-admin');
+
+      // Direct to corresponding dashboard based on backend assigned role
+      const isEmployee = 
+        evegahRole === 'employee' || 
+        evegahRole === 'zone_employee' || 
+        evegahRole === 'employee_dashboard' || 
+        userRole.toLowerCase().includes('employee') || 
+        defaultAssignedDash.toLowerCase().includes('employee');
+
+      if (isEmployee) {
+        router.push('/employee-dashboard');
+      } else if (evegahRole === 'super_admin' || userRole.toLowerCase().includes('super')) {
+        router.push('/super-admin');
+      } else {
+        router.push('/');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setErrorMessage('Unable to connect to authentication server. Please check your network or ensure backend is running.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickRole = (roleEmail: string, roleName: string) => {
-    setEmail(roleEmail);
-    setPassword('••••••••••••');
-    setActiveDemoTab(roleName);
-    handleLoginSubmit(undefined, roleEmail);
-  };
-
   return (
     <div className="login-page-root">
-      {/* Dynamic Scoped CSS */}
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=Caveat:wght@600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap');
 
         .login-page-root {
           min-height: 100vh;
@@ -183,12 +125,6 @@ export default function LoginPage() {
           position: relative;
           z-index: 20;
           box-sizing: border-box;
-        }
-
-        .login-brand-group {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
         }
 
         .login-brand-logo {
@@ -216,6 +152,7 @@ export default function LoginPage() {
           font-size: 13px;
           transition: all 0.2s ease;
           text-decoration: none;
+          font-family: inherit;
         }
 
         .login-contact-btn:hover {
@@ -310,25 +247,10 @@ export default function LoginPage() {
           font-size: 18px;
         }
 
-        .badge-icon-purple {
-          background: #EEF2FF;
-          color: #6366F1;
-        }
-
-        .badge-icon-blue {
-          background: #E0F2FE;
-          color: #0284C7;
-        }
-
-        .badge-icon-teal {
-          background: #D1FAE5;
-          color: #059669;
-        }
-
-        .badge-icon-green {
-          background: #DCFCE7;
-          color: #16A34A;
-        }
+        .badge-icon-purple { background: #EEF2FF; color: #6366F1; }
+        .badge-icon-blue { background: #E0F2FE; color: #0284C7; }
+        .badge-icon-teal { background: #D1FAE5; color: #059669; }
+        .badge-icon-green { background: #DCFCE7; color: #16A34A; }
 
         .hero-badge-name {
           font-size: 12px;
@@ -512,6 +434,10 @@ export default function LoginPage() {
           text-decoration: none;
           cursor: pointer;
           transition: color 0.15s;
+          background: none;
+          border: none;
+          padding: 0;
+          font-family: inherit;
         }
 
         .forgot-link:hover {
@@ -536,6 +462,7 @@ export default function LoginPage() {
           cursor: pointer;
           transition: all 0.2s ease;
           box-shadow: 0 4px 14px rgba(30, 21, 72, 0.25);
+          font-family: inherit;
         }
 
         .signin-submit-btn:hover {
@@ -551,57 +478,6 @@ export default function LoginPage() {
         .signin-submit-btn:disabled {
           opacity: 0.65;
           cursor: not-allowed;
-        }
-
-        /* Divider */
-        .or-divider {
-          display: flex;
-          align-items: center;
-          margin: 18px 0;
-          color: #94A3B8;
-          font-size: 12px;
-          font-weight: 500;
-        }
-
-        .or-divider::before,
-        .or-divider::after {
-          content: "";
-          flex: 1;
-          height: 1px;
-          background: #E2E8F0;
-        }
-
-        .or-divider span {
-          padding: 0 12px;
-        }
-
-        /* Social Auth Buttons */
-        .social-buttons-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-bottom: 20px;
-        }
-
-        .social-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 10px;
-          padding: 10px 14px;
-          font-size: 13.5px;
-          font-weight: 600;
-          color: #1E293B;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .social-btn:hover {
-          background: #F8FAFC;
-          border-color: #CBD5E1;
         }
 
         /* Bottom Help Pill */
@@ -783,39 +659,6 @@ export default function LoginPage() {
           object-fit: contain;
         }
 
-        /* Quick Roles Bar for effortless testing */
-        .quick-roles-bar {
-          background: rgba(241, 245, 249, 0.85);
-          backdrop-filter: blur(8px);
-          border-top: 1px solid #E2E8F0;
-          padding: 8px 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          font-size: 12px;
-          z-index: 20;
-          position: relative;
-        }
-
-        .quick-role-chip {
-          padding: 4px 10px;
-          border-radius: 6px;
-          background: #FFFFFF;
-          border: 1px solid #CBD5E1;
-          color: #334155;
-          font-weight: 600;
-          font-size: 11px;
-          cursor: pointer;
-          transition: all 0.15s;
-        }
-
-        .quick-role-chip:hover {
-          background: #1E1548;
-          color: #FFFFFF;
-          border-color: #1E1548;
-        }
-
         /* Responsive Breakpoints */
         @media (max-width: 1100px) {
           .right-curve-container {
@@ -852,12 +695,6 @@ export default function LoginPage() {
           .login-card {
             padding: 24px 20px;
             border-radius: 20px;
-          }
-          .social-buttons-grid {
-            grid-template-columns: 1fr;
-          }
-          .quick-roles-bar {
-            display: none;
           }
         }
       `}</style>
@@ -960,7 +797,6 @@ export default function LoginPage() {
 
           {/* 4 Feature Badges in a Row */}
           <div className="hero-badges-row">
-            {/* 1: Real-time Analytics */}
             <div className="hero-badge-card">
               <div className="hero-badge-icon badge-icon-purple">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -973,7 +809,6 @@ export default function LoginPage() {
               <div className="hero-badge-desc">Data-driven decisions</div>
             </div>
 
-            {/* 2: Role-based Access */}
             <div className="hero-badge-card">
               <div className="hero-badge-icon badge-icon-blue">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -987,7 +822,6 @@ export default function LoginPage() {
               <div className="hero-badge-desc">Secure &amp; scalable</div>
             </div>
 
-            {/* 3: Operations Control */}
             <div className="hero-badge-card">
               <div className="hero-badge-icon badge-icon-teal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -999,7 +833,6 @@ export default function LoginPage() {
               <div className="hero-badge-desc">Manage fleets, rentals &amp; swaps</div>
             </div>
 
-            {/* 4: Sustainable Impact */}
             <div className="hero-badge-card">
               <div className="hero-badge-icon badge-icon-green">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1029,7 +862,32 @@ export default function LoginPage() {
             <h2 className="card-header-title">Welcome Back!</h2>
             <p className="card-header-subtitle">Sign in to your Evegah Admin Dashboard</p>
 
-            <form onSubmit={(e) => handleLoginSubmit(e)}>
+            {errorMessage && (
+              <div
+                style={{
+                  background: '#FEF2F2',
+                  border: '1px solid #FCA5A5',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  color: '#991B1B',
+                  fontSize: '13px',
+                  lineHeight: '1.4'
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.2" style={{ flexShrink: 0, marginTop: '1px' }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <div style={{ fontWeight: 600 }}>{errorMessage}</div>
+              </div>
+            )}
+
+            <form onSubmit={handleLoginSubmit}>
               {/* Email Address */}
               <div className="login-field">
                 <label className="login-label">Email Address</label>
@@ -1043,7 +901,7 @@ export default function LoginPage() {
                   <input
                     type="email"
                     className="login-input-control"
-                    placeholder="Enter your email address"
+                    placeholder="Enter your registered email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -1101,21 +959,18 @@ export default function LoginPage() {
                   />
                   <span>Remember me</span>
                 </label>
-                <a
-                  href="#forgot"
+                <button
+                  type="button"
                   className="forgot-link"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSupportModalOpen(true);
-                  }}
+                  onClick={() => setSupportModalOpen(true)}
                 >
                   Forgot Password?
-                </a>
+                </button>
               </div>
 
               {/* Submit Button */}
               <button type="submit" className="signin-submit-btn" disabled={loading}>
-                <span>{loading ? 'Signing in...' : 'Sign In'}</span>
+                <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
                 {!loading && (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -1124,42 +979,27 @@ export default function LoginPage() {
                 )}
               </button>
 
-              {/* Divider */}
-              <div className="or-divider">
-                <span>or continue with</span>
-              </div>
-
-              {/* Social Login Buttons */}
-              <div className="social-buttons-grid">
-                {/* Google Button */}
-                <button
-                  type="button"
-                  className="social-btn"
-                  onClick={() => handleQuickRole('admin@evegah.com', 'Super Admin')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.77c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Google</span>
-                </button>
-
-                {/* Microsoft Button */}
-                <button
-                  type="button"
-                  className="social-btn"
-                  onClick={() => handleQuickRole('admin@evegah.com', 'Super Admin')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 23 23">
-                    <path fill="#f35325" d="M1 1h10v10H1z" />
-                    <path fill="#81bc06" d="M12 1h10v10H12z" />
-                    <path fill="#05a6f0" d="M1 12h10v10H1z" />
-                    <path fill="#ffba08" d="M12 12h10v10H12z" />
-                  </svg>
-                  <span>Microsoft</span>
-                </button>
+              {/* Enterprise Security Badge */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '12px 14px',
+                  background: '#F8FAFC',
+                  borderRadius: '10px',
+                  border: '1px dashed #CBD5E1',
+                  margin: '18px 0 14px 0',
+                  color: '#64748B',
+                  fontSize: '11px',
+                  fontWeight: 600
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span>Authorized System Login Only &bull; Role &amp; Zone Protected</span>
               </div>
 
               {/* Bottom Help Support Banner */}
@@ -1206,46 +1046,6 @@ export default function LoginPage() {
           </div>
         </section>
       </main>
-
-      {/* Quick Role Switcher Chip Bar for Instant Demo Testing */}
-      <div className="quick-roles-bar">
-        <span style={{ color: '#64748B', fontWeight: 600 }}>Quick Test Login:</span>
-        <button
-          type="button"
-          className="quick-role-chip"
-          onClick={() => handleQuickRole('admin@evegah.com', 'Super Admin')}
-        >
-          Super Admin
-        </button>
-        <button
-          type="button"
-          className="quick-role-chip"
-          onClick={() => handleQuickRole('zone.manager@evegah.com', 'Zone Manager')}
-        >
-          Zone Manager
-        </button>
-        <button
-          type="button"
-          className="quick-role-chip"
-          onClick={() => handleQuickRole('ops@evegah.com', 'Operations')}
-        >
-          Operations
-        </button>
-        <button
-          type="button"
-          className="quick-role-chip"
-          onClick={() => handleQuickRole('bms.tech@evegah.com', 'Battery Tech')}
-        >
-          Battery Tech
-        </button>
-        <button
-          type="button"
-          className="quick-role-chip"
-          onClick={() => handleQuickRole('franchise@evegah.com', 'Franchise')}
-        >
-          Franchise
-        </button>
-      </div>
 
       {/* Bottom Right "Go Green Go Further" Badge */}
       <div className="bottom-right-badge">
@@ -1295,6 +1095,7 @@ export default function LoginPage() {
                 <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1E1548', margin: 0 }}>Evegah Support &amp; Admin</h3>
               </div>
               <button
+                type="button"
                 style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '18px', padding: '4px' }}
                 onClick={() => setSupportModalOpen(false)}
               >
@@ -1324,6 +1125,7 @@ export default function LoginPage() {
             </div>
 
             <button
+              type="button"
               style={{
                 width: '100%',
                 background: '#1E1548',

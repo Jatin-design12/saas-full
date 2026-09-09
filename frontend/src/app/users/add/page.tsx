@@ -467,6 +467,7 @@ function AddUserPageContent() {
                           <>
                             <option value="Super Admin">Super Admin</option>
                             <option value="Platform Admin">Platform Admin</option>
+                            <option value="Employee Dashboard">Employee Dashboard</option>
                             <option value="Zone Admin">Zone Admin</option>
                             <option value="Operations Manager">Operations Manager</option>
                             <option value="Franchise Manager">Franchise Manager</option>
@@ -489,6 +490,7 @@ function AddUserPageContent() {
                       >
                         <option value="Auto-Detect from Role">Auto-Detect from Role</option>
                         <option value="Super Admin Dashboard">Super Admin Dashboard</option>
+                        <option value="Employee Operations Dashboard">Employee Operations Dashboard</option>
                         <option value="Zone Admin Dashboard">Zone Admin Dashboard</option>
                         <option value="Operations Manager Dashboard">Operations Manager Dashboard</option>
                         <option value="Support Executive Dashboard">Support Executive Dashboard</option>

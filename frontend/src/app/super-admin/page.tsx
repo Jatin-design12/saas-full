@@ -1,14 +1,17 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Line, Doughnut, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Title,
   Tooltip,
@@ -21,6 +24,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Title,
   Tooltip,
@@ -85,11 +89,11 @@ const CSS = `
 }
 
 .ev-main {
-  margin-left: 230px;
+  margin-left: 240px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  width: calc(100% - 230px);
+  width: calc(100% - 240px);
   min-width: 0;
 }
 
@@ -783,6 +787,37 @@ export default function SuperAdminDashboard() {
     }
   }, []);
 
+  const router = useRouter();
+
+  // Employee guard: if user is employee, redirect immediately to employee dashboard
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const r = (localStorage.getItem('evegah_role') || '').toLowerCase();
+      const rn = (localStorage.getItem('evegah_user_role_name') || '').toLowerCase();
+      const ad = (localStorage.getItem('evegah_assigned_dashboard') || '').toLowerCase();
+      if (r.includes('employee') || rn.includes('employee') || ad.includes('employee')) {
+        router.replace('/employee-dashboard');
+      }
+    }
+  }, [router]);
+
+  // Reactive listener for zone changes from TopBar
+  useEffect(() => {
+    const handleActiveZone = () => {
+      const activeZone = localStorage.getItem('evegah_selected_zone') || localStorage.getItem('evegah_active_zone') || 'All Zones';
+      setSelectedZone(activeZone);
+      fetchBackendStats(activeZone);
+    };
+
+    handleActiveZone();
+    window.addEventListener('evegah_active_zone_changed', handleActiveZone);
+    window.addEventListener('storage', handleActiveZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', handleActiveZone);
+      window.removeEventListener('storage', handleActiveZone);
+    };
+  }, []);
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -790,102 +825,8 @@ export default function SuperAdminDashboard() {
         <Sidebar activePath="/super-admin" />
         <div className="ev-main">
           
-          {/* Top Bar matching screenshot */}
-          <header className="sa-tb">
-            <div className="sa-tb-left">
-              <button className="sa-tb-hamburger">
-                <span />
-                <span />
-                <span />
-              </button>
-              <div className="sa-tb-greeting">
-                <span className="sa-tb-welcome">Welcome back,</span>
-                <div className="sa-tb-title-row">
-                  <h1 className="sa-tb-user-title">{saUserName}</h1>
-                  <span className="sa-tb-check">✓</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="sa-tb-right">
-              {/* Operational Zone Selector Dropdown */}
-              <div style={{ position: 'relative' }}>
-                <div 
-                  className="sa-tb-zone-select" 
-                  onClick={() => setIsZoneDropdownOpen(!isZoneDropdownOpen)}
-                  style={{ cursor: 'pointer', background: isZoneDropdownOpen ? '#F8FAFC' : '#fff' }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  <span>{selectedZone}</span>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="3" style={{ transform: isZoneDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </div>
-
-                {isZoneDropdownOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '44px',
-                    right: 0,
-                    background: '#fff',
-                    border: '1.5px solid #E2E8F0',
-                    borderRadius: '10px',
-                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-                    zIndex: 100,
-                    minWidth: '180px',
-                    padding: '6px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '2px'
-                  }}>
-                    {zonesList.map((z) => (
-                      <button
-                        key={z}
-                        onClick={() => {
-                          setSelectedZone(z);
-                          setIsZoneDropdownOpen(false);
-                          fetchBackendStats(z);
-                          if (typeof window !== 'undefined') {
-                            localStorage.setItem('evegah_active_zone', z);
-                            localStorage.setItem('evegah_selected_zone', z);
-                            window.dispatchEvent(new Event('evegah_active_zone_changed'));
-                          }
-                        }}
-                        style={{
-                          background: selectedZone === z ? '#EEF2FF' : 'transparent',
-                          color: selectedZone === z ? '#6366F1' : '#334155',
-                          fontWeight: selectedZone === z ? 700 : 500,
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          textAlign: 'left',
-                          fontSize: '12px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {z}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button className="sa-tb-bell">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                <span className="sa-tb-badge">12</span>
-              </button>
-
-              <div className="sa-tb-profile-avatar" style={{ background: '#1E1B4B' }}>
-                {saUserInitials}
-              </div>
-            </div>
-          </header>
+          {/* TopBar with filter, profile, and zone selection matching other pages */}
+          <TopBar />
 
           <div className="ev-body">
             
@@ -1142,7 +1083,44 @@ export default function SuperAdminDashboard() {
                   <a href="/super-admin/subscriptions" className="sa-link-all">View All</a>
                 </div>
                 <div className="sa-card-body" style={{ justifyContent: 'center' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', marginBottom: '14px', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px' }}>
+                  {/* Real interactive horizontal bar graph */}
+                  <div style={{ height: '80px', width: '100%', marginBottom: '14px' }}>
+                    <Bar
+                      data={{
+                        labels: ['Monthly', 'Weekly', 'Daily'],
+                        datasets: [
+                          {
+                            data: [9500, 4900, 2665],
+                            backgroundColor: ['#1E3A8A', '#10B981', '#F59E0B'],
+                            borderRadius: 4,
+                            barThickness: 10
+                          }
+                        ]
+                      }}
+                      options={{
+                        indexAxis: 'y' as const,
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            callbacks: {
+                              label: (ctx: any) => ` Revenue: ₹${ctx.raw?.toLocaleString()}`
+                            }
+                          }
+                        },
+                        scales: {
+                          x: { display: false, grid: { display: false } },
+                          y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10, weight: 'bold' as const }, color: '#64748B' }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', marginBottom: '10px', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px' }}>
                     <span>Plan</span>
                     <span>Revenue</span>
                   </div>
