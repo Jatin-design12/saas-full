@@ -2,6 +2,27 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Ensure audit_logs table exists
+(async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(100),
+        user_name VARCHAR(150),
+        action VARCHAR(100) NOT NULL,
+        module VARCHAR(100) NOT NULL,
+        details TEXT,
+        performed_by VARCHAR(150),
+        ip_address VARCHAR(100),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+  } catch (e) {
+    console.warn('Audit logs DB init notice:', e.message);
+  }
+})();
+
 // GET /api/audit-logs - List audit logs with optional filters
 router.get('/', async (req, res) => {
   try {

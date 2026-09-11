@@ -95,6 +95,11 @@
 	<array>
 		<string>https</string>
 		<string>comgooglemaps</string>
+		<string>upi</string>
+		<string>gpay</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>bhim</string>
 	</array>
 
 	<!-- CAMERA & GALLERY PERMISSIONS FOR KYC -->

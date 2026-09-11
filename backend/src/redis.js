@@ -1,4 +1,9 @@
-const Redis = require('ioredis');
+let Redis;
+try {
+  Redis = require('ioredis');
+} catch (e) {
+  // ioredis not installed or unavailable
+}
 
 // In-memory fallback cache when Redis server is offline or connecting
 const memoryCache = new Map();
@@ -16,44 +21,46 @@ setInterval(() => {
 let isRedisConnected = false;
 let redisClient = null;
 
-try {
-  const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-  redisClient = new Redis(redisUrl, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    retryStrategy(times) {
-      if (times > 3) {
-        return null; // Stop reconnecting after 3 attempts, rely on fast memory cache
-      }
-      return Math.min(times * 200, 1000);
-    },
-    enableOfflineQueue: false,
-    connectTimeout: 2000
-  });
+if (Redis) {
+  try {
+    const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+    redisClient = new Redis(redisUrl, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+      retryStrategy(times) {
+        if (times > 2) {
+          return null; // Stop reconnecting, rely on fast memory cache
+        }
+        return 500;
+      },
+      enableOfflineQueue: false,
+      connectTimeout: 1000
+    });
 
-  redisClient.on('connect', () => {
-    isRedisConnected = true;
-    console.log('⚡ Redis Cache Connected successfully.');
-  });
+    redisClient.on('connect', () => {
+      isRedisConnected = true;
+      console.log('⚡ Redis Cache Connected successfully.');
+    });
 
-  redisClient.on('ready', () => {
-    isRedisConnected = true;
-  });
+    redisClient.on('ready', () => {
+      isRedisConnected = true;
+    });
 
-  redisClient.on('error', (err) => {
-    isRedisConnected = false;
-  });
+    redisClient.on('error', () => {
+      isRedisConnected = false;
+    });
 
-  redisClient.on('close', () => {
-    isRedisConnected = false;
-  });
+    redisClient.on('close', () => {
+      isRedisConnected = false;
+    });
 
-  // Attempt non-blocking connection
-  redisClient.connect().catch(() => {
-    // Non-fatal, memory cache fallback is active
-  });
-} catch (e) {
-  console.warn('Redis client initialization skipped, using in-memory cache.');
+    // Attempt non-blocking connection
+    redisClient.connect().catch(() => {
+      // Non-fatal, memory cache fallback is active
+    });
+  } catch (e) {
+    // Rely on memory cache
+  }
 }
 
 /**

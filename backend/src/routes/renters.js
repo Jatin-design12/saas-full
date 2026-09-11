@@ -15,17 +15,8 @@ const { getCache, setCache, delByPattern } = require('../redis');
   }
 })();
 
-// Fallback static mock data representing exact schema
-let MOCK_RENTERS = [
-  { id: '1', rider_name: 'Amit Kumar', mobile: '+91 98765 43210', vehicle_id: 'EV-450X-202401', battery_id: 'BAT-450X-12340001', package_name: 'Weekly Pro', rental_start_date: '2026-06-10T00:00:00.000Z', return_date: '2026-06-17T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
-  { id: '2', rider_name: 'Neha Gupta', mobile: '+91 91254 56789', vehicle_id: 'EV-450X-202402', battery_id: 'BAT-450X-12340002', package_name: 'Monthly Starter', rental_start_date: '2026-05-15T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Retain Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' },
-  { id: '3', rider_name: 'Rohit Singh', mobile: '+91 99876 54321', vehicle_id: 'EV-450X-202403', battery_id: 'BAT-450X-12340003', package_name: 'Daily Lite', rental_start_date: '2026-06-13T00:00:00.000Z', return_date: '2026-06-14T00:00:00.000Z', status: 'Return', rent: '500.00', deposit: '500.00', total: '1000.00' },
-  { id: '4', rider_name: 'Sneha Reddy', mobile: '+91 87654 32109', vehicle_id: 'EV-450X-202404', battery_id: 'BAT-450X-12340004', package_name: 'Weekly Pro', rental_start_date: '2026-06-01T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Extend', rent: '3000.00', deposit: '1000.00', total: '4000.00' },
-  { id: '5', rider_name: 'Vikram Patel', mobile: '+91 78945 61230', vehicle_id: 'EV-450X-202405', battery_id: 'BAT-450X-12340005', package_name: 'Monthly Business', rental_start_date: '2026-06-05T00:00:00.000Z', return_date: '2026-07-05T00:00:00.000Z', status: 'Active Ride', rent: '8000.00', deposit: '3000.00', total: '11000.00' },
-  { id: '6', rider_name: 'Priya Sharma', mobile: '+91 91234 56789', vehicle_id: 'EV-450X-202406', battery_id: 'BAT-450X-12340006', package_name: 'Weekly Pro', rental_start_date: '2026-06-08T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Active Ride', rent: '1500.00', deposit: '1000.00', total: '2500.00' },
-  { id: '7', rider_name: 'Rahul Verma', mobile: '+91 98123 45678', vehicle_id: 'EV-450X-202407', battery_id: 'BAT-450X-12340007', package_name: 'Daily Lite', rental_start_date: '2026-06-12T00:00:00.000Z', return_date: '2026-06-15T00:00:00.000Z', status: 'Extend', rent: '1000.00', deposit: '500.00', total: '1500.00' },
-  { id: '8', rider_name: 'Pooja Patel', mobile: '+91 99123 45678', vehicle_id: 'EV-450X-202408', battery_id: 'BAT-450X-12340008', package_name: 'Monthly Starter', rental_start_date: '2026-05-20T00:00:00.000Z', return_date: '2026-06-20T00:00:00.000Z', status: 'Active Ride', rent: '5000.00', deposit: '2000.00', total: '7000.00' }
-];
+// Fallback mock data empty so no fake active rides are ever generated
+let MOCK_RENTERS = [];
 
 // GET /api/renters/check-mobile/:mobile
 router.get('/check-mobile/:mobile', async (req, res) => {
@@ -49,97 +40,192 @@ router.get('/check-mobile/:mobile', async (req, res) => {
       });
     }
 
-    const foundMock = MOCK_RENTERS.find(r => (r.mobile || '').replace(/\D/g, '').includes(cleanMobile.slice(-10)));
-    if (foundMock) {
-      return res.json({
-        status: 'success',
-        is_registered: true,
-        renter: foundMock
-      });
-    }
-
     res.json({ status: 'success', is_registered: false });
   } catch (err) {
     res.json({ status: 'success', is_registered: false });
   }
 });
 
-// GET /api/renters
+// GET /api/renters - Single deduplicated profile per rider, accurate live ride status & zone filtering
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
-    const search = req.query.search || '';
-    const status = req.query.status || '';
+    const search = (req.query.search || '').trim();
+    const status = (req.query.status || '').trim();
+    const zoneFilter = (req.query.zone && req.query.zone !== 'All Zones') ? req.query.zone.trim() : null;
 
-    // Check Redis cache
-    const cacheKey = `renters:list:${page}:${limit}:${search}:${status}`;
+    // Check Redis / In-Memory cache
+    const cacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}`;
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
       return res.json(cachedData);
     }
 
-    // Fetch existing renters
-    let query = 'SELECT * FROM renters WHERE 1=1';
-    const params = [];
-    let pIdx = 1;
+    // 1. Fetch all renters records and all reservations records
+    const [rentersDb, resvDb] = await Promise.all([
+      db.query(`
+        SELECT id, rider_name, mobile, email, date_of_birth, address, gender,
+               vehicle_id, battery_id, package_name, rental_start_date, return_date,
+               status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, created_at
+        FROM renters
+        ORDER BY created_at DESC
+      `).catch(() => ({ rows: [] })),
+      db.query(`
+        SELECT id, reservation_id, customer_name, mobile, package_type,
+               vehicle_number, battery_id, fare, deposit, status,
+               pickup_zone, drop_zone, created_at
+        FROM reservations
+        WHERE status != 'Cancelled'
+        ORDER BY created_at DESC
+      `).catch(() => ({ rows: [] }))
+    ]);
 
-    if (search) {
-      query += ` AND (rider_name ILIKE $${pIdx} OR mobile ILIKE $${pIdx} OR vehicle_id ILIKE $${pIdx} OR battery_id ILIKE $${pIdx})`;
-      params.push(`%${search}%`);
-      pIdx++;
-    }
+    // Helper to get clean 10-digit mobile
+    const getClean10 = (mob) => {
+      const d = (mob || '').replace(/\D/g, '');
+      return d.length >= 10 ? d.slice(-10) : d;
+    };
 
-    if (status) {
-      query += ` AND status = $${pIdx}`;
-      params.push(status);
-      pIdx++;
-    }
+    // 2. Build unique rider profiles keyed by 10-digit mobile number
+    const ridersMap = new Map();
 
-    query += ` ORDER BY rental_start_date DESC`;
-    const rentersRes = await db.query(query, params);
-    let combinedRenters = [...rentersRes.rows];
+    // (A) First populate from renters table
+    for (const r of rentersDb.rows) {
+      const key = getClean10(r.mobile);
+      if (!key) continue;
 
-    // Fetch reserved riders from reservations table to merge into renters view
-    try {
-      let resvQuery = `SELECT id, reservation_id, customer_name, mobile, vehicle_number, battery_id, package_type, fare, deposit, status, created_at FROM reservations WHERE status != 'Cancelled'`;
-      const resvParams = [];
-      if (search) {
-        resvQuery += ` AND (customer_name ILIKE $1 OR mobile ILIKE $1 OR reservation_id ILIKE $1)`;
-        resvParams.push(`%${search}%`);
+      if (!ridersMap.has(key)) {
+        ridersMap.set(key, {
+          id: r.id,
+          rider_name: r.rider_name || 'Rider',
+          mobile: r.mobile,
+          email: r.email,
+          vehicle_id: null,
+          battery_id: null,
+          package_name: r.package_name || 'Standard Plan',
+          rental_start_date: r.rental_start_date || r.created_at,
+          return_date: r.return_date || null,
+          status: 'No Active Ride', // Default, will only become Active Ride if currently ongoing reservation exists
+          rent: r.rent || '0.00',
+          deposit: r.deposit || '0.00',
+          total: r.total || '0.00',
+          avatar_url: r.avatar_url,
+          wallet_balance: r.wallet_balance || 0,
+          kyc_status: r.kyc_status || 'Approved',
+          booked_zones: new Set(r.zone ? [r.zone] : []),
+          latest_zone: r.zone || null,
+          has_active_ride: false
+        });
+      } else {
+        const existing = ridersMap.get(key);
+        if (r.zone) existing.booked_zones.add(r.zone);
+        if (r.rider_name && r.rider_name !== 'Rider') existing.rider_name = r.rider_name;
       }
-      resvQuery += ` ORDER BY created_at DESC`;
-      const resvRes = await db.query(resvQuery, resvParams);
+    }
 
-      // Add reserved riders if mobile/name not already in renters
-      const existingMobiles = new Set(combinedRenters.map(r => (r.mobile || '').replace(/\D/g, '').slice(-10)));
-      for (const resv of resvRes.rows) {
-        const cleanMob = (resv.mobile || '').replace(/\D/g, '').slice(-10);
-        if (cleanMob && !existingMobiles.has(cleanMob)) {
-          existingMobiles.add(cleanMob);
-          combinedRenters.push({
-            id: resv.id,
-            rider_name: resv.customer_name || 'Reserved Rider',
-            mobile: resv.mobile,
-            vehicle_id: resv.vehicle_number || 'Reserved (Pending)',
-            battery_id: resv.battery_id || 'BAT-PENDING',
-            package_name: resv.package_type || 'Reserved Ride',
-            rental_start_date: resv.created_at || new Date(),
-            return_date: null,
-            status: resv.status === 'Confirmed' ? 'Active Ride' : (resv.status || 'Active Ride'),
-            rent: (parseFloat(resv.fare) || 1500).toFixed(2),
-            deposit: (parseFloat(resv.deposit) || 1000).toFixed(2),
-            total: ((parseFloat(resv.fare) || 1500) + (parseFloat(resv.deposit) || 1000)).toFixed(2)
-          });
+    // (B) Merge and cross-reference with reservations table
+    for (const resv of resvDb.rows) {
+      const key = getClean10(resv.mobile);
+      if (!key) continue;
+
+      const pZone = resv.pickup_zone || resv.drop_zone;
+      const isOngoing = ['Ongoing', 'Active', 'Active Ride', 'Picked Up'].includes(resv.status);
+      const isConfirmed = resv.status === 'Confirmed';
+      const isRetain = resv.status === 'Retain Ride';
+      const isExtend = resv.status === 'Extend';
+
+      if (!ridersMap.has(key)) {
+        // New rider from reservation
+        ridersMap.set(key, {
+          id: resv.id,
+          rider_name: resv.customer_name || 'Rider',
+          mobile: resv.mobile,
+          vehicle_id: isOngoing ? (resv.vehicle_number || 'EV-ALLOCATED') : null,
+          battery_id: isOngoing ? (resv.battery_id || 'BAT-ALLOCATED') : null,
+          package_name: resv.package_type || 'Day',
+          rental_start_date: resv.created_at,
+          return_date: null,
+          status: isOngoing ? 'Active Ride' : (isConfirmed ? 'Reserved' : (isRetain ? 'Retain Ride' : (isExtend ? 'Extend' : 'No Active Ride'))),
+          rent: (parseFloat(resv.fare) || 0).toFixed(2),
+          deposit: (parseFloat(resv.deposit) || 0).toFixed(2),
+          total: ((parseFloat(resv.fare) || 0) + (parseFloat(resv.deposit) || 0)).toFixed(2),
+          avatar_url: null,
+          wallet_balance: 0,
+          kyc_status: 'Approved',
+          booked_zones: new Set(pZone ? [pZone] : []),
+          latest_zone: pZone || null,
+          has_active_ride: isOngoing
+        });
+      } else {
+        const rider = ridersMap.get(key);
+        if (pZone) {
+          rider.booked_zones.add(pZone);
+          if (!rider.latest_zone) rider.latest_zone = pZone;
+        }
+        if (resv.customer_name && resv.customer_name !== 'Rider') {
+          rider.rider_name = resv.customer_name;
+        }
+
+        // If this reservation is currently ongoing/active, it takes priority!
+        if (isOngoing) {
+          rider.has_active_ride = true;
+          rider.status = 'Active Ride';
+          rider.vehicle_id = resv.vehicle_number || rider.vehicle_id || 'EV-ALLOCATED';
+          rider.battery_id = resv.battery_id || rider.battery_id || 'BAT-ALLOCATED';
+          rider.package_name = resv.package_type || rider.package_name;
+          rider.rent = (parseFloat(resv.fare) || parseFloat(rider.rent) || 0).toFixed(2);
+          rider.deposit = (parseFloat(resv.deposit) || parseFloat(rider.deposit) || 0).toFixed(2);
+          rider.total = (parseFloat(rider.rent) + parseFloat(rider.deposit)).toFixed(2);
+          if (pZone) rider.latest_zone = pZone;
+        } else if (!rider.has_active_ride && isConfirmed && rider.status === 'No Active Ride') {
+          rider.status = 'Reserved';
+          rider.vehicle_id = resv.vehicle_number || 'Reserved (Pending)';
         }
       }
-    } catch (resvErr) {
-      console.warn('Could not merge reservations into renters:', resvErr.message);
     }
 
-    const total = combinedRenters.length;
-    const paginated = combinedRenters.slice(offset, offset + limit);
+    // 3. Convert Map to Array of unique riders
+    let allRiders = Array.from(ridersMap.values()).map(r => ({
+      ...r,
+      zone: r.latest_zone || Array.from(r.booked_zones)[0] || 'Gotri Zone',
+      zones: Array.from(r.booked_zones),
+      vehicle_id: r.has_active_ride ? (r.vehicle_id || 'EV-ALLOCATED') : (r.vehicle_id || '—'),
+      battery_id: r.has_active_ride ? (r.battery_id || 'BAT-ALLOCATED') : (r.battery_id || '—'),
+      // STRICT SAFETY: Ensure status is NEVER "Active Ride" if has_active_ride is false!
+      status: r.has_active_ride ? 'Active Ride' : (r.status === 'Active Ride' ? 'No Active Ride' : r.status)
+    }));
+
+    // 4. Filter by Zone (rider must have booked in this zone)
+    if (zoneFilter) {
+      const zTarget = zoneFilter.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
+      allRiders = allRiders.filter(r => {
+        return r.zones.some(z => {
+          const zClean = z.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
+          return zClean.includes(zTarget) || zTarget.includes(zClean);
+        }) || (r.zone && r.zone.toLowerCase().includes(zTarget));
+      });
+    }
+
+    // 5. Filter by Search
+    if (search) {
+      const s = search.toLowerCase();
+      allRiders = allRiders.filter(r =>
+        (r.rider_name || '').toLowerCase().includes(s) ||
+        (r.mobile || '').toLowerCase().includes(s) ||
+        (r.vehicle_id || '').toLowerCase().includes(s) ||
+        (r.battery_id || '').toLowerCase().includes(s)
+      );
+    }
+
+    // 6. Filter by Status
+    if (status) {
+      allRiders = allRiders.filter(r => r.status.toLowerCase() === status.toLowerCase());
+    }
+
+    const total = allRiders.length;
+    const paginated = allRiders.slice(offset, offset + limit);
 
     const responsePayload = {
       status: 'success',
@@ -151,47 +237,12 @@ router.get('/', async (req, res) => {
         totalPages: Math.ceil(total / limit) || 1
       }
     };
-    await setCache(cacheKey, responsePayload, 60);
+
+    await setCache(cacheKey, responsePayload, 30);
     res.json(responsePayload);
   } catch (err) {
-    console.warn('Postgres query failed, returning fallback mock data:', err.message);
-    
-    // Filter and paginate mock data in memory for fallback
-    let filtered = [...MOCK_RENTERS];
-    const search = (req.query.search || '').toLowerCase();
-    const status = req.query.status || '';
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-
-    if (search) {
-      filtered = filtered.filter(r => 
-        r.rider_name.toLowerCase().includes(search) ||
-        r.mobile.includes(search) ||
-        r.vehicle_id.toLowerCase().includes(search) ||
-        r.battery_id.toLowerCase().includes(search)
-      );
-    }
-
-    if (status) {
-      filtered = filtered.filter(r => r.status === status);
-    }
-
-    const total = filtered.length;
-    const offset = (page - 1) * limit;
-    const paginated = filtered.slice(offset, offset + limit);
-
-    const fallbackPayload = {
-      status: 'success',
-      data: paginated,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1
-      }
-    };
-    await setCache(cacheKey, fallbackPayload, 30);
-    res.json(fallbackPayload);
+    console.error('Error fetching renters:', err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

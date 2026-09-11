@@ -4,6 +4,20 @@ const db = require('../db');
 const { createNotification } = require('./notifications');
 const { getCache, setCache, delByPattern } = require('../redis');
 
+// Ensure reservations columns exist
+(async () => {
+  try {
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(100)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS discount NUMERIC(10,2) DEFAULT 0.00`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS pickup_datetime VARCHAR(100)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS drop_datetime VARCHAR(100)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS total_payable NUMERIC(10,2)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(150)`);
+  } catch (e) {
+    console.warn('Reservations DB column init notice:', e.message);
+  }
+})();
+
 // In-memory fallback seeds matching real rider names and July 2026 bookings
 const MOCK_RESERVATIONS = [
   { id: '1', reservation_id: 'RID-2026-878128', customer_name: 'Rohit Sharma', mobile: '+91 98765 43210', gov_id: 'GOV987654', reservation_date: '2026-07-12T00:00:00.000Z', reservation_time: '09:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: 'EVM1024001', battery_id: 'BAT-GOTRI-01', fare: '357.50', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Confirmed', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-12T08:54:00.000Z' },
@@ -361,15 +375,15 @@ router.post('/', async (req, res) => {
 // POST /api/reservations/:id/pay (update payment status to Paid)
 router.post('/:id/pay', async (req, res) => {
   const { id } = req.params;
-  const { payment_method, razorpay_payment_id } = req.body;
+  const { payment_method, transaction_id, razorpay_payment_id } = req.body;
 
   try {
     const updateResult = await db.query(`
       UPDATE reservations
-      SET payment_status = 'Paid', deposit_status = 'Paid', payment_method = $1
-      WHERE id = $2 OR reservation_id = $3
+      SET payment_status = 'Paid', deposit_status = 'Paid', payment_mode = $1
+      WHERE id::text = $2 OR reservation_id = $3
       RETURNING *
-    `, [payment_method || 'Razorpay', id, id]);
+    `, [payment_method || 'ICICI UPI', id, id]);
 
     const memIdx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
     if (memIdx !== -1) {

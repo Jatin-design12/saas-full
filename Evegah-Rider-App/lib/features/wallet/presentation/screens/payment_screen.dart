@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
+import '../../../../core/services/icici_upi_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -9,29 +10,34 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  String _selectedMethod = 'Visa'; // 'Visa', 'Mastercard', 'UPI', 'GPay', etc.
+  String _selectedMethod = 'UPI'; // 'Visa', 'Mastercard', 'UPI', 'GPay', etc.
   bool _showPriceDetails = false;
   bool _isProcessing = false;
 
   void _processPayment() {
-    setState(() {
-      _isProcessing = true;
-    });
-
-    // Simulate payment process delay
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-      });
-      // Navigate to Booking Confirmed Screen with deposit paid
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const BookingConfirmedScreen(isDepositPaid: true),
-        ),
-      );
-    });
+    IciciUpiService().showUpiPaymentModal(
+      context: context,
+      amount: 65.50,
+      note: 'Evegah Ride Payment',
+      onPaymentSuccess: (txId) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const BookingConfirmedScreen(isDepositPaid: true),
+          ),
+        );
+      },
+      onPaymentFailed: (msg) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg.isNotEmpty ? msg : "UPI Payment Cancelled"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      },
+    );
   }
 
   @override

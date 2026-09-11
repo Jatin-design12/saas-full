@@ -79,6 +79,97 @@ router.get('/balance', async (req, res) => {
   }
 });
 
+// POST /api/wallet/add-money - Direct wallet top-up into Postgres
+router.post('/add-money', async (req, res) => {
+  try {
+    const { mobile, amount, payment_method, razorpay_payment_id, transaction_id } = req.body;
+    const numAmount = parseFloat(amount || 0);
+    const rawMobile = (mobile || '').trim();
+    const cleanMobile = rawMobile.replace(/\D/g, '');
+    const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+    const txId = transaction_id || razorpay_payment_id || `PAY_${Date.now()}`;
+    const method = payment_method || 'ICICI UPI';
+
+    if (numAmount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
+    }
+
+    // 1. Update renters wallet balance
+    let updatedBal = numAmount;
+    if (last10.length > 0) {
+      const updateRes = await db.query(
+        `UPDATE renters 
+         SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 
+         WHERE mobile LIKE $2 OR mobile LIKE $3
+         RETURNING wallet_balance, bonus_balance`,
+        [numAmount, `%${last10}%`, `%${cleanMobile}%`]
+      );
+      if (updateRes.rows.length > 0) {
+        updatedBal = parseFloat(updateRes.rows[0].wallet_balance) || numAmount;
+      }
+    }
+
+    // 2. Record transaction in wallet_transactions
+    await db.query(`
+      INSERT INTO wallet_transactions (mobile, title, subtitle, amount, type, status, payment_method, transaction_id)
+      VALUES ($1, 'Wallet Top-Up', $2, $3, 'Credit', 'Success', $4, $5)
+    `, [cleanMobile || rawMobile, `${method} Payment`, numAmount, method, txId]);
+
+    res.json({
+      status: 'success',
+      message: `₹${numAmount} credited to wallet successfully`,
+      data: {
+        main_balance: updatedBal,
+        transaction_id: txId
+      }
+    });
+  } catch (err) {
+    console.error('Add money error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/wallet/withdraw - Debit from wallet for ride or payout
+router.post('/withdraw', async (req, res) => {
+  try {
+    const { mobile, amount, payout_method } = req.body;
+    const numAmount = parseFloat(amount || 0);
+    const rawMobile = (mobile || '').trim();
+    const cleanMobile = rawMobile.replace(/\D/g, '');
+    const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+    const txId = `WTH_${Date.now()}`;
+    const method = payout_method || 'Ride Payment';
+
+    if (numAmount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
+    }
+
+    // Debit balance
+    if (last10.length > 0) {
+      await db.query(
+        `UPDATE renters 
+         SET wallet_balance = GREATEST(0.00, COALESCE(wallet_balance, 0.00) - $1) 
+         WHERE mobile LIKE $2 OR mobile LIKE $3`,
+        [numAmount, `%${last10}%`, `%${cleanMobile}%`]
+      );
+    }
+
+    await db.query(`
+      INSERT INTO wallet_transactions (mobile, title, subtitle, amount, type, status, payment_method, transaction_id)
+      VALUES ($1, 'Ride Payment', $2, $3, 'Debit', 'Success', 'Wallet Main Balance', $4)
+    `, [cleanMobile || rawMobile, method, numAmount, txId]);
+
+    res.json({
+      status: 'success',
+      message: `₹${numAmount} debited from wallet`,
+      data: { transaction_id: txId }
+    });
+  } catch (err) {
+    console.error('Withdraw error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 const MOCK_WALLET_USERS = [
   { id: 1, name: 'Rohit Sharma', mobile: '+91 98765 43210', email: 'rohit@evegah.com', address: 'Gotri, Vadodara', kyc_status: 'Verified', wallet_balance: 1250.00, bonus_balance: 150.00, total_balance: 1400.00, created_at: '2026-07-12T08:54:00.000Z' },
   { id: 2, name: 'Ananya Verma', mobile: '+91 91234 56789', email: 'ananya@evegah.com', address: 'Alkapuri, Vadodara', kyc_status: 'Verified', wallet_balance: 850.00, bonus_balance: 50.00, total_balance: 900.00, created_at: '2026-07-12T02:16:00.000Z' },

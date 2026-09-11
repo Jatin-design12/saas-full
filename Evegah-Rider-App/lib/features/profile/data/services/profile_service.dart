@@ -23,6 +23,8 @@ class ProfileService {
   // =========================================================
 
   String userName = "";
+  String get name => userName;
+  set name(String val) => userName = val;
   String phoneNumber = "";
   String email = "";
   String gender = "Male";

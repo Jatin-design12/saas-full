@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/icici_upi_service.dart';
 import '../../../dashboard/presentation/screens/main_navigation.dart';
 import '../../../kyc/presentation/screens/kyc_screen.dart';
-import '../../../wallet/presentation/screens/payment_screen.dart';
 import '../../../wallet/data/services/wallet_service.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../support/presentation/screens/help_screen.dart';
@@ -182,30 +182,37 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Option 2: Razorpay UPI / Card
+                  // Option 2: ICICI Bank UPI
                   GestureDetector(
                     onTap: () => setModalState(() => isWalletSelected = false),
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: !isWalletSelected ? const Color(0xFFF3E8FF) : Colors.white,
+                        color: !isWalletSelected ? const Color(0xFFFFF7ED) : Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: !isWalletSelected ? const Color(0xFF4313B8) : const Color(0xFFE2E8F0)),
+                        border: Border.all(color: !isWalletSelected ? const Color(0xFFE05315) : const Color(0xFFE2E8F0)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.payment_rounded, color: Color(0xFF16A34A)),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE05315),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.bolt, color: Colors.white, size: 18),
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: const [
-                                Text("Razorpay UPI / Card / Netbanking", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text("Instant online deposit payment", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                Text("ICICI Bank Instant UPI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text("GPay, PhonePe, Paytm, BHIM & All UPI", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                               ],
                             ),
                           ),
-                          Icon(!isWalletSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: const Color(0xFF4313B8)),
+                          Icon(!isWalletSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: const Color(0xFFE05315)),
                         ],
                       ),
                     ),
@@ -221,7 +228,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                           if (!hasEnoughWallet) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text("Insufficient wallet balance (Available: ₹${currentBal.toStringAsFixed(0)}). Please top up or select Razorpay."),
+                                content: Text("Insufficient wallet balance (Available: ₹${currentBal.toStringAsFixed(0)}). Please top up or select UPI."),
                                 backgroundColor: Colors.redAccent,
                               ),
                             );
@@ -232,15 +239,43 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                           await _markBackendPaymentPaid("Evegah Wallet");
                         } else {
                           Navigator.pop(ctx);
-                          await _markBackendPaymentPaid("Razorpay UPI");
+                          final userMobile = await SessionService().getUserMobile() ?? '';
+                          if (!mounted) return;
+                          IciciUpiService().showUpiPaymentModal(
+                            context: context,
+                            amount: depositAmount,
+                            mobile: userMobile,
+                            note: 'Evegah Deposit ${widget.reservationId}',
+                            onPaymentSuccess: (txId) async {
+                              await _markBackendPaymentPaid("ICICI UPI");
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Security Deposit Paid Successfully via ICICI UPI!"),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            },
+                            onPaymentFailed: (msg) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(msg.isNotEmpty ? msg : "UPI Payment Cancelled"),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            },
+                          );
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4313B8),
+                        backgroundColor: isWalletSelected ? const Color(0xFF4313B8) : const Color(0xFFE05315),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: Text(
-                        isWalletSelected ? "Pay ₹500 via Wallet" : "Pay ₹500 via Razorpay",
+                        isWalletSelected ? "Pay ₹500 via Wallet" : "⚡ Pay ₹500 via ICICI UPI",
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ),

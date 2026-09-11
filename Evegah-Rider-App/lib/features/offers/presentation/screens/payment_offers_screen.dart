@@ -1,12 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:razorpay_flutter/razorpay_flutter.dart';
-import '../../../../core/utils/razorpay_stub.dart'
-    if (dart.library.js) '../../../../core/utils/razorpay_web.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
+import '../../../../core/services/icici_upi_service.dart';
 import '../../../profile/data/services/profile_service.dart';
 import '../../../dashboard/presentation/widgets/vehicle_360_viewer.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
@@ -45,8 +42,7 @@ class PaymentOffersScreen extends StatefulWidget {
 class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
   String _appliedCode = '';
   String _depositOption = 'Pay Now'; // 'Pay Now' or 'Pay Later'
-  String _paymentMethod = 'Razorpay';
-  Razorpay? _razorpay;
+  String _paymentMethod = 'ICICI UPI';
 
   double _basePrice = 0.0;
   double _discount = 0.0;
@@ -78,53 +74,19 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     // No coupon is applied by default. The user must explicitly tap Apply.
     _appliedCode = '';
     _discount = 0.0;
-    _paymentMethod = 'Razorpay';
-    _initRazorpaySafely();
-  }
-
-  void _initRazorpaySafely() {
-    try {
-      if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
-        _razorpay = Razorpay();
-        _razorpay?.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-        _razorpay?.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-        _razorpay?.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-      }
-    } catch (e) {
-      debugPrint("Razorpay init info: $e");
-    }
+    _paymentMethod = 'ICICI UPI';
   }
 
   @override
   void dispose() {
-    try {
-      _razorpay?.clear();
-    } catch (_) {}
     super.dispose();
   }
 
-  void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Razorpay Payment Successful!"), backgroundColor: Colors.green),
-    );
-    _confirmBooking(payNow: true);
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Payment Status: ${response.message ?? 'Cancelled'}"), backgroundColor: Colors.orange),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {}
-
-  /// Triggers Razorpay Checkout modal when rider taps Pay Now
-  void _triggerRazorpayPayment({required bool payNow}) {
+  /// Triggers ICICI Bank UPI intent modal or confirms booking
+  void _triggerIciciUpiPayment({required bool payNow}) {
     final double amountToPay = _totalPayable;
 
-    if (amountToPay <= 0) {
+    if (amountToPay <= 0 || !payNow) {
       _confirmBooking(payNow: payNow);
       return;
     }
@@ -132,69 +94,38 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     final profile = ProfileService();
     final cleanPhone = profile.phoneNumber.replaceAll(RegExp(r'\D'), '');
     final userContact = cleanPhone.isNotEmpty ? cleanPhone : (SessionService().userMobileSync?.replaceAll(RegExp(r'\D'), '') ?? '');
-    final userEmail = profile.email.isNotEmpty ? profile.email : 'contact@evegah.com';
 
-    // Web Razorpay Checkout
-    if (kIsWeb) {
-      try {
-        startRazorpayWebCheckout(
-          keyId: 'rzp_test_TUPu6tLfTa8qrh',
-          amount: amountToPay,
-          description: 'Evegah EV Rental Booking',
-          contact: userContact,
-          email: userEmail,
-          orderId: '',
-          onSuccess: (paymentId) {
-            _confirmBooking(payNow: true);
-          },
-          onFailure: (error) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("Razorpay Payment Cancelled/Failed: $error"),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          },
-        );
-      } catch (e) {
-        debugPrint("Web Razorpay error: $e");
-        _confirmBooking(payNow: true);
-      }
-      return;
-    }
-
-    // Native Mobile Razorpay Checkout (Android/iOS)
-    if (_razorpay != null) {
-      var options = {
-        'key': 'rzp_test_TUPu6tLfTa8qrh',
-        'amount': (amountToPay * 100).toInt(),
-        'name': 'EVegah Mobility',
-        'description': 'EV Rental Reservation',
-        'timeout': 180,
-        'prefill': {
-          'contact': userContact,
-          'email': userEmail,
-        },
-        'external': {
-          'wallets': ['paytm']
+    IciciUpiService().showUpiPaymentModal(
+      context: context,
+      amount: amountToPay,
+      mobile: userContact,
+      note: 'Evegah Ride Booking',
+      onPaymentSuccess: (txId) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Payment Verified Successfully via ICICI UPI!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _confirmBooking(payNow: true, transactionId: txId);
         }
-      };
-
-      try {
-        _razorpay!.open(options);
-      } catch (e) {
-        debugPrint("Native Razorpay open error: $e");
-        _confirmBooking(payNow: true);
-      }
-    } else {
-      _confirmBooking(payNow: true);
-    }
+      },
+      onPaymentFailed: (msg) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg.isNotEmpty ? msg : "UPI Payment Cancelled"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      },
+    );
   }
 
-  /// Posts the booking to the backend and triggers Razorpay checkout directly.
-  Future<void> _confirmBooking({required bool payNow}) async {
+  /// Posts the booking to the backend with ICICI UPI payment mode.
+  Future<void> _confirmBooking({required bool payNow, String? transactionId}) async {
     // Show loading
     showDialog(
       context: context,
@@ -269,8 +200,9 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
         'doorstep_fee': doorstepFeeVal,
         'doorstep_address': doorstepAddress,
         'delivery_address': doorstepAddress,
-        'payment_mode': 'Razorpay',
+        'payment_mode': 'ICICI UPI',
         'payment_status': payNow ? 'Paid' : 'Pending',
+        'transaction_id': transactionId ?? '',
         'pickup_zone': widget.selectedZone,
         'drop_zone': doorstepAddress.isNotEmpty ? doorstepAddress : widget.selectedZone,
         'coupon_code': _appliedCode,
@@ -1058,63 +990,110 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               ),
             ),
 
-            // 5. Payment Options (Razorpay Gateway Only)
-            _buildSectionHeader(Icons.payment_outlined, "Payment Method", null),
+            // 5. Payment Options (ICICI Bank UPI)
+            _buildSectionHeader(Icons.bolt, "Payment Method", null),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF4313B8).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFFE05315).withOpacity(0.4), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFE05315).withOpacity(0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Radio<String>(
-                    value: 'Razorpay',
-                    groupValue: _paymentMethod,
-                    activeColor: const Color(0xFF4313B8),
-                    onChanged: (val) => setState(() => _paymentMethod = val!),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF072654),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      "Razorpay",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
+                  Row(
+                    children: [
+                      Radio<String>(
+                        value: 'ICICI UPI',
+                        groupValue: _paymentMethod,
+                        activeColor: const Color(0xFFE05315),
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          "Razorpay Gateway",
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE05315), // ICICI signature orange
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          "ICICI BANK",
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Color(0xFF1E293B),
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          "UPI, Cards, Netbanking & Wallets",
-                          style: TextStyle(color: Colors.grey, fontSize: 10.5),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              "Instant UPI Payment",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              "GPay, PhonePe, Paytm, BHIM & All UPI",
+                              style: TextStyle(color: Colors.grey, fontSize: 10.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.verified, color: Color(0xFFE05315), size: 18),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.bolt, color: Color(0xFFE05315), size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              "VPA: EVEGAHRIDE@icici",
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "NPCI Verified",
+                            style: TextStyle(color: Color(0xFF16A34A), fontSize: 9.5, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.verified, color: Color(0xFF072654), size: 18),
                 ],
               ),
             ),
@@ -1126,7 +1105,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFFEE2E2)),
+                border: Border.all(color: const Color(0xFFFEE2E8)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1200,7 +1179,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () => _triggerRazorpayPayment(payNow: _depositOption == 'Pay Now'),
+                  onPressed: () => _triggerIciciUpiPayment(payNow: _depositOption == 'Pay Now'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2B0B78), // Deep purple
                     foregroundColor: Colors.white,
@@ -1213,7 +1192,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _depositOption == 'Pay Now' ? "Pay Now" : "Confirm Booking",
+                          _depositOption == 'Pay Now' ? "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via UPI" : "Confirm Booking",
                           maxLines: 1,
                           softWrap: false,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
@@ -1252,22 +1231,6 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               fontSize: 9,
               fontWeight: FontWeight.w700,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniSpec(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF4313B8), size: 14),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
           ),
         ],
       ),

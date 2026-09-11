@@ -3,6 +3,33 @@ const router = express.Router();
 const db = require('../db');
 const { getCache, setCache, delByPattern } = require('../redis');
 
+// Ensure maintenance_orders table exists
+(async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS maintenance_orders (
+        id SERIAL PRIMARY KEY,
+        ticket_id VARCHAR(100) UNIQUE NOT NULL,
+        vehicle_code VARCHAR(100),
+        vehicle_model VARCHAR(100),
+        vehicle_category VARCHAR(100) DEFAULT 'E-Scooter',
+        issue_category VARCHAR(100) DEFAULT 'General Service',
+        description TEXT,
+        assigned_technician VARCHAR(100),
+        service_center VARCHAR(150),
+        priority VARCHAR(50) DEFAULT 'Medium',
+        status VARCHAR(50) DEFAULT 'Scheduled',
+        estimated_cost NUMERIC(10, 2) DEFAULT 0.00,
+        zone VARCHAR(100) DEFAULT 'Alkapuri Zone',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+  } catch (e) {
+    console.warn('Maintenance DB init notice:', e.message);
+  }
+})();
+
 // GET /api/maintenance/stats - Fetch stats and breakdown summary
 router.get('/stats', async (req, res) => {
   try {

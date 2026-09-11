@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
-import '../../../../core/utils/razorpay_stub.dart'
-    if (dart.library.js) '../../../../core/utils/razorpay_web.dart';
 
 import '../../data/services/wallet_service.dart';
-import '../../../profile/data/services/profile_service.dart';
-import '../../../../core/services/session_service.dart';
+import '../../../../core/services/icici_upi_service.dart';
 import '../../../offers/presentation/screens/offer_screen.dart';
 import 'transaction_detail_screen.dart';
 
@@ -19,7 +14,7 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   final WalletService _walletService = WalletService();
-  Razorpay? _razorpay;
+  final IciciUpiService _iciciUpiService = IciciUpiService();
 
   double _mainBalance = 0.00;
   double _bonusBalance = 0.00;
@@ -32,29 +27,11 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void initState() {
     super.initState();
-    _initRazorpaySafely();
     _loadWalletData();
-  }
-
-  void _initRazorpaySafely() {
-    try {
-      if (!kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.android ||
-              defaultTargetPlatform == TargetPlatform.iOS)) {
-        _razorpay = Razorpay();
-        _razorpay?.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-        _razorpay?.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-      }
-    } catch (e) {
-      debugPrint("Razorpay init suppressed: $e");
-    }
   }
 
   @override
   void dispose() {
-    try {
-      _razorpay?.clear();
-    } catch (_) {}
     _amountController.dispose();
     _upiController.dispose();
     super.dispose();
@@ -74,36 +51,7 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
-  void _processPaymentSuccess(String? paymentId) async {
-    final double amt = double.tryParse(_amountController.text) ?? 500.0;
-    await _walletService.addMoney(amt, paymentId: paymentId);
-    await _loadWalletData();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("₹${amt.toStringAsFixed(0)} added to wallet via Razorpay ⚡"),
-          backgroundColor: const Color(0xFF16A34A),
-        ),
-      );
-    }
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    _processPaymentSuccess(response.paymentId);
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Payment failed: ${response.message}"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
-  }
-
-  void _triggerRazorpayAddMoney(double amount) async {
+  void _triggerIciciUpiAddMoney(double amount) async {
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter a valid amount"), backgroundColor: Colors.redAccent),
@@ -111,67 +59,31 @@ class _WalletScreenState extends State<WalletScreen> {
       return;
     }
 
-    final profileService = ProfileService();
-    final String cleanPhone = profileService.phoneNumber.replaceAll(RegExp(r'\D'), '').isNotEmpty
-        ? profileService.phoneNumber.replaceAll(RegExp(r'\D'), '')
-        : (SessionService().userMobileSync?.replaceAll(RegExp(r'\D'), '') ?? '');
-    final String email = profileService.email.isNotEmpty ? profileService.email : 'contact@evegah.com';
+    final res = await _iciciUpiService.showUpiPaymentModal(
+      context: context,
+      amount: amount,
+      title: "Add Money to Wallet",
+      subtitle: "Instant ICICI UPI Wallet Top-Up",
+      purpose: "wallet",
+    );
 
-    // 1. Web Razorpay Checkout Popup
-    if (kIsWeb) {
-      try {
-        startRazorpayWebCheckout(
-          keyId: 'rzp_test_TUPu6tLfTa8qrh',
-          amount: amount,
-          description: 'Evegah Wallet Top-Up',
-          contact: cleanPhone,
-          email: email,
-          orderId: '',
-          onSuccess: (paymentId) {
-            _processPaymentSuccess(paymentId);
-          },
-          onFailure: (error) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("Payment Status: $error"),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            }
-          },
+    if (res != null && res.success) {
+      await _walletService.addMoney(amount, paymentMethod: "ICICI UPI", paymentId: res.txId);
+      await _loadWalletData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text("₹${amount.toStringAsFixed(0)} added to wallet via ICICI UPI ⚡"),
+              ],
+            ),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
         );
-      } catch (e) {
-        debugPrint("Web Razorpay error: $e");
-        _processPaymentSuccess('PAY_WEB_${DateTime.now().millisecondsSinceEpoch}');
       }
-      return;
-    }
-
-    // 2. Native Mobile (Android/iOS)
-    _razorpay ??= Razorpay();
-    _razorpay?.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay?.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-
-    var options = {
-      'key': 'rzp_test_TUPu6tLfTa8qrh',
-      'amount': (amount * 100).toInt(),
-      'name': 'Evegah Mobility',
-      'description': 'Wallet Top-Up Payment',
-      'prefill': {
-        'contact': cleanPhone,
-        'email': email,
-      },
-      'external': {
-        'wallets': ['paytm']
-      }
-    };
-
-    try {
-      _razorpay?.open(options);
-    } catch (e) {
-      debugPrint("Razorpay native launch notice: $e");
-      _processPaymentSuccess('PAY_NATIVE_${DateTime.now().millisecondsSinceEpoch}');
     }
   }
 
@@ -196,7 +108,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const SizedBox(height: 16),
                 const Text("Add Money to Wallet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                 const SizedBox(height: 6),
-                const Text("Instant top-up via Razorpay UPI, Debit/Credit Card or Netbanking.", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                const Text("Instant top-up via ICICI Bank UPI (GPay, PhonePe, Paytm, BHIM).", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _amountController,
@@ -241,17 +153,27 @@ class _WalletScreenState extends State<WalletScreen> {
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 50,
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
-                      _triggerRazorpayAddMoney(currentAmt);
+                      _triggerIciciUpiAddMoney(currentAmt);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4313B8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
-                    child: const Text("Proceed to Pay (Razorpay)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.bolt, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          "⚡ Pay ₹${currentAmt.toStringAsFixed(0)} via UPI",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
