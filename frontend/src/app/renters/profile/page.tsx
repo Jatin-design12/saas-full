@@ -1141,7 +1141,7 @@ function RiderProfileContent() {
                     <div className="rp-assignment-details">
                       <div>
                         <div className="rp-mid-lbl">Vehicle</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{riderVehicle}</div>
+                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{riderRides.length > 0 ? (riderRides[0].vehicle_number || (riderRides[0].status === 'Upcoming' ? 'Assignment Pending' : riderVehicle)) : riderVehicle}</div>
                       </div>
                       <div>
                         <div className="rp-mid-lbl">Battery</div>

@@ -493,19 +493,32 @@ export default function RentersPage() {
 
   // Format Date Helper
   const formatDateTime = (dateStr: string | null) => {
-    if (!dateStr) return { date: '-', time: '' };
-    const d = new Date(dateStr);
-    const date = d.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-    const time = d.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-    return { date, time };
+    if (!dateStr) return { date: '—', time: '' };
+    try {
+      if (typeof dateStr === 'string') {
+        if (dateStr.includes(' AM') || dateStr.includes(' PM')) {
+          const parts = dateStr.split(',');
+          return { date: parts[0]?.trim() || dateStr, time: parts[1]?.trim() || '' };
+        }
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) {
+        return { date: dateStr, time: '' };
+      }
+      const date = d.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+      const time = d.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      return { date, time };
+    } catch (_) {
+      return { date: dateStr, time: '' };
+    }
   };
 
   // Status Badge Class Helper

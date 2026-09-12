@@ -193,16 +193,16 @@ router.get('/users', async (req, res) => {
   try {
     let query = `
       SELECT 
-        r.id,
-        COALESCE(r.rider_name, 'Rider') AS name,
-        r.mobile,
+        MAX(r.id::text) AS id,
+        COALESCE(MAX(r.rider_name), 'Rider') AS name,
+        MAX(r.mobile) AS mobile,
         '' AS email,
         '' AS address,
         'Verified' AS kyc_status,
-        COALESCE(r.wallet_balance, 0.00) AS wallet_balance,
-        COALESCE(r.bonus_balance, 0.00) AS bonus_balance,
-        (COALESCE(r.wallet_balance, 0.00) + COALESCE(r.bonus_balance, 0.00)) AS total_balance,
-        r.created_at
+        MAX(COALESCE(r.wallet_balance, 0.00)) AS wallet_balance,
+        MAX(COALESCE(r.bonus_balance, 0.00)) AS bonus_balance,
+        (MAX(COALESCE(r.wallet_balance, 0.00)) + MAX(COALESCE(r.bonus_balance, 0.00))) AS total_balance,
+        MIN(r.created_at) AS created_at
       FROM renters r
     `;
 
@@ -212,7 +212,11 @@ router.get('/users', async (req, res) => {
       params.push(`%${cleanSearch}%`);
     }
 
-    query += ` ORDER BY total_balance DESC, r.created_at DESC LIMIT 100`;
+    query += `
+      GROUP BY COALESCE(NULLIF(RIGHT(REGEXP_REPLACE(COALESCE(r.mobile, ''), '\\D', '', 'g'), 10), ''), r.id::text)
+      ORDER BY total_balance DESC, MIN(r.created_at) DESC 
+      LIMIT 100
+    `;
 
     const result = await db.query(query, params);
     if (result.rows.length === 0) {
@@ -269,8 +273,10 @@ router.post('/add-money', async (req, res) => {
     if (matchRes.rows.length > 0) {
       targetRenterId = matchRes.rows[0].id;
       await db.query(
-        `UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE id = $2`,
-        [numAmount, targetRenterId]
+        `UPDATE renters 
+         SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 
+         WHERE mobile LIKE $2 OR mobile LIKE $3 OR id = $4`,
+        [numAmount, searchPattern, `%${cleanMobile}%`, targetRenterId]
       );
     } else {
       // Check users table as fallback
@@ -504,125 +510,109 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// POST /api/wallet/refund (Razorpay Refund API)
+// POST /api/wallet/refund (Process refund back to rider)
 router.post('/refund', async (req, res) => {
   const { payment_id, amount, reason, mobile } = req.body;
-  const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_TUPu6tLfTa8qrh';
-  const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'oQGzOAnFD0YRbVPST8Wi9d6g';
-
   const numAmount = parseFloat(amount || 0);
 
   try {
-    const authHeader = 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
-    const refundPayload = {
-      amount: Math.round(numAmount * 100),
-      speed: 'optimum',
-      notes: { reason: reason || 'Ride Cancellation / Wallet Refund' }
-    };
-
-    let rzpResponse = {};
-    if (payment_id && payment_id.startsWith('pay_')) {
-      try {
-        const response = await fetch(`https://api.razorpay.com/v1/payments/${payment_id}/refund`, {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(refundPayload)
-        });
-        rzpResponse = await response.json();
-      } catch (rzpErr) {
-        console.warn('Razorpay live refund API warning:', rzpErr.message);
-      }
-    }
-
     // Credit refund back to rider wallet
     if (mobile && numAmount > 0) {
       const cleanMobile = (mobile || '').replace(/\D/g, '');
       await db.query(
         'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2 OR mobile LIKE $3',
-        [numAmount, `%${cleanMobile}%`, `%${mobile}%`]
+        [numAmount, `%${cleanMobile.slice(-10)}%`, `%${cleanMobile}%`]
       );
 
       await db.query(`
         INSERT INTO wallet_transactions (mobile, title, subtitle, amount, type, status, payment_method, transaction_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
-        mobile,
-        'Razorpay Deposit Refund',
+        cleanMobile,
+        'Deposit Refund',
         `Refund (${reason || 'Ride Cancelled'})`,
         numAmount,
         'Credit',
         'Success',
-        'Razorpay Refund',
+        'Payment Refund',
         `RFND-${Date.now()}`
       ]);
     }
 
     res.json({
       status: 'success',
-      message: `Razorpay refund of ₹${numAmount} processed successfully`,
-      data: rzpResponse
-    });
-  } catch (err) {
-    console.error('Razorpay refund error:', err);
-    res.json({
-      status: 'success',
-      message: 'Refund recorded locally',
+      message: `Refund of ₹${numAmount.toFixed(2)} processed successfully`,
       data: { payment_id, amount: numAmount, status: 'processed' }
     });
+  } catch (err) {
+    console.error('Refund processing error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// POST /api/wallet/create-payment-link
+// POST /api/wallet/create-payment-link - Dynamically route through Active Payment Gateway (PayU / ICICI)
 router.post('/create-payment-link', async (req, res) => {
   const { amount, mobile, email, name } = req.body;
-  const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_TUPu6tLfTa8qrh';
-  const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'oQGzOAnFD0YRbVPST8Wi9d6g';
-
   const numAmount = parseFloat(amount || 0);
 
   try {
-    const authHeader = 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
-    const payload = {
-      amount: Math.round(numAmount * 100),
-      currency: 'INR',
-      accept_partial: false,
-      description: 'Evegah Wallet Top-Up',
-      customer: {
-        name: name || 'Evegah Rider',
-        contact: (mobile || '').replace(/\D/g, '') || '9876543210',
-        email: email || 'rider@evegah.com'
-      },
-      notify: { sms: false, email: false },
-      reminder_enable: false
-    };
+    // Retrieve active gateways configuration
+    const setRes = await db.query("SELECT values FROM settings WHERE category = 'payments' LIMIT 1").catch(() => ({ rows: [] }));
+    const pSettings = setRes.rows[0]?.values || {};
+    const primaryGw = pSettings.primary_gateway || 'payu';
+    const gateways = Array.isArray(pSettings.gateways) ? pSettings.gateways : [];
+    const activePayu = gateways.find(g => (g.id === 'payu' || g.provider === 'payu') && g.active);
+    const activeIcici = gateways.find(g => (g.id === 'icici' || g.provider === 'icici') && g.active);
 
-    const response = await fetch('https://api.razorpay.com/v1/payment_links', {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    const txId = `EVGPAY${Date.now()}`;
+    const cleanMobile = (mobile || '').replace(/\D/g, '') || '9876543210';
+    const cleanName = name || 'Evegah Rider';
 
-    const rzpData = await response.json();
-    if (rzpData.short_url) {
-      return res.json({ status: 'success', payment_url: rzpData.short_url, id: rzpData.id });
-    } else {
+    if (primaryGw === 'icici' && activeIcici) {
+      const vpa = activeIcici.vpa || 'EVEGAHRIDE@icici';
+      const payee = activeIcici.payee_name || 'Evegah';
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payee)}&tr=${txId}&am=${numAmount.toFixed(2)}&cu=INR&mc=5411&tn=${encodeURIComponent('Wallet Top-Up')}`;
       return res.json({
         status: 'success',
-        payment_url: `https://checkout.razorpay.com/v1/checkout.html?key=${RAZORPAY_KEY_ID}&amount=${Math.round(numAmount * 100)}&name=Evegah%20Mobility&description=Wallet%20Top-Up`
+        gateway: 'ICICI Bank UPI',
+        payment_url: upiUrl,
+        upi_string: upiUrl,
+        id: txId
       });
     }
-  } catch (err) {
-    console.error('Failed to create payment link:', err);
-    res.json({
+
+    // Default to PayU
+    const payuKey = activePayu?.key_id || 'WTi3jH';
+    const payuSalt = activePayu?.key_secret || '9dascniXrfdMW22AJBbhmh2C7kuBibwb';
+    const payuEnv = activePayu?.environment || 'test';
+    const crypto = require('crypto');
+    const hashString = `${payuKey}|${txId}|${numAmount.toFixed(2)}|Evegah Wallet Top-Up|${cleanName}|${email || 'rider@evegah.com'}|wallet|||||||||${payuSalt}`;
+    const hash = crypto.createHash('sha512').update(hashString).digest('hex');
+
+    const payuAction = payuEnv === 'production'
+      ? 'https://secure.payu.in/_payment'
+      : 'https://test.payu.in/_payment';
+
+    return res.json({
       status: 'success',
-      payment_url: `https://checkout.razorpay.com/v1/checkout.html?key=${RAZORPAY_KEY_ID}&amount=${Math.round(numAmount * 100)}&name=Evegah%20Mobility&description=Wallet%20Top-Up`
+      gateway: 'PayU India',
+      payment_url: `${payuAction}?key=${payuKey}&txnid=${txId}&amount=${numAmount.toFixed(2)}&hash=${hash}`,
+      id: txId,
+      payu_data: {
+        key: payuKey,
+        txnid: txId,
+        amount: numAmount.toFixed(2),
+        productinfo: 'Evegah Wallet Top-Up',
+        firstname: cleanName,
+        email: email || 'rider@evegah.com',
+        phone: cleanMobile,
+        hash,
+        action_url: payuAction
+      }
     });
+  } catch (err) {
+    console.error('Failed to create dynamic payment link:', err);
+    res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

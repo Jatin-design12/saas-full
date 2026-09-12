@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/icici_upi_service.dart';
+import '../../../../core/services/payu_service.dart';
+import '../../../../core/services/payment_gateway_service.dart';
 import '../../../dashboard/presentation/screens/main_navigation.dart';
 import '../../../kyc/presentation/screens/kyc_screen.dart';
 import '../../../wallet/data/services/wallet_service.dart';
@@ -31,12 +33,22 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
   late bool _depositPaid;
   Map<String, dynamic>? _fetchedReservation;
 
+  String _activeGatewayId = 'payu';
+
   @override
   void initState() {
     super.initState();
     _depositPaid = widget.isDepositPaid;
     SessionService().setFirstRideBooked(true);
     _fetchBackendReservation();
+    _loadGatewayConfig();
+  }
+
+  Future<void> _loadGatewayConfig() async {
+    try {
+      final gw = await PaymentGatewayService().getPrimaryGatewayId();
+      if (mounted) setState(() => _activeGatewayId = gw);
+    } catch (_) {}
   }
 
   Future<void> _fetchBackendReservation() async {
@@ -182,39 +194,48 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // Option 2: ICICI Bank UPI
+                  // Option 2: Online Payment (PayU or ICICI Bank UPI)
                   GestureDetector(
                     onTap: () => setModalState(() => isWalletSelected = false),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: !isWalletSelected ? const Color(0xFFFFF7ED) : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: !isWalletSelected ? const Color(0xFFE05315) : const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE05315),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.bolt, color: Colors.white, size: 18),
+                    child: Builder(
+                      builder: (context) {
+                        final bool isPayU = _activeGatewayId == 'payu';
+                        final Color themeColor = isPayU ? const Color(0xFF528900) : const Color(0xFFE05315);
+                        final String title = isPayU ? "PayU Online Payment" : "ICICI Bank Instant UPI";
+                        final String subtitle = isPayU ? "Cards, UPI, NetBanking & Wallets" : "GPay, PhonePe, Paytm, BHIM & All UPI";
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: !isWalletSelected ? (isPayU ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED)) : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: !isWalletSelected ? themeColor : const Color(0xFFE2E8F0)),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text("ICICI Bank Instant UPI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text("GPay, PhonePe, Paytm, BHIM & All UPI", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                              ],
-                            ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: themeColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(isPayU ? Icons.shield_outlined : Icons.bolt, color: Colors.white, size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                  ],
+                                ),
+                              ),
+                              Icon(!isWalletSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: themeColor),
+                            ],
                           ),
-                          Icon(!isWalletSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: const Color(0xFFE05315)),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
 
@@ -239,6 +260,62 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                           await _markBackendPaymentPaid("Evegah Wallet");
                         } else {
                           Navigator.pop(ctx);
+                          if (_activeGatewayId == 'payu') {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => const Center(
+                                child: CircularProgressIndicator(color: Color(0xFF528900)),
+                              ),
+                            );
+
+                            try {
+                              final payuData = await PayUService().initiatePayment(
+                                amount: depositAmount,
+                                purpose: 'ride',
+                                reservationId: widget.reservationId,
+                              );
+
+                              if (!mounted) return;
+                              Navigator.pop(context);
+
+                              if (payuData != null && payuData['action_url'] != null) {
+                                final txnid = payuData['txnid']?.toString() ?? '';
+                                final launched = await PayUService().launchPayUCheckout(payuData['action_url'], payuData);
+                                if (launched && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("PayU checkout opened. Please complete your deposit payment."), backgroundColor: Colors.blue),
+                                  );
+                                  // Polling check for deposit payment
+                                  for (int i = 0; i < 10; i++) {
+                                    await Future.delayed(const Duration(seconds: 3));
+                                    if (!mounted) break;
+                                    final status = await PayUService().checkPaymentStatus(txnid);
+                                    if (status.toLowerCase() == 'success') {
+                                      await _markBackendPaymentPaid("PayU");
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text("Deposit Paid Successfully via PayU!"), backgroundColor: Colors.green),
+                                        );
+                                      }
+                                      break;
+                                    } else if (status.toLowerCase() == 'failed') {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text("PayU deposit payment cancelled or failed."), backgroundColor: Colors.redAccent),
+                                        );
+                                      }
+                                      break;
+                                    }
+                                  }
+                                }
+                              }
+                            } catch (_) {
+                              if (mounted) Navigator.pop(context);
+                            }
+                            return;
+                          }
+
                           final userMobile = await SessionService().getUserMobile() ?? '';
                           if (!mounted) return;
                           IciciUpiService().showUpiPaymentModal(

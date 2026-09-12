@@ -295,7 +295,12 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {
-            final List dbList = data['data'];
+            final List rawList = data['data'];
+            final List dbList = rawList.where((z) {
+              final t = (z['type'] ?? '').toString().toLowerCase();
+              final n = (z['name'] ?? '').toString().toLowerCase();
+              return !t.contains('service') && !t.contains('maintenance') && !n.contains('service center');
+            }).toList();
             if (dbList.isNotEmpty) {
               final mapped = dbList.map((z) => {
                 ...Map<String, dynamic>.from(z as Map),
@@ -706,21 +711,25 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time_rounded, size: 10, color: Color(0xFF64748B)),
-                      const SizedBox(width: 2),
-                      Text(
-                        zone["hours"],
-                        style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
-                      ),
-                      if (phone.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.phone_outlined, size: 9, color: Color(0xFF4313B8)),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.access_time_rounded, size: 10, color: Color(0xFF64748B)),
                         const SizedBox(width: 2),
-                        Text(phone, style: const TextStyle(fontSize: 9, color: Color(0xFF4313B8), fontWeight: FontWeight.bold)),
+                        Text(
+                          zone["hours"],
+                          style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                        ),
+                        if (phone.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.phone_outlined, size: 9, color: Color(0xFF4313B8)),
+                          const SizedBox(width: 2),
+                          Text(phone, style: const TextStyle(fontSize: 9, color: Color(0xFF4313B8), fontWeight: FontWeight.bold)),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -1164,7 +1173,12 @@ class _MapPickupDropSelectionScreenState extends State<MapPickupDropSelectionScr
         if (res.statusCode == 200) {
           final data = json.decode(res.body);
           if (data['status'] == 'success' && data['data'] != null) {
-            final List dbList = data['data'];
+            final List rawList = data['data'];
+            final List dbList = rawList.where((z) {
+              final t = (z['type'] ?? '').toString().toLowerCase();
+              final n = (z['name'] ?? '').toString().toLowerCase();
+              return !t.contains('service') && !t.contains('maintenance') && !n.contains('service center');
+            }).toList();
             for (var z in dbList) {
               double lat = 22.3072;
               double lng = 73.1812;

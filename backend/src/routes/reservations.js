@@ -59,14 +59,25 @@ router.get('/', async (req, res) => {
       return res.json(cachedData);
     }
 
-    let query = 'SELECT * FROM reservations WHERE 1=1';
+    let query = `
+      SELECT 
+        r.*,
+        COALESCE(b.soc, v.battery_pct, 85) as battery_pct,
+        COALESCE(v.speed, '0.00') as speed,
+        COALESCE(b.health, 100) as battery_health,
+        COALESCE(b.status, 'In Use') as bms_status
+      FROM reservations r
+      LEFT JOIN vehicles v ON (v.code = r.vehicle_number OR v.registration_number = r.vehicle_number)
+      LEFT JOIN batteries b ON (b.battery_id = r.battery_id)
+      WHERE 1=1
+    `;
     let countQuery = 'SELECT COUNT(*) as total FROM reservations WHERE 1=1';
     const params = [];
     const countParams = [];
     let pIdx = 1;
 
     if (search) {
-      query += ` AND (customer_name ILIKE $${pIdx} OR mobile ILIKE $${pIdx} OR reservation_id ILIKE $${pIdx})`;
+      query += ` AND (r.customer_name ILIKE $${pIdx} OR r.mobile ILIKE $${pIdx} OR r.reservation_id ILIKE $${pIdx})`;
       countQuery += ` AND (customer_name ILIKE $${pIdx} OR mobile ILIKE $${pIdx} OR reservation_id ILIKE $${pIdx})`;
       params.push(`%${search}%`);
       countParams.push(`%${search}%`);
@@ -77,7 +88,7 @@ router.get('/', async (req, res) => {
       const cleanMobile = mobile.replace(/\D/g, '');
       const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
       if (last10) {
-        query += ` AND (mobile LIKE $${pIdx} OR mobile LIKE $${pIdx + 1})`;
+        query += ` AND (r.mobile LIKE $${pIdx} OR r.mobile LIKE $${pIdx + 1})`;
         countQuery += ` AND (mobile LIKE $${pIdx} OR mobile LIKE $${pIdx + 1})`;
         params.push(`%${last10}%`, `%${cleanMobile}%`);
         countParams.push(`%${last10}%`, `%${cleanMobile}%`);
@@ -86,14 +97,14 @@ router.get('/', async (req, res) => {
     }
 
     if (status) {
-      query += ` AND status = $${pIdx}`;
+      query += ` AND r.status = $${pIdx}`;
       countQuery += ` AND status = $${pIdx}`;
       params.push(status);
       countParams.push(status);
       pIdx++;
     }
 
-    query += ` ORDER BY created_at DESC LIMIT $${pIdx} OFFSET $${pIdx + 1}`;
+    query += ` ORDER BY r.created_at DESC LIMIT $${pIdx} OFFSET $${pIdx + 1}`;
     params.push(limit, offset);
 
     const [rowsResult, countResult] = await Promise.all([
@@ -119,9 +130,15 @@ router.get('/', async (req, res) => {
       cancelled: parseInt(statsResult.rows[0].cancelled) || 0
     };
 
+    const mappedRows = rowsResult.rows.map(r => ({
+      ...r,
+      vehicle_model: (r.vehicle_model && r.vehicle_model !== 'E-Scooter' && r.vehicle_model !== 'Evegah Pro') ? r.vehicle_model : 'Evegah City',
+      range_km: Math.round(((parseFloat(r.battery_pct || 85) / 100.0) * 110))
+    }));
+
     const responsePayload = {
       status: 'success',
-      data: rowsResult.rows,
+      data: mappedRows,
       stats,
       pagination: {
         page,
@@ -203,6 +220,255 @@ router.get('/available-vehicles', async (req, res) => {
   }
 });
 
+// GET /api/reservations/deposits — Deposit refund dashboard data & real KPIs
+router.get('/deposits', async (req, res) => {
+  try {
+    // 1. Fetch reservations with deposit details
+    const resResult = await db.query(`
+      SELECT 
+        id,
+        reservation_id,
+        customer_name,
+        mobile,
+        package_type,
+        vehicle_number,
+        battery_id,
+        deposit,
+        fare,
+        total_payable,
+        status,
+        deposit_status,
+        refund_amount,
+        refund_deductions,
+        refund_mode,
+        refund_tx_id,
+        refund_date,
+        returned_at,
+        return_condition,
+        return_notes,
+        created_at
+      FROM reservations
+      ORDER BY COALESCE(returned_at, created_at) DESC
+    `);
+
+    // 2. Fetch active renters with deposits
+    const rentersResult = await db.query(`
+      SELECT 
+        id,
+        rider_name,
+        mobile,
+        vehicle_id,
+        battery_id,
+        deposit,
+        rent,
+        total,
+        status,
+        rental_start_date,
+        return_date,
+        created_at
+      FROM renters
+      WHERE deposit > 0
+    `).catch(() => ({ rows: [] }));
+
+    const resRows = resResult.rows;
+    const renterRows = rentersResult.rows;
+
+    // Calculate real KPIs
+    let totalDepositsHeld = 0;
+    renterRows.forEach(r => {
+      if (['Active Ride', 'Retain Ride', 'Active'].includes(r.status)) {
+        totalDepositsHeld += parseFloat(r.deposit) || 0;
+      }
+    });
+    resRows.forEach(r => {
+      if (['Confirmed', 'Ongoing', 'Active', 'Upcoming'].includes(r.status) && ['Held', 'Paid', null].includes(r.deposit_status)) {
+        totalDepositsHeld += parseFloat(r.deposit) || 0;
+      }
+    });
+
+    const pendingList = [];
+    const completedList = [];
+    let totalRefunded = 0;
+    let totalDeductions = 0;
+    let pendingAmount = 0;
+
+    resRows.forEach(r => {
+      const dep = parseFloat(r.deposit !== null && r.deposit !== undefined ? r.deposit : 0);
+      const refAmt = parseFloat(r.refund_amount !== null && r.refund_amount !== undefined ? r.refund_amount : dep);
+      const ded = parseFloat(r.refund_deductions) || 0;
+      const st = r.status || '';
+      const depSt = r.deposit_status || '';
+
+      if (depSt === 'Refunded' && (refAmt > 0 || dep > 0)) {
+        completedList.push({
+          id: r.id,
+          reservation_id: r.reservation_id,
+          rider: {
+            name: r.customer_name || 'Rider',
+            code: r.reservation_id || `RID-${r.id?.toString().slice(0, 6)}`,
+            avatar: ''
+          },
+          mobile: r.mobile,
+          vehicle: r.vehicle_number || 'EVM102502',
+          refundDate: r.refund_date || r.returned_at || r.created_at,
+          txId: r.refund_tx_id || `REF-${r.id?.toString().slice(0, 8)}`,
+          deposit: dep,
+          deductions: ded,
+          refundAmount: refAmt,
+          method: r.refund_mode || 'UPI Instant Refund',
+          status: 'Successful',
+          returnCondition: r.return_condition || 'Clean',
+          notes: r.return_notes || ''
+        });
+        totalRefunded += refAmt;
+        totalDeductions += ded;
+      } else if (dep > 0 && (depSt === 'Pending_Refund' || ['Completed', 'Return'].includes(st)) && depSt !== 'None' && depSt !== 'Refunded' && depSt !== 'Dismissed') {
+        pendingList.push({
+          id: r.id,
+          reservation_id: r.reservation_id,
+          rider: {
+            name: r.customer_name || 'Rider',
+            code: r.reservation_id || `RID-${r.id?.toString().slice(0, 6)}`,
+            avatar: ''
+          },
+          mobile: r.mobile,
+          vehicle: r.vehicle_number || 'EVM102502',
+          returnDate: r.returned_at || r.created_at,
+          deposit: dep,
+          condition: (r.return_condition && r.return_condition.toLowerCase() !== 'clean') ? 'Damage Charged' : 'No Damage',
+          conditionDetail: r.return_condition || 'Clean',
+          deductions: ded,
+          refundAmount: Math.max(0, dep - ded),
+          deposit_status: 'Pending_Refund',
+          notes: r.return_notes || ''
+        });
+        pendingAmount += Math.max(0, dep - ded);
+        totalDeductions += ded;
+      }
+    });
+
+    // Also include any renters with status 'Return' or 'Completed' that aren't in reservations
+    renterRows.forEach(r => {
+      const dep = parseFloat(r.deposit || 0);
+      if (['Return', 'Completed'].includes(r.status) && dep > 0 && r.status !== 'Dismissed') {
+        const cleanMob = (r.mobile || '').replace(/\D/g, '').slice(-10);
+        const alreadyIn = pendingList.some(p => (p.mobile || '').includes(cleanMob)) || completedList.some(c => (c.mobile || '').includes(cleanMob));
+        if (!alreadyIn) {
+          pendingList.push({
+            id: r.id,
+            reservation_id: `RET-${r.id?.toString().slice(0, 6)}`,
+            rider: {
+              name: r.rider_name || 'Rider',
+              code: `EVR-${r.id?.toString().slice(0, 6)}`,
+              avatar: ''
+            },
+            mobile: r.mobile,
+            vehicle: r.vehicle_id || 'EVM102502',
+            returnDate: r.return_date || r.created_at || new Date(),
+            deposit: dep,
+            condition: 'No Damage',
+            conditionDetail: 'Good Condition',
+            deductions: 0,
+            refundAmount: dep,
+            deposit_status: 'Pending_Refund'
+          });
+          pendingAmount += dep;
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      kpis: {
+        total_held: Math.round(totalDepositsHeld * 100) / 100,
+        pending_refunds_count: pendingList.length,
+        pending_refunds_amount: Math.round(pendingAmount * 100) / 100,
+        total_refunded_amount: Math.round(totalRefunded * 100) / 100,
+        total_deductions_amount: Math.round(totalDeductions * 100) / 100,
+      },
+      data: {
+        pending: pendingList,
+        completed: completedList
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching deposits dashboard:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// DELETE /api/reservations/deposits — Bulk delete/dismiss deposit records
+router.delete('/deposits', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ status: 'error', message: 'No deposit IDs provided' });
+  }
+
+  try {
+    let affected = 0;
+    for (const id of ids) {
+      const idStr = String(id);
+      const rRes = await db.query(`
+        UPDATE reservations 
+        SET deposit_status = 'Dismissed', deposit = 0, refund_amount = 0 
+        WHERE id::text = $1 OR reservation_id = $1
+      `, [idStr]).catch(() => ({ rowCount: 0 }));
+      affected += rRes.rowCount || 0;
+
+      const renterRes = await db.query(`
+        UPDATE renters 
+        SET deposit = 0, status = 'Dismissed' 
+        WHERE id::text = $1
+      `, [idStr]).catch(() => ({ rowCount: 0 }));
+      affected += renterRes.rowCount || 0;
+    }
+
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
+    await delByPattern('stats:*');
+
+    res.json({
+      status: 'success',
+      message: `Successfully deleted/dismissed ${ids.length} deposit record(s).`,
+      affected
+    });
+  } catch (err) {
+    console.error('Error deleting deposit records:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// DELETE /api/reservations/deposits/:id — Single delete/dismiss deposit record
+router.delete('/deposits/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const idStr = String(id);
+    await db.query(`
+      UPDATE reservations 
+      SET deposit_status = 'Dismissed', deposit = 0, refund_amount = 0 
+      WHERE id::text = $1 OR reservation_id = $1
+    `, [idStr]).catch(() => {});
+
+    await db.query(`
+      UPDATE renters 
+      SET deposit = 0, status = 'Dismissed' 
+      WHERE id::text = $1
+    `, [idStr]).catch(() => {});
+
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
+    await delByPattern('stats:*');
+
+    res.json({
+      status: 'success',
+      message: 'Deposit record deleted/dismissed successfully.'
+    });
+  } catch (err) {
+    console.error('Error deleting deposit record:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 // GET /api/reservations/active-ride — Check if rider has an ongoing/active ride
 router.get('/active-ride', async (req, res) => {
   const { mobile } = req.query;
@@ -212,12 +478,27 @@ router.get('/active-ride', async (req, res) => {
   }
 
   try {
-    const result = await db.query(
-      "SELECT * FROM reservations WHERE (mobile LIKE $1 OR mobile LIKE $2) AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride') ORDER BY created_at DESC LIMIT 1",
-      [`%${cleanMobile}%`, `%${mobile}%`]
-    );
+    const result = await db.query(`
+      SELECT 
+        r.*,
+        COALESCE(b.soc, v.battery_pct, 85) as battery_pct,
+        COALESCE(v.speed, '0.00') as speed,
+        COALESCE(b.health, 100) as battery_health,
+        COALESCE(b.status, 'In Use') as bms_status
+      FROM reservations r
+      LEFT JOIN vehicles v ON (v.code = r.vehicle_number OR v.registration_number = r.vehicle_number)
+      LEFT JOIN batteries b ON (b.battery_id = r.battery_id)
+      WHERE (r.mobile LIKE $1 OR r.mobile LIKE $2) 
+        AND r.status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride') 
+      ORDER BY r.created_at DESC 
+      LIMIT 1
+    `, [`%${cleanMobile}%`, `%${mobile}%`]);
+
     if (result.rows.length > 0) {
-      return res.json({ status: 'success', has_active_ride: true, data: result.rows[0] });
+      const row = result.rows[0];
+      row.vehicle_model = (row.vehicle_model && row.vehicle_model !== 'E-Scooter' && row.vehicle_model !== 'Evegah Pro') ? row.vehicle_model : 'Evegah City';
+      row.range_km = Math.round(((parseFloat(row.battery_pct || 85) / 100.0) * 110));
+      return res.json({ status: 'success', has_active_ride: true, data: row });
     }
     return res.json({ status: 'success', has_active_ride: false });
   } catch (err) {
@@ -257,34 +538,69 @@ router.post('/', async (req, res) => {
   const reqStartRaw = req.body.pickup_datetime || req.body.start_datetime || `${reservation_date || ''} ${reservation_time || ''}`.trim();
   const reqEndRaw = req.body.drop_datetime || req.body.end_datetime || reqStartRaw;
 
-  if (cleanMobile.length > 0 && reqStartRaw) {
+  if (cleanMobile.length > 0) {
     try {
       const activeCheck = await db.query(
         "SELECT reservation_id, status, reservation_date, reservation_time, pickup_datetime, drop_datetime FROM reservations WHERE (mobile LIKE $1 OR mobile LIKE $2) AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride', 'Upcoming')",
         [`%${cleanMobile}%`, `%${mobile}%`]
       );
 
-      const reqStartMs = new Date(reqStartRaw).getTime();
-      const reqEndMs = reqEndRaw ? new Date(reqEndRaw).getTime() : (reqStartMs + 86400000);
+      const toDateString = (val) => {
+        if (!val) return '';
+        if (val instanceof Date) return val.toISOString().slice(0, 10);
+        const str = String(val).trim();
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+        return str;
+      };
 
-      if (!isNaN(reqStartMs)) {
-        for (const existing of activeCheck.rows) {
-          const exStartRaw = existing.pickup_datetime || `${existing.reservation_date || ''} ${existing.reservation_time || ''}`.trim();
-          const exEndRaw = existing.drop_datetime || exStartRaw;
-          let exStartMs = new Date(exStartRaw).getTime();
-          let exEndMs = new Date(exEndRaw).getTime();
-
-          if (isNaN(exStartMs)) continue;
-          if (isNaN(exEndMs) || exEndMs <= exStartMs) exEndMs = exStartMs + 86400000;
-
-          // Overlap condition: reqStart < exEnd AND reqEnd > exStart
-          if (reqStartMs < exEndMs && (isNaN(reqEndMs) ? reqStartMs : reqEndMs) > exStartMs) {
-            return res.status(400).json({
-              status: 'error',
-              has_active_ride: true,
-              message: `Time Conflict! You already have an active/booked ride (${existing.reservation_id}) during this selected date and time.`
-            });
+      const parseTs = (val, timeVal) => {
+        if (!val) return null;
+        if (val instanceof Date) {
+          const d = new Date(val);
+          if (timeVal) {
+            const timeParts = String(timeVal).split(':');
+            if (timeParts.length >= 2) {
+              d.setHours(parseInt(timeParts[0], 10) || 0, parseInt(timeParts[1], 10) || 0, 0, 0);
+            }
           }
+          return d.getTime();
+        }
+        const str = String(val).trim();
+        const combined = timeVal ? `${str} ${timeVal}` : str;
+        const ms = new Date(combined).getTime();
+        if (!isNaN(ms)) return ms;
+        const d2 = new Date(str);
+        return isNaN(d2.getTime()) ? null : d2.getTime();
+      };
+
+      const reqStartMs = parseTs(req.body.pickup_datetime || req.body.start_datetime || reservation_date, reservation_time);
+      const reqEndMs = parseTs(req.body.drop_datetime || req.body.end_datetime, null) || (reqStartMs ? reqStartMs + 86400000 : null);
+      const reqDateStr = toDateString(reservation_date);
+
+      for (const existing of activeCheck.rows) {
+        const exStartMs = parseTs(existing.pickup_datetime || existing.reservation_date, existing.reservation_time);
+        const exEndMs = parseTs(existing.drop_datetime, null) || (exStartMs ? exStartMs + 86400000 : null);
+        const exDateStr = toDateString(existing.reservation_date);
+
+        let conflict = false;
+        // 1. If date/time timestamps are valid, check overlap
+        if (reqStartMs && reqEndMs && exStartMs && exEndMs) {
+          if (reqStartMs < exEndMs && reqEndMs > exStartMs) {
+            conflict = true;
+          }
+        }
+        // 2. Direct string date match fallback (e.g. same day booking)
+        if (!conflict && reqDateStr && exDateStr && reqDateStr === exDateStr) {
+          conflict = true;
+        }
+
+        if (conflict) {
+          return res.status(400).json({
+            status: 'error',
+            has_active_ride: true,
+            message: `Time Conflict! You already have an active/booked ride (${existing.reservation_id}) for this selected date and time.`
+          });
         }
       }
     } catch (e) {
@@ -681,14 +997,22 @@ router.post('/:id/return', async (req, res) => {
   const { id } = req.params;
   await delByPattern('reservations:*');
   await delByPattern('renters:*');
+  await delByPattern('vehicles:*');
+  await delByPattern('batteries:*');
+  await delByPattern('stats:*');
 
   try {
     let reservation;
     try {
       const updateRes = await db.query(`
         UPDATE reservations
-        SET status = 'Completed', payment_status = 'Paid'
-        WHERE id = $1 OR reservation_id = $2
+        SET status = 'Completed',
+            payment_status = 'Paid',
+            returned_at = NOW(),
+            deposit_status = CASE WHEN COALESCE(deposit, 0) > 0 THEN 'Pending_Refund' ELSE 'None' END,
+            refund_amount = COALESCE(deposit, 500),
+            refund_deductions = 0
+        WHERE id::text = $1 OR reservation_id = $2
         RETURNING *
       `, [id, id]);
       if (updateRes.rows.length > 0) reservation = updateRes.rows[0];
@@ -700,22 +1024,176 @@ router.post('/:id/return', async (req, res) => {
     if (idx !== -1) {
       mockList[idx].status = 'Completed';
       mockList[idx].payment_status = 'Paid';
+      mockList[idx].deposit_status = 'Pending_Refund';
+      mockList[idx].refund_amount = mockList[idx].deposit || '500';
       if (!reservation) reservation = mockList[idx];
     }
 
     // Release vehicle and battery inventory back to Available
     try {
       if (reservation && reservation.vehicle_number) {
-        await db.query(`UPDATE vehicles SET vehicle_status = 'Available' WHERE code = $1 OR vehicle_number = $1`, [reservation.vehicle_number]);
+        await db.query(`UPDATE vehicles SET vehicle_status = 'Available', renter_name = 'None (Available)' WHERE code = $1 OR vehicle_number = $1`, [reservation.vehicle_number]);
       }
       if (reservation && reservation.battery_id) {
         await db.query(`UPDATE batteries SET status = 'available' WHERE battery_id = $1 OR id = $1`, [reservation.battery_id]);
+      }
+      // Also update renters table for this rider to Return
+      if (reservation && reservation.mobile) {
+        const cleanMob = reservation.mobile.replace(/\D/g, '').slice(-10);
+        await db.query(`
+          UPDATE renters 
+          SET status = 'Return', return_date = NOW() 
+          WHERE mobile LIKE $1 OR mobile = $2
+        `, [`%${cleanMob}%`, reservation.mobile]).catch(() => {});
       }
     } catch (_) {}
 
     res.json({
       status: 'success',
-      message: `Ride ${id} ended/returned successfully. Vehicle & battery released.`,
+      message: `Ride ${id} ended/returned successfully. Vehicle & battery released. Deposit pending refund.`,
+      data: reservation
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/reservations/:id/refund-deposit — Process deposit refund to rider
+router.post('/:id/refund-deposit', async (req, res) => {
+  const { id } = req.params;
+  const {
+    refund_amount,
+    deductions = 0,
+    refund_mode = 'UPI Instant Refund',
+    notes = '',
+    upi_id = '',
+    bank_account = ''
+  } = req.body;
+
+  const refundAmt = parseFloat(refund_amount || 0);
+  const dedAmt = parseFloat(deductions || 0);
+  const refTxId = `REF-${Date.now().toString().slice(-8)}`;
+
+  try {
+    let updated;
+    try {
+      const dbRes = await db.query(`
+        UPDATE reservations
+        SET deposit_status = 'Refunded',
+            refund_amount = $1,
+            refund_deductions = $2,
+            refund_mode = $3,
+            refund_tx_id = $4,
+            refund_date = NOW(),
+            return_notes = COALESCE($5, return_notes)
+        WHERE id::text = $6 OR reservation_id = $6
+        RETURNING *
+      `, [refundAmt, dedAmt, refund_mode, refTxId, notes, id]);
+      if (dbRes.rows.length > 0) updated = dbRes.rows[0];
+    } catch (e) {
+      console.warn('DB refund update error:', e.message);
+    }
+
+    if (!updated) {
+      // Check if it's a renter record
+      const renterUpdate = await db.query(`
+        UPDATE renters
+        SET status = 'Refunded',
+            deposit = 0
+        WHERE id::text = $1 OR vehicle_id = $1
+        RETURNING *
+      `, [id]).catch(() => ({ rows: [] }));
+      if (renterUpdate.rows[0]) {
+        updated = renterUpdate.rows[0];
+      }
+    }
+
+    // If PayU refund method selected, trigger PayU gateway refund API
+    let payuResult = null;
+    if (refund_mode && refund_mode.toLowerCase().includes('payu')) {
+      try {
+        const payuRouter = require('./payu');
+        if (typeof payuRouter.processPayURefund === 'function') {
+          const originalPayuId = updated?.transaction_id || updated?.payu_id || '';
+          payuResult = await payuRouter.processPayURefund({
+            payuId: originalPayuId,
+            amount: refundAmt,
+            refundTxId: refTxId
+          });
+        }
+      } catch (payuErr) {
+        console.warn('PayU deposit refund call warning:', payuErr.message);
+      }
+    }
+
+    // Insert transaction into wallet_transactions as Debit / Refund
+    const riderMob = (updated?.mobile || '').replace(/\D/g, '').slice(-10);
+    await db.query(`
+      INSERT INTO wallet_transactions (
+        mobile, title, subtitle, amount, type, status, payment_method, transaction_id
+      )
+      VALUES ($1, $2, $3, $4, 'Debit', 'Success', $5, $6)
+    `, [
+      riderMob || '0000000000',
+      'Security Deposit Refund',
+      `${refund_mode}${upi_id ? ` to ${upi_id}` : (bank_account ? ` to A/C ${bank_account}` : '')}`,
+      refundAmt,
+      refund_mode,
+      refTxId
+    ]).catch(err => console.warn('Wallet transaction insert error:', err.message));
+
+    // Clear caches
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
+    await delByPattern('stats:*');
+
+    res.json({
+      status: 'success',
+      message: `Security deposit of ₹${refundAmt} refunded successfully via ${refund_mode}.`,
+      data: {
+        tx_id: refTxId,
+        refund_amount: refundAmt,
+        deductions: dedAmt,
+        refund_mode,
+        refund_date: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error('Failed to process refund:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/reservations/:id/start (Start ride -> status = 'Ongoing')
+router.post('/:id/start', async (req, res) => {
+  const { id } = req.params;
+  await delByPattern('reservations:*');
+  await delByPattern('renters:*');
+
+  try {
+    let reservation;
+    try {
+      const updateRes = await db.query(`
+        UPDATE reservations
+        SET status = 'Ongoing'
+        WHERE id::text = $1 OR reservation_id = $2
+        RETURNING *
+      `, [id, id]);
+      if (updateRes.rows.length > 0) reservation = updateRes.rows[0];
+    } catch (dbErr) {
+      console.warn('DB start update failed, fallback to in-memory:', dbErr.message);
+    }
+
+    const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
+    if (idx !== -1) {
+      mockList[idx].status = 'Ongoing';
+      if (!reservation) reservation = mockList[idx];
+    }
+
+    res.json({
+      status: 'success',
+      message: `Ride ${id} started successfully! Ongoing ride active. 🛵`,
       data: reservation
     });
   } catch (err) {

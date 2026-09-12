@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../../core/services/icici_upi_service.dart';
+import '../../../../core/services/payu_service.dart';
+import '../../../../core/services/payment_gateway_service.dart';
 import '../../../profile/data/services/profile_service.dart';
 import '../../../dashboard/presentation/widgets/vehicle_360_viewer.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
@@ -42,7 +45,9 @@ class PaymentOffersScreen extends StatefulWidget {
 class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
   String _appliedCode = '';
   String _depositOption = 'Pay Now'; // 'Pay Now' or 'Pay Later'
-  String _paymentMethod = 'ICICI UPI';
+  String _paymentMethod = 'PayU';
+  String _activeGatewayId = 'payu';
+  List<Map<String, dynamic>> _activeGateways = [];
 
   double _basePrice = 0.0;
   double _discount = 0.0;
@@ -73,13 +78,255 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     _basePrice = double.tryParse(widget.selectedVehicle["rentAmount"]?.toString() ?? '200') ?? 200.0;
     // No coupon is applied by default. The user must explicitly tap Apply.
     _appliedCode = '';
+    _loadPaymentGatewayConfig();
     _discount = 0.0;
-    _paymentMethod = 'ICICI UPI';
+    _paymentMethod = 'PayU';
   }
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  Future<void> _loadPaymentGatewayConfig() async {
+    try {
+      final cfg = await PaymentGatewayService().getPaymentConfig(forceRefresh: true);
+      final list = await PaymentGatewayService().getActiveGateways();
+      if (mounted) {
+        setState(() {
+          _activeGateways = list.isNotEmpty
+              ? list
+              : [
+                  {'id': 'payu', 'name': 'PayU India', 'provider': 'payu'},
+                  {'id': 'icici', 'name': 'ICICI Bank UPI', 'provider': 'icici'}
+                ];
+          final primary = cfg['primary_gateway']?.toString() ?? (_activeGateways.isNotEmpty ? _activeGateways.first['id'].toString() : 'payu');
+          _activeGatewayId = primary;
+          _paymentMethod = _activeGatewayId == 'payu' ? 'PayU' : 'ICICI UPI';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _activeGateways = [
+            {'id': 'payu', 'name': 'PayU India', 'provider': 'payu'},
+            {'id': 'icici', 'name': 'ICICI Bank UPI', 'provider': 'icici'}
+          ];
+        });
+      }
+    }
+  }
+
+  /// Triggers the selected active payment gateway (PayU, ICICI UPI, etc.)
+  void _triggerPayment({required bool payNow}) {
+    final double amountToPay = _totalPayable;
+
+    if (amountToPay <= 0 || !payNow) {
+      _confirmBooking(payNow: payNow);
+      return;
+    }
+
+    if (_paymentMethod == 'PayU' || _activeGatewayId == 'payu') {
+      _triggerPayUPayment(amountToPay: amountToPay);
+    } else {
+      _triggerIciciUpiPayment(payNow: payNow);
+    }
+  }
+
+  /// Initiates PayU online checkout
+  Future<void> _triggerPayUPayment({required double amountToPay}) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF528900)),
+      ),
+    );
+
+    try {
+      final payuData = await PayUService().initiatePayment(
+        amount: amountToPay,
+        purpose: 'ride',
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (payuData != null && payuData['action_url'] != null) {
+        final txnid = payuData['txnid']?.toString() ?? '';
+        final launched = await PayUService().launchPayUCheckout(
+          payuData['action_url'],
+          payuData,
+        );
+
+        if (launched) {
+          if (!mounted) return;
+          // Show verification dialog and poll status so cancelled payment is NEVER confirmed
+          bool isFinished = false;
+          Timer? pollTimer;
+
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogCtx) {
+              return StatefulBuilder(
+                builder: (context, setDialogState) {
+                  pollTimer ??= Timer.periodic(const Duration(seconds: 3), (t) async {
+                    if (isFinished) {
+                      t.cancel();
+                      return;
+                    }
+                    final status = await PayUService().checkPaymentStatus(txnid);
+                    if (status.toLowerCase() == 'success') {
+                      isFinished = true;
+                      t.cancel();
+                      if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
+                      _confirmBooking(payNow: true, transactionId: txnid);
+                    } else if (status.toLowerCase() == 'failed') {
+                      isFinished = true;
+                      t.cancel();
+                      if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("PayU payment was cancelled or failed. Booking NOT confirmed."),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    }
+                  });
+
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: Row(
+                      children: const [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF2B0B78)),
+                        ),
+                        SizedBox(width: 12),
+                        Text("PayU Payment", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Please complete your payment in the PayU browser window.",
+                          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF16A34A)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "Txn: $txnid",
+                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF334155)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          isFinished = true;
+                          pollTimer?.cancel();
+                          Navigator.pop(dialogCtx);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("PayU payment cancelled. Booking was not confirmed."),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text("Cancel Payment", style: TextStyle(color: Colors.redAccent)),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final status = await PayUService().checkPaymentStatus(txnid);
+                          if (status.toLowerCase() == 'success') {
+                            isFinished = true;
+                            pollTimer?.cancel();
+                            if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
+                            _confirmBooking(payNow: true, transactionId: txnid);
+                          } else if (status.toLowerCase() == 'failed') {
+                            isFinished = true;
+                            pollTimer?.cancel();
+                            if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Payment was cancelled or failed in PayU. Booking NOT confirmed."),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Payment is still pending in PayU. Please finish payment or cancel."),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2B0B78),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text("Check Status"),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+          pollTimer?.cancel();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Could not open PayU checkout. Please check your connection."),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("PayU initiation failed. Switching to UPI."),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        _triggerIciciUpiPayment(payNow: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Payment error: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   /// Triggers ICICI Bank UPI intent modal or confirms booking
@@ -124,7 +371,60 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     );
   }
 
-  /// Posts the booking to the backend with ICICI UPI payment mode.
+  DateTime? _parseDateTimeRobust(String? input) {
+    if (input == null || input.isEmpty || input.toLowerCase().contains('select')) return null;
+    DateTime? dt = DateTime.tryParse(input);
+    if (dt != null) return dt;
+
+    try {
+      final clean = input.replaceAll(RegExp(r'^[A-Za-z]+,\s*'), '').replaceAll(',', ' ').trim();
+      final tokens = clean.split(RegExp(r'\s+'));
+      const months = {
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+      };
+
+      int? day, month, year, hour = 0, minute = 0;
+      String? amPm;
+
+      for (int i = 0; i < tokens.length; i++) {
+        final t = tokens[i].toLowerCase();
+        if (months.containsKey(t)) {
+          month = months[t];
+          if (i > 0 && day == null) {
+            day = int.tryParse(tokens[i - 1]);
+          }
+        } else if (t == 'am' || t == 'pm') {
+          amPm = t;
+        } else if (t.contains(':')) {
+          final parts = t.split(':');
+          hour = int.tryParse(parts[0]) ?? 0;
+          if (parts.length > 1) minute = int.tryParse(parts[1]) ?? 0;
+        } else if (int.tryParse(t) != null) {
+          final val = int.parse(t);
+          if (val > 2000 && val < 2100) {
+            year = val;
+          } else if (day == null && val >= 1 && val <= 31) {
+            day = val;
+          }
+        }
+      }
+
+      if (amPm == 'pm' && hour != null && hour < 12) hour += 12;
+      if (amPm == 'am' && hour != null && hour == 12) hour = 0;
+
+      final now = DateTime.now();
+      year ??= now.year;
+      month ??= now.month;
+      day ??= now.day;
+
+      return DateTime(year, month, day, hour ?? 0, minute ?? 0);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Posts the booking to the backend with active payment mode (PayU or ICICI UPI).
   Future<void> _confirmBooking({required bool payNow, String? transactionId}) async {
     // Show loading
     showDialog(
@@ -136,18 +436,18 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     );
 
     try {
+      final pickupDt = _parseDateTimeRobust(widget.pickupRaw) ?? _parseDateTimeRobust(widget.pickupDateTime);
+      final dropDt = _parseDateTimeRobust(widget.dropRaw) ?? _parseDateTimeRobust(widget.dropDateTime);
+
       final pickupDate = widget.pickupRaw ?? widget.pickupDateTime;
       final dropDate = widget.dropRaw ?? widget.dropDateTime;
 
-      String reservationDate = DateTime.now().toIso8601String().split('T')[0];
-      String reservationTime = '00:00:00';
-      try {
-        final parsed = DateTime.parse(pickupDate);
-        reservationDate = parsed.toIso8601String().split('T')[0];
-        final h = parsed.hour.toString().padLeft(2, '0');
-        final m = parsed.minute.toString().padLeft(2, '0');
-        reservationTime = '$h:$m:00';
-      } catch (_) {}
+      String reservationDate = pickupDt != null
+          ? "${pickupDt.year}-${pickupDt.month.toString().padLeft(2, '0')}-${pickupDt.day.toString().padLeft(2, '0')}"
+          : DateTime.now().toIso8601String().split('T')[0];
+      String reservationTime = pickupDt != null
+          ? "${pickupDt.hour.toString().padLeft(2, '0')}:${pickupDt.minute.toString().padLeft(2, '0')}:00"
+          : '10:00:00';
 
       // Determine dynamic package_type
       String packageType = 'Day';
@@ -199,10 +499,11 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
         'doorstep_delivery': widget.isFlexiDrop == true,
         'doorstep_fee': doorstepFeeVal,
         'doorstep_address': doorstepAddress,
-        'delivery_address': doorstepAddress,
-        'payment_mode': 'ICICI UPI',
+        'payment_mode': _paymentMethod,
         'payment_status': payNow ? 'Paid' : 'Pending',
         'transaction_id': transactionId ?? '',
+        'pickup_datetime': pickupDt?.toIso8601String() ?? widget.pickupDateTime,
+        'drop_datetime': dropDt?.toIso8601String() ?? widget.dropDateTime,
         'pickup_zone': widget.selectedZone,
         'drop_zone': doorstepAddress.isNotEmpty ? doorstepAddress : widget.selectedZone,
         'coupon_code': _appliedCode,
@@ -223,21 +524,49 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       // Dismiss loading
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
-      if (response.statusCode == 400) {
-        debugPrint("Reservation response 400: ${response.body}");
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        String errorMsg = "Could not complete booking. Please try again.";
+        try {
+          final errBody = jsonDecode(response.body);
+          if (errBody['message'] != null) {
+            errorMsg = errBody['message'].toString();
+          }
+        } catch (_) {}
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                  SizedBox(width: 8),
+                  Text("Booking Notice", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Text(errorMsg, style: const TextStyle(fontSize: 14)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text("OK", style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
       }
 
       String reservationId = '';
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          final body = jsonDecode(response.body);
-          if (body['reservation'] != null && body['reservation']['_id'] != null) {
-            reservationId = body['reservation']['_id'];
-          } else if (body['id'] != null) {
-            reservationId = body['id'];
-          }
-        } catch (_) {}
-      }
+      try {
+        final body = jsonDecode(response.body);
+        if (body['reservation'] != null && body['reservation']['_id'] != null) {
+          reservationId = body['reservation']['_id'];
+        } else if (body['id'] != null) {
+          reservationId = body['id'];
+        }
+      } catch (_) {}
 
       final bookingDataMap = {
         "vehicleName": widget.selectedVehicle['evegah_model_name'] ?? widget.selectedVehicle['name'] ?? "Evegah City",
@@ -990,113 +1319,194 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               ),
             ),
 
-            // 5. Payment Options (ICICI Bank UPI)
+            // 5. Dynamic Multi Payment Gateway Section
             _buildSectionHeader(Icons.bolt, "Payment Method", null),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE05315).withOpacity(0.4), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFE05315).withOpacity(0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Radio<String>(
-                        value: 'ICICI UPI',
-                        groupValue: _paymentMethod,
-                        activeColor: const Color(0xFFE05315),
-                        onChanged: (val) => setState(() => _paymentMethod = val!),
+            ...(_activeGateways.isNotEmpty
+                ? _activeGateways
+                : [
+                    {'id': 'payu', 'name': 'PayU India', 'provider': 'payu'},
+                    {'id': 'icici', 'name': 'ICICI Bank UPI', 'provider': 'icici'}
+                  ]).map((gw) {
+              final String gwId = (gw['id'] ?? gw['provider'] ?? 'payu').toString().toLowerCase();
+              final bool isPayU = gwId == 'payu';
+              final bool isIcici = gwId == 'icici';
+              final bool isPhonePe = gwId == 'phonepe';
+              final bool isPaytm = gwId == 'paytm';
+              final bool isRazorpay = gwId == 'razorpay';
+
+              final String methodValue = isPayU ? 'PayU' : isIcici ? 'ICICI UPI' : (gw['name']?.toString() ?? 'UPI');
+              final bool isSelected = _paymentMethod == methodValue || _activeGatewayId == gwId;
+
+              final Color themeColor = isPayU
+                  ? const Color(0xFF528900)
+                  : isIcici
+                      ? const Color(0xFFE05315)
+                      : isPhonePe
+                          ? const Color(0xFF5F259F)
+                          : isPaytm
+                              ? const Color(0xFF002E6E)
+                              : const Color(0xFF2A195C);
+
+              final String brandLabel = isPayU
+                  ? "PAYU INDIA"
+                  : isIcici
+                      ? "ICICI BANK"
+                      : isPhonePe
+                          ? "PHONEPE"
+                          : isPaytm
+                              ? "PAYTM"
+                              : isRazorpay
+                                  ? "RAZORPAY"
+                                  : (gw['name']?.toString().toUpperCase() ?? "GATEWAY");
+
+              final String titleText = isPayU
+                  ? "PayU Payment Gateway"
+                  : isIcici
+                      ? "Instant UPI Intent (ICICI Bank)"
+                      : gw['name']?.toString() ?? "Online Payment";
+
+              final String subText = isPayU
+                  ? "Cards, NetBanking, Wallets & All UPI"
+                  : isIcici
+                      ? "GPay, PhonePe, Paytm, BHIM & All UPI"
+                      : "Direct online digital payment";
+
+              final String detailText = isPayU
+                  ? "100% Secure Checkout (256-bit SSL)"
+                  : isIcici
+                      ? "VPA: ${gw['vpa'] ?? 'EVEGAHRIDE@icici'}"
+                      : "Instant automated digital checkout";
+
+              final String badgeText = isPayU ? "SSL Verified" : "NPCI Verified";
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _activeGatewayId = gwId;
+                    _paymentMethod = methodValue;
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? themeColor : const Color(0xFFE2E8F0),
+                      width: isSelected ? 2.0 : 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSelected ? themeColor.withOpacity(0.08) : Colors.black.withOpacity(0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
                       ),
-                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Radio<String>(
+                            value: methodValue,
+                            groupValue: _paymentMethod,
+                            activeColor: themeColor,
+                            onChanged: (val) {
+                              setState(() {
+                                _activeGatewayId = gwId;
+                                _paymentMethod = val!;
+                              });
+                            },
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: themeColor,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              brandLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10.5,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  titleText,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF334155),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  subText,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 10.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(Icons.check_circle, color: themeColor, size: 20)
+                          else
+                            const Icon(Icons.radio_button_unchecked, color: Colors.grey, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE05315), // ICICI signature orange
+                          color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
-                        child: const Text(
-                          "ICICI BANK",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 11,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              "Instant UPI Payment",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Color(0xFF1E293B),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(isPayU ? Icons.shield_outlined : Icons.bolt, color: themeColor, size: 14),
+                                const SizedBox(width: 5),
+                                Text(
+                                  detailText,
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                badgeText,
+                                style: const TextStyle(
+                                  color: Color(0xFF16A34A),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            SizedBox(height: 2),
-                            Text(
-                              "GPay, PhonePe, Paytm, BHIM & All UPI",
-                              style: TextStyle(color: Colors.grey, fontSize: 10.5),
-                            ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.verified, color: Color(0xFFE05315), size: 18),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.bolt, color: Color(0xFFE05315), size: 16),
-                            SizedBox(width: 6),
-                            Text(
-                              "VPA: EVEGAHRIDE@icici",
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            "NPCI Verified",
-                            style: TextStyle(color: Color(0xFF16A34A), fontSize: 9.5, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            }),
 
             // 6. Cancellation Policy
             Container(
@@ -1179,7 +1589,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () => _triggerIciciUpiPayment(payNow: _depositOption == 'Pay Now'),
+                  onPressed: () => _triggerPayment(payNow: _depositOption == 'Pay Now'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2B0B78), // Deep purple
                     foregroundColor: Colors.white,
@@ -1192,7 +1602,11 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _depositOption == 'Pay Now' ? "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via UPI" : "Confirm Booking",
+                          _depositOption == 'Pay Now'
+                              ? (_activeGatewayId == 'payu'
+                                  ? "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via PayU"
+                                  : "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via UPI")
+                              : "Confirm Booking",
                           maxLines: 1,
                           softWrap: false,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),

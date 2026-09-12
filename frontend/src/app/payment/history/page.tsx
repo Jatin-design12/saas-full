@@ -19,294 +19,298 @@ const CSS = `
 .ph-btn:hover { border-color: #2a195c; color: #2a195c; }
 .ph-btn-primary { background: #2a195c; color: #fff; border-color: #2a195c; }
 .ph-btn-primary:hover { background: #4338CA; border-color: #4338CA; color: #fff; }
+.ph-btn-danger { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+.ph-btn-danger:hover { background: #FEE2E2; border-color: #DC2626; color: #B91C1C; }
+.ph-checkbox { width: 16px; height: 16px; border-radius: 4px; accent-color: #2A195C; cursor: pointer; }
+.action-delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid #FECACA; background: #FEF2F2; color: #DC2626; cursor: pointer; transition: all .15s; }
+.action-delete-btn:hover { background: #DC2626; color: #fff; border-color: #DC2626; }
+
+/* KPI Cards Grid */
+.ph-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 1024px) {
+  .ph-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .ph-kpi-grid { grid-template-columns: 1fr; }
+}
+
+.ph-kpi-card {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.02);
+  transition: all .15s;
+}
+.ph-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+  border-color: #CBD5E1;
+}
+
+.ph-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px; }
+.ph-kpi-label { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.03em; }
+.ph-kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ph-kpi-val { font-size: 24px; font-weight: 800; color: #0F172A; line-height: 1; margin: 8px 0 4px; font-family: 'Outfit', sans-serif; }
+.ph-kpi-sub { font-size: 10.5px; color: #64748B; margin-top: 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+.ic-purple { background: #EEF2FF; color: #6366F1; }
+.ic-green { background: #ECFDF5; color: #10B981; }
+.ic-orange { background: #FFF7ED; color: #F97316; }
+.ic-blue { background: #EFF6FF; color: #2563EB; }
 
 /* Filter bar panel */
-.ph-filter-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
-.ph-filter-grid { display: grid; grid-template-columns: 2fr 1.25fr 1.25fr 1.25fr 1.25fr auto; gap: 12px; align-items: center; }
+.ph-filter-card { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
+.ph-filter-grid { display: grid; grid-template-columns: 2fr 1.25fr 1.25fr 1.25fr auto; gap: 12px; align-items: center; }
 .ph-search-wrap { position: relative; }
-.ph-search-input { width: 100%; padding: 10px 12px 10px 38px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; outline: none; transition: border-color .15s; background: #FAFAFA; color: #1E293B; }
+.ph-search-input { width: 100%; padding: 10px 12px 10px 38px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; outline: none; transition: border-color .15s; background: #FFF; color: #1E293B; }
 .ph-search-input:focus { border-color: #2a195c; background: #fff; }
 .ph-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; display: flex; align-items: center; }
-
-.ph-date-picker { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 600; background: #fff; color: #334155; cursor: pointer; }
-.ph-date-picker:hover { border-color: #2a195c; }
-.ph-date-icon { color: #64748B; display: flex; align-items: center; }
 
 .ph-select { width: 100%; padding: 10px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 500; outline: none; background: #fff; color: #334155; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 12px; padding-right: 36px; }
 .ph-select:focus { border-color: #2a195c; }
 
-.ph-filter-btn { display: flex; align-items: center; gap: 7px; padding: 10px 16px; background: #F1F5F9; border: 1.5px solid transparent; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all .15s; }
-.ph-filter-btn:hover { background: #E2E8F0; color: #2a195c; }
+.ph-filter-btn { display: flex; align-items: center; gap: 7px; padding: 10px 16px; background: #FFF; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all .15s; }
+.ph-filter-btn:hover { background: #FAF5FF; border-color: #2a195c; color: #2a195c; }
 
 /* Table styling */
-.ph-tcard { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; display: flex; flex-direction: column; }
+.ph-tcard { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; display: flex; flex-direction: column; }
 .ph-dt-wrap { overflow-x: auto; }
 .ph-dt { width: 100%; border-collapse: collapse; min-width: 1000px; }
-.ph-dt th { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .06em; text-align: left; padding: 14px 18px; background: #FAFBFD; border-bottom: 1px solid #E2E8F0; }
-.ph-dt th.sortable { cursor: pointer; user-select: none; }
-.ph-dt th.sortable:hover { background: #F1F5F9; }
+.ph-dt th { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .06em; text-align: left; padding: 14px 18px; background: #FFF; border-bottom: 1.5px solid #E2E8F0; }
 .ph-dt td { padding: 14px 18px; font-size: 13px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
 .ph-dt tr:last-child td { border-bottom: none; }
-.ph-dt tr:hover td { background: #F8FAFC; }
+.ph-dt tr:hover td { background: #FAF8FF; }
 
 .ph-rider-cell { display: flex; align-items: center; gap: 12px; }
-.ph-rider-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #E2E8F0; display: block; flex-shrink: 0; }
+.ph-rider-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #2A195C; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; }
 .ph-rider-info { display: flex; flex-direction: column; }
 .ph-rider-name { font-size: 13.5px; font-weight: 700; color: #1E293B; }
 .ph-rider-code { font-size: 11.5px; color: #64748B; font-weight: 600; text-transform: uppercase; margin-top: 1px; }
 
 .ph-tx-code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; font-weight: 700; color: #1E293B; }
-.ph-ref-code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px; font-weight: 600; color: #64748B; }
+.ph-ref-code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; font-weight: 600; color: #64748B; }
 
-.ph-type-cell { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12.5px; }
-.ph-type-icon { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
-.type-rental { color: #3B82F6; }
-.type-swap { color: #10B981; }
-.type-refund { color: #F59E0B; }
+.ph-type-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+.type-credit { background: #DCFCE7; color: #15803D; }
+.type-debit { background: #FEF3C7; color: #B45309; }
 
-.ph-pm-cell { display: flex; align-items: center; gap: 10px; }
-.ph-pm-logo { width: 32px; height: 20px; object-fit: contain; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px; padding: 2px; }
-.ph-pm-info { display: flex; flex-direction: column; }
-.ph-pm-name { font-size: 12.5px; font-weight: 700; color: #1E293B; }
-.ph-pm-sub { font-size: 11px; color: #64748B; margin-top: 1px; }
+.ph-pm-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid #E2E8F0; background: #FFF;
+}
 
-.ph-amount { font-weight: 700; font-size: 13.5px; color: #1E293B; }
-.ph-amount.refunded { color: #EF4444; }
+.ph-amount { font-weight: 800; font-size: 14px; }
+.ph-amount.credit { color: #15803D; }
+.ph-amount.debit { color: #DC2626; }
 
 .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; border: 1.5px solid transparent; }
 .badge-successful { background: #DCFCE7; color: #15803D; border-color: #BBF7D0; }
-.badge-refunded { background: #F3E8FF; color: #7E22CE; border-color: #E9D5FF; }
+.badge-pending { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
 .badge-failed { background: #FEE2E2; color: #B91C1C; border-color: #FECACA; }
 
-.action-view-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: all .15s; }
-.action-view-btn:hover { border-color: #2a195c; color: #2a195c; background: #F8FAFC; }
+.action-copy-btn { padding: 5px 10px; background: #FFF; border: 1.5px solid #E2E8F0; border-radius: 6px; font-size: 11px; font-weight: 700; color: #475569; cursor: pointer; transition: all .15s; }
+.action-copy-btn:hover { background: #2A195C; color: #fff; border-color: #2A195C; }
 
-.ph-tcard-ft { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-top: 1px solid #E2E8F0; background: #FAFBFD; flex-wrap: wrap; gap: 12px; }
+.ph-tcard-ft { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-top: 1.5px solid #E2E8F0; background: #FFF; flex-wrap: wrap; gap: 12px; }
 .ph-tcard-ft-lbl { font-size: 13px; color: #64748B; font-weight: 500; }
 .ph-pg { display: flex; align-items: center; gap: 4px; }
 .ph-pgb { width: 32px; height: 32px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: #fff; font-size: 13px; font-weight: 700; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
 .ph-pgb:hover:not(:disabled) { border-color: #2a195c; color: #2a195c; }
 .ph-pgb.cur { background: #FAF5FF; color: #2a195c; border-color: #2a195c; }
 .ph-pgb:disabled { opacity: 0.5; cursor: not-allowed; }
-.ph-pg-dots { padding: 0 4px; color: #64748B; font-size: 13px; }
 
-.ph-limit-select { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12.5px; font-weight: 600; outline: none; background: #fff; color: #475569; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 11px; padding-right: 28px; }
+.ph-limit-select { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12.5px; font-weight: 600; outline: none; background: #fff; color: #475569; cursor: pointer; }
 `;
 
-interface RecordRow {
-  rider: { name: string; code: string; avatar: string };
-  dateTime: string;
-  txId: string;
-  type: 'Rental' | 'Swap' | 'Refund';
-  refId: string;
-  pm: { name: string; sub: string; logoType: 'gpay' | 'visa' | 'phonepe' | 'mastercard' | 'paytm' | 'upi' };
+interface PaymentRecord {
+  id: string;
+  tx_id: string;
+  reference_id: string;
+  rider_name: string;
+  mobile: string;
   amount: number;
-  status: 'Successful' | 'Refunded' | 'Failed';
+  type: 'Credit' | 'Debit';
+  status: 'Successful' | 'Pending' | 'Failed';
+  payment_method: string;
+  purpose: string;
+  created_at: string;
 }
 
-const INITIAL_RECORDS: RecordRow[] = [
-  {
-    rider: { name: 'Arjun Mehta', code: 'EVB1234', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 11:05 AM',
-    txId: 'TXN-240518-0001',
-    type: 'Rental',
-    refId: 'INV-240518-0012',
-    pm: { name: 'UPI', sub: 'Google Pay', logoType: 'gpay' },
-    amount: 120,
-    status: 'Successful'
-  },
-  {
-    rider: { name: 'Neha Singh', code: 'EVS5678', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 10:30 AM',
-    txId: 'TXN-240518-0002',
-    type: 'Swap',
-    refId: 'BS-240518-0120',
-    pm: { name: 'Card', sub: 'Visa **** 4242', logoType: 'visa' },
-    amount: 60,
-    status: 'Successful'
-  },
-  {
-    rider: { name: 'Rahul Kumar', code: 'EVB9012', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 09:20 AM',
-    txId: 'TXN-240518-0003',
-    type: 'Rental',
-    refId: 'INV-240518-0014',
-    pm: { name: 'UPI', sub: 'PhonePe', logoType: 'phonepe' },
-    amount: 80,
-    status: 'Successful'
-  },
-  {
-    rider: { name: 'Sneha Reddy', code: 'EVS7890', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 08:45 AM',
-    txId: 'TXN-240518-0004',
-    type: 'Refund',
-    refId: 'REF-240518-0006',
-    pm: { name: 'Original Payment', sub: 'UPI', logoType: 'upi' },
-    amount: -120,
-    status: 'Refunded'
-  },
-  {
-    rider: { name: 'Amit Kumar', code: 'EVS6789', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 07:40 AM',
-    txId: 'TXN-240518-0005',
-    type: 'Rental',
-    refId: 'INV-240518-0017',
-    pm: { name: 'Card', sub: 'Mastercard **** 8888', logoType: 'mastercard' },
-    amount: 40,
-    status: 'Successful'
-  },
-  {
-    rider: { name: 'Pooja Sharma', code: 'EVB2345', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 07:10 AM',
-    txId: 'TXN-240518-0006',
-    type: 'Rental',
-    refId: 'INV-240518-0018',
-    pm: { name: 'UPI', sub: 'Paytm', logoType: 'paytm' },
-    amount: 0,
-    status: 'Failed'
-  },
-  {
-    rider: { name: 'Rohit Verma', code: 'EVS8901', avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 06:50 AM',
-    txId: 'TXN-240518-0007',
-    type: 'Swap',
-    refId: 'BS-240518-0119',
-    pm: { name: 'UPI', sub: 'Google Pay', logoType: 'gpay' },
-    amount: 60,
-    status: 'Successful'
-  },
-  {
-    rider: { name: 'Vikram Patel', code: 'EVS1234', avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 06:20 AM',
-    txId: 'TXN-240518-0008',
-    type: 'Refund',
-    refId: 'REF-240518-0007',
-    pm: { name: 'Original Payment', sub: 'Card', logoType: 'visa' },
-    amount: -60,
-    status: 'Refunded'
-  },
-  {
-    rider: { name: 'Kavya Singh', code: 'EVS5678', avatar: 'https://images.unsplash.com/photo-1534751516642-a131fed10495?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 05:55 AM',
-    txId: 'TXN-240518-0009',
-    type: 'Rental',
-    refId: 'INV-240518-0020',
-    pm: { name: 'UPI', sub: 'PhonePe', logoType: 'phonepe' },
-    amount: 120,
-    status: 'Successful'
-  },
-  {
-    rider: { name: 'Manish Yadav', code: 'EVS3456', avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=100&q=80' },
-    dateTime: '18 May 2024, 05:30 AM',
-    txId: 'TXN-240518-0010',
-    type: 'Swap',
-    refId: 'BS-240518-0118',
-    pm: { name: 'Card', sub: 'Visa **** 1111', logoType: 'visa' },
-    amount: 60,
-    status: 'Successful'
-  }
-];
+interface KPIStats {
+  total_credit: number;
+  total_debit: number;
+  net_balance: number;
+  total_transactions: number;
+  successful_count: number;
+  pending_count: number;
+  failed_count: number;
+}
 
 export default function PaymentHistoryPage() {
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [methodFilter, setMethodFilter] = useState('All');
-  const [liveRecords, setLiveRecords] = useState<RecordRow[]>([]);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [records, setRecords] = useState<PaymentRecord[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    api.get('/wallet/payment-history')
-      .then((res: any) => {
-        const list = res?.data || (Array.isArray(res) ? res : []);
-        if (list.length > 0) {
-          const formatted = list.map((t: any) => ({
-            rider: { name: t.mobile || 'Rider', code: `RDR-${(t.mobile || '101').slice(-4)}`, avatar: '/rohit_avatar.png' },
-            dateTime: new Date(t.created_at || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + new Date(t.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-            txId: t.transaction_id || `TXN-${t.id}`,
-            type: (t.type === 'Credit' ? 'Rental' : t.type === 'Withdrawal' ? 'Refund' : 'Swap') as 'Rental' | 'Swap' | 'Refund',
-            refId: t.transaction_id || `REF-${t.id}`,
-            pm: { name: t.payment_method || 'Razorpay', sub: 'Razorpay UPI/Online', logoType: 'upi' },
-            amount: parseFloat(t.amount || 0),
-            status: (t.status === 'Success' ? 'Successful' : (t.status || 'Successful')) as 'Successful' | 'Refunded' | 'Failed'
-          }));
-          setLiveRecords(formatted);
+  const [kpis, setKpis] = useState<KPIStats>({
+    total_credit: 0,
+    total_debit: 0,
+    net_balance: 0,
+    total_transactions: 0,
+    successful_count: 0,
+    pending_count: 0,
+    failed_count: 0
+  });
+
+  // Fetch real payment history from backend API
+  const fetchPaymentHistory = async () => {
+    setLoading(true);
+    try {
+      const qParams = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        search: search.trim(),
+        type: typeFilter,
+        status: statusFilter
+      });
+
+      const res: any = await api.get(`/payments/history?${qParams.toString()}`);
+      if (res && res.status === 'success') {
+        setRecords(res.data || []);
+        if (res.kpis) setKpis(res.kpis);
+        if (res.pagination) {
+          setTotalPages(res.pagination.totalPages || 1);
+          setTotalRecords(res.pagination.total || 0);
         }
-      })
-      .catch((e) => console.error('Payment history API error:', e));
-  }, []);
-
-  const allRecords = useMemo(() => {
-    return [...liveRecords, ...INITIAL_RECORDS];
-  }, [liveRecords]);
-
-  // Filter logic
-  const filteredRecords = useMemo(() => {
-    return allRecords.filter(r => {
-      const matchSearch =
-        r.rider.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.rider.code.toLowerCase().includes(search.toLowerCase()) ||
-        r.txId.toLowerCase().includes(search.toLowerCase()) ||
-        r.refId.toLowerCase().includes(search.toLowerCase());
-
-      const matchType = typeFilter === 'All' || r.type === typeFilter;
-      const matchStatus = statusFilter === 'All' || r.status === statusFilter;
-      
-      let matchMethod = true;
-      if (methodFilter !== 'All') {
-        if (methodFilter === 'UPI') matchMethod = r.pm.name === 'UPI' || r.pm.sub.includes('Pay') || r.pm.sub.includes('UPI');
-        else if (methodFilter === 'Card') matchMethod = r.pm.name === 'Card' || r.pm.sub.includes('Visa') || r.pm.sub.includes('Mastercard');
       }
-
-      return matchSearch && matchType && matchStatus && matchMethod;
-    });
-  }, [allRecords, search, typeFilter, statusFilter, methodFilter]);
-
-  const pmLogo = (type: string) => {
-    switch (type) {
-      case 'gpay':
-        return (
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="22" height="10" viewBox="0 0 200 85" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M29.5 3.3C21.7 3.3 14 6.3 8.3 11.9L16.2 19.8C20 16 25 14 30.5 14C41 14 49 22 49 32.5C49 43 41 51 30.5 51C25 51 20 49 16.2 45.2L8.3 53.1C14 58.7 21.7 61.7 29.5 61.7C46.5 61.7 60 48.2 60 31.2C60 14.2 46.5 3.3 29.5 3.3Z" fill="#EA4335" />
-              <path d="M82.8 19.5L69.5 56.5H82.8L86.2 46H103L106.3 56.5H119.5L106.2 19.5H82.8ZM89.5 36L94.5 22L99.5 36H89.5Z" fill="#4285F4" />
-              <path d="M129.5 19.5L139.5 44.5L149.5 19.5H163.5L146.5 56.5L132.5 56.5L115.5 19.5H129.5Z" fill="#FBBC05" />
-            </svg>
-          </span>
-        );
-      case 'visa':
-        return (
-          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1A1F71', fontStyle: 'italic', letterSpacing: '-0.5px' }}>VISA</span>
-        );
-      case 'phonepe':
-        return (
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#5f259f', borderRadius: '3px', width: '16px', height: '16px', color: '#fff', fontSize: '10px', fontWeight: 'bold' }}>pe</span>
-        );
-      case 'mastercard':
-        return (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EB001B', display: 'inline-block' }} />
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#F79E1B', display: 'inline-block', marginLeft: '-4px' }} />
-          </div>
-        );
-      case 'paytm':
-        return (
-          <span style={{ fontSize: '10px', fontWeight: '800', color: '#00B9F1' }}>paytm</span>
-        );
-      case 'upi':
-      default:
-        return (
-          <span style={{ fontSize: '9px', fontWeight: '800', color: '#097939', border: '1px solid #097939', padding: '1px 2px', borderRadius: '2px', lineHeight: 1 }}>UPI</span>
-        );
+    } catch (e) {
+      console.error('Failed to load payment history:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getSortIcon = () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6, color: '#94A3B8' }}>
-      <polyline points="15 18 12 21 9 18" />
-      <polyline points="9 6 12 3 15 6" />
-      <line x1="12" y1="3" x2="12" y2="21" />
-    </svg>
-  );
+  useEffect(() => {
+    fetchPaymentHistory();
+  }, [page, limit, typeFilter, statusFilter]);
+
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(1);
+      fetchPaymentHistory();
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Filter client-side by method if needed
+  const displayRecords = useMemo(() => {
+    if (methodFilter === 'all') return records;
+    return records.filter(r => {
+      const pm = (r.payment_method || '').toLowerCase();
+      if (methodFilter === 'icici') return pm.includes('icici');
+      if (methodFilter === 'payu') return pm.includes('payu');
+      if (methodFilter === 'wallet') return pm.includes('wallet');
+      if (methodFilter === 'razorpay') return pm.includes('razorpay');
+      return true;
+    });
+  }, [records, methodFilter]);
+
+  const isAllSelected = displayRecords.length > 0 && displayRecords.every(r => selectedIds.includes(r.id));
+  const isSomeSelected = selectedIds.length > 0 && !isAllSelected;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(displayRecords.map(r => r.id));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected transaction(s)?`)) return;
+    try {
+      setIsDeleting(true);
+      await api.delete('/payments/history', { data: { ids: selectedIds } });
+      setSelectedIds([]);
+      await fetchPaymentHistory();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to delete transactions');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSingleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this transaction record?')) return;
+    try {
+      setIsDeleting(true);
+      await api.delete(`/payments/history/${id}`);
+      setSelectedIds(prev => prev.filter(item => item !== id));
+      await fetchPaymentHistory();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Failed to delete transaction');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedId(text);
+      setTimeout(() => setCopiedId(null), 1800);
+    }
+  };
+
+  const exportCSV = () => {
+    if (records.length === 0) return;
+    const headers = ['Transaction ID', 'Rider Name', 'Mobile', 'Type', 'Amount', 'Status', 'Payment Method', 'Reference ID', 'Date'];
+    const rows = records.map(r => [
+      r.tx_id,
+      r.rider_name,
+      r.mobile,
+      r.type,
+      r.amount,
+      r.status,
+      r.payment_method,
+      r.reference_id,
+      new Date(r.created_at).toISOString()
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Evegah_Payments_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <>
@@ -320,21 +324,129 @@ export default function PaymentHistoryPage() {
             {/* Header */}
             <div className="ph-title-row">
               <div>
-                <h1 className="ph-h1">Payment History</h1>
-                <p className="ph-sub">View and track all payments received for rentals, battery swaps, refunds and invoices.</p>
+                <h1 className="ph-h1">Live Payment History</h1>
+                <p className="ph-sub">Real-time ledger of collections, deposits, refunds, and withdrawals across all payment gateways.</p>
               </div>
               <div className="ph-actions">
-                <button className="ph-btn">
+                {selectedIds.length > 0 && (
+                  <button 
+                    className="ph-btn ph-btn-danger" 
+                    onClick={handleBulkDelete}
+                    disabled={isDeleting}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    {isDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
+                  </button>
+                )}
+                <button className="ph-btn" onClick={exportCSV}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  Export
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}>
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  Export CSV
                 </button>
+                <button className="ph-btn ph-btn-primary" onClick={fetchPaymentHistory}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 4v6h-6" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Cards Grid (Matches Renters/Vehicles UI) */}
+            <div className="ph-kpi-grid">
+              {/* 1. Total Collections (Credit) */}
+              <div className="ph-kpi-card">
+                <div className="ph-kpi-top">
+                  <div>
+                    <div className="ph-kpi-label">Total Collections</div>
+                    <div className="ph-kpi-val" style={{ color: '#0F172A' }}>
+                      ₹{(kpis.total_credit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="ph-kpi-sub" style={{ color: '#10B981' }}>
+                      ↑ {kpis.successful_count} successful collections
+                    </div>
+                  </div>
+                  <div className="ph-kpi-icon ic-green">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="1" x2="12" y2="23" />
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Total Refunds / Debits */}
+              <div className="ph-kpi-card">
+                <div className="ph-kpi-top">
+                  <div>
+                    <div className="ph-kpi-label">Total Refunds / Payouts</div>
+                    <div className="ph-kpi-val" style={{ color: '#0F172A' }}>
+                      ₹{(kpis.total_debit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="ph-kpi-sub" style={{ color: '#F97316' }}>
+                      ↓ deposits &amp; adjustments
+                    </div>
+                  </div>
+                  <div className="ph-kpi-icon ic-orange">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                      <path d="M21 3v5h-5" />
+                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                      <path d="M3 21v-5h5" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Net Balance */}
+              <div className="ph-kpi-card">
+                <div className="ph-kpi-top">
+                  <div>
+                    <div className="ph-kpi-label">Net Platform Settled</div>
+                    <div className="ph-kpi-val" style={{ color: '#0F172A' }}>
+                      ₹{(kpis.net_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="ph-kpi-sub" style={{ color: '#6366F1' }}>
+                      ↑ gross collections minus refunds
+                    </div>
+                  </div>
+                  <div className="ph-kpi-icon ic-purple">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                      <polyline points="17 6 23 6 23 12" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Total Transactions Count */}
+              <div className="ph-kpi-card">
+                <div className="ph-kpi-top">
+                  <div>
+                    <div className="ph-kpi-label">Total Transactions</div>
+                    <div className="ph-kpi-val" style={{ color: '#0F172A' }}>
+                      {kpis.total_transactions}
+                    </div>
+                    <div className="ph-kpi-sub" style={{ color: '#64748B' }}>
+                      <span style={{ color: '#F59E0B' }}>{kpis.pending_count} pending</span>
+                      <span>•</span>
+                      <span style={{ color: '#EF4444' }}>{kpis.failed_count} failed</span>
+                    </div>
+                  </div>
+                  <div className="ph-kpi-icon ic-blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="5" width="20" height="14" rx="2" />
+                      <line x1="2" y1="10" x2="22" y2="10" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -351,39 +463,21 @@ export default function PaymentHistoryPage() {
                   <input
                     type="text"
                     className="ph-search-input"
-                    placeholder="Search by Rider Name, Transaction ID, ..."
+                    placeholder="Search by Rider Name, Mobile, Tx ID, Ref ID..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
 
-                <button className="ph-date-picker">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="ph-date-icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                    </span>
-                    18 May 2024 - 18 May 2024
-                  </span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2, color: '#64748B' }}>
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-
                 <div>
                   <select
                     className="ph-select"
                     value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
+                    onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
                   >
-                    <option value="All">All Types</option>
-                    <option value="Rental">Rental Payment</option>
-                    <option value="Swap">Battery Swap</option>
-                    <option value="Refund">Refund</option>
+                    <option value="all">All Types (Credit &amp; Debit)</option>
+                    <option value="credit">Credit (Collections)</option>
+                    <option value="debit">Debit (Refunds / Withdrawals)</option>
                   </select>
                 </div>
 
@@ -391,12 +485,12 @@ export default function PaymentHistoryPage() {
                   <select
                     className="ph-select"
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                   >
-                    <option value="All">All Status</option>
-                    <option value="Successful">Successful</option>
-                    <option value="Refunded">Refunded</option>
-                    <option value="Failed">Failed</option>
+                    <option value="all">All Status</option>
+                    <option value="successful">Successful</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
                   </select>
                 </div>
 
@@ -406,25 +500,16 @@ export default function PaymentHistoryPage() {
                     value={methodFilter}
                     onChange={(e) => setMethodFilter(e.target.value)}
                   >
-                    <option value="All">All Methods</option>
-                    <option value="UPI">UPI Payments</option>
-                    <option value="Card">Card Payments</option>
+                    <option value="all">All Gateways &amp; Methods</option>
+                    <option value="icici">ICICI Bank UPI</option>
+                    <option value="payu">PayU India</option>
+                    <option value="wallet">Wallet Transactions</option>
+                    <option value="razorpay">Razorpay</option>
                   </select>
                 </div>
 
-                <button className="ph-filter-btn">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="4" y1="21" x2="4" y2="14" />
-                    <line x1="4" y1="10" x2="4" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12" y2="3" />
-                    <line x1="20" y1="21" x2="20" y2="16" />
-                    <line x1="20" y1="12" x2="20" y2="3" />
-                    <line x1="1" y1="14" x2="7" y2="14" />
-                    <line x1="9" y1="8" x2="15" y2="8" />
-                    <line x1="17" y1="16" x2="23" y2="16" />
-                  </svg>
-                  More Filters
+                <button className="ph-filter-btn" onClick={() => { setSearch(''); setTypeFilter('all'); setStatusFilter('all'); setMethodFilter('all'); setPage(1); }}>
+                  Reset Filters
                 </button>
               </div>
             </div>
@@ -435,142 +520,206 @@ export default function PaymentHistoryPage() {
                 <table className="ph-dt">
                   <thead>
                     <tr>
-                      <th className="sortable">RIDER / CUSTOMER {getSortIcon()}</th>
-                      <th className="sortable">DATE & TIME {getSortIcon()}</th>
-                      <th className="sortable">TRANSACTION ID {getSortIcon()}</th>
+                      <th style={{ width: 44, paddingLeft: 18, paddingRight: 8 }}>
+                        <input 
+                          type="checkbox" 
+                          className="ph-checkbox"
+                          checked={isAllSelected}
+                          ref={el => { if (el) el.indeterminate = isSomeSelected; }}
+                          onChange={toggleSelectAll}
+                          title="Select / Deselect All"
+                        />
+                      </th>
+                      <th>RIDER / CUSTOMER</th>
+                      <th>DATE &amp; TIME</th>
+                      <th>TRANSACTION ID</th>
                       <th>TYPE</th>
-                      <th>REFERENCE ID</th>
-                      <th>PAYMENT METHOD</th>
+                      <th>GATEWAY / METHOD</th>
+                      <th>PURPOSE</th>
                       <th>AMOUNT</th>
                       <th>STATUS</th>
                       <th>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRecords.length === 0 ? (
+                    {loading ? (
                       <tr>
-                        <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
-                          No records found matching filters.
+                        <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                          <div style={{ display: 'inline-block', width: 24, height: 24, border: '3px solid #2A195C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 8 }} />
+                          <div>Loading live transaction history...</div>
+                        </td>
+                      </tr>
+                    ) : displayRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} style={{ textAlign: 'center', padding: '50px 20px', color: '#64748B' }}>
+                          <div style={{ fontSize: '32px', marginBottom: '8px' }}>💳</div>
+                          <div style={{ fontWeight: 700, fontSize: '15px', color: '#1E293B' }}>No Transactions Found</div>
+                          <div style={{ fontSize: '13px', marginTop: '4px' }}>Try adjusting your search query or status filter.</div>
                         </td>
                       </tr>
                     ) : (
-                      filteredRecords.map((r, index) => (
-                        <tr key={index}>
-                          <td>
-                            <div className="ph-rider-cell">
-                              <img src={r.rider.avatar} alt={r.rider.name} className="ph-rider-avatar" />
-                              <div className="ph-rider-info">
-                                <span className="ph-rider-name">{r.rider.name}</span>
-                                <span className="ph-rider-code">{r.rider.code}</span>
+                      displayRecords.map((r) => {
+                        const isCredit = r.type === 'Credit';
+                        const isSuccess = r.status === 'Successful';
+                        const isPending = r.status === 'Pending';
+                        const isSelected = selectedIds.includes(r.id);
+                        const initials = (r.rider_name || 'R').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+                        return (
+                          <tr key={r.id} style={{ background: isSelected ? '#FAF5FF' : undefined }}>
+                            {/* Row Checkbox */}
+                            <td style={{ width: 44, paddingLeft: 18, paddingRight: 8 }}>
+                              <input 
+                                type="checkbox" 
+                                className="ph-checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectOne(r.id)}
+                              />
+                            </td>
+
+                            {/* Rider info */}
+                            <td>
+                              <div className="ph-rider-cell">
+                                <div className="ph-rider-avatar">
+                                  {initials}
+                                </div>
+                                <div className="ph-rider-info">
+                                  <span className="ph-rider-name">{r.rider_name}</span>
+                                  <span className="ph-rider-code">{r.mobile || 'No Mobile'}</span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: '500' }}>{r.dateTime}</td>
-                          <td className="ph-tx-code">{r.txId}</td>
-                          <td>
-                            <div className="ph-type-cell">
-                              {r.type === 'Rental' && (
-                                <>
-                                  <span className="ph-type-icon type-rental">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                                      <circle cx="5.5" cy="17.5" r="2.5" />
-                                      <circle cx="18.5" cy="17.5" r="2.5" />
-                                      <path d="M15 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm-3 5.5V14m-3.5-3.5H15M8.5 10.5L12 6.5l3.5 4" />
-                                    </svg>
-                                  </span>
-                                  Rental Payment
-                                </>
-                              )}
-                              {r.type === 'Swap' && (
-                                <>
-                                  <span className="ph-type-icon type-swap">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                                      <rect x="2" y="7" width="16" height="10" rx="2" ry="2" />
-                                      <line x1="22" y1="11" x2="22" y2="13" />
-                                    </svg>
-                                  </span>
-                                  Battery Swap
-                                </>
-                              )}
-                              {r.type === 'Refund' && (
-                                <>
-                                  <span className="ph-type-icon type-refund">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                                    </svg>
-                                  </span>
-                                  Refund
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="ph-ref-code">{r.refId}</td>
-                          <td>
-                            <div className="ph-pm-cell">
-                              <div className="ph-pm-logo">{pmLogo(r.pm.logoType)}</div>
-                              <div className="ph-pm-info">
-                                <span className="ph-pm-name">{r.pm.name}</span>
-                                <span className="ph-pm-sub">{r.pm.sub}</span>
+                            </td>
+
+                            {/* Date & Time */}
+                            <td style={{ whiteSpace: 'nowrap', fontSize: 12.5, color: '#475569' }}>
+                              {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(r.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            </td>
+
+                            {/* Transaction ID */}
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span className="ph-tx-code">{r.tx_id}</span>
+                                <button
+                                  className="action-copy-btn"
+                                  onClick={() => copyToClipboard(r.tx_id)}
+                                  title="Copy Tx ID"
+                                >
+                                  {copiedId === r.tx_id ? '✓' : 'Copy'}
+                                </button>
                               </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`ph-amount ${r.amount < 0 ? 'refunded' : ''}`}>
-                              {r.amount < 0 ? `-₹${Math.abs(r.amount)}` : `₹${r.amount}`}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`status-badge badge-${r.status.toLowerCase()}`}>
-                              {r.status}
-                            </span>
-                          </td>
-                          <td>
-                            <button className="action-view-btn">
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </svg>
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+
+                            {/* Type */}
+                            <td>
+                              <span className={`ph-type-badge ${isCredit ? 'type-credit' : 'type-debit'}`}>
+                                {isCredit ? '↓ Credit' : '↑ Debit'}
+                              </span>
+                            </td>
+
+                            {/* Payment Method */}
+                            <td>
+                              <span className="ph-pm-badge">
+                                {r.payment_method.includes('ICICI') ? '🟠 ICICI UPI' :
+                                 r.payment_method.includes('PayU') ? '🟢 PayU India' :
+                                 r.payment_method.includes('Razorpay') ? '🔵 Razorpay' : '🟣 ' + r.payment_method}
+                              </span>
+                            </td>
+
+                            {/* Purpose / Reference */}
+                            <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5 }}>
+                              <span title={r.purpose}>{r.purpose}</span>
+                              {r.reference_id && (
+                                <div className="ph-ref-code">{r.reference_id}</div>
+                              )}
+                            </td>
+
+                            {/* Amount */}
+                            <td>
+                              <span className={`ph-amount ${isCredit ? 'credit' : 'debit'}`}>
+                                {isCredit ? '+' : '-'}₹{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+
+                            {/* Status */}
+                            <td>
+                              <span className={`status-badge ${isSuccess ? 'badge-successful' : isPending ? 'badge-pending' : 'badge-failed'}`}>
+                                {r.status}
+                              </span>
+                            </td>
+
+                            {/* Action */}
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button
+                                  className="action-copy-btn"
+                                  onClick={() => copyToClipboard(r.reference_id || r.tx_id)}
+                                  title="Details"
+                                >
+                                  Details
+                                </button>
+                                <button
+                                  className="action-delete-btn"
+                                  title="Delete Record"
+                                  onClick={() => handleSingleDelete(r.id)}
+                                  disabled={isDeleting}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
 
-              {/* Table Footer */}
+              {/* Table Footer / Pagination */}
               <div className="ph-tcard-ft">
-                <span className="ph-tcard-ft-lbl">Showing 1 to {filteredRecords.length} of 324 records</span>
-                
-                <div className="ph-pg">
-                  <button className="ph-pgb" disabled>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="15 18 9 12 15 6" />
-                    </svg>
-                  </button>
-                  <button className="ph-pgb cur">1</button>
-                  <button className="ph-pgb">2</button>
-                  <button className="ph-pgb">3</button>
-                  <span className="ph-pg-dots">...</span>
-                  <button className="ph-pgb">33</button>
-                  <button className="ph-pgb">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </button>
-                </div>
+                <span className="ph-tcard-ft-lbl">
+                  Showing {displayRecords.length} of {totalRecords} total transactions
+                </span>
 
-                <div>
-                  <select className="ph-limit-select" defaultValue="10">
-                    <option value="10">10 per page</option>
-                    <option value="25">25 per page</option>
-                    <option value="50">50 per page</option>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <select
+                    className="ph-limit-select"
+                    value={limit}
+                    onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={15}>15 per page</option>
+                    <option value={25}>25 per page</option>
+                    <option value={50}>50 per page</option>
                   </select>
+
+                  <div className="ph-pg">
+                    <button
+                      className="ph-pgb"
+                      disabled={page <= 1}
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                      ‹
+                    </button>
+                    <span style={{ fontSize: 13, fontWeight: 700, padding: '0 8px', color: '#2A195C' }}>
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      className="ph-pgb"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    >
+                      ›
+                    </button>
+                  </div>
                 </div>
               </div>
+
             </div>
+
           </div>
         </div>
       </div>

@@ -98,6 +98,12 @@ const CSS = `
 .mo-cost-bar-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: #374151; }
 .mo-cost-bar-track { height: 6px; background: #F1F5F9; border-radius: 3px; overflow: hidden; }
 .mo-cost-bar-fill { height: 100%; background: #6366F1; border-radius: 3px; }
+
+/* Service Centers & Maintenance Hubs */
+.mo-sc-card { background: #FFF; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.01); }
+.mo-sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 14px; }
+.mo-sc-item { border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 16px; background: #FAFBFD; transition: all 0.2s; display: flex; flex-direction: column; gap: 10px; }
+.mo-sc-item:hover { border-color: #2A195C; background: #FFF; box-shadow: 0 4px 12px rgba(42,25,92,0.06); }
 `;
 
 // EV Bike Vector SVG Icon
@@ -114,6 +120,7 @@ export default function MaintenanceOverviewPage() {
   const router = useRouter();
   const [activeZone, setActiveZone] = useState("Gotri Zone");
   const [records, setRecords] = useState<any[]>([]);
+  const [serviceCenters, setServiceCenters] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [typeFilter, setTypeFilter] = useState("All Service Types");
@@ -121,6 +128,40 @@ export default function MaintenanceOverviewPage() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+
+  const fetchServiceCenters = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/zones?type=service`);
+      if (res.ok) {
+        const body = await res.json();
+        if (Array.isArray(body.data) && body.data.length > 0) {
+          setServiceCenters(body.data);
+          return;
+        }
+      }
+    } catch (_) {}
+    setServiceCenters([
+      {
+        id: 'SC-01',
+        name: 'Evegah Service Center & Central Hub',
+        code: 'EVG-SC-01',
+        type: 'Service Zone (Maintenance Hub)',
+        locality: 'Central Workshop, Vadodara',
+        city: 'Vadodara',
+        address: 'Plot 14, GIDC Industrial Estate, Makarpura, Vadodara',
+        phone: '+91 98255 44332',
+        open_time: '08:00 AM',
+        close_time: '09:00 PM',
+        is_24_hours: false,
+        status: 'active'
+      }
+    ]);
+  };
+
+  useEffect(() => {
+    fetchServiceCenters();
+  }, []);
 
   useEffect(() => {
     const checkZone = () => {
@@ -704,8 +745,73 @@ export default function MaintenanceOverviewPage() {
                       <div style={{ fontWeight: '800', color: '#16A34A', fontSize: '12.5px' }}>₹1,500</div>
                       <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>10 Jun 2026</div>
                     </div>
-                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Dedicated Service Centers & Maintenance Hubs Section */}
+            <div className="mo-sc-card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 className="mo-card-title" style={{ margin: '0 0 4px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', background: '#EEF2FF', color: '#6366F1' }}>
+                      🔧
+                    </span>
+                    Authorized Evegah Service Centers & Maintenance Hubs
+                  </h3>
+                  <span style={{ fontSize: '12.5px', color: '#64748B', fontWeight: 500 }}>
+                    Official workshop locations for EV inspections, BMS battery diagnostics, component servicing, and staging. (Hidden from Rider App)
+                  </span>
+                </div>
+                <button
+                  onClick={() => router.push('/zones/new?type=service')}
+                  className="mo-btn mo-btn-primary"
+                  style={{ fontSize: '12.5px', padding: '8px 14px' }}
+                >
+                  + Add Service Zone
+                </button>
+              </div>
+
+              <div className="mo-sc-grid">
+                {serviceCenters.map((sc: any, idx: number) => (
+                  <div key={sc.id || idx} className="mo-sc-item">
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: '#0F172A' }}>{sc.name || 'Evegah Service Center'}</div>
+                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
+                          Code: <span style={{ fontFamily: 'monospace', color: '#2A195C', fontWeight: 700 }}>{sc.code || 'EVG-SC-01'}</span> • {sc.city || 'Vadodara'}
+                        </div>
+                      </div>
+                      <span className="mo-badge mo-badge-completed" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                        ● Active Hub
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>📍</span>
+                      <span>{sc.address || sc.locality || 'Makarpura Industrial Estate, Vadodara'}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748B', borderTop: '1px dashed #E2E8F0', paddingTop: '10px', marginTop: '2px' }}>
+                      <div>
+                        <strong style={{ color: '#0F172A' }}>Hours:</strong> {sc.is_24_hours ? '24x7 Open' : `${sc.open_time || '08:00 AM'} - ${sc.close_time || '09:00 PM'}`}
+                      </div>
+                      <div>
+                        <strong style={{ color: '#0F172A' }}>Contact:</strong> {sc.phone || '+91 98255 44332'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                      <button
+                        onClick={() => router.push(`/zones/new?id=${sc.id}`)}
+                        style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 700, color: '#2A195C', cursor: 'pointer' }}
+                      >
+                        Manage Hub &rarr;
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

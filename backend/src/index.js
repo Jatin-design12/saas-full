@@ -42,13 +42,39 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/rides', require('./routes/rides'));
 app.use('/api/retain-rider', require('./routes/rides'));
 app.use('/api/payments/icici', require('./routes/icici'));
+app.use('/api/payments/payu', require('./routes/payu'));
+app.use('/api/payments/history', require('./routes/paymentHistory'));
+app.use('/api/payments/gateways', require('./routes/gateways'));
+app.use('/api/payments/config', (req, res, next) => {
+  req.url = '/config';
+  return require('./routes/gateways')(req, res, next);
+});
 
 
-// API endpoints for the Rider App
+// Helper to identify maintenance service centers
+const isServiceCenterZone = (z) => {
+  const t = (z.type || '').toLowerCase();
+  const n = (z.name || '').toLowerCase();
+  return t.includes('service') || t.includes('maintenance') || n.includes('service center');
+};
+
+// API endpoints for the Rider App (Consumer Rental Zones only)
 app.get('/api/v1/getzoneDetailWithBikeCountList', async (req, res) => {
   try {
-    const result = await require('./db').query('SELECT * FROM zones ORDER BY created_at DESC');
-    const formattedZones = await Promise.all(result.rows.map(async (z) => {
+    const [zonesRes, bikeCountsRes] = await Promise.all([
+      require('./db').query('SELECT * FROM zones ORDER BY created_at DESC'),
+      require('./db').query("SELECT zone, COUNT(*)::int as count FROM vehicles WHERE vehicle_status = 'Available' GROUP BY zone").catch(() => ({ rows: [] }))
+    ]);
+
+    const bikeCountsMap = {};
+    bikeCountsRes.rows.forEach(r => {
+      if (r.zone) bikeCountsMap[r.zone.trim().toLowerCase()] = r.count;
+    });
+
+    // Exclude Service Zones and Maintenance Hubs from Rider Mobile App
+    const consumerZones = zonesRes.rows.filter(z => !isServiceCenterZone(z));
+
+    const formattedZones = consumerZones.map((z) => {
       let pts = [];
       try {
         pts = Array.isArray(z.points) ? z.points : JSON.parse(z.points || '[]');
@@ -61,12 +87,8 @@ app.get('/api/v1/getzoneDetailWithBikeCountList', async (req, res) => {
         center = { lat: sumLat / pts.length, lng: sumLng / pts.length };
       }
       
-      // Query real available vehicles count for this zone
-      const bikeCountRes = await require('./db').query(
-        "SELECT COUNT(*) FROM vehicles WHERE zone = $1 AND vehicle_status = 'Available'",
-        [z.name]
-      );
-      const bikeCount = parseInt(bikeCountRes.rows[0].count) || 0;
+      const zNameKey = (z.name || '').trim().toLowerCase();
+      const bikeCount = bikeCountsMap[zNameKey] || 0;
       
       return {
         id: z.id,
@@ -84,9 +106,13 @@ app.get('/api/v1/getzoneDetailWithBikeCountList', async (req, res) => {
         open_time: z.open_time || '06:00 AM',
         close_time: z.close_time || '11:00 PM',
         is_24_hours: z.is_24_hours ?? true,
+        bike_count: bikeCount,
+        available_vehicles: bikeCount,
+        center: center,
+        points: pts,
         pricing: z.pricing || {}
       };
-    }));
+    });
     res.json({
       status: 'success',
       data: formattedZones

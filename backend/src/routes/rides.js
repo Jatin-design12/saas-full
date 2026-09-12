@@ -252,7 +252,7 @@ router.post('/return', async (req, res) => {
 
       // Release battery back to available
       const renterRec = await db.query(
-        "SELECT battery_id FROM renters WHERE (mobile LIKE $1 AND mobile != '') OR vehicle_id = $2 ORDER BY id DESC LIMIT 1",
+        "SELECT battery_id, deposit FROM renters WHERE (mobile LIKE $1 AND mobile != '') OR vehicle_id = $2 ORDER BY id DESC LIMIT 1",
         [`%${cleanMob}%`, vehicle_id]
       );
       if (renterRec.rows[0]?.battery_id) {
@@ -263,6 +263,53 @@ router.post('/return', async (req, res) => {
         `, [renterRec.rows[0].battery_id]);
       }
 
+      // Also update or record in reservations table for Deposit Refund Dashboard
+      const renterDep = renterRec.rows[0]?.deposit !== undefined && renterRec.rows[0]?.deposit !== null ? parseFloat(renterRec.rows[0].deposit) : null;
+      const existingRes = await db.query(
+        "SELECT id, deposit FROM reservations WHERE (mobile LIKE $1 AND mobile != '') OR vehicle_number = $2 ORDER BY id DESC LIMIT 1",
+        [`%${cleanMob}%`, vehicle_id]
+      ).catch(() => ({ rows: [] }));
+      const resDep = existingRes.rows[0]?.deposit !== undefined && existingRes.rows[0]?.deposit !== null ? parseFloat(existingRes.rows[0].deposit) : null;
+      const originalDep = resDep !== null ? resDep : (renterDep !== null ? renterDep : 0);
+      const depRefund = originalDep > 0 ? parseFloat(refund_deposit !== undefined ? refund_deposit : originalDep) : 0;
+      const deductionsAmt = Math.max(0, originalDep - depRefund);
+      const depStatus = originalDep > 0 ? 'Pending_Refund' : 'None';
+
+      const resUpdate = await db.query(`
+        UPDATE reservations
+        SET status = 'Completed',
+            returned_at = NOW(),
+            return_condition = $1,
+            return_notes = $2,
+            deposit_status = $3,
+            refund_amount = $4,
+            refund_deductions = $5
+        WHERE (mobile LIKE $6 AND mobile != '') OR vehicle_number = $7
+        RETURNING id
+      `, [return_condition || 'Clean / Good', notes || '', depStatus, depRefund, deductionsAmt, `%${cleanMob}%`, vehicle_id]);
+
+      if (resUpdate.rows.length === 0) {
+        await db.query(`
+          INSERT INTO reservations (
+            reservation_id, customer_name, mobile, package_type, vehicle_number,
+            deposit, status, deposit_status, refund_amount, refund_deductions, return_condition, return_notes, returned_at
+          )
+          VALUES ($1, $2, $3, 'Rental Plan', $4, $5, 'Completed', $6, $7, $8, $9, $10, NOW())
+        `, [
+          `RID-${Date.now().toString().slice(-6)}`,
+          rider_name || 'Rider',
+          mobile || cleanMob,
+          vehicle_id || 'EVM102502',
+          originalDep,
+          depStatus,
+          depRefund,
+          deductionsAmt,
+          return_condition || 'Clean',
+          notes || ''
+        ]).catch(err => console.warn('Could not insert reservation for return:', err.message));
+      }
+
+      await delByPattern('reservations:*');
       await delByPattern('vehicles:*');
       await delByPattern('batteries:*');
       await delByPattern('renters:*');

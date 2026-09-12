@@ -451,6 +451,14 @@ export default function AddZonePage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const id = params.get('id');
+      const typeParam = params.get('type');
+      if (typeParam === 'service' || typeParam === 'maintenance') {
+        setFormData(prev => ({
+          ...prev,
+          type: 'Service Zone (Maintenance Hub)',
+          name: prev.name.includes('Service') ? prev.name : 'Evegah Service Center'
+        }));
+      }
       if (id) {
         setIsEditing(true);
         setEditId(id);

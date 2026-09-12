@@ -6,142 +6,183 @@ import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
 
 const CSS = `
-.se-shell { display: flex; min-height: 100vh; background: #F3F4F9; font-family: 'Inter', sans-serif; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.se-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; color: #0F172A; }
 .se-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
-.se-page { flex: 1; padding: 20px 22px 70px; display: flex; flex-direction: column; gap: 20px; }
+.se-page { flex: 1; padding: 28px 32px 80px; display: flex; flex-direction: column; gap: 24px; max-width: 1600px; }
 
 /* Header title */
-.se-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
-.se-h1 { font-size: 22px; font-weight: 800; color: #111827; margin: 0 0 4px; letter-spacing: -0.02em; }
-.se-sub { font-size: 13px; color: #6B7280; margin: 0; font-weight: 400; }
+.se-title-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.se-h1 { font-size: 24px; font-weight: 800; color: #0F172A; margin: 0 0 4px; letter-spacing: -0.025em; }
+.se-sub { font-size: 13.5px; color: #64748B; margin: 0; font-weight: 500; }
 
-.se-actions { display: flex; align-items: center; gap: 10px; }
-.se-btn { display: flex; align-items: center; gap: 7px; padding: 10px 18px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; transition: all .15s; }
-.se-btn:hover { border-color: #2a195c; color: #2a195c; }
-.se-btn-primary { background: #2a195c; color: #fff; border-color: #2a195c; }
-.se-btn-primary:hover { background: #1E1044; border-color: #1E1044; color: #fff; }
-.se-btn-danger { background: #fff; color: #EF4444; border-color: #FCA5A5; }
-.se-btn-danger:hover { background: #FEF2F2; }
+.se-actions { display: flex; align-items: center; gap: 12px; }
+.se-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 12px; font-size: 13px; font-weight: 700; color: #334155; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.se-btn:hover { border-color: #CBD5E1; background: #F8FAFC; color: #0F172A; transform: translateY(-1px); }
+.se-btn-primary { background: #2A195C; color: #FFFFFF; border-color: #2A195C; box-shadow: 0 4px 14px rgba(42,25,92,0.25); }
+.se-btn-primary:hover { background: #1F1147; border-color: #1F1147; color: #FFFFFF; box-shadow: 0 6px 20px rgba(42,25,92,0.35); transform: translateY(-1px); }
+.se-btn-danger { background: #FEF2F2; color: #DC2626; border-color: #FEE2E2; }
+.se-btn-danger:hover { background: #FEE2E2; border-color: #FCA5A5; }
 
 /* Tabs categories */
-.se-tabs-card { border-bottom: 1px solid #E2E8F0; margin-bottom: 4px; overflow-x: auto; }
-.se-tabs-list { display: flex; gap: 24px; }
-.se-tab { padding: 12px 4px 14px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; border-bottom: 2.5px solid transparent; transition: all .15s; white-space: nowrap; background: transparent; border-top: none; border-left: none; border-right: none; }
-.se-tab:hover { color: #2a195c; }
-.se-tab.active { color: #2a195c; border-color: #2a195c; font-weight: 700; }
+.se-tabs-card { background: #FFFFFF; padding: 6px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(15,23,42,0.03); overflow-x: auto; scrollbar-width: none; }
+.se-tabs-card::-webkit-scrollbar { display: none; }
+.se-tabs-list { display: flex; gap: 6px; align-items: center; }
+.se-tab { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; border-radius: 10px; border: none; background: transparent; transition: all 0.18s ease-in-out; white-space: nowrap; }
+.se-tab:hover { color: #2A195C; background: #F5F3FF; }
+.se-tab.active { color: #FFFFFF; background: #2A195C; font-weight: 700; box-shadow: 0 2px 8px rgba(42,25,92,0.25); }
 
-/* 3-Column Layout */
-.se-three-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.se-column { display: flex; flex-direction: column; gap: 20px; }
-
-/* Grid panel cards */
-.se-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-.se-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+/* Layout Grids */
+.se-three-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.se-column { display: flex; flex-direction: column; gap: 24px; }
+.se-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+.se-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .se-grid-all { grid-column: 1 / -1; }
 .se-span-2 { grid-column: span 2; }
 
-.se-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.02); display: flex; flex-direction: column; gap: 16px; }
-.se-card-hdr { display: flex; align-items: flex-start; gap: 12px; border-bottom: 1px solid #F1F5F9; padding-bottom: 12px; }
-.se-card-ic { width: 34px; height: 34px; border-radius: 8px; background: #EEF2FF; color: #2a195c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.se-card-text { display: flex; flex-direction: column; }
-.se-card-tit { font-size: 14px; font-weight: 700; color: #1E293B; }
-.se-card-sub { font-size: 11.5px; color: #64748B; margin-top: 1px; }
+/* Panel cards */
+.se-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 18px; padding: 22px 24px; box-shadow: 0 1px 3px rgba(15,23,42,0.03), 0 4px 16px -4px rgba(15,23,42,0.02); display: flex; flex-direction: column; gap: 18px; transition: border-color 0.2s, box-shadow 0.2s; }
+.se-card:hover { border-color: #CBD5E1; }
+.se-card-hdr { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #F1F5F9; padding-bottom: 16px; margin-bottom: 2px; }
+.se-card-ic { width: 40px; height: 40px; border-radius: 12px; background: #F5F3FF; color: #2A195C; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(42,25,92,0.08); }
+.se-card-text { display: flex; flex-direction: column; gap: 2px; }
+.se-card-tit { font-size: 15px; font-weight: 800; color: #0F172A; letter-spacing: -0.01em; }
+.se-card-sub { font-size: 12px; color: #64748B; font-weight: 500; }
 
-/* Form Field Groups with Left-Aligned Icon Squares */
-.se-field-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; }
-.se-field-left { display: flex; align-items: center; gap: 12px; flex: 1; }
-.se-field-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.se-field-text { display: flex; flex-direction: column; gap: 1px; }
-.se-field-tit { font-size: 12.5px; font-weight: 700; color: #1E293B; }
-.se-field-desc { font-size: 11px; color: #64748B; }
+/* Form Field Groups */
+.se-field-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 10px; border-radius: 12px; transition: background 0.15s; min-height: 44px; }
+.se-field-row:hover { background: #F8FAFC; }
+.se-field-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.se-field-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.se-field-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.se-field-tit { font-size: 13px; font-weight: 700; color: #1E293B; }
+.se-field-desc { font-size: 11.5px; color: #64748B; line-height: 1.35; }
 .se-field-control { display: flex; justify-content: flex-end; align-items: center; flex-shrink: 0; }
 
-.se-input { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12.5px; outline: none; color: #1E293B; background: #fff; font-weight: 500; }
-.se-input:focus { border-color: #2a195c; }
-.se-select { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12.5px; outline: none; background: #fff; color: #334155; cursor: pointer; font-weight: 500; }
-.se-select:focus { border-color: #2a195c; }
+/* Inputs & Selects */
+.se-input { height: 38px; padding: 0 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; outline: none; color: #0F172A; background: #FFFFFF; font-weight: 500; transition: all 0.15s ease; font-family: inherit; }
+.se-input:hover { border-color: #CBD5E1; }
+.se-input:focus { border-color: #2A195C; box-shadow: 0 0 0 3px rgba(42,25,92,0.1); }
+.se-select { height: 38px; padding: 0 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; outline: none; background: #FFFFFF; color: #0F172A; cursor: pointer; font-weight: 500; transition: all 0.15s ease; font-family: inherit; }
+.se-select:hover { border-color: #CBD5E1; }
+.se-select:focus { border-color: #2A195C; box-shadow: 0 0 0 3px rgba(42,25,92,0.1); }
 
-/* Input group with unit */
-.se-input-group { display: flex; align-items: center; position: relative; border: 1.5px solid #E2E8F0; border-radius: 8px; background: #fff; overflow: hidden; width: 140px; }
-.se-input-group .se-input { border: none; padding: 8px 12px; font-size: 12.5px; outline: none; width: 100%; font-weight: 500; text-align: center; }
-.se-input-unit { background: #F1F5F9; border-left: 1.5px solid #E2E8F0; padding: 8px 12px; font-size: 11.5px; font-weight: 600; color: #64748B; white-space: nowrap; display: flex; align-items: center; justify-content: center; min-width: 45px; }
+/* Input group with attached unit */
+.se-input-group { display: flex; align-items: center; border: 1.5px solid #E2E8F0; border-radius: 10px; background: #FFFFFF; overflow: hidden; width: 150px; height: 38px; transition: border-color 0.15s; }
+.se-input-group:focus-within { border-color: #2A195C; box-shadow: 0 0 0 3px rgba(42,25,92,0.1); }
+.se-input-group .se-input { border: none; height: 100%; padding: 0 12px; font-size: 13px; outline: none; width: 100%; font-weight: 600; text-align: center; }
+.se-input-unit { background: #F8FAFC; border-left: 1.5px solid #E2E8F0; padding: 0 12px; height: 100%; font-size: 11.5px; font-weight: 700; color: #64748B; white-space: nowrap; display: flex; align-items: center; justify-content: center; min-width: 48px; }
 
+/* Radio groups */
 .se-radio-group { display: flex; gap: 16px; }
-.se-radio-opt { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #475569; font-weight: 500; cursor: pointer; }
+.se-radio-opt { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #334155; font-weight: 600; cursor: pointer; }
+.se-radio-opt input[type="radio"] { accent-color: #2A195C; width: 16px; height: 16px; }
 
-/* Toggle Switch (Track themed to brand primary #2a195c) */
-.se-switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+/* Toggle Switch */
+.se-switch { position: relative; display: inline-block; width: 42px; height: 22px; }
 .se-switch input { opacity: 0; width: 0; height: 0; }
-.se-slider { position: absolute; cursor: pointer; inset: 0; background-color: #CBD5E1; transition: .3s; border-radius: 20px; }
-.se-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
-input:checked + .se-slider { background-color: #2a195c; }
-input:checked + .se-slider:before { transform: translateX(18px); }
+.se-slider { position: absolute; cursor: pointer; inset: 0; background-color: #CBD5E1; transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 20px; }
+.se-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: #FFFFFF; transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+input:checked + .se-slider { background-color: #2A195C; }
+input:checked + .se-slider:before { transform: translateX(20px); }
 
 /* Quick Actions List */
-.se-qa-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid #F1F5F9; border-radius: 10px; cursor: pointer; transition: all .12s; background: #FAFAFA; }
-.se-qa-row:hover { background: #F8FAFC; border-color: #2a195c; }
-.se-qa-l { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: #1E293B; }
-.se-qa-ic { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+.se-qa-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #F1F5F9; border-radius: 12px; cursor: pointer; transition: all 0.15s ease; background: #FFFFFF; }
+.se-qa-row:hover { background: #F8FAFC; border-color: #2A195C; transform: translateX(2px); }
+.se-qa-l { display: flex; align-items: center; gap: 12px; font-size: 13.5px; font-weight: 700; color: #0F172A; }
+.se-qa-ic { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
 
 /* Status Badges */
-.se-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; }
-.badge-active { background: #DCFCE7; color: #15803D; }
-.badge-inactive { background: #F1F5F9; color: #475569; }
-.badge-latest { background: #DCFCE7; color: #15803D; }
+.se-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.badge-active { background: #DCFCE7; color: #15803D; border: 1px solid #BBF7D0; }
+.badge-inactive { background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; }
+.badge-latest { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
 .badge-success { background: #DCFCE7; color: #15803D; }
 
 /* System Info grid */
-.se-sys-info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.se-sys-val-lbl { font-size: 11px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
-.se-sys-val-val { font-size: 13px; font-weight: 700; color: #1E293B; margin-top: 4px; }
+.se-sys-info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.se-sys-val-lbl { font-size: 11px; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.se-sys-val-val { font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 4px; font-family: 'Inter', monospace; }
 
 /* Progress bar */
-.se-progress-bg { height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; width: 100%; margin-top: 6px; }
-.se-progress-fill { height: 100%; background: #2a195c; border-radius: 3px; }
+.se-progress-bg { height: 8px; background: #F1F5F9; border-radius: 4px; overflow: hidden; width: 100%; margin-top: 8px; }
+.se-progress-fill { height: 100%; background: #2A195C; border-radius: 4px; }
 
 /* Weekly Off selection */
-.se-day-btn { padding: 6px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer; background: #fff; transition: all .15s; }
-.se-day-btn.active { background: #2a195c; color: #fff; border-color: #2a195c; }
+.se-day-btn { padding: 8px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #475569; cursor: pointer; background: #FFFFFF; transition: all 0.15s ease; }
+.se-day-btn.active { background: #2A195C; color: #FFFFFF; border-color: #2A195C; box-shadow: 0 2px 6px rgba(42,25,92,0.25); }
 
 /* Payment Gateway cards */
-.se-gateway-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border: 1px solid #F1F5F9; border-radius: 12px; background: #FAFAFA; }
-.se-gateway-info { display: flex; align-items: center; gap: 14px; }
-.se-gateway-name { font-size: 14px; font-weight: 700; color: #1E293B; }
+.se-gateway-row { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border: 1.5px solid #F1F5F9; border-radius: 14px; background: #FFFFFF; transition: all 0.2s; }
+.se-gateway-row:hover { border-color: #E2E8F0; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.se-gateway-info { display: flex; align-items: center; gap: 16px; }
+.se-gateway-name { font-size: 14.5px; font-weight: 800; color: #0F172A; }
 .se-gateway-key { font-size: 12px; color: #64748B; font-family: monospace; }
 
 /* Brand logotypes */
-.se-brand-logo { font-weight: 900; font-size: 15px; font-style: italic; letter-spacing: -0.02em; }
+.se-brand-logo { font-weight: 900; font-size: 16px; font-style: italic; letter-spacing: -0.03em; }
+.logo-payu { color: #528900; }
+.logo-icici { color: #C94B00; }
 .logo-razorpay { color: #002244; }
 .logo-phonepe { color: #5f259f; }
 .logo-paytm { color: #00baf2; }
+.logo-cashfree { color: #0c74ff; }
+.logo-default { color: #1e293b; }
+
+.badge-primary { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-weight: 800; }
+.badge-env { background: #F8FAFC; color: #475569; font-size: 11px; border: 1px solid #E2E8F0; font-weight: 600; }
+
+/* Gateway Modal */
+.se-modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 16px; }
+.se-modal-card { background: #FFFFFF; border-radius: 20px; width: 100%; max-width: 560px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; animation: seModalPop 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes seModalPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+.se-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #F1F5F9; background: #FAFBFD; }
+.se-modal-title { font-size: 17px; font-weight: 800; color: #0F172A; }
+.se-modal-close { background: none; border: none; font-size: 20px; color: #64748B; cursor: pointer; padding: 4px; line-height: 1; border-radius: 6px; }
+.se-modal-close:hover { color: #0F172A; background: #F1F5F9; }
+.se-modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; max-height: 72vh; overflow-y: auto; }
+.se-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 18px 24px; border-top: 1px solid #F1F5F9; background: #FAFBFD; }
+.se-form-group { display: flex; flex-direction: column; gap: 7px; }
+.se-form-label { font-size: 12.5px; font-weight: 700; color: #334155; }
+.se-form-input { padding: 10px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; color: #0F172A; outline: none; transition: all 0.15s; font-family: inherit; font-weight: 500; }
+.se-form-input:focus { border-color: #2A195C; box-shadow: 0 0 0 3px rgba(42,25,92,0.1); }
+.se-form-hint { font-size: 11px; color: #64748B; font-weight: 500; }
+
+/* Generic field rows in settings cards */
+.se-field { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid #F8FAFC; }
+.se-field:last-child { border-bottom: none; }
+.se-field-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.se-field-info .se-field-tit { font-size: 13.5px; font-weight: 700; color: #1E293B; }
+.se-field-info .se-field-desc { font-size: 11.5px; color: #64748B; line-height: 1.35; }
 
 /* Payment Methods List */
-.se-pm-list { display: flex; flex-direction: column; gap: 10px; }
-.se-pm-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid #F1F5F9; border-radius: 10px; background: #FAFBFD; }
-.se-pm-left { display: flex; align-items: center; gap: 10px; }
+.se-pm-list { display: flex; flex-direction: column; gap: 12px; }
+.se-pm-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid #F1F5F9; border-radius: 12px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+.se-pm-left { display: flex; align-items: center; gap: 12px; }
 .se-pm-drag { color: #94A3B8; cursor: grab; }
 .se-pm-info { display: flex; flex-direction: column; gap: 2px; }
-.se-pm-name { font-size: 13px; font-weight: 700; color: #1E293B; }
-.se-pm-desc { font-size: 11px; color: #64748B; }
+.se-pm-name { font-size: 13.5px; font-weight: 700; color: #0F172A; }
+.se-pm-desc { font-size: 11.5px; color: #64748B; }
 
 /* Notification preference Grid list */
 .se-noti-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-.se-noti-table th { padding: 12px; font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1.5px solid #E2E8F0; }
-.se-noti-table td { padding: 12px; border-bottom: 1px solid #F1F5F9; color: #334155; }
+.se-noti-table th { padding: 14px; font-size: 11.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1.5px solid #E2E8F0; }
+.se-noti-table td { padding: 14px; border-bottom: 1px solid #F1F5F9; color: #1E293B; font-weight: 500; }
 .se-noti-table tr:last-child td { border-bottom: none; }
 .se-noti-ch { text-align: center; width: 80px; }
-.se-noti-ch input[type="checkbox"] { width: 15px; height: 15px; accent-color: #2a195c; cursor: pointer; }
+.se-noti-ch input[type="checkbox"] { width: 17px; height: 17px; accent-color: #2A195C; cursor: pointer; }
 
 /* Notification Summary row cards */
-.se-noti-sum-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.se-noti-sum-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; }
-.se-noti-sum-ic { width: 36px; height: 36px; border-radius: 50%; background: #EEF2FF; color: #2a195c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.se-noti-sum-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.se-noti-sum-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+.se-noti-sum-ic { width: 40px; height: 40px; border-radius: 12px; background: #F5F3FF; color: #2A195C; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .se-noti-sum-info { display: flex; flex-direction: column; gap: 2px; }
-.se-noti-sum-lbl { font-size: 12.5px; font-weight: 700; color: #1E293B; }
+.se-noti-sum-lbl { font-size: 13px; font-weight: 700; color: #0F172A; }
 .se-noti-sum-val { font-size: 11.5px; color: #64748B; }
 
 /* Alerts boxes */
-.se-alert-success { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.se-alert-success { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 14px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
 `;
 
 function SettingsContent() {
@@ -217,12 +258,63 @@ function SettingsContent() {
       smoking_penalty: 200.00
     },
     payments: {
-      razorpay_active: true,
-      razorpay_key_id: 'rzp_live_xxxxxxxxxxxxx',
-      phonepe_active: true,
-      phonepe_merchant_id: 'PGTESTxxxxxxxx',
-      paytm_active: false,
-      paytm_merchant_id: 'Mid_xxxxxxxxxxxxx',
+      gateways: [
+        {
+          id: 'payu',
+          name: 'PayU India',
+          provider: 'payu',
+          active: true,
+          key_id: 'WTi3jH',
+          key_secret: '9dascniXrfdMW22AJBbhmh2C7kuBibwb',
+          client_id: '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543',
+          client_secret: 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4',
+          environment: 'test',
+          notes: 'PayU India Hosted Checkout, Cards, NetBanking, UPI'
+        },
+        {
+          id: 'icici',
+          name: 'ICICI Bank UPI',
+          provider: 'icici',
+          active: true,
+          key_id: '9496988',
+          key_secret: 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ',
+          vpa: 'EVEGAHRIDE@icici',
+          payee_name: 'Evegah',
+          environment: 'production',
+          notes: 'Direct Merchant UPI QR & Intent Launch'
+        },
+        {
+          id: 'phonepe',
+          name: 'PhonePe',
+          provider: 'phonepe',
+          active: false,
+          key_id: 'PGTESTxxxxxxxx',
+          key_secret: '••••••••••••••••',
+          environment: 'test',
+          notes: 'PhonePe Payment Gateway'
+        },
+        {
+          id: 'paytm',
+          name: 'Paytm',
+          provider: 'paytm',
+          active: false,
+          key_id: 'Mid_xxxxxxxxxxxxx',
+          key_secret: '••••••••••••••••',
+          environment: 'production',
+          notes: 'Paytm All-in-one Gateway'
+        },
+        {
+          id: 'razorpay',
+          name: 'Razorpay',
+          provider: 'razorpay',
+          active: false,
+          key_id: 'rzp_live_xxxxxxxxxxxxx',
+          key_secret: '••••••••••••••••',
+          environment: 'production',
+          notes: 'Razorpay Payment Gateway'
+        }
+      ],
+      primary_gateway: 'payu',
       default_payment_method: 'UPI',
       payment_capture: true,
       partial_payment: true,
@@ -240,7 +332,13 @@ function SettingsContent() {
       methods_card: true,
       methods_netbanking: true,
       methods_wallets: true,
-      methods_cash: false
+      methods_cash: false,
+      payu_active: true,
+      payu_key_id: 'WTi3jH',
+      payu_key_secret: '9dascniXrfdMW22AJBbhmh2C7kuBibwb',
+      payu_client_id: '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543',
+      payu_client_secret: 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4',
+      payu_env: 'test'
     },
     notifications: {
       channels_email: true,
@@ -328,8 +426,127 @@ function SettingsContent() {
       });
   }, []);
 
-  // Merge local state with database state to prevent undefined category issues
-  const currentSettings = dbSettings ? { ...localSettings, ...dbSettings } : localSettings;
+  // Gateway modal state & handlers
+  const [gatewayModalOpen, setGatewayModalOpen] = useState(false);
+  const [editingGateway, setEditingGateway] = useState<any>(null);
+  const [gatewayForm, setGatewayForm] = useState<any>({
+    id: '',
+    name: 'PayU India',
+    provider: 'payu',
+    key_id: 'WTi3jH',
+    key_secret: '9dascniXrfdMW22AJBbhmh2C7kuBibwb',
+    client_id: '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543',
+    client_secret: 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4',
+    vpa: '',
+    payee_name: 'Evegah',
+    environment: 'test',
+    active: true,
+    is_primary: false,
+    notes: ''
+  });
+
+  // Merge local state with database state cleanly
+  const currentSettings = {
+    ...localSettings,
+    ...(dbSettings || {}),
+    payments: {
+      ...localSettings.payments,
+      ...((dbSettings && dbSettings.payments) || {})
+    }
+  };
+
+  const handleOpenAddGateway = () => {
+    setEditingGateway(null);
+    setGatewayForm({
+      id: '',
+      name: 'PayU India',
+      provider: 'payu',
+      key_id: '',
+      key_secret: '',
+      client_id: '',
+      client_secret: '',
+      vpa: '',
+      payee_name: 'Evegah',
+      environment: 'test',
+      active: true,
+      is_primary: false,
+      notes: ''
+    });
+    setGatewayModalOpen(true);
+  };
+
+  const handleOpenEditGateway = (gw: any) => {
+    setEditingGateway(gw);
+    setGatewayForm({
+      id: gw.id,
+      name: gw.name || '',
+      provider: gw.provider || gw.id,
+      key_id: gw.key_id || '',
+      key_secret: gw.key_secret || '',
+      client_id: gw.client_id || '',
+      client_secret: gw.client_secret || '',
+      vpa: gw.vpa || '',
+      payee_name: gw.payee_name || 'Evegah',
+      environment: gw.environment || 'production',
+      active: gw.active !== false,
+      is_primary: gw.id === (currentSettings.payments?.primary_gateway || 'payu'),
+      notes: gw.notes || ''
+    });
+    setGatewayModalOpen(true);
+  };
+
+  const handleToggleGateway = async (gatewayId: string, currentActive: boolean) => {
+    const newActive = !currentActive;
+    const curGateways = Array.isArray(currentSettings.payments?.gateways)
+      ? [...currentSettings.payments.gateways]
+      : [...localSettings.payments.gateways];
+    const updated = curGateways.map((g: any) => g.id === gatewayId ? { ...g, active: newActive } : g);
+    updateField('payments', 'gateways', updated);
+
+    // Persist immediately to backend
+    try {
+      await api.patch(`/payments/gateways/${gatewayId}/toggle`, { active: newActive });
+    } catch (e) {
+      console.warn('Backend toggle failed, saving whole payments object:', e);
+      api.put('/settings/payments', { ...currentSettings.payments, gateways: updated }).catch(() => {});
+    }
+  };
+
+  const handleSaveGateway = async () => {
+    if (!gatewayForm.name) {
+      alert('Gateway Name is required');
+      return;
+    }
+
+    try {
+      const res: any = await api.post('/payments/gateways', gatewayForm);
+      if (res.status === 'success' && res.data) {
+        if (res.data.gateways) {
+          updateField('payments', 'gateways', res.data.gateways);
+        }
+        if (res.data.primary_gateway) {
+          updateField('payments', 'primary_gateway', res.data.primary_gateway);
+        }
+        setGatewayModalOpen(false);
+        alert(`Gateway '${gatewayForm.name}' configured and ${gatewayForm.active ? 'ACTIVATED' : 'saved'} successfully!`);
+      }
+    } catch (err: any) {
+      console.error('Error saving gateway:', err);
+      // Fallback: update local state & put /settings/payments
+      const curGateways = Array.isArray(currentSettings.payments?.gateways)
+        ? [...currentSettings.payments.gateways]
+        : [...localSettings.payments.gateways];
+      const gId = gatewayForm.id || gatewayForm.provider || gatewayForm.name.toLowerCase().replace(/\s+/g, '_');
+      const idx = curGateways.findIndex((g: any) => g.id === gId);
+      const gwObj = { ...gatewayForm, id: gId };
+      if (idx >= 0) curGateways[idx] = gwObj;
+      else curGateways.push(gwObj);
+      updateField('payments', 'gateways', curGateways);
+      if (gatewayForm.is_primary) updateField('payments', 'primary_gateway', gId);
+      setGatewayModalOpen(false);
+      alert(`Gateway '${gatewayForm.name}' configured successfully!`);
+    }
+  };
 
   const updateField = (category: string, field: string, value: any) => {
     if (dbSettings) {
@@ -1514,7 +1731,7 @@ function SettingsContent() {
                 {/* ─── TAB 3: PAYMENTS ─── */}
                 {activeTab === 'Payments' && currentSettings.payments && (
                   <div className="se-grid-3">
-                    {/* Payment Gateways */}
+                    {/* Dynamic Multi-Payment Gateways */}
                     <div className="se-card se-span-2">
                       <div className="se-card-hdr">
                         <div className="se-card-ic">
@@ -1522,68 +1739,84 @@ function SettingsContent() {
                         </div>
                         <div className="se-card-text">
                           <span className="se-card-tit">Payment Gateway Settings</span>
-                          <span className="se-card-sub">Configure payment gateways for collecting payments.</span>
+                          <span className="se-card-sub">Configure and activate multiple payment gateways dynamically from the backend.</span>
                         </div>
                       </div>
                       
-                      <div className="se-gateway-row">
-                        <div className="se-gateway-info">
-                          <span className="se-brand-logo logo-razorpay">Razorpay</span>
-                          <span className="se-badge badge-active">Active</span>
-                          <span className="se-gateway-key">Key ID: {currentSettings.payments.razorpay_key_id}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <label className="se-switch">
-                            <input
-                              type="checkbox"
-                              checked={currentSettings.payments.razorpay_active}
-                              onChange={(e) => updateField('payments', 'razorpay_active', e.target.checked)}
-                            />
-                            <span className="se-slider" />
-                          </label>
-                          <button className="se-btn" style={{ padding: '6px 12px', fontSize: '12px' }}>Edit</button>
-                        </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {(Array.isArray(currentSettings.payments.gateways) && currentSettings.payments.gateways.length > 0
+                          ? currentSettings.payments.gateways
+                          : localSettings.payments.gateways
+                        ).map((gw: any) => {
+                          const isPayU = gw.id === 'payu' || gw.provider === 'payu';
+                          const isICICI = gw.id === 'icici' || gw.provider === 'icici';
+                          const isPhonePe = gw.id === 'phonepe' || gw.provider === 'phonepe';
+                          const isPaytm = gw.id === 'paytm' || gw.provider === 'paytm';
+                          const isRazorpay = gw.id === 'razorpay' || gw.provider === 'razorpay';
+                          const isCashfree = gw.id === 'cashfree' || gw.provider === 'cashfree';
+                          const isPrimary = gw.id === (currentSettings.payments.primary_gateway || 'payu');
+                          
+                          let logoClass = 'logo-default';
+                          if (isPayU) logoClass = 'logo-payu';
+                          else if (isICICI) logoClass = 'logo-icici';
+                          else if (isPhonePe) logoClass = 'logo-phonepe';
+                          else if (isPaytm) logoClass = 'logo-paytm';
+                          else if (isRazorpay) logoClass = 'logo-razorpay';
+                          else if (isCashfree) logoClass = 'logo-cashfree';
+
+                          const keyLabel = isPayU ? 'Key' : (isICICI ? 'MID' : 'Key ID');
+                          const keyVal = gw.key_id ? (gw.key_id.length > 18 ? gw.key_id.slice(0, 18) + '...' : gw.key_id) : 'Not configured';
+
+                          return (
+                            <div key={gw.id} className="se-gateway-row">
+                              <div className="se-gateway-info" style={{ flexWrap: 'wrap', gap: '10px' }}>
+                                <span className={`se-brand-logo ${logoClass}`}>{gw.name}</span>
+                                <span className={`se-badge ${gw.active ? 'badge-active' : 'badge-inactive'}`}>
+                                  {gw.active ? 'Active' : 'Inactive'}
+                                </span>
+                                {isPrimary && <span className="se-badge badge-primary">Primary</span>}
+                                <span className="se-badge badge-env">
+                                  {gw.environment === 'test' ? 'Test Sandbox' : 'Production'}
+                                </span>
+                                <span className="se-gateway-key">
+                                  {keyLabel}: {keyVal}
+                                  {isICICI && gw.vpa ? ` | VPA: ${gw.vpa}` : ''}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <label className="se-switch" title={gw.active ? 'Click to Deactivate' : 'Click to Activate'}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!gw.active}
+                                    onChange={() => handleToggleGateway(gw.id, !!gw.active)}
+                                  />
+                                  <span className="se-slider" />
+                                </label>
+                                <button
+                                  className="se-btn"
+                                  style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}
+                                  onClick={() => handleOpenEditGateway(gw)}
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
 
-                      <div className="se-gateway-row">
-                        <div className="se-gateway-info">
-                          <span className="se-brand-logo logo-phonepe">PhonePe</span>
-                          <span className="se-badge badge-active">Active</span>
-                          <span className="se-gateway-key">Merchant ID: {currentSettings.payments.phonepe_merchant_id}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <label className="se-switch">
-                            <input
-                              type="checkbox"
-                              checked={currentSettings.payments.phonepe_active}
-                              onChange={(e) => updateField('payments', 'phonepe_active', e.target.checked)}
-                            />
-                            <span className="se-slider" />
-                          </label>
-                          <button className="se-btn" style={{ padding: '6px 12px', fontSize: '12px' }}>Edit</button>
-                        </div>
-                      </div>
-
-                      <div className="se-gateway-row">
-                        <div className="se-gateway-info">
-                          <span className="se-brand-logo logo-paytm">paytm</span>
-                          <span className="se-badge badge-inactive">Inactive</span>
-                          <span className="se-gateway-key">Merchant ID: {currentSettings.payments.paytm_merchant_id}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <label className="se-switch">
-                            <input
-                              type="checkbox"
-                              checked={currentSettings.payments.paytm_active}
-                              onChange={(e) => updateField('payments', 'paytm_active', e.target.checked)}
-                            />
-                            <span className="se-slider" />
-                          </label>
-                          <button className="se-btn" style={{ padding: '6px 12px', fontSize: '12px' }}>Edit</button>
-                        </div>
-                      </div>
-
-                      <button className="se-btn" style={{ justifyContent: 'center', borderColor: '#C7D2FE', color: '#2a195c', background: '#F5F7FF', fontWeight: 'bold' }}>
+                      <button
+                        className="se-btn"
+                        style={{
+                          justifyContent: 'center',
+                          borderColor: '#C7D2FE',
+                          color: '#2a195c',
+                          background: '#F5F7FF',
+                          fontWeight: 'bold',
+                          marginTop: '6px'
+                        }}
+                        onClick={handleOpenAddGateway}
+                      >
                         + Add New Gateway
                       </button>
                     </div>
@@ -1602,6 +1835,31 @@ function SettingsContent() {
                       
                       <div className="se-field">
                         <div className="se-field-info">
+                          <span className="se-field-tit">Primary Active Gateway</span>
+                          <span className="se-field-desc">Default gateway used for payments & wallet top-ups.</span>
+                        </div>
+                        <select
+                          className="se-select"
+                          value={currentSettings.payments.primary_gateway || 'payu'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateField('payments', 'primary_gateway', val);
+                            api.post(`/payments/gateways/${val}/set-primary`, {}).catch(() => {});
+                          }}
+                        >
+                          {(Array.isArray(currentSettings.payments.gateways) && currentSettings.payments.gateways.length > 0
+                            ? currentSettings.payments.gateways
+                            : localSettings.payments.gateways
+                          ).map((g: any) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name} ({g.active ? 'Active' : 'Inactive'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="se-field">
+                        <div className="se-field-info">
                           <span className="se-field-tit">Default Payment Method</span>
                           <span className="se-field-desc">Preferred method for collecting payments.</span>
                         </div>
@@ -1612,6 +1870,8 @@ function SettingsContent() {
                         >
                           <option>UPI</option>
                           <option>Card</option>
+                          <option>Net Banking</option>
+                          <option>Wallet</option>
                         </select>
                       </div>
 
@@ -2949,6 +3209,209 @@ function SettingsContent() {
           </div>
         </div>
       </div>
+
+      {/* ─── MODAL: ADD / EDIT PAYMENT GATEWAY ─── */}
+      {gatewayModalOpen && (
+        <div className="se-modal-backdrop" onClick={() => setGatewayModalOpen(false)}>
+          <div className="se-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="se-modal-hdr">
+              <span className="se-modal-title">
+                {editingGateway ? `Configure Gateway: ${gatewayForm.name}` : '+ Add New Payment Gateway'}
+              </span>
+              <button className="se-modal-close" onClick={() => setGatewayModalOpen(false)}>✕</button>
+            </div>
+
+            <div className="se-modal-body">
+              <div className="se-form-group">
+                <label className="se-form-label">Gateway Provider</label>
+                <select
+                  className="se-form-input"
+                  value={gatewayForm.provider}
+                  disabled={!!editingGateway}
+                  onChange={(e) => {
+                    const prov = e.target.value;
+                    let defaultName = 'Custom Gateway';
+                    let defaultEnv = 'production';
+                    let keyId = '';
+                    let secret = '';
+                    let clientId = '';
+                    let clientSecret = '';
+                    let vpa = '';
+                    if (prov === 'payu') {
+                      defaultName = 'PayU India';
+                      defaultEnv = 'test';
+                      keyId = 'WTi3jH';
+                      secret = '9dascniXrfdMW22AJBbhmh2C7kuBibwb';
+                      clientId = '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543';
+                      clientSecret = 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4';
+                    } else if (prov === 'icici') {
+                      defaultName = 'ICICI Bank UPI';
+                      keyId = '9496988';
+                      secret = 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ';
+                      vpa = 'EVEGAHRIDE@icici';
+                    } else if (prov === 'phonepe') {
+                      defaultName = 'PhonePe';
+                      defaultEnv = 'test';
+                    } else if (prov === 'paytm') {
+                      defaultName = 'Paytm';
+                    } else if (prov === 'razorpay') {
+                      defaultName = 'Razorpay';
+                    } else if (prov === 'cashfree') {
+                      defaultName = 'Cashfree';
+                    }
+                    setGatewayForm((prev: any) => ({
+                      ...prev,
+                      provider: prov,
+                      name: defaultName,
+                      environment: defaultEnv,
+                      key_id: keyId || prev.key_id,
+                      key_secret: secret || prev.key_secret,
+                      client_id: clientId || prev.client_id,
+                      client_secret: clientSecret || prev.client_secret,
+                      vpa: vpa || prev.vpa
+                    }));
+                  }}
+                >
+                  <option value="payu">PayU India</option>
+                  <option value="icici">ICICI Bank UPI</option>
+                  <option value="phonepe">PhonePe</option>
+                  <option value="paytm">Paytm</option>
+                  <option value="razorpay">Razorpay</option>
+                  <option value="cashfree">Cashfree</option>
+                  <option value="custom">Custom Gateway / UPI</option>
+                </select>
+              </div>
+
+              <div className="se-form-group">
+                <label className="se-form-label">Display Name</label>
+                <input
+                  type="text"
+                  className="se-form-input"
+                  value={gatewayForm.name}
+                  onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. PayU India"
+                />
+              </div>
+
+              <div className="se-form-group">
+                <label className="se-form-label">
+                  {gatewayForm.provider === 'payu' ? 'Merchant Key' : (gatewayForm.provider === 'icici' ? 'Merchant ID (MID)' : 'Key ID / Merchant ID')}
+                </label>
+                <input
+                  type="text"
+                  className="se-form-input"
+                  value={gatewayForm.key_id}
+                  onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, key_id: e.target.value }))}
+                  placeholder="Enter Key ID / Merchant Key"
+                />
+                <span className="se-form-hint">Used for merchant authentication and transaction initiation</span>
+              </div>
+
+              <div className="se-form-group">
+                <label className="se-form-label">
+                  {gatewayForm.provider === 'payu' ? 'Merchant Salt' : (gatewayForm.provider === 'icici' ? 'API Key / Secret' : 'Key Secret / Salt')}
+                </label>
+                <input
+                  type="text"
+                  className="se-form-input"
+                  value={gatewayForm.key_secret}
+                  onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, key_secret: e.target.value }))}
+                  placeholder="Enter Key Secret / Salt"
+                />
+                <span className="se-form-hint">Used on the backend for secure SHA-512 checksum hashing</span>
+              </div>
+
+              {gatewayForm.provider === 'payu' && (
+                <>
+                  <div className="se-form-group">
+                    <label className="se-form-label">PayU Client ID</label>
+                    <input
+                      type="text"
+                      className="se-form-input"
+                      value={gatewayForm.client_id || ''}
+                      onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, client_id: e.target.value }))}
+                      placeholder="Enter PayU Client ID"
+                    />
+                  </div>
+                  <div className="se-form-group">
+                    <label className="se-form-label">PayU Client Secret</label>
+                    <input
+                      type="text"
+                      className="se-form-input"
+                      value={gatewayForm.client_secret || ''}
+                      onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, client_secret: e.target.value }))}
+                      placeholder="Enter PayU Client Secret"
+                    />
+                  </div>
+                </>
+              )}
+
+              {gatewayForm.provider === 'icici' && (
+                <div className="se-form-group">
+                  <label className="se-form-label">Merchant UPI VPA</label>
+                  <input
+                    type="text"
+                    className="se-form-input"
+                    value={gatewayForm.vpa || ''}
+                    onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, vpa: e.target.value }))}
+                    placeholder="e.g. EVEGAHRIDE@icici"
+                  />
+                </div>
+              )}
+
+              <div className="se-form-group">
+                <label className="se-form-label">Environment Mode</label>
+                <select
+                  className="se-form-input"
+                  value={gatewayForm.environment}
+                  onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, environment: e.target.value }))}
+                >
+                  <option value="test">Test Sandbox (Sandbox Testing Mode)</option>
+                  <option value="production">Live Production (Real Collections)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={gatewayForm.active}
+                    onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, active: e.target.checked }))}
+                    style={{ width: '16px', height: '16px', accentColor: '#2A195C' }}
+                  />
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>Activate Gateway Immediately</span>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={gatewayForm.is_primary}
+                    onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, is_primary: e.target.checked }))}
+                    style={{ width: '16px', height: '16px', accentColor: '#2A195C' }}
+                  />
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>Set as Primary / Default Gateway</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="se-modal-footer">
+              <button
+                className="se-btn"
+                style={{ background: '#F1F5F9', color: '#475569', border: 'none' }}
+                onClick={() => setGatewayModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="se-btn se-btn-primary"
+                onClick={handleSaveGateway}
+              >
+                {gatewayForm.active ? 'Save & Activate' : 'Save Configuration'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

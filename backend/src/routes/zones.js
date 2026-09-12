@@ -175,7 +175,7 @@ const MOCK_ZONES = [
 const isServiceCenter = (z) => {
   const t = (z.type || '').toLowerCase();
   const n = (z.name || '').toLowerCase();
-  return t.includes('service zone') || t.includes('maintenance hub') || n.includes('service center');
+  return t.includes('service') || t.includes('maintenance') || n.includes('service center');
 };
 
 // GET /api/zones

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/widgets/app_sidebar_drawer.dart';
 import 'select_location_screen.dart';
 import 'select_date_time_screen.dart';
 import 'vehicle_list_screen.dart';
@@ -455,11 +454,13 @@ class _RentEvScreenState extends State<RentEvScreen> {
                         ),
                       ),
                     );
-                    if (result != null && result is Map<String, String>) {
+                    if (result != null && result is Map) {
                       setState(() {
                         pickupDateTime =
                             result['pickup'] ?? "Select date & time";
                         dropDateTime = result['drop'] ?? "Select date & time";
+                        pickupRaw = result['pickupRaw'];
+                        dropRaw = result['dropRaw'];
                       });
                     }
                   },

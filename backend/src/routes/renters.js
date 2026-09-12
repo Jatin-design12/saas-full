@@ -10,6 +10,7 @@ const { getCache, setCache, delByPattern } = require('../redis');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS date_of_birth VARCHAR(50)');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS address TEXT');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS gender VARCHAR(20)');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS aadhaar_number VARCHAR(50)');
   } catch (e) {
     console.error('Renters DB column init error:', e);
   }
@@ -81,6 +82,37 @@ router.get('/', async (req, res) => {
         ORDER BY created_at DESC
       `).catch(() => ({ rows: [] }))
     ]);
+
+    
+    // Helper to compute actual booking start date & time
+    const computeStartDateTime = (resv) => {
+      if (resv.pickup_datetime) return resv.pickup_datetime;
+      if (resv.reservation_date) {
+        const d = new Date(resv.reservation_date);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const tStr = resv.reservation_time ? resv.reservation_time.slice(0, 5) : '09:00';
+        return `${yyyy}-${mm}-${dd}T${tStr}:00`;
+      }
+      return resv.created_at;
+    };
+
+    // Helper to compute drop / return datetime
+    const computeEndDateTime = (resv, startIso) => {
+      if (resv.drop_datetime) return resv.drop_datetime;
+      try {
+        const d = new Date(startIso || resv.created_at);
+        if (!isNaN(d.getTime())) {
+          const pkg = (resv.package_type || '').toLowerCase();
+          if (pkg.includes('month')) d.setDate(d.getDate() + 30);
+          else if (pkg.includes('week')) d.setDate(d.getDate() + 7);
+          else d.setDate(d.getDate() + 1);
+          return d.toISOString();
+        }
+      } catch (_) {}
+      return null;
+    };
 
     // Helper to get clean 10-digit mobile
     const getClean10 = (mob) => {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../data/services/wallet_service.dart';
 import '../../../../core/services/icici_upi_service.dart';
+import '../../../../core/services/payu_service.dart';
+import '../../../../core/services/payment_gateway_service.dart';
 import '../../../offers/presentation/screens/offer_screen.dart';
 import 'transaction_detail_screen.dart';
 
@@ -15,6 +17,7 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   final WalletService _walletService = WalletService();
   final IciciUpiService _iciciUpiService = IciciUpiService();
+  String _activeGatewayId = 'payu';
 
   double _mainBalance = 0.00;
   double _bonusBalance = 0.00;
@@ -28,6 +31,14 @@ class _WalletScreenState extends State<WalletScreen> {
   void initState() {
     super.initState();
     _loadWalletData();
+    _loadGatewayConfig();
+  }
+
+  Future<void> _loadGatewayConfig() async {
+    try {
+      final gw = await PaymentGatewayService().getPrimaryGatewayId();
+      if (mounted) setState(() => _activeGatewayId = gw);
+    } catch (_) {}
   }
 
   @override
@@ -59,6 +70,38 @@ class _WalletScreenState extends State<WalletScreen> {
       return;
     }
 
+    if (_activeGatewayId == 'payu') {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF528900)),
+        ),
+      );
+
+      try {
+        final payuData = await PayUService().initiatePayment(amount: amount, purpose: 'wallet');
+        if (!mounted) return;
+        Navigator.pop(context);
+
+        if (payuData != null && payuData['action_url'] != null) {
+          final launched = await PayUService().launchPayUCheckout(payuData['action_url'], payuData);
+          if (launched) {
+            await Future.delayed(const Duration(seconds: 2));
+            await _loadWalletData();
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("PayU initiation failed. Trying UPI..."), backgroundColor: Colors.orange),
+          );
+          _triggerIciciUpiAddMoney(amount);
+        }
+      } catch (e) {
+        if (mounted) Navigator.pop(context);
+      }
+      return;
+    }
+
     final res = await _iciciUpiService.showUpiPaymentModal(
       context: context,
       amount: amount,
@@ -77,7 +120,7 @@ class _WalletScreenState extends State<WalletScreen> {
               children: [
                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text("₹${amount.toStringAsFixed(0)} added to wallet via ICICI UPI ⚡"),
+                Text("₹${amount.toStringAsFixed(0)} added to wallet ⚡"),
               ],
             ),
             backgroundColor: const Color(0xFF16A34A),
@@ -108,7 +151,12 @@ class _WalletScreenState extends State<WalletScreen> {
                 const SizedBox(height: 16),
                 const Text("Add Money to Wallet", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                 const SizedBox(height: 6),
-                const Text("Instant top-up via ICICI Bank UPI (GPay, PhonePe, Paytm, BHIM).", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                Text(
+                  _activeGatewayId == 'payu'
+                      ? "Instant top-up via PayU (Cards, UPI, NetBanking, Wallets)."
+                      : "Instant top-up via ICICI Bank UPI (GPay, PhonePe, Paytm, BHIM).",
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _amountController,
@@ -169,7 +217,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         const Icon(Icons.bolt, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          "⚡ Pay ₹${currentAmt.toStringAsFixed(0)} via UPI",
+                          _activeGatewayId == 'payu' ? "⚡ Pay ₹${currentAmt.toStringAsFixed(0)} via PayU" : "⚡ Pay ₹${currentAmt.toStringAsFixed(0)} via UPI",
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                       ],
