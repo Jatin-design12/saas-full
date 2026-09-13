@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -672,12 +673,14 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                       final id = (widget.booking['id'] ?? widget.booking['reservation_id'] ?? '').toString();
                       final urls = [
                         '${AppConstants.apiBaseUrl}/reservations/$id/return',
-                        'http://192.168.1.4:5000/api/reservations/$id/return',
-                        'http://localhost:5000/api/reservations/$id/return',
+                        if (kDebugMode) ...[
+                          'http://192.168.1.4:5000/api/reservations/$id/return',
+                          'http://localhost:5000/api/reservations/$id/return',
+                        ]
                       ];
                       for (final u in urls) {
                         try {
-                          final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 3));
+                          final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 4));
                           if (res.statusCode == 200) break;
                         } catch (_) {}
                       }
@@ -711,12 +714,14 @@ class _RideDetailScreenState extends State<RideDetailScreen> {
                       final id = (widget.booking['id'] ?? widget.booking['reservation_id'] ?? '').toString();
                       final urls = [
                         '${AppConstants.apiBaseUrl}/reservations/$id/start',
-                        'http://192.168.1.4:5000/api/reservations/$id/start',
-                        'http://localhost:5000/api/reservations/$id/start',
+                        if (kDebugMode) ...[
+                          'http://192.168.1.4:5000/api/reservations/$id/start',
+                          'http://localhost:5000/api/reservations/$id/start',
+                        ]
                       ];
                       for (final u in urls) {
                         try {
-                          final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 3));
+                          final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 4));
                           if (res.statusCode == 200) break;
                         } catch (_) {}
                       }

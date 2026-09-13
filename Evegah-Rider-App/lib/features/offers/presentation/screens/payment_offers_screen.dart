@@ -7,6 +7,7 @@ import '../../../../core/services/session_service.dart';
 import '../../../../core/services/icici_upi_service.dart';
 import '../../../../core/services/payu_service.dart';
 import '../../../../core/services/payment_gateway_service.dart';
+import '../../../../core/widgets/payu_in_app_checkout_modal.dart';
 import '../../../profile/data/services/profile_service.dart';
 import '../../../dashboard/presentation/widgets/vehicle_360_viewer.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
@@ -152,160 +153,26 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       if (!mounted) return;
       Navigator.pop(context);
 
-      if (payuData != null && payuData['action_url'] != null) {
+      if (payuData != null && (payuData['checkout_url'] != null || payuData['action_url'] != null)) {
         final txnid = payuData['txnid']?.toString() ?? '';
-        final launched = await PayUService().launchPayUCheckout(
-          payuData['action_url'],
-          payuData,
+        final checkoutUrl = payuData['checkout_url']?.toString() ?? payuData['action_url']?.toString() ?? '';
+
+        // Directly open PayU inside mobile app like Razorpay
+        final result = await PayUInAppCheckoutModal.show(
+          context: context,
+          checkoutUrl: checkoutUrl,
+          txnid: txnid,
+          amount: amountToPay,
         );
 
-        if (launched) {
-          if (!mounted) return;
-          // Show verification dialog and poll status so cancelled payment is NEVER confirmed
-          bool isFinished = false;
-          Timer? pollTimer;
+        if (!mounted) return;
 
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogCtx) {
-              return StatefulBuilder(
-                builder: (context, setDialogState) {
-                  pollTimer ??= Timer.periodic(const Duration(seconds: 3), (t) async {
-                    if (isFinished) {
-                      t.cancel();
-                      return;
-                    }
-                    final status = await PayUService().checkPaymentStatus(txnid);
-                    if (status.toLowerCase() == 'success') {
-                      isFinished = true;
-                      t.cancel();
-                      if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
-                      _confirmBooking(payNow: true, transactionId: txnid);
-                    } else if (status.toLowerCase() == 'failed') {
-                      isFinished = true;
-                      t.cancel();
-                      if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("PayU payment was cancelled or failed. Booking NOT confirmed."),
-                            backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                      }
-                    }
-                  });
-
-                  return AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    title: Row(
-                      children: const [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF2B0B78)),
-                        ),
-                        SizedBox(width: 12),
-                        Text("PayU Payment", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Please complete your payment in the PayU browser window.",
-                          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF16A34A)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "Txn: $txnid",
-                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Color(0xFF334155)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          isFinished = true;
-                          pollTimer?.cancel();
-                          Navigator.pop(dialogCtx);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("PayU payment cancelled. Booking was not confirmed."),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text("Cancel Payment", style: TextStyle(color: Colors.redAccent)),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final status = await PayUService().checkPaymentStatus(txnid);
-                          if (status.toLowerCase() == 'success') {
-                            isFinished = true;
-                            pollTimer?.cancel();
-                            if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
-                            _confirmBooking(payNow: true, transactionId: txnid);
-                          } else if (status.toLowerCase() == 'failed') {
-                            isFinished = true;
-                            pollTimer?.cancel();
-                            if (Navigator.canPop(dialogCtx)) Navigator.pop(dialogCtx);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Payment was cancelled or failed in PayU. Booking NOT confirmed."),
-                                  backgroundColor: Colors.redAccent,
-                                ),
-                              );
-                            }
-                          } else {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Payment is still pending in PayU. Please finish payment or cancel."),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2B0B78),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: const Text("Check Status"),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-          pollTimer?.cancel();
+        if (result != null && result.success) {
+          _confirmBooking(payNow: true, transactionId: result.txId);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Could not open PayU checkout. Please check your connection."),
+            SnackBar(
+              content: Text(result?.message ?? "PayU payment was cancelled or failed. Booking NOT confirmed."),
               backgroundColor: Colors.redAccent,
             ),
           );

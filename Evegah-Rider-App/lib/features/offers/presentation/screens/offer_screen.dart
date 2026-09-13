@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -61,8 +61,10 @@ class _OfferScreenState extends State<OfferScreen> {
 
     final urls = [
       '${AppConstants.apiBaseUrl}/coupons',
-      'http://192.168.1.4:5000/api/coupons',
-      'http://localhost:5000/api/coupons',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/coupons',
+        'http://localhost:5000/api/coupons',
+      ]
     ];
 
     for (final url in urls) {
@@ -72,7 +74,7 @@ class _OfferScreenState extends State<OfferScreen> {
               Uri.parse(url),
             )
             .timeout(
-              const Duration(seconds: 2),
+              const Duration(seconds: 5),
             );
 
         if (response.statusCode == 200) {

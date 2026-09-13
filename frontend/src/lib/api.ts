@@ -3,9 +3,7 @@ const getBaseUrl = () => {
     if (window.location.hostname.includes('evegah.cloud')) {
       return 'https://evegah.cloud/api';
     }
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return `${window.location.protocol}//${window.location.host}/api`;
-    }
+    return '/api';
   }
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 };

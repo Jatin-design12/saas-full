@@ -5,130 +5,127 @@ import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
 
 const CSS = `
-.ph-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Inter', sans-serif; }
-.ph-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
-.ph-page { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; background-color: #FFF; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
 
-/* Header title */
-.ph-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
-.ph-h1 { font-size: 24px; font-weight: 800; color: #0F172A; margin: 0 0 6px; letter-spacing: -0.02em; }
-.ph-sub { font-size: 13.5px; color: #64748B; margin: 0; font-weight: 400; }
+* { box-sizing: border-box; }
+.ph-shell { display:flex; min-height:100vh; background:#F6F7FB; font-family:'Inter',sans-serif; color:#0F172A; }
+.ph-main { margin-left:230px; display:flex; flex-direction:column; min-height:100vh; width:calc(100% - 230px); min-width:0; }
+.ph-page { flex:1; padding:24px; display:flex; flex-direction:column; gap:18px; background:#F8FAFC; min-width:0; }
 
-.ph-actions { display: flex; align-items: center; gap: 10px; }
-.ph-btn { display: flex; align-items: center; gap: 7px; padding: 9px 16px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; transition: all .15s; }
-.ph-btn:hover { border-color: #2a195c; color: #2a195c; }
-.ph-btn-primary { background: #2a195c; color: #fff; border-color: #2a195c; }
-.ph-btn-primary:hover { background: #4338CA; border-color: #4338CA; color: #fff; }
-.ph-btn-danger { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
-.ph-btn-danger:hover { background: #FEE2E2; border-color: #DC2626; color: #B91C1C; }
-.ph-checkbox { width: 16px; height: 16px; border-radius: 4px; accent-color: #2A195C; cursor: pointer; }
-.action-delete-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid #FECACA; background: #FEF2F2; color: #DC2626; cursor: pointer; transition: all .15s; }
-.action-delete-btn:hover { background: #DC2626; color: #fff; border-color: #DC2626; }
+.ph-title-row { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:2px; }
+.ph-h1 { font-size:24px; font-weight:800; color:#0F172A; margin:0 0 5px; letter-spacing:-.025em; }
+.ph-sub { font-size:13px; color:#64748B; margin:0; line-height:1.5; }
+.ph-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.ph-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:8px 14px; background:#FFF; border:1px solid #DCE3EE; border-radius:9px; font-size:12.5px; font-weight:700; color:#475569; cursor:pointer; transition:.15s ease; white-space:nowrap; }
+.ph-btn:hover { border-color:#2A195C; color:#2A195C; background:#FAF8FF; }
+.ph-btn:disabled { opacity:.55; cursor:not-allowed; }
+.ph-btn-primary { background:#2A195C; color:#FFF; border-color:#2A195C; box-shadow:0 4px 10px rgba(42,25,92,.14); }
+.ph-btn-primary:hover { background:#39257D; color:#FFF; border-color:#39257D; }
+.ph-btn-danger { background:#FEF2F2; color:#DC2626; border-color:#FECACA; }
+.ph-btn-danger:hover { background:#FEE2E2; color:#B91C1C; border-color:#FCA5A5; }
+.ph-checkbox { width:16px; height:16px; margin:0; border-radius:4px; accent-color:#2A195C; cursor:pointer; }
+.action-delete-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:8px; border:1px solid #FECACA; background:#FFF7F7; color:#DC2626; cursor:pointer; transition:.15s; flex:0 0 auto; }
+.action-delete-btn:hover { background:#DC2626; color:#FFF; border-color:#DC2626; }
+.action-delete-btn:disabled { opacity:.5; cursor:not-allowed; }
 
-/* KPI Cards Grid */
-.ph-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-@media (max-width: 1024px) {
-  .ph-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+.ph-kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.ph-kpi-card { background:#FFF; border:1px solid #E3E8F0; border-radius:14px; padding:16px 17px; box-shadow:0 1px 2px rgba(15,23,42,.025); min-width:0; }
+.ph-kpi-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.ph-kpi-label { font-size:10.5px; font-weight:800; color:#64748B; text-transform:uppercase; letter-spacing:.045em; }
+.ph-kpi-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ph-kpi-val { font-family:'Outfit',sans-serif; font-size:23px; font-weight:800; line-height:1.1; margin:8px 0 3px; white-space:nowrap; }
+.ph-kpi-sub { font-size:10.5px; color:#64748B; margin-top:8px; font-weight:600; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.ic-purple { background:#EEF2FF; color:#6366F1; }
+.ic-green { background:#ECFDF5; color:#10B981; }
+.ic-orange { background:#FFF7ED; color:#F97316; }
+.ic-blue { background:#EFF6FF; color:#2563EB; }
+
+.ph-filter-card { background:#FFF; border:1px solid #E1E7F0; border-radius:14px; padding:13px; box-shadow:0 1px 2px rgba(15,23,42,.025); }
+.ph-filter-grid { display:grid; grid-template-columns:minmax(260px,2fr) minmax(145px,1.15fr) minmax(135px,1.05fr) minmax(165px,1.25fr) auto; gap:9px; align-items:center; }
+.ph-search-wrap { position:relative; min-width:0; }
+.ph-search-input { width:100%; height:40px; padding:0 12px 0 38px; border:1px solid #DCE3EE; border-radius:9px; font-size:12.5px; outline:none; background:#FFF; color:#1E293B; }
+.ph-search-input:focus,.ph-select:focus { border-color:#2A195C; box-shadow:0 0 0 3px rgba(42,25,92,.06); }
+.ph-search-icon { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#94A3B8; display:flex; align-items:center; pointer-events:none; }
+.ph-select { width:100%; height:40px; padding:0 35px 0 12px; border:1px solid #DCE3EE; border-radius:9px; font-size:12px; font-weight:600; outline:none; background:#FFF; color:#334155; cursor:pointer; appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; background-size:11px; }
+.ph-filter-btn { height:40px; display:inline-flex; align-items:center; justify-content:center; padding:0 13px; background:#FFF; border:1px solid #DCE3EE; border-radius:9px; font-size:12px; font-weight:700; color:#475569; cursor:pointer; white-space:nowrap; }
+.ph-filter-btn:hover { background:#FAF8FF; border-color:#2A195C; color:#2A195C; }
+
+.ph-tcard { background:#FFF; border:1px solid #DDE4EE; border-radius:14px; box-shadow:0 2px 6px rgba(15,23,42,.025); overflow:hidden; display:flex; flex-direction:column; min-width:0; }
+.ph-dt-wrap { width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; }
+.ph-dt-wrap::-webkit-scrollbar { height:8px; }
+.ph-dt-wrap::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:8px; }
+.ph-dt { width:100%; min-width:1450px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+.ph-dt th { height:52px; padding:0 14px; font-size:10.5px; font-weight:800; color:#64748B; text-transform:uppercase; letter-spacing:.055em; text-align:left; background:#F8FAFC; border-bottom:1px solid #DDE4EE; white-space:nowrap; vertical-align:middle; }
+.ph-dt td { height:68px; padding:10px 14px; font-size:12.5px; color:#334155; border-bottom:1px solid #EEF2F6; vertical-align:middle; overflow:hidden; }
+.ph-dt tbody tr:last-child td { border-bottom:none; }
+.ph-dt tbody tr:hover td { background:#FBFAFF; }
+.ph-dt th:first-child,.ph-dt td:first-child { width:48px; padding-left:16px; padding-right:7px; text-align:center; }
+.ph-dt th:nth-child(2),.ph-dt td:nth-child(2) { width:195px; }
+.ph-dt th:nth-child(3),.ph-dt td:nth-child(3) { width:170px; }
+.ph-dt th:nth-child(4),.ph-dt td:nth-child(4) { width:255px; }
+.ph-dt th:nth-child(5),.ph-dt td:nth-child(5) { width:105px; }
+.ph-dt th:nth-child(6),.ph-dt td:nth-child(6) { width:145px; }
+.ph-dt th:nth-child(7),.ph-dt td:nth-child(7) { width:205px; }
+.ph-dt th:nth-child(8),.ph-dt td:nth-child(8) { width:125px; }
+.ph-dt th:nth-child(9),.ph-dt td:nth-child(9) { width:130px; }
+.ph-dt th:nth-child(10),.ph-dt td:nth-child(10) { width:125px; }
+
+.ph-rider-cell { display:flex; align-items:center; gap:10px; min-width:0; }
+.ph-rider-avatar { width:38px; height:38px; border-radius:50%; object-fit:cover; background:#2A195C; color:#FFF; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex:0 0 38px; }
+.ph-rider-info { min-width:0; display:flex; flex-direction:column; }
+.ph-rider-name { font-size:13px; font-weight:750; color:#1E293B; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ph-rider-code { font-size:11px; color:#64748B; font-weight:600; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ph-date-time { white-space:nowrap; color:#475569; font-size:12px; font-weight:600; }
+.ph-tx-wrap { display:flex; align-items:center; gap:7px; min-width:0; white-space:nowrap; }
+.ph-tx-code { font-family:'SFMono-Regular',Consolas,monospace; font-size:10.8px; font-weight:700; color:#1E293B; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.ph-ref-code { font-family:'SFMono-Regular',Consolas,monospace; font-size:10.5px; font-weight:600; color:#64748B; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ph-type-badge { display:inline-flex; align-items:center; justify-content:center; min-width:62px; padding:5px 9px; border-radius:7px; font-size:11px; font-weight:800; white-space:nowrap; }
+.type-credit { background:#DCFCE7; color:#15803D; }
+.type-debit { background:#FEF3C7; color:#B45309; }
+.ph-pm-badge { display:inline-flex; align-items:center; gap:5px; padding:7px 10px; border-radius:8px; font-size:11.5px; font-weight:750; border:1px solid #E1E7F0; background:#FFF; color:#334155; white-space:nowrap; }
+.ph-purpose { min-width:0; }
+.ph-purpose-main { font-size:11.5px; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ph-amount { display:inline-flex; align-items:baseline; gap:1px; font-weight:800; font-size:14px; line-height:1; white-space:nowrap; letter-spacing:-.01em; }
+.ph-amount.credit { color:#15803D; }
+.ph-amount.debit { color:#DC2626; }
+.ph-amount-sign { display:inline-block; font-weight:900; }
+.status-badge { display:inline-flex; align-items:center; justify-content:center; padding:6px 11px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid transparent; white-space:nowrap; }
+.badge-successful { background:#ECFDF5; color:#15803D; border-color:#BBF7D0; }
+.badge-pending { background:#EFF6FF; color:#1D4ED8; border-color:#BFDBFE; }
+.badge-failed { background:#FEF2F2; color:#B91C1C; border-color:#FECACA; }
+.action-copy-btn { display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 9px; background:#FFF; border:1px solid #DCE3EE; border-radius:8px; font-size:10.5px; font-weight:750; color:#475569; cursor:pointer; transition:.15s; white-space:nowrap; }
+.action-copy-btn:hover { background:#2A195C; color:#FFF; border-color:#2A195C; }
+.ph-actions-cell { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+
+.ph-tcard-ft { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid #DDE4EE; background:#FFF; flex-wrap:wrap; gap:12px; }
+.ph-tcard-ft-lbl { font-size:12px; color:#64748B; font-weight:600; }
+.ph-footer-controls { display:flex; align-items:center; gap:10px; }
+.ph-pg { display:flex; align-items:center; gap:4px; }
+.ph-pgb { width:32px; height:32px; border:1px solid #DCE3EE; border-radius:8px; background:#FFF; font-size:15px; font-weight:800; color:#475569; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.ph-pgb:hover:not(:disabled) { border-color:#2A195C; color:#2A195C; background:#FAF8FF; }
+.ph-pgb:disabled { opacity:.45; cursor:not-allowed; }
+.ph-limit-select { height:34px; padding:0 10px; border:1px solid #DCE3EE; border-radius:8px; font-size:11.5px; font-weight:700; outline:none; background:#FFF; color:#475569; cursor:pointer; }
+
+@keyframes ph-spin { to { transform:rotate(360deg); } }
+.ph-spinner { display:inline-block; width:24px; height:24px; border:3px solid #DDD6FE; border-top-color:#2A195C; border-radius:50%; animation:ph-spin .8s linear infinite; }
+
+@media (max-width:1200px) {
+  .ph-main { margin-left:210px; width:calc(100% - 210px); }
+  .ph-page { padding:18px; }
+  .ph-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ph-filter-grid { grid-template-columns:2fr 1fr 1fr; }
+  .ph-filter-grid > :first-child { grid-column:span 3; }
 }
-@media (max-width: 640px) {
-  .ph-kpi-grid { grid-template-columns: 1fr; }
+@media (max-width:760px) {
+  .ph-main { margin-left:0; width:100%; }
+  .ph-page { padding:14px; }
+  .ph-title-row { align-items:flex-start; flex-direction:column; }
+  .ph-actions { width:100%; overflow-x:auto; padding-bottom:2px; }
+  .ph-kpi-grid { grid-template-columns:1fr; }
+  .ph-filter-grid { grid-template-columns:1fr; }
+  .ph-filter-grid > :first-child { grid-column:auto; }
+  .ph-footer-controls { width:100%; justify-content:space-between; }
 }
-
-.ph-kpi-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  padding: 16px 18px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.02);
-  transition: all .15s;
-}
-.ph-kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
-  border-color: #CBD5E1;
-}
-
-.ph-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px; }
-.ph-kpi-label { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.03em; }
-.ph-kpi-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.ph-kpi-val { font-size: 24px; font-weight: 800; color: #0F172A; line-height: 1; margin: 8px 0 4px; font-family: 'Outfit', sans-serif; }
-.ph-kpi-sub { font-size: 10.5px; color: #64748B; margin-top: 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-
-.ic-purple { background: #EEF2FF; color: #6366F1; }
-.ic-green { background: #ECFDF5; color: #10B981; }
-.ic-orange { background: #FFF7ED; color: #F97316; }
-.ic-blue { background: #EFF6FF; color: #2563EB; }
-
-/* Filter bar panel */
-.ph-filter-card { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); }
-.ph-filter-grid { display: grid; grid-template-columns: 2fr 1.25fr 1.25fr 1.25fr auto; gap: 12px; align-items: center; }
-.ph-search-wrap { position: relative; }
-.ph-search-input { width: 100%; padding: 10px 12px 10px 38px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; outline: none; transition: border-color .15s; background: #FFF; color: #1E293B; }
-.ph-search-input:focus { border-color: #2a195c; background: #fff; }
-.ph-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94A3B8; display: flex; align-items: center; }
-
-.ph-select { width: 100%; padding: 10px 14px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 500; outline: none; background: #fff; color: #334155; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-size: 12px; padding-right: 36px; }
-.ph-select:focus { border-color: #2a195c; }
-
-.ph-filter-btn { display: flex; align-items: center; gap: 7px; padding: 10px 16px; background: #FFF; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; font-weight: 700; color: #475569; cursor: pointer; transition: all .15s; }
-.ph-filter-btn:hover { background: #FAF5FF; border-color: #2a195c; color: #2a195c; }
-
-/* Table styling */
-.ph-tcard { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; display: flex; flex-direction: column; }
-.ph-dt-wrap { overflow-x: auto; }
-.ph-dt { width: 100%; border-collapse: collapse; min-width: 1000px; }
-.ph-dt th { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .06em; text-align: left; padding: 14px 18px; background: #FFF; border-bottom: 1.5px solid #E2E8F0; }
-.ph-dt td { padding: 14px 18px; font-size: 13px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
-.ph-dt tr:last-child td { border-bottom: none; }
-.ph-dt tr:hover td { background: #FAF8FF; }
-
-.ph-rider-cell { display: flex; align-items: center; gap: 12px; }
-.ph-rider-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #2A195C; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; }
-.ph-rider-info { display: flex; flex-direction: column; }
-.ph-rider-name { font-size: 13.5px; font-weight: 700; color: #1E293B; }
-.ph-rider-code { font-size: 11.5px; color: #64748B; font-weight: 600; text-transform: uppercase; margin-top: 1px; }
-
-.ph-tx-code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; font-weight: 700; color: #1E293B; }
-.ph-ref-code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; font-weight: 600; color: #64748B; }
-
-.ph-type-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
-.type-credit { background: #DCFCE7; color: #15803D; }
-.type-debit { background: #FEF3C7; color: #B45309; }
-
-.ph-pm-badge {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-  border-radius: 8px; font-size: 12px; font-weight: 700; border: 1px solid #E2E8F0; background: #FFF;
-}
-
-.ph-amount { font-weight: 800; font-size: 14px; }
-.ph-amount.credit { color: #15803D; }
-.ph-amount.debit { color: #DC2626; }
-
-.status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; border: 1.5px solid transparent; }
-.badge-successful { background: #DCFCE7; color: #15803D; border-color: #BBF7D0; }
-.badge-pending { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
-.badge-failed { background: #FEE2E2; color: #B91C1C; border-color: #FECACA; }
-
-.action-copy-btn { padding: 5px 10px; background: #FFF; border: 1.5px solid #E2E8F0; border-radius: 6px; font-size: 11px; font-weight: 700; color: #475569; cursor: pointer; transition: all .15s; }
-.action-copy-btn:hover { background: #2A195C; color: #fff; border-color: #2A195C; }
-
-.ph-tcard-ft { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-top: 1.5px solid #E2E8F0; background: #FFF; flex-wrap: wrap; gap: 12px; }
-.ph-tcard-ft-lbl { font-size: 13px; color: #64748B; font-weight: 500; }
-.ph-pg { display: flex; align-items: center; gap: 4px; }
-.ph-pgb { width: 32px; height: 32px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: #fff; font-size: 13px; font-weight: 700; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .15s; }
-.ph-pgb:hover:not(:disabled) { border-color: #2a195c; color: #2a195c; }
-.ph-pgb.cur { background: #FAF5FF; color: #2a195c; border-color: #2a195c; }
-.ph-pgb:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.ph-limit-select { padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px; font-size: 12.5px; font-weight: 600; outline: none; background: #fff; color: #475569; cursor: pointer; }
 `;
 
 interface PaymentRecord {
@@ -234,6 +231,21 @@ export default function PaymentHistoryPage() {
     });
   }, [records, methodFilter]);
 
+  // Keep the date/time value as one visual unit. This prevents the browser from
+  // creating awkward wrapped/repeated-looking time fragments inside the table.
+  const formatDateTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   const isAllSelected = displayRecords.length > 0 && displayRecords.every(r => selectedIds.includes(r.id));
   const isSomeSelected = selectedIds.length > 0 && !isAllSelected;
 
@@ -256,7 +268,7 @@ export default function PaymentHistoryPage() {
     if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected transaction(s)?`)) return;
     try {
       setIsDeleting(true);
-      await api.delete('/payments/history', { data: { ids: selectedIds } });
+      await api.delete('/payments/history', { ids: selectedIds });
       setSelectedIds([]);
       await fetchPaymentHistory();
     } catch (err: any) {
@@ -502,7 +514,7 @@ export default function PaymentHistoryPage() {
                   >
                     <option value="all">All Gateways &amp; Methods</option>
                     <option value="icici">ICICI Bank UPI</option>
-                    <option value="payu">PayU India</option>
+                    <option value="payu">PayU </option>
                     <option value="wallet">Wallet Transactions</option>
                     <option value="razorpay">Razorpay</option>
                   </select>
@@ -518,6 +530,18 @@ export default function PaymentHistoryPage() {
             <div className="ph-tcard">
               <div className="ph-dt-wrap">
                 <table className="ph-dt">
+                  <colgroup>
+                    <col style={{ width: 48 }} />
+                    <col style={{ width: 195 }} />
+                    <col style={{ width: 170 }} />
+                    <col style={{ width: 255 }} />
+                    <col style={{ width: 105 }} />
+                    <col style={{ width: 145 }} />
+                    <col style={{ width: 205 }} />
+                    <col style={{ width: 125 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 125 }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th style={{ width: 44, paddingLeft: 18, paddingRight: 8 }}>
@@ -545,7 +569,7 @@ export default function PaymentHistoryPage() {
                     {loading ? (
                       <tr>
                         <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
-                          <div style={{ display: 'inline-block', width: 24, height: 24, border: '3px solid #2A195C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 8 }} />
+                          <div className="ph-spinner" style={{ marginBottom: 8 }} />
                           <div>Loading live transaction history...</div>
                         </td>
                       </tr>
@@ -591,20 +615,20 @@ export default function PaymentHistoryPage() {
                             </td>
 
                             {/* Date & Time */}
-                            <td style={{ whiteSpace: 'nowrap', fontSize: 12.5, color: '#475569' }}>
-                              {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(r.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            <td>
+                              <span className="ph-date-time">{formatDateTime(r.created_at)}</span>
                             </td>
 
                             {/* Transaction ID */}
                             <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span className="ph-tx-code">{r.tx_id}</span>
+                              <div className="ph-tx-wrap">
+                                <span className="ph-tx-code" title={r.tx_id}>{r.tx_id}</span>
                                 <button
                                   className="action-copy-btn"
                                   onClick={() => copyToClipboard(r.tx_id)}
-                                  title="Copy Tx ID"
+                                  title="Copy transaction ID"
                                 >
-                                  {copiedId === r.tx_id ? '✓' : 'Copy'}
+                                  {copiedId === r.tx_id ? '✓ Copied' : 'Copy'}
                                 </button>
                               </div>
                             </td>
@@ -612,31 +636,33 @@ export default function PaymentHistoryPage() {
                             {/* Type */}
                             <td>
                               <span className={`ph-type-badge ${isCredit ? 'type-credit' : 'type-debit'}`}>
-                                {isCredit ? '↓ Credit' : '↑ Debit'}
+                                {isCredit ? 'Credit' : 'Debit'}
                               </span>
                             </td>
 
                             {/* Payment Method */}
                             <td>
-                              <span className="ph-pm-badge">
+                              <span className="ph-pm-badge" title={r.payment_method}>
                                 {r.payment_method.includes('ICICI') ? '🟠 ICICI UPI' :
-                                 r.payment_method.includes('PayU') ? '🟢 PayU India' :
-                                 r.payment_method.includes('Razorpay') ? '🔵 Razorpay' : '🟣 ' + r.payment_method}
+                                 r.payment_method.includes('PayU') ? 'PayU' :
+                                 r.payment_method.includes('Razorpay') ? '🔵 Razorpay' : r.payment_method}
                               </span>
                             </td>
 
                             {/* Purpose / Reference */}
-                            <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5 }}>
-                              <span title={r.purpose}>{r.purpose}</span>
-                              {r.reference_id && (
-                                <div className="ph-ref-code">{r.reference_id}</div>
-                              )}
+                            <td>
+                              <div className="ph-purpose">
+                                <div className="ph-purpose-main" title={r.purpose}>{r.purpose || '—'}</div>
+                                {r.reference_id && (
+                                  <div className="ph-ref-code" title={r.reference_id}>{r.reference_id}</div>
+                                )}
+                              </div>
                             </td>
 
                             {/* Amount */}
                             <td>
-                              <span className={`ph-amount ${isCredit ? 'credit' : 'debit'}`}>
-                                {isCredit ? '+' : '-'}₹{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              <span className={`ph-amount ${isCredit ? 'credit' : 'debit'}`} title={`${isCredit ? '+' : '-'}₹${Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}>
+                                <span className="ph-amount-sign">{isCredit ? '+' : '-'}</span><span>₹{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                               </span>
                             </td>
 
@@ -649,11 +675,11 @@ export default function PaymentHistoryPage() {
 
                             {/* Action */}
                             <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div className="ph-actions-cell">
                                 <button
                                   className="action-copy-btn"
                                   onClick={() => copyToClipboard(r.reference_id || r.tx_id)}
-                                  title="Details"
+                                  title="Copy reference ID"
                                 >
                                   Details
                                 </button>
@@ -684,7 +710,7 @@ export default function PaymentHistoryPage() {
                   Showing {displayRecords.length} of {totalRecords} total transactions
                 </span>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="ph-footer-controls">
                   <select
                     className="ph-limit-select"
                     value={limit}

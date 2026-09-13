@@ -141,13 +141,15 @@ class ProfileService {
       final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
       final checkUrls = [
         '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
-        'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
-        'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        if (kDebugMode) ...[
+          'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+          'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        ]
       ];
 
       for (final url in checkUrls) {
         try {
-          final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+          final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
           if (res.statusCode == 200) {
             final data = json.decode(res.body);
             if (data['status'] == 'success' && data['data'] != null) {

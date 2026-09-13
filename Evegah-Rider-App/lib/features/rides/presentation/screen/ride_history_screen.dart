@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -62,8 +63,10 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
     final mobile = await SessionService().getUserMobile() ?? "+91 98765 43210";
     final urls = [
       '${AppConstants.apiBaseUrl}/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
-      'http://192.168.1.4:5000/api/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
-      'http://localhost:5000/api/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
+        'http://localhost:5000/api/reservations?limit=100&search=${Uri.encodeComponent(mobile)}',
+      ]
     ];
 
     for (final url in urls) {
@@ -1561,12 +1564,14 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
             final id = (r['id'] ?? r['reservation_id'] ?? rId).toString();
             final urls = [
               '${AppConstants.apiBaseUrl}/reservations/$id/return',
-              'http://192.168.1.4:5000/api/reservations/$id/return',
-              'http://localhost:5000/api/reservations/$id/return',
+              if (kDebugMode) ...[
+                'http://192.168.1.4:5000/api/reservations/$id/return',
+                'http://localhost:5000/api/reservations/$id/return',
+              ]
             ];
             for (final u in urls) {
               try {
-                final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 3));
+                final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 4));
                 if (res.statusCode == 200) break;
               } catch (_) {}
             }
@@ -1598,12 +1603,14 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
             final id = (r['id'] ?? r['reservation_id'] ?? rId).toString();
             final urls = [
               '${AppConstants.apiBaseUrl}/reservations/$id/start',
-              'http://192.168.1.4:5000/api/reservations/$id/start',
-              'http://localhost:5000/api/reservations/$id/start',
+              if (kDebugMode) ...[
+                'http://192.168.1.4:5000/api/reservations/$id/start',
+                'http://localhost:5000/api/reservations/$id/start',
+              ]
             ];
             for (final u in urls) {
               try {
-                final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 3));
+                final res = await http.post(Uri.parse(u)).timeout(const Duration(seconds: 4));
                 if (res.statusCode == 200) break;
               } catch (_) {}
             }

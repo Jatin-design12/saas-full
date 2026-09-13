@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
@@ -144,12 +145,15 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
       try {
         final urls = [
           AppConstants.getLiveZones,
-          'http://192.168.1.4:5000/api/zones',
-          'http://localhost:5000/api/zones',
+          '${AppConstants.apiBaseUrl}/zones',
+          if (kDebugMode) ...[
+            'http://192.168.1.4:5000/api/zones',
+            'http://localhost:5000/api/zones',
+          ]
         ];
         for (final url in urls) {
           try {
-            final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+            final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
             if (response.statusCode == 200) {
               final data = json.decode(response.body);
               if (data['status'] == 'success' && data['data'] is List) {

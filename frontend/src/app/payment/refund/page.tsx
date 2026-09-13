@@ -143,13 +143,17 @@ interface PendingRefund {
   mobile: string;
   vehicle: string;
   returnDate: string;
+  bookingDate?: string;
   deposit: number;
-  condition: 'No Damage' | 'Damage Charged';
+  condition: string;
   conditionDetail?: string;
   deductions: number;
   refundAmount: number;
   deposit_status: string;
   notes?: string;
+  is_returned?: boolean;
+  can_refund?: boolean;
+  ride_status?: string;
 }
 
 interface CompletedRefund {
@@ -605,7 +609,9 @@ export default function DepositRefundPage() {
                               <td style={{ fontWeight: 700, color: '#1E293B' }}>{r.vehicle}</td>
 
                               <td style={{ fontSize: 12.5, color: '#475569', whiteSpace: 'nowrap' }}>
-                                {r.returnDate ? new Date(r.returnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent Return'}
+                                {r.returnDate
+                                  ? new Date(r.returnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                                  : (r.bookingDate ? `Booked: ${new Date(r.bookingDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}` : 'Ride in Progress')}
                               </td>
 
                               <td style={{ fontWeight: 700, color: '#1E293B' }}>
@@ -613,9 +619,19 @@ export default function DepositRefundPage() {
                               </td>
 
                               <td>
-                                <span className={`status-badge ${r.condition === 'Damage Charged' ? 'badge-damage' : 'badge-no-damage'}`}>
-                                  {r.condition}
-                                </span>
+                                {r.can_refund ? (
+                                  <span className={`status-badge ${r.condition === 'Damage Charged' ? 'badge-damage' : 'badge-no-damage'}`}>
+                                    {r.condition}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="status-badge"
+                                    style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}
+                                    title="Vehicle is currently in ride. Refund will be enabled once rider returns vehicle."
+                                  >
+                                    ● Vehicle In Ride
+                                  </span>
+                                )}
                               </td>
 
                               <td>
@@ -632,12 +648,31 @@ export default function DepositRefundPage() {
 
                               <td>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <button 
-                                    className="action-process-btn"
-                                    onClick={() => openRefundModal(r)}
-                                  >
-                                    Process Refund ➔
-                                  </button>
+                                  {r.can_refund ? (
+                                    <button 
+                                      className="action-process-btn"
+                                      onClick={() => openRefundModal(r)}
+                                      title="Process refund to rider"
+                                    >
+                                      Process Refund ➔
+                                    </button>
+                                  ) : (
+                                    <button 
+                                      className="action-process-btn"
+                                      disabled
+                                      title="Refund button is disabled until the rider returns the vehicle"
+                                      style={{
+                                        background: '#F1F5F9',
+                                        color: '#94A3B8',
+                                        borderColor: '#CBD5E1',
+                                        cursor: 'not-allowed',
+                                        boxShadow: 'none',
+                                        opacity: 0.85
+                                      }}
+                                    >
+                                      🔒 Vehicle In Ride
+                                    </button>
+                                  )}
                                   <button
                                     className="action-delete-btn"
                                     title="Delete / Dismiss Deposit"

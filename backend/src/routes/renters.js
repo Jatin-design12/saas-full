@@ -211,9 +211,14 @@ router.get('/', async (req, res) => {
           rider.deposit = (parseFloat(resv.deposit) || parseFloat(rider.deposit) || 0).toFixed(2);
           rider.total = (parseFloat(rider.rent) + parseFloat(rider.deposit)).toFixed(2);
           if (pZone) rider.latest_zone = pZone;
-        } else if (!rider.has_active_ride && isConfirmed && rider.status === 'No Active Ride') {
-          rider.status = 'Reserved';
+        } else if (!rider.has_active_ride && (isConfirmed || resv.status === 'Upcoming')) {
+          rider.status = 'Upcoming';
           rider.vehicle_id = resv.vehicle_number || 'Reserved (Pending)';
+          rider.package_name = resv.package_type || rider.package_name;
+          rider.rent = (parseFloat(resv.fare) || parseFloat(rider.rent) || 0).toFixed(2);
+          rider.deposit = (parseFloat(resv.deposit) || parseFloat(rider.deposit) || 0).toFixed(2);
+          rider.total = (parseFloat(rider.rent) + parseFloat(rider.deposit)).toFixed(2);
+          if (pZone) rider.latest_zone = pZone;
         }
       }
     }
@@ -361,10 +366,10 @@ router.post('/', async (req, res) => {
       package_name || 'Rider Plan',
       rental_start_date || new Date(),
       return_date || null,
-      status || 'Active Ride',
-      parseFloat(rent) || 1500.00,
-      parseFloat(deposit) || 1000.00,
-      parseFloat(total) || 2500.00
+      status || 'No Active Ride',
+      parseFloat(rent) || 0.00,
+      parseFloat(deposit) || 0.00,
+      parseFloat(total) || 0.00
     ]);
 
     // Keep mock list in sync

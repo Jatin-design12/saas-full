@@ -451,17 +451,105 @@ router.all('/response', async (req, res) => {
   }
 });
 
-// GET /api/payments/payu/status/:txnid - Query transaction status
+/**
+ * Verify payment status directly with PayU Gateway via verify_payment command
+ */
+async function verifyPayUPaymentWithGateway(txnid) {
+  try {
+    const creds = await getPayUCredentials();
+    const command = 'verify_payment';
+    const hashString = `${creds.key}|${command}|${txnid}|${creds.salt}`;
+    const hash = crypto.createHash('sha512').update(hashString).digest('hex');
+
+    const endpoint = creds.env === 'production'
+      ? 'https://info.payu.in/merchant/postservice.php?form=2'
+      : 'https://test.payu.in/merchant/postservice.php?form=2';
+
+    const params = new URLSearchParams({
+      key: creds.key,
+      command,
+      var1: txnid,
+      hash
+    });
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+
+    const text = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch (_) {}
+
+    if (json && json.status == 1 && json.transaction_details && json.transaction_details[txnid]) {
+      const tx = json.transaction_details[txnid];
+      return {
+        verified: true,
+        status: (tx.status || '').toLowerCase() === 'success' ? 'Success' : 'Failed',
+        payuId: tx.mihpayid,
+        bankRefNum: tx.bank_ref_num,
+        amount: parseFloat(tx.amt || tx.transaction_amount || 0),
+        raw: tx
+      };
+    }
+  } catch (err) {
+    console.warn('PayU verify_payment error:', err.message);
+  }
+  return { verified: false };
+}
+
+// GET /api/payments/payu/status/:txnid - Query transaction status with auto-verification
 router.get('/status/:txnid', async (req, res) => {
   try {
     const { txnid } = req.params;
-    const result = await db.query('SELECT * FROM payu_payments WHERE tx_id = $1 LIMIT 1', [txnid]);
+    let result = await db.query('SELECT * FROM payu_payments WHERE tx_id = $1 LIMIT 1', [txnid]);
     if (result.rows.length === 0) {
       return res.status(404).json({ status: 'error', message: 'Transaction not found' });
     }
+
+    let payment = result.rows[0];
+
+    // Auto-verify with PayU if still Pending
+    if (payment.status === 'Pending') {
+      const verifyRes = await verifyPayUPaymentWithGateway(txnid);
+      if (verifyRes.verified && verifyRes.status === 'Success') {
+        const payuTxId = verifyRes.payuId || '';
+        const bankRef = verifyRes.bankRefNum || '';
+
+        await db.query(`
+          UPDATE payu_payments 
+          SET status = 'Success', payu_id = $1, bank_ref_num = $2, updated_at = NOW() 
+          WHERE tx_id = $3
+        `, [payuTxId, bankRef, txnid]);
+
+        // If ride reservation, confirm reservation
+        if (payment.reservation_id) {
+          await db.query(
+            `UPDATE reservations SET payment_status = 'Paid', payment_mode = 'PayU', status = 'Confirmed', transaction_id = $1 WHERE id::text = $2 OR reservation_id = $2`,
+            [txnid, payment.reservation_id]
+          ).catch(() => {});
+        }
+
+        // If wallet top-up, credit wallet
+        if (payment.purpose === 'wallet' && payment.mobile && parseFloat(payment.amount) > 0) {
+          const cleanMob = payment.mobile.replace(/\D/g, '').slice(-10);
+          await db.query(
+            'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2',
+            [parseFloat(payment.amount), `%${cleanMob}%`]
+          ).catch(() => {});
+        }
+
+        result = await db.query('SELECT * FROM payu_payments WHERE tx_id = $1 LIMIT 1', [txnid]);
+        payment = result.rows[0];
+      }
+    }
+
     res.json({
       status: 'success',
-      data: result.rows[0]
+      data: payment
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -114,13 +115,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       final checkUrls = [
         '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
-        'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
-        'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        if (kDebugMode) ...[
+          'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+          'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        ]
       ];
 
       for (final checkUrl in checkUrls) {
         try {
-          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 2));
+          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 5));
           if (checkRes.statusCode == 200) {
             final checkData = json.decode(checkRes.body);
             if (checkData['status'] == 'success' && checkData['data'] != null) {
@@ -210,13 +213,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       final checkUrls = [
         '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
-        'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
-        'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        if (kDebugMode) ...[
+          'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+          'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
+        ]
       ];
 
       for (final checkUrl in checkUrls) {
         try {
-          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 2));
+          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 5));
           if (checkRes.statusCode == 200) {
             final checkData = json.decode(checkRes.body);
             if (checkData['status'] == 'success' && checkData['data'] != null) {

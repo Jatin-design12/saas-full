@@ -78,7 +78,7 @@ class _ZoneMapScreenState extends State<ZoneMapScreen> {
 
   Future<void> _fetchBackendZoneData() async {
     try {
-      final res = await http.get(Uri.parse(AppConstants.getLiveZones)).timeout(const Duration(seconds: 3));
+      final res = await http.get(Uri.parse(AppConstants.getLiveZones)).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['status'] == 'success' && data['data'] != null) {
@@ -100,7 +100,7 @@ class _ZoneMapScreenState extends State<ZoneMapScreen> {
                   icon: _zoneCustomIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
                   infoWindow: InfoWindow(
                     title: z['name'] ?? widget.zoneName,
-                    snippet: "${z['bikeCount'] ?? 8} Vehicles Available • Backend Live",
+                    snippet: "${z['bike_count'] ?? z['available_vehicles'] ?? 0} Vehicles Available • Backend Live",
                   ),
                 ),
               );

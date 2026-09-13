@@ -147,8 +147,10 @@ const CSS = `
 .cp-progress-bar-val { height: 100%; background: #2A195C; border-radius: 2.5px; }
 
 .cp-badge-active { background: #ECFDF5; color: #16A34A; border: 1px solid #BBF7D0; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
-.cp-badge-expired { background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
-.cp-badge-scheduled { background: #FFF1F2; color: #F43F5E; border: 1px solid #FECDD3; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+.cp-badge-expired { background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+.cp-badge-utilized { background: #FEF3C7; color: #D97706; border: 1px solid #FDE68A; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+.cp-badge-scheduled { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+.cp-badge-inactive { background: #F1F5F9; color: #64748B; border: 1px solid #E2E8F0; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
 
 .cp-actions-cell { display: flex; gap: 6px; align-items: center; }
 .cp-action-btn { border: none; background: none; cursor: pointer; color: #64748B; padding: 6px; border-radius: 6px; transition: all 0.15s; display: inline-flex; align-items: center; justify-content: center; }
@@ -364,7 +366,9 @@ export default function CouponsListPage() {
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
                   <option value="expired">Expired</option>
+                  <option value="utilized">Utilized</option>
                   <option value="scheduled">Scheduled</option>
+                  <option value="inactive">Inactive</option>
                 </select>
                 <select className="cp-select" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
                   <option value="all">All Types</option>
@@ -465,7 +469,9 @@ export default function CouponsListPage() {
                           <td>
                             {row.status === 'Active' && <span className="cp-badge-active">Active</span>}
                             {row.status === 'Expired' && <span className="cp-badge-expired">Expired</span>}
+                            {row.status === 'Utilized' && <span className="cp-badge-utilized">Utilized</span>}
                             {row.status === 'Scheduled' && <span className="cp-badge-scheduled">Scheduled</span>}
+                            {row.status === 'Inactive' && <span className="cp-badge-inactive">Inactive</span>}
                           </td>
                           <td>
                             <div className="cp-actions-cell">

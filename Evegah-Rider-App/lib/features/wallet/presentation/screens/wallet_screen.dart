@@ -4,6 +4,7 @@ import '../../data/services/wallet_service.dart';
 import '../../../../core/services/icici_upi_service.dart';
 import '../../../../core/services/payu_service.dart';
 import '../../../../core/services/payment_gateway_service.dart';
+import '../../../../core/widgets/payu_in_app_checkout_modal.dart';
 import '../../../offers/presentation/screens/offer_screen.dart';
 import 'transaction_detail_screen.dart';
 
@@ -84,11 +85,31 @@ class _WalletScreenState extends State<WalletScreen> {
         if (!mounted) return;
         Navigator.pop(context);
 
-        if (payuData != null && payuData['action_url'] != null) {
-          final launched = await PayUService().launchPayUCheckout(payuData['action_url'], payuData);
-          if (launched) {
-            await Future.delayed(const Duration(seconds: 2));
+        if (payuData != null && (payuData['checkout_url'] != null || payuData['action_url'] != null)) {
+          final txnid = payuData['txnid']?.toString() ?? '';
+          final checkoutUrl = payuData['checkout_url']?.toString() ?? payuData['action_url']?.toString() ?? '';
+
+          final result = await PayUInAppCheckoutModal.show(
+            context: context,
+            checkoutUrl: checkoutUrl,
+            txnid: txnid,
+            amount: amount,
+          );
+
+          if (result != null && result.success) {
+            await _walletService.addMoney(amount, paymentMethod: "PayU India", paymentId: result.txId);
             await _loadWalletData();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("₹${amount.toStringAsFixed(0)} added to wallet successfully! ⚡"), backgroundColor: const Color(0xFF16A34A)),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result?.message ?? "PayU payment cancelled."), backgroundColor: Colors.redAccent),
+              );
+            }
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

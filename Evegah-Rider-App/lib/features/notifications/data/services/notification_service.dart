@@ -54,8 +54,10 @@ class NotificationService {
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
     final urls = [
       '${AppConstants.apiBaseUrl}/notifications',
-      'http://192.168.1.4:5000/api/notifications',
-      'http://localhost:5000/api/notifications',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/notifications',
+        'http://localhost:5000/api/notifications',
+      ]
     ];
 
     for (final url in urls) {

@@ -240,15 +240,17 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               }
             }
 
-            let fareAmount = parseFloat(r.fare || '0');
-            if (fareAmount <= 0) fareAmount = 1407.50;
+            let fareAmount = r.fare !== null && r.fare !== undefined ? parseFloat(r.fare) : 0;
+            let depositAmount = r.deposit !== null && r.deposit !== undefined ? parseFloat(r.deposit) : 0;
 
             return {
               ...r,
               customer_name: isGenericName ? matchedProfile.name : r.customer_name,
               mobile: isGenericName ? matchedProfile.phone : (r.mobile || matchedProfile.phone),
               reservation_time: formattedTime,
-              fare: fareAmount.toFixed(2)
+              fare: fareAmount.toFixed(2),
+              deposit: depositAmount.toFixed(2),
+              total_payable: (fareAmount + depositAmount).toFixed(2)
             };
           });
 

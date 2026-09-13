@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
@@ -53,13 +54,15 @@ class _BmsScreenState extends State<BmsScreen> {
 
     final urls = [
       '${AppConstants.apiBaseUrl}/reservations?search=${Uri.encodeComponent(mobile)}',
-      'http://192.168.1.4:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
-      'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
+        'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(mobile)}',
+      ]
     ];
 
     for (final url in urls) {
       try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {

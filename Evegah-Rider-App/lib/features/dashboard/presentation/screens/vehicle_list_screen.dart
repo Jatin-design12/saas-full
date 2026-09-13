@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
@@ -325,13 +326,16 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
       return;
     }
     final urls = [
+      AppConstants.getLiveZones,
       '${AppConstants.apiBaseUrl}/zones',
-      'http://192.168.1.4:5000/api/zones',
-      'http://localhost:5000/api/zones',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/zones',
+        'http://localhost:5000/api/zones',
+      ]
     ];
     for (final url in urls) {
       try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final List zones = (data is List) ? data : (data['data'] ?? []);

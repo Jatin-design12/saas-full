@@ -273,24 +273,15 @@ router.get('/deposits', async (req, res) => {
     const resRows = resResult.rows;
     const renterRows = rentersResult.rows;
 
-    // Calculate real KPIs
-    let totalDepositsHeld = 0;
-    renterRows.forEach(r => {
-      if (['Active Ride', 'Retain Ride', 'Active'].includes(r.status)) {
-        totalDepositsHeld += parseFloat(r.deposit) || 0;
-      }
-    });
-    resRows.forEach(r => {
-      if (['Confirmed', 'Ongoing', 'Active', 'Upcoming'].includes(r.status) && ['Held', 'Paid', null].includes(r.deposit_status)) {
-        totalDepositsHeld += parseFloat(r.deposit) || 0;
-      }
-    });
-
     const pendingList = [];
     const completedList = [];
+    let totalDepositsHeld = 0;
     let totalRefunded = 0;
     let totalDeductions = 0;
     let pendingAmount = 0;
+    let pendingCount = 0;
+
+    const processedMobiles = new Set();
 
     resRows.forEach(r => {
       const dep = parseFloat(r.deposit !== null && r.deposit !== undefined ? r.deposit : 0);
@@ -298,6 +289,7 @@ router.get('/deposits', async (req, res) => {
       const ded = parseFloat(r.refund_deductions) || 0;
       const st = r.status || '';
       const depSt = r.deposit_status || '';
+      const cleanMob = (r.mobile || '').replace(/\D/g, '').slice(-10);
 
       if (depSt === 'Refunded' && (refAmt > 0 || dep > 0)) {
         completedList.push({
@@ -309,7 +301,7 @@ router.get('/deposits', async (req, res) => {
             avatar: ''
           },
           mobile: r.mobile,
-          vehicle: r.vehicle_number || 'EVM102502',
+          vehicle: r.vehicle_number || 'EVM102501',
           refundDate: r.refund_date || r.returned_at || r.created_at,
           txId: r.refund_tx_id || `REF-${r.id?.toString().slice(0, 8)}`,
           deposit: dep,
@@ -322,7 +314,21 @@ router.get('/deposits', async (req, res) => {
         });
         totalRefunded += refAmt;
         totalDeductions += ded;
-      } else if (dep > 0 && (depSt === 'Pending_Refund' || ['Completed', 'Return'].includes(st)) && depSt !== 'None' && depSt !== 'Refunded' && depSt !== 'Dismissed') {
+        if (cleanMob) processedMobiles.add(cleanMob);
+      } else if (dep > 0 && depSt !== 'None' && depSt !== 'Refunded' && depSt !== 'Dismissed') {
+        const isReturned = Boolean(r.returned_at || ['Completed', 'Return'].includes(st));
+        const canRefund = isReturned;
+
+        if (cleanMob) processedMobiles.add(cleanMob);
+
+        if (isReturned) {
+          pendingAmount += Math.max(0, dep - ded);
+          totalDeductions += ded;
+          pendingCount++;
+        } else {
+          totalDepositsHeld += dep;
+        }
+
         pendingList.push({
           id: r.id,
           reservation_id: r.reservation_id,
@@ -332,48 +338,61 @@ router.get('/deposits', async (req, res) => {
             avatar: ''
           },
           mobile: r.mobile,
-          vehicle: r.vehicle_number || 'EVM102502',
-          returnDate: r.returned_at || r.created_at,
+          vehicle: r.vehicle_number || 'EVM102501',
+          returnDate: isReturned ? (r.returned_at || r.created_at) : null,
+          bookingDate: r.created_at,
           deposit: dep,
-          condition: (r.return_condition && r.return_condition.toLowerCase() !== 'clean') ? 'Damage Charged' : 'No Damage',
-          conditionDetail: r.return_condition || 'Clean',
-          deductions: ded,
-          refundAmount: Math.max(0, dep - ded),
-          deposit_status: 'Pending_Refund',
-          notes: r.return_notes || ''
+          condition: isReturned ? ((r.return_condition && r.return_condition.toLowerCase() !== 'clean') ? 'Damage Charged' : 'No Damage') : 'Vehicle In Ride',
+          conditionDetail: isReturned ? (r.return_condition || 'Clean') : (st === 'Upcoming' ? 'Upcoming Ride (Awaiting Pickup)' : 'Active Ride (Awaiting Return)'),
+          deductions: isReturned ? ded : 0,
+          refundAmount: Math.max(0, dep - (isReturned ? ded : 0)),
+          deposit_status: isReturned ? 'Pending_Refund' : 'Held',
+          notes: r.return_notes || '',
+          is_returned: isReturned,
+          can_refund: canRefund,
+          ride_status: st
         });
-        pendingAmount += Math.max(0, dep - ded);
-        totalDeductions += ded;
       }
     });
 
-    // Also include any renters with status 'Return' or 'Completed' that aren't in reservations
+    // Also include any standalone renters with deposits not linked to a reservation
     renterRows.forEach(r => {
       const dep = parseFloat(r.deposit || 0);
-      if (['Return', 'Completed'].includes(r.status) && dep > 0 && r.status !== 'Dismissed') {
-        const cleanMob = (r.mobile || '').replace(/\D/g, '').slice(-10);
-        const alreadyIn = pendingList.some(p => (p.mobile || '').includes(cleanMob)) || completedList.some(c => (c.mobile || '').includes(cleanMob));
-        if (!alreadyIn) {
-          pendingList.push({
-            id: r.id,
-            reservation_id: `RET-${r.id?.toString().slice(0, 6)}`,
-            rider: {
-              name: r.rider_name || 'Rider',
-              code: `EVR-${r.id?.toString().slice(0, 6)}`,
-              avatar: ''
-            },
-            mobile: r.mobile,
-            vehicle: r.vehicle_id || 'EVM102502',
-            returnDate: r.return_date || r.created_at || new Date(),
-            deposit: dep,
-            condition: 'No Damage',
-            conditionDetail: 'Good Condition',
-            deductions: 0,
-            refundAmount: dep,
-            deposit_status: 'Pending_Refund'
-          });
+      const cleanMob = (r.mobile || '').replace(/\D/g, '').slice(-10);
+      if (dep > 0 && r.status !== 'Dismissed' && (!cleanMob || !processedMobiles.has(cleanMob))) {
+        if (cleanMob) processedMobiles.add(cleanMob);
+        const isReturned = ['Return', 'Completed'].includes(r.status);
+        const canRefund = isReturned;
+
+        if (isReturned) {
           pendingAmount += dep;
+          pendingCount++;
+        } else if (['Active Ride', 'Retain Ride', 'Active'].includes(r.status)) {
+          totalDepositsHeld += dep;
         }
+
+        pendingList.push({
+          id: r.id,
+          reservation_id: `RET-${r.id?.toString().slice(0, 6)}`,
+          rider: {
+            name: r.rider_name || 'Rider',
+            code: `EVR-${r.id?.toString().slice(0, 6)}`,
+            avatar: ''
+          },
+          mobile: r.mobile,
+          vehicle: r.vehicle_id || 'EVM102501',
+          returnDate: isReturned ? (r.return_date || r.created_at || new Date()) : null,
+          bookingDate: r.rental_start_date || r.created_at,
+          deposit: dep,
+          condition: isReturned ? 'No Damage' : 'Vehicle In Ride',
+          conditionDetail: isReturned ? 'Good Condition' : 'Active Ride (Awaiting Return)',
+          deductions: 0,
+          refundAmount: dep,
+          deposit_status: isReturned ? 'Pending_Refund' : 'Held',
+          is_returned: isReturned,
+          can_refund: canRefund,
+          ride_status: r.status
+        });
       }
     });
 
@@ -381,7 +400,7 @@ router.get('/deposits', async (req, res) => {
       status: 'success',
       kpis: {
         total_held: Math.round(totalDepositsHeld * 100) / 100,
-        pending_refunds_count: pendingList.length,
+        pending_refunds_count: pendingCount,
         pending_refunds_amount: Math.round(pendingAmount * 100) / 100,
         total_refunded_amount: Math.round(totalRefunded * 100) / 100,
         total_deductions_amount: Math.round(totalDeductions * 100) / 100,
@@ -399,7 +418,7 @@ router.get('/deposits', async (req, res) => {
 
 // DELETE /api/reservations/deposits — Bulk delete/dismiss deposit records
 router.delete('/deposits', async (req, res) => {
-  const { ids } = req.body;
+  const ids = req.body?.ids || req.body?.data?.ids || (req.query?.ids ? String(req.query.ids).split(',') : []);
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ status: 'error', message: 'No deposit IDs provided' });
   }

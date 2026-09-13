@@ -22,7 +22,33 @@ router.get('/', async (req, res) => {
       ) u ON LOWER(c.code) = LOWER(u.coupon_code)
       ORDER BY c.created_at DESC
     `);
-    res.json({ status: 'success', data: result.rows });
+
+    const now = new Date();
+    const updatedRows = [];
+    for (const c of result.rows) {
+      let dynamicStatus = c.status;
+      const usage = parseInt(c.current_usage) || 0;
+      const limit = parseInt(c.redemption_limit) || 0;
+
+      if (c.end_date && new Date(c.end_date) < now) {
+        dynamicStatus = 'Expired';
+      } else if (limit > 0 && usage >= limit) {
+        dynamicStatus = 'Utilized';
+      } else if (c.start_date && new Date(c.start_date) > now) {
+        dynamicStatus = 'Scheduled';
+      } else if (c.status !== 'Inactive') {
+        dynamicStatus = 'Active';
+      }
+
+      if (dynamicStatus !== c.status || usage !== (c.current_usage || 0)) {
+        await db.query('UPDATE coupons SET status = $1, current_usage = $2 WHERE id = $3', [dynamicStatus, usage, c.id]).catch(e => console.error(e));
+        c.status = dynamicStatus;
+      }
+      c.current_usage = usage;
+      updatedRows.push(c);
+    }
+
+    res.json({ status: 'success', data: updatedRows });
   } catch (err) {
     console.error('Error fetching coupons:', err);
     res.status(500).json({ status: 'error', message: err.message });

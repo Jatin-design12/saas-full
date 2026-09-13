@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 /* ──────────────────────────────────────────────────────────────
    STEP 3 · PAYMENT & CHARGES  — pixel-perfect
@@ -800,13 +801,11 @@ export default function PaymentPage() {
 
   // Fetch registered active coupons from backend
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    fetch(`${apiUrl}/coupons`)
-      .then(res => res.json())
-      .then(res => {
-        const raw = res.data || res.coupons || res;
+    api.get('/coupons')
+      .then((res: any) => {
+        const raw = res?.data || res?.coupons || res;
         if (Array.isArray(raw)) {
-          setCouponsList(raw.filter((c: any) => c.is_active !== false && c.status !== 'inactive'));
+          setCouponsList(raw.filter((c: any) => c.is_active !== false && c.status === 'Active'));
         }
       })
       .catch(() => {});
@@ -832,19 +831,14 @@ export default function PaymentPage() {
     const fallbackQr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${totalPayable.toFixed(2)}&cu=INR&tr=${txId}`)}`;
     setIciciQrUrl(fallbackQr);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    fetch(`${apiUrl}/payments/icici/generate-qr`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: totalPayable,
-        rider_name: kycData?.fullName || 'Rider',
-        mobile: kycData?.mobile || '',
-        notes: `EV Ride ${rentalData?.vehicle_code || 'Rental'}`
-      })
+    api.post('/payments/icici/generate-qr', {
+      amount: totalPayable,
+      rider_name: kycData?.fullName || 'Rider',
+      mobile: kycData?.mobile || '',
+      notes: `EV Ride ${rentalData?.vehicle_code || 'Rental'}`,
+      purpose: 'ride'
     })
-      .then(res => res.json())
-      .then(res => {
+      .then((res: any) => {
         if (res && res.data) {
           setIciciTxId(res.data.tx_id || txId);
           if (res.data.upi_string) {
@@ -863,19 +857,14 @@ export default function PaymentPage() {
     const fallbackSplitQr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${onlineAmount.toFixed(2)}&cu=INR&tr=${sTxId}`)}`;
     setSplitQrUrl(fallbackSplitQr);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    fetch(`${apiUrl}/payments/icici/generate-qr`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: onlineAmount,
-        rider_name: kycData?.fullName || 'Rider',
-        mobile: kycData?.mobile || '',
-        notes: `Split Online Part - ${rentalData?.vehicle_code || 'Rental'}`
-      })
+    api.post('/payments/icici/generate-qr', {
+      amount: onlineAmount,
+      rider_name: kycData?.fullName || 'Rider',
+      mobile: kycData?.mobile || '',
+      notes: `Split Online Part - ${rentalData?.vehicle_code || 'Rental'}`,
+      purpose: 'ride'
     })
-      .then(res => res.json())
-      .then(res => {
+      .then((res: any) => {
         if (res && res.data) {
           setSplitTxId(res.data.tx_id || sTxId);
           if (res.data.upi_string) {
@@ -890,18 +879,19 @@ export default function PaymentPage() {
   const verifyUpiPayment = async () => {
     setIsVerifyingUpi(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
       const targetTxId = payMethod === 'split' ? splitTxId : iciciTxId;
-      const res = await fetch(`${apiUrl}/payments/icici/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tx_id: targetTxId })
+      const amountToVerify = payMethod === 'split' ? onlineAmount : totalPayable;
+      const res: any = await api.post('/payments/icici/verify', {
+        tx_id: targetTxId,
+        amount: amountToVerify,
+        rider_name: kycData?.fullName || 'Rider',
+        mobile: kycData?.mobile || '',
+        plan: rentalData?.plan_name || 'Standard Plan',
+        purpose: 'ride'
       });
-      const data = await res.json();
-      if (data.status === 'COMPLETED' || data.success) {
+      if (res && (res.status === 'success' || res.payment_status === 'SUCCESS')) {
         setUpiVerified(true);
       } else {
-        // Staff confirmation verification
         setUpiVerified(true);
       }
     } catch (e) {

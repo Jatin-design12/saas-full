@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -6,6 +7,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/icici_upi_service.dart';
 import '../../../../core/services/payu_service.dart';
 import '../../../../core/services/payment_gateway_service.dart';
+import '../../../../core/widgets/payu_in_app_checkout_modal.dart';
 import '../../../dashboard/presentation/screens/main_navigation.dart';
 import '../../../kyc/presentation/screens/kyc_screen.dart';
 import '../../../wallet/data/services/wallet_service.dart';
@@ -56,13 +58,15 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
 
     final urls = [
       '${AppConstants.apiBaseUrl}/reservations/${widget.reservationId}',
-      'http://192.168.1.4:5000/api/reservations/${widget.reservationId}',
-      'http://localhost:5000/api/reservations/${widget.reservationId}',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/reservations/${widget.reservationId}',
+        'http://localhost:5000/api/reservations/${widget.reservationId}',
+      ]
     ];
 
     for (final url in urls) {
       try {
-        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 2));
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
         if (res.statusCode == 200) {
           final data = json.decode(res.body);
           if (data['data'] != null && mounted) {
@@ -279,34 +283,29 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                               if (!mounted) return;
                               Navigator.pop(context);
 
-                              if (payuData != null && payuData['action_url'] != null) {
+                              if (payuData != null && (payuData['checkout_url'] != null || payuData['action_url'] != null)) {
                                 final txnid = payuData['txnid']?.toString() ?? '';
-                                final launched = await PayUService().launchPayUCheckout(payuData['action_url'], payuData);
-                                if (launched && mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("PayU checkout opened. Please complete your deposit payment."), backgroundColor: Colors.blue),
-                                  );
-                                  // Polling check for deposit payment
-                                  for (int i = 0; i < 10; i++) {
-                                    await Future.delayed(const Duration(seconds: 3));
-                                    if (!mounted) break;
-                                    final status = await PayUService().checkPaymentStatus(txnid);
-                                    if (status.toLowerCase() == 'success') {
-                                      await _markBackendPaymentPaid("PayU");
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text("Deposit Paid Successfully via PayU!"), backgroundColor: Colors.green),
-                                        );
-                                      }
-                                      break;
-                                    } else if (status.toLowerCase() == 'failed') {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text("PayU deposit payment cancelled or failed."), backgroundColor: Colors.redAccent),
-                                        );
-                                      }
-                                      break;
-                                    }
+                                final checkoutUrl = payuData['checkout_url']?.toString() ?? payuData['action_url']?.toString() ?? '';
+
+                                final result = await PayUInAppCheckoutModal.show(
+                                  context: context,
+                                  checkoutUrl: checkoutUrl,
+                                  txnid: txnid,
+                                  amount: depositAmount,
+                                );
+
+                                if (result != null && result.success) {
+                                  await _markBackendPaymentPaid("PayU");
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text("Deposit Paid Successfully via PayU! ⚡"), backgroundColor: Colors.green),
+                                    );
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(result?.message ?? "PayU deposit payment cancelled or failed."), backgroundColor: Colors.redAccent),
+                                    );
                                   }
                                 }
                               }
@@ -370,8 +369,10 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
     final resId = widget.reservationId.isNotEmpty ? widget.reservationId : 'RID-2026-445023';
     final urls = [
       '${AppConstants.apiBaseUrl}/reservations/$resId/pay',
-      'http://192.168.1.4:5000/api/reservations/$resId/pay',
-      'http://localhost:5000/api/reservations/$resId/pay',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/reservations/$resId/pay',
+        'http://localhost:5000/api/reservations/$resId/pay',
+      ]
     ];
 
     for (final url in urls) {

@@ -12,16 +12,15 @@ class PaymentGatewayService {
   DateTime? _lastFetchTime;
 
   List<String> _getEndpoints(String path) {
-    final List<String> list = [];
-    if (kIsWeb) {
-      list.add('http://localhost:5000/api$path');
-      list.add('http://127.0.0.1:5000/api$path');
-      list.add('${AppConstants.apiBaseUrl}$path');
-    } else {
-      list.add('${AppConstants.apiBaseUrl}$path');
-      list.add('http://192.168.1.4:5000/api$path');
-      list.add('http://10.0.2.2:5000/api$path');
-      list.add('http://localhost:5000/api$path');
+    final List<String> list = ['${AppConstants.apiBaseUrl}$path'];
+    if (kDebugMode) {
+      if (kIsWeb) {
+        list.add('http://localhost:5000/api$path');
+      } else {
+        list.add('http://192.168.1.4:5000/api$path');
+        list.add('http://10.0.2.2:5000/api$path');
+        list.add('http://localhost:5000/api$path');
+      }
     }
     return list;
   }

@@ -264,7 +264,7 @@ const deleteSingleTransaction = async (compositeId) => {
  * Bulk delete payment transactions
  */
 router.delete('/', async (req, res) => {
-  const { ids } = req.body;
+  const ids = req.body?.ids || req.body?.data?.ids || (req.query?.ids ? String(req.query.ids).split(',') : []);
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ status: 'error', message: 'No transaction IDs provided' });
   }
