@@ -71,6 +71,34 @@ function decodeIciciResponse(rawText) {
   return null;
 }
 
+// Helper function to resolve active ICICI config dynamically from database settings
+async function getActiveIciciConfig(requestedVpa) {
+  let vpa = String(requestedVpa || '').trim();
+  let payee = process.env.ICICI_PAYEE_NAME || 'Evegah';
+  let mid = process.env.ICICI_MID || '9496988';
+  let terminalId = process.env.ICICI_TERMINAL_ID || '5411';
+
+  try {
+    const sRes = await db.query("SELECT values FROM settings WHERE category = 'payments'");
+    if (sRes.rows.length > 0 && sRes.rows[0].values?.gateways) {
+      const iciciGw = sRes.rows[0].values.gateways.find(g => g.id === 'icici' || g.provider === 'icici');
+      if (iciciGw) {
+        if (!vpa && iciciGw.vpa) vpa = String(iciciGw.vpa).trim();
+        if (iciciGw.payee_name) payee = String(iciciGw.payee_name).trim();
+        if (iciciGw.key_id) mid = String(iciciGw.key_id).trim();
+      }
+    }
+  } catch (e) {
+    console.warn('Could not read settings for ICICI config:', e.message);
+  }
+
+  if (!vpa) {
+    vpa = process.env.ICICI_VPA || 'evegahride@icici';
+  }
+
+  return { vpa, payee, mid, terminalId };
+}
+
 // Handler for generating ICICI Dynamic UPI QR
 async function handleGenerateQr(req, res) {
   try {
@@ -84,6 +112,8 @@ async function handleGenerateQr(req, res) {
       merchantTranId,
       billNumber,
       terminalId,
+      vpa,
+      includeMcc,
     } = req.body || {};
 
     const numAmount = parseFloat(amount || 0);
@@ -91,7 +121,12 @@ async function handleGenerateQr(req, res) {
       return res.status(400).json({ error: 'Valid amount is required' });
     }
 
-    const mcc = String(terminalId || ICICI_TERMINAL_ID || '5411').trim();
+    const activeCfg = await getActiveIciciConfig(vpa || req.query?.vpa);
+    const resolvedVpa = activeCfg.vpa;
+    const resolvedPayee = activeCfg.payee;
+    const resolvedMid = activeCfg.mid;
+    const mcc = String(terminalId || activeCfg.terminalId || '5411').trim();
+
     const cleanMobile = (mobile || '').replace(/\D/g, '');
     const cleanRider = rider_name || 'Rider';
     const noteText = notes || (purpose === 'ride' ? 'EV Ride Booking' : 'Evegah Wallet Top-Up');
@@ -103,8 +138,8 @@ async function handleGenerateQr(req, res) {
 
     const payload = {
       amount: numAmount.toFixed(2),
-      merchantId: String(ICICI_MID),
-      subMerchantId: String(ICICI_MID),
+      merchantId: String(resolvedMid),
+      subMerchantId: String(resolvedMid),
       terminalId: mcc,
       merchantTranId: txnId,
       billNumber: txnId.slice(0, 50),
@@ -138,7 +173,7 @@ async function handleGenerateQr(req, res) {
       } else {
         encryptedFallback = true;
         upstream = {
-          merchantId: String(ICICI_MID),
+          merchantId: String(resolvedMid),
           terminalId: mcc,
           success: 'true',
           response: '0',
@@ -152,7 +187,7 @@ async function handleGenerateQr(req, res) {
       encryptedFallback = true;
       refId = txnId;
       upstream = {
-        merchantId: String(ICICI_MID),
+        merchantId: String(resolvedMid),
         terminalId: mcc,
         success: 'true',
         response: '0',
@@ -166,28 +201,39 @@ async function handleGenerateQr(req, res) {
     }
 
     // Official NPCI / ICICI QR String format
-    // upi://pay?pa=<merchant VPA>&pn=<merchant name>&tr=<Refid>&am=<amount>&cu=INR&mc=<MCC code>
-    const qrString = `upi://pay?pa=${encodeURIComponent(ICICI_VPA)}&pn=${encodeURIComponent(ICICI_PAYEE_NAME)}&tr=${encodeURIComponent(refId)}&am=${numAmount.toFixed(2)}&cu=INR&mc=${mcc}`;
+    // upi://pay?pa=<merchant VPA>&pn=<merchant name>&tr=<Refid>&am=<amount>&cu=INR
+    // CRITICAL NPCI FIX:
+    // 1) pa MUST NOT have '@' encoded as '%40' (i.e. 'pa=user@icici', NEVER 'pa=user%40icici').
+    //    Scanning apps (PhonePe, Google Pay, Paytm) pass the 'pa' value to NPCI reqValAdd directly without decoding %40,
+    //    which causes NPCI error: "receivers UPI id or vpa is not available"!
+    // 2) Omit 'mc' unless specifically requested: When mc is present, NPCI enforces strict merchant classification.
+    //    If the merchant's onboarding MCC is different or unverified, NPCI fails with U17/U30.
+    let qrString = `upi://pay?pa=${resolvedVpa}&pn=${encodeURIComponent(resolvedPayee).replace(/%20/g, '+')}&tr=${encodeURIComponent(refId)}&am=${numAmount.toFixed(2)}&cu=INR`;
+    if (includeMcc && mcc && mcc !== 'none') {
+      qrString += `&mc=${encodeURIComponent(mcc)}`;
+    }
 
     // Record in PostgreSQL icici_payments table
     try {
       await db.query(`
         INSERT INTO icici_payments (
-          tx_id, merchant_id, terminal_id, ref_id, amount, rider_name, mobile, status, purpose, reservation_id, upstream_response
+          tx_id, merchant_id, terminal_id, ref_id, amount, rider_name, mobile, vpa, status, purpose, reservation_id, upstream_response
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending', $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Pending', $9, $10, $11)
         ON CONFLICT (tx_id) DO UPDATE SET
           amount = EXCLUDED.amount,
           ref_id = EXCLUDED.ref_id,
+          vpa = EXCLUDED.vpa,
           updated_at = NOW()
       `, [
         txnId,
-        ICICI_MID,
+        resolvedMid,
         mcc,
         refId,
         numAmount,
         cleanRider,
         cleanMobile,
+        resolvedVpa,
         purpose || 'ride',
         reservation_id || null,
         JSON.stringify(upstream),
@@ -198,10 +244,12 @@ async function handleGenerateQr(req, res) {
 
     // Return the response matching exact specifications
     return res.json({
-      merchantId: String(ICICI_MID),
+      merchantId: String(resolvedMid),
       terminalId: mcc,
       merchantTranId: txnId,
       refId: refId,
+      vpa: resolvedVpa,
+      payeeName: resolvedPayee,
       qrString: qrString,
       paymentTransactionId: null,
       upstream: upstream,
@@ -210,9 +258,9 @@ async function handleGenerateQr(req, res) {
       data: {
         tx_id: txnId,
         ref_id: refId,
-        mid: ICICI_MID,
-        vpa: ICICI_VPA,
-        payee_name: ICICI_PAYEE_NAME,
+        mid: resolvedMid,
+        vpa: resolvedVpa,
+        payee_name: resolvedPayee,
         amount: numAmount.toFixed(2),
         upi_string: qrString,
         notes: noteText,
@@ -232,12 +280,84 @@ router.post('/qr', handleGenerateQr);
 // POST /api/payments/icici/generate-qr & /initiate (aliases)
 router.post(['/generate-qr', '/initiate'], handleGenerateQr);
 
+// GET /api/payments/icici/config - Get active VPA & merchant info
+router.get('/config', async (req, res) => {
+  try {
+    const config = await getActiveIciciConfig();
+    return res.json({
+      status: 'success',
+      vpa: config.vpa,
+      payeeName: config.payee,
+      merchantId: config.mid,
+      terminalId: config.terminalId,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/payments/icici/config - Update active ICICI VPA in settings
+router.post('/config', async (req, res) => {
+  try {
+    const { vpa, payee_name } = req.body || {};
+    if (!vpa || !String(vpa).trim()) {
+      return res.status(400).json({ error: 'Valid VPA is required' });
+    }
+
+    const cleanVpa = String(vpa).trim();
+    const sRes = await db.query("SELECT values FROM settings WHERE category = 'payments'");
+    let paymentsVal = sRes.rows.length > 0 ? sRes.rows[0].values : {};
+    let gateways = Array.isArray(paymentsVal?.gateways) ? [...paymentsVal.gateways] : [];
+
+    let iciciGw = gateways.find(g => g.id === 'icici' || g.provider === 'icici');
+    if (iciciGw) {
+      iciciGw.vpa = cleanVpa;
+      if (payee_name) iciciGw.payee_name = String(payee_name).trim();
+      iciciGw.updated_at = new Date().toISOString();
+    } else {
+      gateways.push({
+        id: 'icici',
+        name: 'ICICI Bank UPI',
+        provider: 'icici',
+        active: true,
+        key_id: process.env.ICICI_MID || '9496988',
+        vpa: cleanVpa,
+        payee_name: payee_name || 'Evegah',
+        environment: 'production',
+      });
+    }
+
+    paymentsVal.gateways = gateways;
+    await db.query(
+      "INSERT INTO settings (category, values, updated_at) VALUES ('payments', $1, NOW()) ON CONFLICT (category) DO UPDATE SET values = EXCLUDED.values, updated_at = NOW()",
+      [JSON.stringify(paymentsVal)]
+    );
+
+    return res.json({
+      status: 'success',
+      message: 'ICICI UPI VPA updated successfully',
+      vpa: cleanVpa,
+      payeeName: payee_name || 'Evegah',
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Handler for status checking & polling
 async function handleCheckStatus(req, res) {
   try {
-    const merchantTranId = req.body?.merchantTranId || req.body?.tx_id || req.params?.tx_id || req.query?.merchantTranId || req.query?.tx_id;
+    const merchantTranId =
+      req.body?.merchantTranId ||
+      req.body?.tx_id ||
+      req.body?.refId ||
+      req.params?.tx_id ||
+      req.query?.merchantTranId ||
+      req.query?.tx_id ||
+      req.query?.refId;
+
     if (!merchantTranId) {
-      return res.status(400).json({ error: 'merchantTranId or tx_id is required' });
+      return res.status(400).json({ error: 'merchantTranId, refId or tx_id is required' });
     }
 
     const txId = String(merchantTranId).trim();

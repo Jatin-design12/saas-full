@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -383,6 +384,25 @@ export default function ReturnVehiclePage() {
   const [extendDays, setExtendDays] = useState(1);
   const [extendPayMethod, setExtendPayMethod] = useState<'upi' | 'cash' | 'split'>('upi');
 
+  // ICICI UPI Payment States for Extension
+  const [iciciQrString, setIciciQrString] = useState('');
+  const [iciciMerchantTranId, setIciciMerchantTranId] = useState('');
+  const [iciciRefId, setIciciRefId] = useState('');
+  const [iciciVpa, setIciciVpa] = useState('EVEGAHRIDE@icici');
+  const [upiVerified, setUpiVerified] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Load active ICICI config
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/payments/icici/config`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.vpa) setIciciVpa(d.vpa);
+      })
+      .catch(() => {});
+  }, []);
+
   // Exchange Vehicle States
   const [exchangeNewVehicle, setExchangeNewVehicle] = useState('EVM1024012 (Evegah E1)');
   const [exchangeNewBattery, setExchangeNewBattery] = useState('BAT-MNZ-001 (60V 32Ah)');
@@ -504,6 +524,78 @@ export default function ReturnVehiclePage() {
   };
   const extensionFare = getExtensionFare();
 
+  // Dynamic ICICI QR generation for extension fare
+  useEffect(() => {
+    if (mainTab !== 'extend' || (extendPayMethod !== 'upi' && extendPayMethod !== 'split') || extensionFare <= 0) return;
+    setUpiVerified(false);
+    let isMounted = true;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+    fetch(`${apiUrl}/payments/icici/qr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: extensionFare,
+        rider_name: selectedRider?.name || 'Rider',
+        notes: `Ride Extension for ${selectedRider?.vehicle_id || 'Vehicle'}`,
+        purpose: 'ride_extension'
+      })
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!isMounted) return;
+        const data = res?.data || res;
+        const qrStr = res?.qrString || data?.upi_string || data?.qrString || '';
+        const mTranId = res?.merchantTranId || data?.tx_id || '';
+        const rId = res?.refId || data?.ref_id || mTranId;
+        if (res?.vpa) setIciciVpa(res.vpa);
+        setIciciQrString(qrStr);
+        setIciciMerchantTranId(mTranId);
+        setIciciRefId(rId);
+      })
+      .catch(err => console.error('Extend Ride ICICI QR error:', err));
+
+    return () => { isMounted = false; };
+  }, [mainTab, extendPayMethod, extensionFare, selectedRider]);
+
+  // Automated status polling for extension payment
+  useEffect(() => {
+    if ((extendPayMethod !== 'upi' && extendPayMethod !== 'split') || !iciciMerchantTranId || upiVerified) return;
+
+    let isMounted = true;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+    const checkStatus = async () => {
+      if (!isMounted || upiVerified) return;
+      try {
+        setIsCheckingStatus(true);
+        const res = await fetch(`${apiUrl}/payments/icici/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ merchantTranId: iciciMerchantTranId }),
+        });
+        if (!isMounted) return;
+        const data = await res.json();
+        const rawStatus = (data?.status || data?.Status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS') {
+          setUpiVerified(true);
+        }
+      } catch (e) {
+      } finally {
+        if (isMounted) setIsCheckingStatus(false);
+      }
+    };
+
+    const timeout = setTimeout(checkStatus, 1500);
+    const interval = setInterval(checkStatus, 2500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [extendPayMethod, iciciMerchantTranId, upiVerified]);
+
   // Handlers for operations
   const handleCompleteReturn = async () => {
     setLoading(true);
@@ -532,6 +624,10 @@ export default function ReturnVehiclePage() {
   };
 
   const handleExtendRide = async () => {
+    if ((extendPayMethod === 'upi' || extendPayMethod === 'split') && !upiVerified) {
+      alert('Please wait for customer to complete ICICI UPI payment, or verify the payment status.');
+      return;
+    }
     setLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -1251,38 +1347,99 @@ export default function ReturnVehiclePage() {
 
                         {/* Payment Method & Total Payable */}
                         <div style={{
-                          border: '1.5px solid #E5E7EB', borderRadius: 10, padding: 14,
-                          background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                          border: '1.5px solid #E5E7EB', borderRadius: 12, padding: 16,
+                          background: '#F9FAFB', display: 'flex', flexDirection: 'column', gap: 14
                         }}>
-                          <div>
-                            <div style={{ fontSize: 12, color: '#6B7280' }}>Total Additional Fare:</div>
-                            <div style={{ fontSize: 20, fontWeight: 800, color: '#2A195C' }}>₹{extensionFare.toFixed(2)}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: '#6B7280' }}>Total Additional Fare:</div>
+                              <div style={{ fontSize: 20, fontWeight: 800, color: '#2A195C' }}>₹{extensionFare.toFixed(2)}</div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 14 }}>
+                              {[
+                                { id: 'upi', label: 'ICICI UPI QR' },
+                                { id: 'cash', label: 'Cash Payment' },
+                                { id: 'split', label: 'Split (Cash+UPI)' }
+                              ].map(p => (
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+                                  <input
+                                    type="radio"
+                                    name="extendPayMethod"
+                                    checked={extendPayMethod === p.id}
+                                    onChange={() => setExtendPayMethod(p.id as any)}
+                                  />
+                                  {p.label}
+                                </label>
+                              ))}
+                            </div>
                           </div>
 
-                          <div style={{ display: 'flex', gap: 14 }}>
-                            {[
-                              { id: 'upi', label: 'UPI QR Code' },
-                              { id: 'cash', label: 'Cash Payment' },
-                              { id: 'split', label: 'Split (Cash+UPI)' }
-                            ].map(p => (
-                              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
-                                <input
-                                  type="radio"
-                                  name="extendPayMethod"
-                                  checked={extendPayMethod === p.id}
-                                  onChange={() => setExtendPayMethod(p.id as any)}
-                                />
-                                {p.label}
-                              </label>
-                            ))}
-                          </div>
+                          {(extendPayMethod === 'upi' || extendPayMethod === 'split') && (
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center',
+                              padding: 16, background: '#FFFFFF', borderRadius: 12, border: '1px solid #E2E8F0',
+                              marginTop: 4
+                            }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B', marginBottom: 10 }}>
+                                Scan &amp; Pay Additional Fare via ICICI UPI
+                              </div>
+                              <div style={{
+                                width: 156, height: 156, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: '#FFFFFF', padding: 8, borderRadius: 12, border: '1.5px solid #E2E8F0',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                              }}>
+                                {iciciQrString ? (
+                                  <QRCodeSVG value={iciciQrString} size={140} level="M" />
+                                ) : (
+                                  <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>Generating ICICI QR...</div>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#701A75', marginTop: 8 }}>
+                                UPI ID: {iciciVpa}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                                Payee: Evegah | Ref: {iciciRefId || iciciMerchantTranId || 'EVG-GENERATING...'}
+                              </div>
+
+                              <div style={{ marginTop: 10, width: '100%', maxWidth: 280 }}>
+                                {upiVerified ? (
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                    background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: 8,
+                                    padding: '7px 12px', fontSize: '11.5px', fontWeight: 700, color: '#065F46'
+                                  }}>
+                                    ✓ Payment Verified via ICICI Bank
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                                    background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8,
+                                    padding: '6px 10px', fontSize: '11px', fontWeight: 600, color: '#1D4ED8'
+                                  }}>
+                                    <span style={{
+                                      width: 7, height: 7, borderRadius: '50%', background: '#2563EB',
+                                      display: 'inline-block'
+                                    }} />
+                                    <span>{isCheckingStatus ? 'Verifying with Bank...' : `Scan & Pay ₹${extensionFare.toFixed(2)}`}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           <button
                             className="nr-continue-btn"
                             onClick={handleExtendRide}
-                            disabled={loading}
+                            disabled={loading || ((extendPayMethod === 'upi' || extendPayMethod === 'split') && !upiVerified)}
+                            style={{
+                              opacity: ((extendPayMethod === 'upi' || extendPayMethod === 'split') && !upiVerified) ? 0.65 : 1,
+                              cursor: ((extendPayMethod === 'upi' || extendPayMethod === 'split') && !upiVerified) ? 'not-allowed' : 'pointer'
+                            }}
                           >
-                            Confirm Extension &amp; Send WhatsApp
+                            {(extendPayMethod === 'upi' || extendPayMethod === 'split')
+                              ? (upiVerified ? 'Confirm Extension & Send WhatsApp' : 'Waiting for ICICI UPI Payment...')
+                              : 'Confirm Extension & Send WhatsApp'}
                           </button>
                         </div>
                       </div>

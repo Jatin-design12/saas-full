@@ -244,6 +244,7 @@ router.get('/checkout/:txnid', async (req, res) => {
     const formattedAmount = parseFloat(payment.amount).toFixed(2);
     const productInfo = payment.purpose === 'ride' ? 'Evegah Ride Booking' : 'Evegah Wallet Top-Up';
     const cleanMobile = (payment.mobile || '').replace(/\D/g, '') || '9876543210';
+    const cleanName = (payment.rider_name || payment.name || payment.full_name || 'Evegah Rider').trim();
     const cleanEmail = (payment.email && payment.email.trim() !== 'rider@evegah.com')
       ? payment.email.trim()
       : `rider_${cleanMobile}@evegah.com`;

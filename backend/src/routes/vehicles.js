@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { getCache, setCache, delByPattern } = require('../redis');
+const XLSX = require('xlsx');
 
 // ============================================================
 // VEHICLE MODELS TABLE
@@ -319,6 +320,257 @@ const initVehicleModelsTable = async () => {
 };
 
 initVehicleModelsTable();
+
+// ============================================================
+// DOWNLOAD SAMPLE READY EXCEL TEMPLATE FOR VEHICLES
+// GET /api/vehicles/sample-excel
+// ============================================================
+router.get('/sample-excel', (req, res) => {
+  try {
+    const sampleVehicles = [
+      {
+        'Vehicle Code *': 'EVG-CT-001',
+        'Model Name *': 'Evegah City 2.0',
+        'Category': 'E-Scooter',
+        'Vehicle Type': 'Rental',
+        'Registration Number': 'GJ06-EV-2001',
+        'Chassis Number': 'CHS90192841',
+        'Motor Number': 'MTR440192',
+        'Controller Number': 'CTL102938',
+        'Color': 'Pearl White',
+        'Zone': 'Gotri Zone',
+        'Vehicle Status': 'Available',
+        'Battery Pct': 100,
+        'Current KM': 0,
+        'Total KM': 0,
+        'Manufacturer': 'Evegah Motors',
+        'Purchase Date (YYYY-MM-DD)': '2026-01-10',
+        'Warranty Expiry (YYYY-MM-DD)': '2027-01-10',
+        'Insurance Policy Number': 'POL-8819201',
+        'Insurance Provider': 'HDFC ERGO',
+        'Insurance Expiry (YYYY-MM-DD)': '2027-01-10',
+      },
+      {
+        'Vehicle Code *': 'EVG-CT-002',
+        'Model Name *': 'Evegah City 2.0',
+        'Category': 'E-Scooter',
+        'Vehicle Type': 'Rental',
+        'Registration Number': 'GJ06-EV-2002',
+        'Chassis Number': 'CHS90192842',
+        'Motor Number': 'MTR440193',
+        'Controller Number': 'CTL102939',
+        'Color': 'Jet Black',
+        'Zone': 'Manjalpur Zone',
+        'Vehicle Status': 'Available',
+        'Battery Pct': 95,
+        'Current KM': 15,
+        'Total KM': 15,
+        'Manufacturer': 'Evegah Motors',
+        'Purchase Date (YYYY-MM-DD)': '2026-01-10',
+        'Warranty Expiry (YYYY-MM-DD)': '2027-01-10',
+        'Insurance Policy Number': 'POL-8819202',
+        'Insurance Provider': 'ICICI Lombard',
+        'Insurance Expiry (YYYY-MM-DD)': '2027-01-10',
+      },
+      {
+        'Vehicle Code *': 'EVG-PR-001',
+        'Model Name *': 'Evegah Pro Max',
+        'Category': 'E-Bike',
+        'Vehicle Type': 'Commercial',
+        'Registration Number': 'GJ06-EV-3001',
+        'Chassis Number': 'CHS90192843',
+        'Motor Number': 'MTR440194',
+        'Controller Number': 'CTL102940',
+        'Color': 'Flame Red',
+        'Zone': 'KPGU Zone',
+        'Vehicle Status': 'Available',
+        'Battery Pct': 98,
+        'Current KM': 5,
+        'Total KM': 5,
+        'Manufacturer': 'Evegah Motors',
+        'Purchase Date (YYYY-MM-DD)': '2026-02-01',
+        'Warranty Expiry (YYYY-MM-DD)': '2027-02-01',
+        'Insurance Policy Number': 'POL-8819203',
+        'Insurance Provider': 'Bajaj Allianz',
+        'Insurance Expiry (YYYY-MM-DD)': '2027-02-01',
+      },
+    ];
+
+    const guideRows = [
+      { 'Field Name': 'Vehicle Code *', 'Required': 'YES', 'Description': 'Unique identifier for the vehicle (e.g. EVG-CT-001)', 'Sample / Allowed Values': 'EVG-CT-001' },
+      { 'Field Name': 'Model Name *', 'Required': 'YES', 'Description': 'Model name of the vehicle', 'Sample / Allowed Values': 'Evegah City 2.0, Evegah Pro, Evegah Fly' },
+      { 'Field Name': 'Category', 'Required': 'NO', 'Description': 'Category of EV', 'Sample / Allowed Values': 'E-Scooter, E-Bike, E-Loader' },
+      { 'Field Name': 'Vehicle Type', 'Required': 'NO', 'Description': 'Usage classification', 'Sample / Allowed Values': 'Rental, Commercial, Delivery' },
+      { 'Field Name': 'Registration Number', 'Required': 'NO', 'Description': 'RTO vehicle registration plate number', 'Sample / Allowed Values': 'GJ06-EV-2001' },
+      { 'Field Name': 'Chassis Number', 'Required': 'NO', 'Description': 'Chassis / VIN number', 'Sample / Allowed Values': 'CHS90192841' },
+      { 'Field Name': 'Motor Number', 'Required': 'NO', 'Description': 'Motor serial number', 'Sample / Allowed Values': 'MTR440192' },
+      { 'Field Name': 'Controller Number', 'Required': 'NO', 'Description': 'Controller serial number', 'Sample / Allowed Values': 'CTL102938' },
+      { 'Field Name': 'Color', 'Required': 'NO', 'Description': 'Vehicle color', 'Sample / Allowed Values': 'Pearl White, Jet Black, Ocean Blue' },
+      { 'Field Name': 'Zone', 'Required': 'NO', 'Description': 'Operating station / zone', 'Sample / Allowed Values': 'Gotri Zone, Manjalpur Zone, KPGU Zone, Aatapi Zone, Moti Daman Zone' },
+      { 'Field Name': 'Vehicle Status', 'Required': 'NO', 'Description': 'Initial operational status', 'Sample / Allowed Values': 'Available, In Ride, Maintenance, Offline' },
+      { 'Field Name': 'Battery Pct', 'Required': 'NO', 'Description': 'Initial battery percentage (0-100)', 'Sample / Allowed Values': '100' },
+      { 'Field Name': 'Current KM', 'Required': 'NO', 'Description': 'Odometer current reading', 'Sample / Allowed Values': '0' },
+      { 'Field Name': 'Total KM', 'Required': 'NO', 'Description': 'Total accumulated km', 'Sample / Allowed Values': '0' },
+      { 'Field Name': 'Manufacturer', 'Required': 'NO', 'Description': 'Vehicle manufacturing company', 'Sample / Allowed Values': 'Evegah Motors' },
+      { 'Field Name': 'Purchase Date', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2026-01-10' },
+      { 'Field Name': 'Warranty Expiry', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2027-01-10' },
+      { 'Field Name': 'Insurance Policy Number', 'Required': 'NO', 'Description': 'Insurance policy document id', 'Sample / Allowed Values': 'POL-8819201' },
+      { 'Field Name': 'Insurance Provider', 'Required': 'NO', 'Description': 'Insurance company name', 'Sample / Allowed Values': 'HDFC ERGO, ICICI Lombard' },
+      { 'Field Name': 'Insurance Expiry', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2027-01-10' },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const wsTemplate = XLSX.utils.json_to_sheet(sampleVehicles);
+    wsTemplate['!cols'] = [
+      { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 22 },
+      { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 },
+      { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
+      { wch: 25 }, { wch: 25 }, { wch: 24 }, { wch: 18 }, { wch: 25 },
+    ];
+
+    const wsGuide = XLSX.utils.json_to_sheet(guideRows);
+    wsGuide['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 45 }, { wch: 35 }];
+
+    XLSX.utils.book_append_sheet(wb, wsTemplate, 'Vehicles_Template');
+    XLSX.utils.book_append_sheet(wb, wsGuide, 'Instructions & Reference');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', 'attachment; filename="Evegah_Vehicles_Bulk_Import_Template.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return res.send(buf);
+  } catch (err) {
+    console.error('Error generating vehicle sample excel:', err);
+    return res.status(500).json({ error: 'Failed to generate vehicle sample excel' });
+  }
+});
+
+// ============================================================
+// BULK IMPORT VEHICLES
+// POST /api/vehicles/bulk-import
+// ============================================================
+router.post('/bulk-import', async (req, res) => {
+  try {
+    const { vehicles } = req.body || {};
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'No vehicles provided for bulk import' });
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    for (let i = 0; i < vehicles.length; i++) {
+      const v = vehicles[i];
+      const code = String(
+        v.code ||
+        v['Vehicle Code *'] ||
+        v['Vehicle Code'] ||
+        v['vehicle_code'] ||
+        ''
+      ).trim();
+
+      if (!code) {
+        errors.push({ row: i + 1, error: 'Missing Vehicle Code' });
+        continue;
+      }
+
+      const modelName = String(v.evegah_model_name || v['Model Name *'] || v['Model Name'] || v['model_name'] || 'Evegah City').trim();
+      const category = String(v.vehicle_category || v['Category'] || v['category'] || 'E-Scooter').trim();
+      const vehicleType = String(v.vehicle_type || v['Vehicle Type'] || v['vehicle_type'] || 'Rental').trim();
+      const regNo = String(v.registration_number || v['Registration Number'] || v['registration_number'] || '').trim();
+      const chassisNo = String(v.chassis_number || v['Chassis Number'] || v['chassis_number'] || '').trim();
+      const motorNo = String(v.motor_number || v['Motor Number'] || v['motor_number'] || '').trim();
+      const ctlNo = String(v.controller_number || v['Controller Number'] || v['controller_number'] || '').trim();
+      const color = String(v.color || v['Color'] || v['color'] || 'White').trim();
+      const zone = String(v.zone || v['Zone'] || v['zone'] || 'Gotri Zone').trim();
+      const status = String(v.vehicle_status || v['Vehicle Status'] || v['vehicle_status'] || v['status'] || 'Available').trim();
+      const batteryPct = parseInt(v.battery_pct ?? v['Battery Pct'] ?? v['battery_pct'] ?? 100, 10) || 100;
+      const currentKm = parseFloat(v.current_km_reading ?? v['Current KM'] ?? v['current_km'] ?? 0) || 0;
+      const totalKm = parseFloat(v.total_km_covered ?? v['Total KM'] ?? v['total_km'] ?? currentKm) || currentKm;
+      const manufacturer = String(v.vehicle_manufacturer || v['Manufacturer'] || v['manufacturer'] || 'Evegah Motors').trim();
+      const purchaseDate = v.purchase_date || v['Purchase Date (YYYY-MM-DD)'] || v['Purchase Date'] || null;
+      const warrantyDate = v.vehicle_warranty_expiry_date || v['Warranty Expiry (YYYY-MM-DD)'] || v['Warranty Expiry'] || null;
+      const insPolicy = String(v.insurance_policy_number || v['Insurance Policy Number'] || v['insurance_policy'] || '').trim();
+      const insProvider = String(v.insurance_provider || v['Insurance Provider'] || v['insurance_provider'] || '').trim();
+      const insExpiry = v.insurance_expiry_date || v['Insurance Expiry (YYYY-MM-DD)'] || v['Insurance Expiry'] || null;
+
+      try {
+        const check = await db.query('SELECT id FROM vehicles WHERE code = $1', [code]);
+        if (check.rows.length > 0) {
+          await db.query(`
+            UPDATE vehicles SET
+              evegah_model_name = $1,
+              vehicle_category = $2,
+              vehicle_type = $3,
+              registration_number = $4,
+              chassis_number = $5,
+              motor_number = $6,
+              controller_number = $7,
+              color = $8,
+              zone = $9,
+              vehicle_status = $10,
+              battery_pct = $11,
+              current_km_reading = $12,
+              total_km_covered = $13,
+              vehicle_manufacturer = $14,
+              purchase_date = COALESCE($15, purchase_date),
+              vehicle_warranty_expiry_date = COALESCE($16, vehicle_warranty_expiry_date),
+              insurance_policy_number = COALESCE($17, insurance_policy_number),
+              insurance_provider = COALESCE($18, insurance_provider),
+              insurance_expiry_date = COALESCE($19, insurance_expiry_date)
+            WHERE code = $20
+          `, [
+            modelName, category, vehicleType, regNo, chassisNo, motorNo, ctlNo, color, zone,
+            status, batteryPct, currentKm, totalKm, manufacturer,
+            purchaseDate || null, warrantyDate || null, insPolicy || null, insProvider || null, insExpiry || null,
+            code
+          ]);
+          updated++;
+        } else {
+          await db.query(`
+            INSERT INTO vehicles (
+              code, evegah_model_name, vehicle_category, vehicle_type,
+              registration_number, chassis_number, motor_number, controller_number,
+              color, zone, vehicle_status, battery_pct,
+              current_km_reading, total_km_covered, vehicle_manufacturer,
+              purchase_date, vehicle_warranty_expiry_date,
+              insurance_policy_number, insurance_provider, insurance_expiry_date,
+              status, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW())
+          `, [
+            code, modelName, category, vehicleType,
+            regNo, chassisNo, motorNo, ctlNo,
+            color, zone, status, batteryPct,
+            currentKm, totalKm, manufacturer,
+            purchaseDate || null, warrantyDate || null,
+            insPolicy || null, insProvider || null, insExpiry || null,
+            status
+          ]);
+          inserted++;
+        }
+      } catch (rowErr) {
+        errors.push({ code, error: rowErr.message });
+      }
+    }
+
+    try {
+      await delByPattern('vehicles:*');
+    } catch (e) {}
+
+    return res.json({
+      status: 'success',
+      message: `Bulk import completed: ${inserted} added, ${updated} updated`,
+      inserted,
+      updated,
+      total: vehicles.length,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err) {
+    console.error('Bulk import vehicles error:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
 
 // ============================================================
 // GET ALL VEHICLE MODELS

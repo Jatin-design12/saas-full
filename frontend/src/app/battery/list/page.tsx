@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import * as XLSX from 'xlsx';
 
 interface BatteryAsset {
   id: string;
@@ -64,44 +65,110 @@ export default function BatteryListPage() {
     };
   }, []);
 
-  // Fetch from backend /api/batteries
-  useEffect(() => {
-    const fetchBatteries = async () => {
-      setLoading(true);
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const zParam = selectedZone && selectedZone !== 'All Zones' && selectedZone !== 'Multiple Zones'
-          ? `?zone=${encodeURIComponent(selectedZone)}`
-          : '';
-        const res = await fetch(`${apiUrl}/batteries${zParam}`);
-        if (res.ok) {
-          const result = await res.json();
-          const list = Array.isArray(result) ? result : (result?.data || []);
-          if (list.length > 0) {
-            const mapped: BatteryAsset[] = list.map((b: any, index: number) => ({
-              id: b.battery_id || b.id || `BAT-00${index + 1}`,
-              type: b.battery_type || 'Li-ion NMC',
-              capacity: b.capacity || '60V / 30Ah',
-              soc: typeof b.soc === 'number' ? b.soc : parseInt(b.soc) || 90,
-              voltage: b.voltage || 67.2,
-              current: b.current || 0.0,
-              temp: b.temp || 28,
-              cycles: b.cycles || 40,
-              soh: b.soh ? parseInt(b.soh) : 98,
-              status: (b.status || 'available').toLowerCase(),
-              zone: b.zone || (selectedZone !== 'All Zones' ? selectedZone : 'Manjalpur Zone'),
-              location: b.location || (b.status === 'in_use' ? 'Vehicle Fleet' : `${b.zone || 'Depot'} Swap Dock`),
-              lastSwap: b.last_swap || 'Today'
-            }));
-            setBatteries(mapped);
-          }
+  const fetchBatteries = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const zParam = selectedZone && selectedZone !== 'All Zones' && selectedZone !== 'Multiple Zones'
+        ? `?zone=${encodeURIComponent(selectedZone)}`
+        : '';
+      const res = await fetch(`${apiUrl}/batteries${zParam}`);
+      if (res.ok) {
+        const result = await res.json();
+        const list = Array.isArray(result) ? result : (result?.data || []);
+        if (list.length > 0) {
+          const mapped: BatteryAsset[] = list.map((b: any, index: number) => ({
+            id: b.battery_id || b.id || `BAT-00${index + 1}`,
+            type: b.battery_type || 'Li-ion NMC',
+            capacity: b.capacity || '60V / 30Ah',
+            soc: typeof b.soc === 'number' ? b.soc : parseInt(b.soc) || 90,
+            voltage: b.voltage || 67.2,
+            current: b.current || 0.0,
+            temp: b.temp || 28,
+            cycles: b.cycles || 40,
+            soh: b.soh ? parseInt(b.soh) : (b.health ? parseInt(b.health) : 98),
+            status: (b.status || 'available').toLowerCase(),
+            zone: b.zone || (selectedZone !== 'All Zones' ? selectedZone : 'Manjalpur Zone'),
+            location: b.location || (b.status === 'in_use' ? 'Vehicle Fleet' : `${b.zone || 'Depot'} Swap Dock`),
+            lastSwap: b.last_swap || 'Today'
+          }));
+          setBatteries(mapped);
         }
-      } catch (err) {
-        // Fallback to DEFAULT_BATTERIES
-      } finally {
-        setLoading(false);
+      }
+    } catch (err) {
+      // Fallback to DEFAULT_BATTERIES
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bulk Battery Import State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [parsedBatteries, setParsedBatteries] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ success?: string; error?: string } | null>(null);
+
+  const handleFileSelect = (file: File) => {
+    setImportFile(file);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json: any[] = XLSX.utils.sheet_to_json(sheet);
+        if (json.length === 0) {
+          setImportResult({ error: 'Uploaded file contains no rows' });
+        } else {
+          setParsedBatteries(json);
+        }
+      } catch (err: any) {
+        setImportResult({ error: 'Failed to read Excel file: ' + (err.message || err) });
       }
     };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleBulkImport = async () => {
+    if (parsedBatteries.length === 0) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/batteries/bulk-import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batteries: parsedBatteries }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setImportResult({ success: `Successfully imported: ${data.inserted} added, ${data.updated} updated!` });
+        fetchBatteries();
+        setTimeout(() => {
+          setShowImportModal(false);
+          setImportFile(null);
+          setParsedBatteries([]);
+          setImportResult(null);
+        }, 1800);
+      } else {
+        setImportResult({ error: data.message || 'Import failed' });
+      }
+    } catch (err: any) {
+      setImportResult({ error: err.message || 'Failed to submit bulk import' });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleDownloadSample = () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    window.open(`${apiUrl}/batteries/sample-excel`, '_blank');
+  };
+
+  // Fetch from backend /api/batteries
+  useEffect(() => {
     fetchBatteries();
   }, [selectedZone]);
 
@@ -588,6 +655,13 @@ export default function BatteryListPage() {
               <div className="action-btn-group">
                 <button
                   className="nr-btn"
+                  style={{ borderColor: '#10B981', color: '#059669', background: '#ECFDF5', fontWeight: 700 }}
+                  onClick={() => { setShowImportModal(true); setImportResult(null); }}
+                >
+                  📥 Bulk Import
+                </button>
+                <button
+                  className="nr-btn"
                   onClick={() => showToast('Exporting battery inventory CSV...')}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -941,6 +1015,160 @@ export default function BatteryListPage() {
           </div>
         </div>
       </div>
+
+      {/* Bulk Battery Import Modal */}
+      {showImportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', maxWidth: '750px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  Bulk Battery Import (Excel / CSV)
+                </h2>
+                <p style={{ fontSize: '12.5px', color: '#64748B', margin: '4px 0 0' }}>
+                  Download sample battery Excel template, populate serial/specs, and bulk import into BMS inventory.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', color: '#94A3B8', cursor: 'pointer', padding: '4px 8px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Step 1: Sample Template Download */}
+            <div style={{ background: '#F8FAFC', border: '1.5px dashed #CBD5E1', borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🔋 Ready-to-Use Battery Sample Template
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                  Pre-configured with battery chemistry, voltage, SOC/SOH, and station dock formats.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadSample}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(5,150,105,0.25)' }}
+              >
+                📥 Download Sample Template (.xlsx)
+              </button>
+            </div>
+
+            {/* Step 2: File Upload */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', display: 'block', marginBottom: '8px' }}>
+                Upload Filled Excel / CSV File
+              </label>
+              <div style={{ border: '2px dashed #94A3B8', borderRadius: '12px', padding: '24px', textAlign: 'center', background: '#F8FAFC', cursor: 'pointer', position: 'relative' }}>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+                />
+                <div style={{ fontSize: '28px', marginBottom: '6px' }}>⚡</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                  {importFile ? importFile.name : 'Click or Drag & Drop Battery Excel file here'}
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
+                  Supports .xlsx, .xls, and .csv
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3: Preview */}
+            {parsedBatteries.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>
+                    Preview: {parsedBatteries.length} Battery(s) Detected
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 600, background: '#DCFCE7', padding: '2px 8px', borderRadius: '10px' }}>
+                    Ready to import
+                  </span>
+                </div>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                  <table style={{ width: '100%', fontSize: '11.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead style={{ background: '#F1F5F9', position: 'sticky', top: 0 }}>
+                      <tr>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Battery ID</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Type</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Capacity</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Voltage</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Zone</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedBatteries.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 700 }}>{row.battery_id || row.id || row['Battery ID *'] || row['Battery ID'] || '—'}</td>
+                          <td style={{ padding: '6px 10px' }}>{row.battery_type || row['Battery Type'] || 'Li-ion NMC'}</td>
+                          <td style={{ padding: '6px 10px' }}>{row.capacity || row['Capacity'] || '60V / 30Ah'}</td>
+                          <td style={{ padding: '6px 10px' }}>{row.voltage || row['Voltage'] || '67.2'}V</td>
+                          <td style={{ padding: '6px 10px' }}>{row.zone || row['Zone'] || 'Gotri Zone'}</td>
+                          <td style={{ padding: '6px 10px' }}>{row.status || row['Status'] || 'available'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {parsedBatteries.length > 5 && (
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', textAlign: 'right' }}>
+                    + {parsedBatteries.length - 5} more batteries will be imported
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Result alerts */}
+            {importResult?.error && (
+              <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#DC2626', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px' }}>
+                ❌ {importResult.error}
+              </div>
+            )}
+            {importResult?.success && (
+              <div style={{ padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', color: '#16A34A', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px' }}>
+                ✅ {importResult.success}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#fff', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkImport}
+                disabled={parsedBatteries.length === 0 || importLoading}
+                style={{
+                  padding: '9px 22px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: parsedBatteries.length === 0 ? '#94A3B8' : '#10B981',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: parsedBatteries.length === 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: parsedBatteries.length > 0 ? '0 2px 8px rgba(16,185,129,0.3)' : 'none',
+                }}
+              >
+                {importLoading ? 'Importing...' : `Import ${parsedBatteries.length} Battery(s)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toastMsg && (
         <div className="toast-banner">

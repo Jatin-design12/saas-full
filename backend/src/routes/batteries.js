@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { getCache, setCache, delByPattern } = require('../redis');
+const XLSX = require('xlsx');
 
 // GET /api/batteries - List batteries
 router.get('/', async (req, res) => {
@@ -66,6 +67,241 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('Fetch batteries error:', err);
     res.json([]);
+  }
+});
+
+// ============================================================
+// DOWNLOAD SAMPLE READY EXCEL TEMPLATE FOR BATTERIES
+// GET /api/batteries/sample-excel
+// ============================================================
+router.get('/sample-excel', (req, res) => {
+  try {
+    const sampleBatteries = [
+      {
+        'Battery ID *': 'BAT-GT-60V-01',
+        'Battery Type': 'Li-ion NMC',
+        'Capacity': '60V / 30Ah',
+        'Voltage': 67.2,
+        'SOC (%)': 98,
+        'SOH (%)': 99,
+        'Cycles': 25,
+        'Temp (°C)': 28,
+        'Status': 'available',
+        'Zone': 'Gotri Zone',
+        'Location': 'Gotri Station Dock #01',
+        'Make': 'Trontek',
+        'Model': 'TR-6030N',
+        'Serial Number': 'SN-GT-881920',
+        'Supplier': 'Trontek Power Ltd',
+        'Cost': 24000,
+        'Purchase Date (YYYY-MM-DD)': '2026-01-10',
+        'Warranty Valid Till (YYYY-MM-DD)': '2028-01-10',
+      },
+      {
+        'Battery ID *': 'BAT-MJ-60V-01',
+        'Battery Type': 'Li-ion NMC',
+        'Capacity': '60V / 30Ah',
+        'Voltage': 66.8,
+        'SOC (%)': 95,
+        'SOH (%)': 98,
+        'Cycles': 40,
+        'Temp (°C)': 28,
+        'Status': 'available',
+        'Zone': 'Manjalpur Zone',
+        'Location': 'Manjalpur Hub Dock #01',
+        'Make': 'Trontek',
+        'Model': 'TR-6030N',
+        'Serial Number': 'SN-MJ-881921',
+        'Supplier': 'Trontek Power Ltd',
+        'Cost': 24000,
+        'Purchase Date (YYYY-MM-DD)': '2026-01-10',
+        'Warranty Valid Till (YYYY-MM-DD)': '2028-01-10',
+      },
+      {
+        'Battery ID *': 'BAT-GT-72V-01',
+        'Battery Type': 'Li-ion LFP',
+        'Capacity': '72V / 40Ah',
+        'Voltage': 84.0,
+        'SOC (%)': 100,
+        'SOH (%)': 100,
+        'Cycles': 14,
+        'Temp (°C)': 26,
+        'Status': 'available',
+        'Zone': 'Gotri Zone',
+        'Location': 'Gotri Station Dock #03',
+        'Make': 'Exide Leoch',
+        'Model': 'EL-7240P',
+        'Serial Number': 'SN-GT-881922',
+        'Supplier': 'Exide Industries',
+        'Cost': 32000,
+        'Purchase Date (YYYY-MM-DD)': '2026-01-15',
+        'Warranty Valid Till (YYYY-MM-DD)': '2028-01-15',
+      },
+    ];
+
+    const guideRows = [
+      { 'Field Name': 'Battery ID *', 'Required': 'YES', 'Description': 'Unique battery code / asset identifier', 'Sample / Allowed Values': 'BAT-GT-60V-01' },
+      { 'Field Name': 'Battery Type', 'Required': 'NO', 'Description': 'Battery chemistry type', 'Sample / Allowed Values': 'Li-ion NMC, Li-ion LFP, LiFePO4' },
+      { 'Field Name': 'Capacity', 'Required': 'NO', 'Description': 'Rated capacity & voltage', 'Sample / Allowed Values': '60V / 30Ah, 72V / 40Ah, 60V / 34Ah' },
+      { 'Field Name': 'Voltage', 'Required': 'NO', 'Description': 'Present open-circuit voltage', 'Sample / Allowed Values': '67.2, 84.0' },
+      { 'Field Name': 'SOC (%)', 'Required': 'NO', 'Description': 'State of Charge percentage (0-100)', 'Sample / Allowed Values': '98' },
+      { 'Field Name': 'SOH (%)', 'Required': 'NO', 'Description': 'State of Health percentage (0-100)', 'Sample / Allowed Values': '99' },
+      { 'Field Name': 'Cycles', 'Required': 'NO', 'Description': 'Number of completed charge cycles', 'Sample / Allowed Values': '25' },
+      { 'Field Name': 'Temp (°C)', 'Required': 'NO', 'Description': 'Operating cell temperature in Celsius', 'Sample / Allowed Values': '28' },
+      { 'Field Name': 'Status', 'Required': 'NO', 'Description': 'Current operational state', 'Sample / Allowed Values': 'available, in_use, charging, maintenance' },
+      { 'Field Name': 'Zone', 'Required': 'NO', 'Description': 'Assigned operating hub / station', 'Sample / Allowed Values': 'Gotri Zone, Manjalpur Zone, KPGU Zone, Aatapi Zone, Moti Daman Zone' },
+      { 'Field Name': 'Location', 'Required': 'NO', 'Description': 'Specific dock slot or vehicle assigned', 'Sample / Allowed Values': 'Gotri Station Dock #01' },
+      { 'Field Name': 'Make', 'Required': 'NO', 'Description': 'Battery manufacturer', 'Sample / Allowed Values': 'Trontek, Exide, Okaya' },
+      { 'Field Name': 'Model', 'Required': 'NO', 'Description': 'Manufacturer model identifier', 'Sample / Allowed Values': 'TR-6030N' },
+      { 'Field Name': 'Serial Number', 'Required': 'NO', 'Description': 'Hardware serial number barcode', 'Sample / Allowed Values': 'SN-GT-881920' },
+      { 'Field Name': 'Supplier', 'Required': 'NO', 'Description': 'Vendor or supplying entity', 'Sample / Allowed Values': 'Trontek Power Ltd' },
+      { 'Field Name': 'Cost', 'Required': 'NO', 'Description': 'Asset acquisition cost in INR', 'Sample / Allowed Values': '24000' },
+      { 'Field Name': 'Purchase Date', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2026-01-10' },
+      { 'Field Name': 'Warranty Valid Till', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2028-01-10' },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const wsTemplate = XLSX.utils.json_to_sheet(sampleBatteries);
+    wsTemplate['!cols'] = [
+      { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 18 },
+      { wch: 25 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
+      { wch: 12 }, { wch: 25 }, { wch: 25 }
+    ];
+
+    const wsGuide = XLSX.utils.json_to_sheet(guideRows);
+    wsGuide['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 45 }, { wch: 35 }];
+
+    XLSX.utils.book_append_sheet(wb, wsTemplate, 'Batteries_Template');
+    XLSX.utils.book_append_sheet(wb, wsGuide, 'Instructions & Reference');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', 'attachment; filename="Evegah_Batteries_Bulk_Import_Template.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return res.send(buf);
+  } catch (err) {
+    console.error('Error generating battery sample excel:', err);
+    return res.status(500).json({ error: 'Failed to generate battery sample excel' });
+  }
+});
+
+// ============================================================
+// BULK IMPORT BATTERIES
+// POST /api/batteries/bulk-import
+// ============================================================
+router.post('/bulk-import', async (req, res) => {
+  try {
+    const { batteries } = req.body || {};
+    if (!Array.isArray(batteries) || batteries.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'No batteries provided for bulk import' });
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    for (let i = 0; i < batteries.length; i++) {
+      const b = batteries[i];
+      const batteryId = String(
+        b.battery_id ||
+        b.id ||
+        b['Battery ID *'] ||
+        b['Battery ID'] ||
+        b['battery_id'] ||
+        ''
+      ).trim();
+
+      if (!batteryId) {
+        errors.push({ row: i + 1, error: 'Missing Battery ID' });
+        continue;
+      }
+
+      const batteryType = String(b.battery_type || b['Battery Type'] || b['battery_type'] || 'Li-ion NMC').trim();
+      const capacity = String(b.capacity || b['Capacity'] || b['capacity'] || '60V / 30Ah').trim();
+      const voltage = parseFloat(b.voltage ?? b['Voltage'] ?? 67.2) || 67.2;
+      const soc = parseInt(b.soc ?? b['SOC (%)'] ?? b['soc'] ?? 95, 10) || 95;
+      const soh = parseInt(b.soh ?? b['SOH (%)'] ?? b['soh'] ?? 98, 10) || 98;
+      const cycles = parseInt(b.cycles ?? b['Cycles'] ?? b['cycles'] ?? 10, 10) || 10;
+      const temp = parseFloat(b.temp ?? b['Temp (°C)'] ?? b['temp'] ?? 28) || 28;
+      const status = String(b.status || b['Status'] || 'available').trim().toLowerCase();
+      const zone = String(b.zone || b['Zone'] || 'Gotri Zone').trim();
+      const location = String(b.location || b['Location'] || `${zone} Dock`).trim();
+      const make = String(b.make || b['Make'] || 'Trontek').trim();
+      const model = String(b.model || b['Model'] || 'TR-6030N').trim();
+      const serialNumber = String(b.serial_number || b['Serial Number'] || '').trim();
+      const supplier = String(b.supplier || b['Supplier'] || '').trim();
+      const cost = parseFloat(b.cost ?? b['Cost'] ?? 0) || null;
+      const purchaseDate = b.purchase_date || b['Purchase Date (YYYY-MM-DD)'] || b['Purchase Date'] || null;
+      const warrantyDate = b.warranty_valid_till || b['Warranty Valid Till (YYYY-MM-DD)'] || b['Warranty Valid Till'] || null;
+
+      try {
+        const check = await db.bmsQuery('SELECT id FROM batteries WHERE battery_id = $1', [batteryId]);
+        if (check.rows.length > 0) {
+          await db.bmsQuery(`
+            UPDATE batteries SET
+              battery_type = $1,
+              capacity = $2,
+              voltage = $3,
+              soc = $4,
+              soh = $5,
+              health = $5,
+              cycles = $6,
+              temp = $7,
+              status = $8,
+              zone = $9,
+              location = $10,
+              make = $11,
+              model = $12,
+              serial_number = COALESCE($13, serial_number),
+              supplier = COALESCE($14, supplier),
+              cost = COALESCE($15, cost),
+              purchase_date = COALESCE($16, purchase_date),
+              warranty_valid_till = COALESCE($17, warranty_valid_till),
+              updated_at = NOW()
+            WHERE battery_id = $18
+          `, [
+            batteryType, capacity, voltage, soc, soh, cycles, temp, status,
+            zone, location, make, model,
+            serialNumber || null, supplier || null, cost,
+            purchaseDate || null, warrantyDate || null,
+            batteryId
+          ]);
+          updated++;
+        } else {
+          await db.bmsQuery(`
+            INSERT INTO batteries (
+              battery_id, battery_type, capacity, voltage, soc, soh, health, cycles, temp,
+              status, zone, location, make, model, serial_number, supplier, cost,
+              purchase_date, warranty_valid_till, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
+          `, [
+            batteryId, batteryType, capacity, voltage, soc, soh, cycles, temp,
+            status, zone, location, make, model, serialNumber || null, supplier || null, cost,
+            purchaseDate || null, warrantyDate || null
+          ]);
+          inserted++;
+        }
+      } catch (rowErr) {
+        errors.push({ battery_id: batteryId, error: rowErr.message });
+      }
+    }
+
+    try {
+      await delByPattern('batteries:*');
+    } catch (e) {}
+
+    return res.json({
+      status: 'success',
+      message: `Bulk import completed: ${inserted} added, ${updated} updated`,
+      inserted,
+      updated,
+      total: batteries.length,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err) {
+    console.error('Bulk import batteries error:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

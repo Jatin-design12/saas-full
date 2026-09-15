@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -124,9 +125,10 @@ const CSS = `
 
 /* ── Payment Details ── */
 .bs-pay-title-sec { font-size: 24px; font-weight: 900; color: #2a195c; margin: 4px 0 12px; letter-spacing: -0.5px; }
-.bs-pay-methods { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.bs-pay-method-card { border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; background: #FFF; cursor: pointer; transition: all 0.15s; }
-.bs-pay-method-card.active { border-color: #2A195C; background: #FAF5FF; }
+.bs-pay-methods-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.bs-pay-method-card { border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; background: #FFF; }
+.bs-pay-method-card:hover { border-color: #CBD5E1; }
+.bs-pay-method-card.active { border-color: #2A195C; background: #F5F3FF; }
 .bs-pay-method-text { font-size: 13px; font-weight: 700; color: #1E293B; }
 .bs-pay-radio { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #CBD5E1; display: flex; align-items: center; justify-content: center; margin-left: auto; }
 .bs-pay-radio.active { border-color: #2A195C; background: #2A195C; }
@@ -138,6 +140,50 @@ const CSS = `
 .bs-qr-box { width: 140px; height: 140px; border: 1.5px solid #E2E8F0; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; background: #FFF; }
 .bs-qr-logo-center { position: absolute; width: 26px; height: 26px; background: #FFF; border-radius: 4px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .bs-qr-id { font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.5px; }
+
+/* ── ICICI Live Status & Pulse ── */
+.icici-status-box {
+  margin-top: 8px;
+  width: 100%;
+}
+.icici-pulse-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1D4ED8;
+}
+.icici-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2563EB;
+  animation: iciciPulse 1.8s infinite;
+}
+@keyframes iciciPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+.icici-verified-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ECFDF5;
+  border: 1.5px solid #10B981;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #065F46;
+}
 
 /* Provider logos */
 .bs-providers-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; width: 100%; flex-wrap: wrap; }
@@ -338,6 +384,99 @@ export default function BatterySwapPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<string>('');
   const [couponError, setCouponError] = useState<string>('');
 
+  // ICICI QR and polling states
+  const [iciciQrString, setIciciQrString] = useState('');
+  const [iciciMerchantTranId, setIciciMerchantTranId] = useState('');
+  const [iciciRefId, setIciciRefId] = useState('');
+  const [iciciVpa, setIciciVpa] = useState('EVEGAHRIDE@icici');
+  const [upiVerified, setUpiVerified] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  const swapPayable = Math.max(0, 80 - discount);
+
+  // Fetch active ICICI config
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/payments/icici/config`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.vpa) setIciciVpa(d.vpa);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Generate dynamic ICICI QR for Swap
+  useEffect(() => {
+    if (paymentMode !== 'UPI' || swapPayable <= 0) return;
+    setUpiVerified(false);
+    let isMounted = true;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+    fetch(`${apiUrl}/payments/icici/qr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: swapPayable,
+        rider_name: selectedRiderName || 'Rider',
+        notes: `Battery Swap fee for ${vehicleNo}`,
+        purpose: 'battery_swap'
+      })
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!isMounted) return;
+        const data = res?.data || res;
+        const qrStr = res?.qrString || data?.upi_string || data?.qrString || '';
+        const mTranId = res?.merchantTranId || data?.tx_id || '';
+        const rId = res?.refId || data?.ref_id || mTranId;
+        if (res?.vpa) setIciciVpa(res.vpa);
+        setIciciQrString(qrStr);
+        setIciciMerchantTranId(mTranId);
+        setIciciRefId(rId);
+      })
+      .catch(err => console.error('Swap ICICI QR error:', err));
+
+    return () => { isMounted = false; };
+  }, [paymentMode, swapPayable, selectedRiderName, vehicleNo]);
+
+  // Automated status polling
+  useEffect(() => {
+    if (paymentMode !== 'UPI' || !iciciMerchantTranId || upiVerified) return;
+
+    let isMounted = true;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+    const checkStatus = async () => {
+      if (!isMounted || upiVerified) return;
+      try {
+        setIsCheckingStatus(true);
+        const res = await fetch(`${apiUrl}/payments/icici/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ merchantTranId: iciciMerchantTranId }),
+        });
+        if (!isMounted) return;
+        const data = await res.json();
+        const rawStatus = (data?.status || data?.Status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS') {
+          setUpiVerified(true);
+        }
+      } catch (e) {
+      } finally {
+        if (isMounted) setIsCheckingStatus(false);
+      }
+    };
+
+    const timeout = setTimeout(checkStatus, 1500);
+    const interval = setInterval(checkStatus, 2500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [paymentMode, iciciMerchantTranId, upiVerified]);
+
   const selectedRider: RiderData = RIDERS[selectedRiderName] || RIDERS["Amit Kumar"];
 
   // Bidirectional link: table selection updates Added Card and Form Add select box
@@ -397,8 +536,12 @@ export default function BatterySwapPage() {
   };
 
   const handleProceedPayment = () => {
-    const finalAmount = 80 - discount;
-    alert(`Battery swap payment of ₹${finalAmount.toFixed(2)} completed successfully via ${paymentMode}!`);
+    if (paymentMode === 'UPI' && !upiVerified) {
+      alert('Please wait for customer to complete ICICI UPI payment, or verify the payment status.');
+      return;
+    }
+    const finalAmount = swapPayable;
+    alert(`Battery swap payment of ₹${finalAmount.toFixed(2)} completed successfully via ${paymentMode}! Ref: ${iciciRefId || iciciMerchantTranId || 'CASH'}`);
   };
 
   return (
@@ -703,8 +846,13 @@ export default function BatterySwapPage() {
                   <ICancel />
                   <span>Cancel Swap</span>
                 </button>
-                <button className="bs-btn-primary" onClick={handleProceedPayment}>
-                  <span>Proceed to Payment</span>
+                <button 
+                  className="bs-btn-primary" 
+                  onClick={handleProceedPayment}
+                  style={paymentMode === 'UPI' && !upiVerified ? { opacity: 0.65, cursor: 'not-allowed' } : {}}
+                  disabled={paymentMode === 'UPI' && !upiVerified}
+                >
+                  <span>{paymentMode === 'UPI' ? (upiVerified ? 'Confirm Swap & Payment' : 'Waiting for ICICI Payment...') : 'Proceed to Payment'}</span>
                   <IArrowRight />
                 </button>
               </div>
@@ -854,21 +1002,31 @@ export default function BatterySwapPage() {
                   <div className="bs-qr-container">
                     <span className="bs-qr-text">Scan &amp; Pay using any UPI app</span>
                     
-                    <div className="bs-qr-box">
-                      <div style={{ color: '#0F0A2E' }}>
-                        <IQrCode />
-                      </div>
-                      
-                      <div className="bs-qr-logo-center">
-                        <span style={{ fontSize: '9px', fontWeight: '900', fontStyle: 'italic', letterSpacing: '-0.5px' }}>
-                          <span style={{ color: '#0054A6' }}>U</span>
-                          <span style={{ color: '#F37021' }}>P</span>
-                          <span style={{ color: '#16A34A' }}>I</span>
-                        </span>
-                      </div>
+                    <div className="bs-qr-box" style={{ width: 160, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', padding: 8, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+                      {iciciQrString ? (
+                        <QRCodeSVG value={iciciQrString} size={144} level="M" />
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>Generating ICICI QR...</div>
+                      )}
                     </div>
 
-                    <span className="bs-qr-id">UPI ID: evegah@upi</span>
+                    <span className="bs-qr-id">UPI ID: {iciciVpa}</span>
+
+                    <div style={{ width: '100%', marginTop: 6, marginBottom: 6 }}>
+                      {upiVerified ? (
+                        <div className="icici-verified-badge">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                          <span>Payment Verified via ICICI Bank</span>
+                        </div>
+                      ) : (
+                        <div className="icici-pulse-badge">
+                          <span className="icici-pulse-dot" />
+                          <span>{isCheckingStatus ? 'Verifying with Bank...' : `Scan & Pay ₹${swapPayable.toFixed(2)}`}</span>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Pay Providers logos */}
                     <div className="bs-providers-row">

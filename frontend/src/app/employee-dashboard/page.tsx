@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { Line } from 'react-chartjs-2';
@@ -1038,12 +1039,13 @@ export default function EmployeeDashboard() {
                 {paymentMethod === 'UPI' && (
                   <div style={{ textAlign: 'center', padding: '14px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '18px' }}>
                     <div style={{ width: '130px', height: '130px', margin: '0 auto 8px', background: '#FFFFFF', padding: '8px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=evegah@icici&pn=Evegah%20Mobility&am=${selectedOverdueRide.dueAmount}&cu=INR`}
-                        alt="UPI QR Code"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      <QRCodeSVG
+                        value={`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${Number(selectedOverdueRide.dueAmount).toFixed(2)}&cu=INR`}
+                        size={114}
+                        level="M"
                       />
                     </div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#701A75', marginBottom: 2 }}>UPI ID: EVEGAHRIDE@icici</div>
                     <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Scan with GPay, PhonePe, Paytm or BHIM</span>
                   </div>
                 )}

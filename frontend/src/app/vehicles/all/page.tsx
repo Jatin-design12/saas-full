@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
+import * as XLSX from 'xlsx';
 
 /* ──────────────────────────────────────────────────────────────
    VEHICLE CATALOG & FLEET MANAGEMENT
@@ -215,6 +216,71 @@ export default function VehicleListPage() {
     }
   };
 
+  // Bulk Vehicle Import State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [parsedVehicles, setParsedVehicles] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ success?: string; error?: string } | null>(null);
+
+  const handleFileSelect = (file: File) => {
+    setImportFile(file);
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json: any[] = XLSX.utils.sheet_to_json(sheet);
+        if (json.length === 0) {
+          setImportResult({ error: 'Uploaded file contains no rows' });
+        } else {
+          setParsedVehicles(json);
+        }
+      } catch (err: any) {
+        setImportResult({ error: 'Failed to read Excel file: ' + (err.message || err) });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleBulkImport = async () => {
+    if (parsedVehicles.length === 0) return;
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/vehicles/bulk-import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicles: parsedVehicles }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setImportResult({ success: `Successfully imported: ${data.inserted} added, ${data.updated} updated!` });
+        fetchVehicles();
+        setTimeout(() => {
+          setShowImportModal(false);
+          setImportFile(null);
+          setParsedVehicles([]);
+          setImportResult(null);
+        }, 1800);
+      } else {
+        setImportResult({ error: data.message || 'Import failed' });
+      }
+    } catch (err: any) {
+      setImportResult({ error: err.message || 'Failed to submit bulk import' });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleDownloadSample = () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    window.open(`${apiUrl}/vehicles/sample-excel`, '_blank');
+  };
+
   useEffect(() => {
     const updateZone = () => {
       if (typeof window !== 'undefined') {
@@ -347,6 +413,13 @@ export default function VehicleListPage() {
                     Delete Selected ({selectedCodes.length})
                   </button>
                 )}
+                <button 
+                  className="vl-hdr-btn" 
+                  onClick={() => { setShowImportModal(true); setImportResult(null); }}
+                  style={{ borderColor: '#10B981', color: '#059669', background: '#ECFDF5' }}
+                >
+                  📥 Bulk Import
+                </button>
                 <Link 
                   href="/vehicles/models"
                   className="vl-hdr-btn" 
@@ -859,6 +932,160 @@ export default function VehicleListPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Vehicle Import Modal */}
+        {showImportModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+            <div style={{ background: '#fff', borderRadius: '16px', maxWidth: '750px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px' }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, fontFamily: 'Outfit, sans-serif' }}>
+                    Bulk Vehicle Import (Excel / CSV)
+                  </h2>
+                  <p style={{ fontSize: '12.5px', color: '#64748B', margin: '4px 0 0' }}>
+                    Download the pre-filled sample Excel template, enter vehicle details, and import into fleet.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', color: '#94A3B8', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Step 1: Sample Template Download */}
+              <div style={{ background: '#F8FAFC', border: '1.5px dashed #CBD5E1', borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    📄 Ready-to-Use Sample Excel Template
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                    Pre-formatted columns with validation guides, allowed zones, and sample rows.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadSample}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(5,150,105,0.25)' }}
+                >
+                  📥 Download Sample Template (.xlsx)
+                </button>
+              </div>
+
+              {/* Step 2: File Upload */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', display: 'block', marginBottom: '8px' }}>
+                  Upload Filled Excel / CSV File
+                </label>
+                <div style={{ border: '2px dashed #94A3B8', borderRadius: '12px', padding: '24px', textAlign: 'center', background: '#F8FAFC', cursor: 'pointer', position: 'relative' }}>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
+                  />
+                  <div style={{ fontSize: '28px', marginBottom: '6px' }}>📊</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                    {importFile ? importFile.name : 'Click or Drag & Drop Excel file here'}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
+                    Supports .xlsx, .xls, and .csv
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Preview */}
+              {parsedVehicles.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>
+                      Preview: {parsedVehicles.length} Vehicle(s) Detected
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 600, background: '#DCFCE7', padding: '2px 8px', borderRadius: '10px' }}>
+                      Ready to import
+                    </span>
+                  </div>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', fontSize: '11.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead style={{ background: '#F1F5F9', position: 'sticky', top: 0 }}>
+                        <tr>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Code</th>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Model</th>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Category</th>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Reg No</th>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Zone</th>
+                          <th style={{ padding: '6px 10px', borderBottom: '1px solid #E2E8F0' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedVehicles.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '6px 10px', fontWeight: 700 }}>{row.code || row['Vehicle Code *'] || row['Vehicle Code'] || '—'}</td>
+                            <td style={{ padding: '6px 10px' }}>{row.evegah_model_name || row['Model Name *'] || row['Model Name'] || '—'}</td>
+                            <td style={{ padding: '6px 10px' }}>{row.vehicle_category || row['Category'] || 'E-Scooter'}</td>
+                            <td style={{ padding: '6px 10px' }}>{row.registration_number || row['Registration Number'] || '—'}</td>
+                            <td style={{ padding: '6px 10px' }}>{row.zone || row['Zone'] || 'Gotri Zone'}</td>
+                            <td style={{ padding: '6px 10px' }}>{row.vehicle_status || row['Vehicle Status'] || 'Available'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {parsedVehicles.length > 5 && (
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', textAlign: 'right' }}>
+                      + {parsedVehicles.length - 5} more vehicles will be imported
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Result alerts */}
+              {importResult?.error && (
+                <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#DC2626', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px' }}>
+                  ❌ {importResult.error}
+                </div>
+              )}
+              {importResult?.success && (
+                <div style={{ padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', color: '#16A34A', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px' }}>
+                  ✅ {importResult.success}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(false)}
+                  style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#fff', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkImport}
+                  disabled={parsedVehicles.length === 0 || importLoading}
+                  style={{
+                    padding: '9px 22px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: parsedVehicles.length === 0 ? '#94A3B8' : '#10B981',
+                    color: '#fff',
+                    fontWeight: 700,
+                    cursor: parsedVehicles.length === 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: parsedVehicles.length > 0 ? '0 2px 8px rgba(16,185,129,0.3)' : 'none',
+                  }}
+                >
+                  {importLoading ? 'Importing...' : `Import ${parsedVehicles.length} Vehicle(s)`}
+                </button>
+              </div>
             </div>
           </div>
         )}
