@@ -6,3 +6,11 @@ node_modules/
 build/
 dist/.next/
 .next/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Private keys and credentials
+keys/
