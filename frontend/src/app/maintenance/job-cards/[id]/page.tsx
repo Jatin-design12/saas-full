@@ -558,7 +558,7 @@ export default function JobCardDetailsPage() {
           <div className="jc-banner">
             <div className="jc-banner-left">
               <img 
-                src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&q=80&w=150" 
+                src="/evegah_scooter.png" 
                 className="jc-scooter-img" 
                 alt="Scooter"
               />
@@ -763,13 +763,13 @@ export default function JobCardDetailsPage() {
                       <span className="jc-field-label">Service Images / Uploads</span>
                       <div className="jc-photos">
                         <div className="jc-photo-card">
-                          <img src="https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=100" alt="Detail 1" />
+                          <img src="/evegah_scooter.png" alt="Detail 1" />
                         </div>
                         <div className="jc-photo-card">
-                          <img src="https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=100" alt="Detail 2" />
+                          <img src="/evegah_scooter.png" alt="Detail 2" />
                         </div>
                         <div className="jc-photo-card">
-                          <img src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&q=80&w=100" alt="Detail 3" />
+                          <img src="/evegah_scooter.png" alt="Detail 3" />
                         </div>
                         <div className="jc-upload-dashed">+ Upload</div>
                       </div>

@@ -65,8 +65,14 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
     return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
   }
 
-  void _endRide() {
+  void _endRide() async {
     setState(() => isEndingRide = true);
+    // Call backend to complete reservation and release vehicle inventory
+    try {
+      await _rideService.endRide(widget.rideBookingId, _rideCenter.latitude, _rideCenter.longitude);
+    } catch (_) {}
+
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isDismissible: false,
@@ -76,11 +82,13 @@ class _RideStartedScreenState extends State<RideStartedScreen> {
         rideId: widget.rideBookingId.toString(),
       ),
     ).then((_) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => MainNavigation()),
-        (route) => false,
-      );
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigation()),
+          (route) => false,
+        );
+      }
     });
   }
 

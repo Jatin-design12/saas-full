@@ -264,9 +264,10 @@ router.post('/add-money', async (req, res) => {
       // Check users table as fallback
       let riderName = 'Rider';
       let riderMob = last10 || rawMobile;
+      let riderEmail = `rider_${cleanMobile || last10}@evegah.com`;
       try {
         const userMatch = await db.query(
-          `SELECT name, mobile, phone FROM users 
+          `SELECT name, mobile, phone, email FROM users 
            WHERE mobile LIKE $1 OR phone LIKE $1 OR REPLACE(REPLACE(mobile, '+', ''), ' ', '') LIKE $2
            LIMIT 1`,
           [searchPattern, `%${cleanMobile}%`]
@@ -274,15 +275,18 @@ router.post('/add-money', async (req, res) => {
         if (userMatch.rows.length > 0) {
           riderName = userMatch.rows[0].name || riderName;
           riderMob = userMatch.rows[0].mobile || userMatch.rows[0].phone || riderMob;
+          if (userMatch.rows[0].email && userMatch.rows[0].email.trim() !== 'rider@evegah.com') {
+            riderEmail = userMatch.rows[0].email.trim();
+          }
         }
       } catch (_) {}
 
       try {
         const insertRes = await db.query(
           `INSERT INTO renters (name, mobile, email, kyc_status, wallet_balance, bonus_balance)
-           VALUES ($1, $2, 'rider@evegah.com', 'Verified', $3, 0.00)
+           VALUES ($1, $2, $3, 'Verified', $4, 0.00)
            RETURNING id`,
-          [riderName, riderMob, numAmount]
+          [riderName, riderMob, riderEmail, numAmount]
         );
         if (insertRes.rows.length > 0) {
           targetRenterId = insertRes.rows[0].id;
@@ -410,10 +414,10 @@ router.get('/transactions', async (req, res) => {
     let query = `
       SELECT 
         wt.*,
-        COALESCE(r.rider_name, r.name, u.name, 'Customer') AS customer_name
+        COALESCE(r.rider_name, u.name, 'Customer') AS customer_name
       FROM wallet_transactions wt
       LEFT JOIN renters r ON (r.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%')
-      LEFT JOIN users u ON (u.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%' OR u.phone LIKE '%' || RIGHT(wt.mobile, 10) || '%')
+      LEFT JOIN users u ON (u.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%')
     `;
     let params = [];
     if (cleanMobile.length > 0) {
@@ -568,7 +572,25 @@ router.post('/create-payment-link', async (req, res) => {
     const payuSalt = activePayu?.key_secret || '9dascniXrfdMW22AJBbhmh2C7kuBibwb';
     const payuEnv = activePayu?.environment || 'test';
     const crypto = require('crypto');
-    const hashString = `${payuKey}|${txId}|${numAmount.toFixed(2)}|Evegah Wallet Top-Up|${cleanName}|${email || 'rider@evegah.com'}|wallet|||||||||${payuSalt}`;
+
+    let resolvedEmail = (email || '').trim();
+    if (!resolvedEmail || resolvedEmail === 'rider@evegah.com') {
+      try {
+        const last10 = cleanMobile.slice(-10);
+        const rQuery = await db.query(
+          "SELECT email FROM renters WHERE mobile LIKE $1 AND email IS NOT NULL AND email != '' AND email != 'rider@evegah.com' LIMIT 1",
+          [`%${last10}%`]
+        );
+        if (rQuery.rows.length > 0 && rQuery.rows[0].email) {
+          resolvedEmail = rQuery.rows[0].email.trim();
+        }
+      } catch (_) {}
+    }
+    const cleanEmail = (resolvedEmail && resolvedEmail !== 'rider@evegah.com')
+      ? resolvedEmail
+      : `rider_${cleanMobile}@evegah.com`;
+
+    const hashString = `${payuKey}|${txId}|${numAmount.toFixed(2)}|Evegah Wallet Top-Up|${cleanName}|${cleanEmail}|wallet|||||||||${payuSalt}`;
     const hash = crypto.createHash('sha512').update(hashString).digest('hex');
 
     const payuAction = payuEnv === 'production'
@@ -586,7 +608,7 @@ router.post('/create-payment-link', async (req, res) => {
         amount: numAmount.toFixed(2),
         productinfo: 'Evegah Wallet Top-Up',
         firstname: cleanName,
-        email: email || 'rider@evegah.com',
+        email: cleanEmail,
         phone: cleanMobile,
         hash,
         action_url: payuAction

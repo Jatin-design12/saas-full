@@ -29,11 +29,79 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
 
   int _selectedZoneIndex = 0;
   String? _selectedZoneName;
-  List<Map<String, dynamic>> _nearestZones = [];
+
+  static final List<Map<String, dynamic>> _defaultOperationalZones = [
+    {
+      "id": 2,
+      "name": "Gotri Zone",
+      "address": "Gotri Main Road, Vadodara, Gujarat",
+      "distance": "1.2 km",
+      "phone": "+91 98765 43210",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.3168,
+      "lng": 73.1415,
+      "center": {"lat": 22.3168, "lng": 73.1415},
+      "points": [{"lat": 22.3168, "lng": 73.1415}],
+    },
+    {
+      "id": 6,
+      "name": "Manjalpur Zone",
+      "address": "Manjalpur Main Road, Vadodara, Gujarat",
+      "distance": "2.8 km",
+      "phone": "+91 8980966677",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.2684,
+      "lng": 73.1952,
+      "center": {"lat": 22.2684, "lng": 73.1952},
+      "points": [{"lat": 22.2684, "lng": 73.1952}],
+    },
+    {
+      "id": 4,
+      "name": "Aatapi Zone",
+      "address": "Ajwa Nimeta Road, Vadodara, Gujarat",
+      "distance": "4.5 km",
+      "phone": "+91 98765 43210",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.3600,
+      "lng": 73.3500,
+      "center": {"lat": 22.3600, "lng": 73.3500},
+      "points": [{"lat": 22.3600, "lng": 73.3500}],
+    },
+    {
+      "id": 5,
+      "name": "KPGU Zone",
+      "address": "Babaria Institute Campus, Vadodara",
+      "distance": "5.1 km",
+      "phone": "+91 98765 43210",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.2150,
+      "lng": 73.2350,
+      "center": {"lat": 22.2150, "lng": 73.2350},
+      "points": [{"lat": 22.2150, "lng": 73.2350}],
+    },
+  ];
+
+  List<Map<String, dynamic>> _nearestZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
   Position? _currentPosition;
   String _currentAddress = "Locating your position...";
   bool _isLoadingLocation = true;
-  bool _isLoadingZones = true;
+  bool _isLoadingZones = false;
 
   @override
   void initState() {
@@ -44,8 +112,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       setState(() {});
     });
     
-    _nearestZones = [];
-    _isLoadingZones = true;
+    _nearestZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
+    _isLoadingZones = false;
 
     _getCurrentLocation();
     _fetchZones();
@@ -298,7 +366,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     bool found = false;
     for (final url in urls) {
       try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 6));
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {
@@ -365,67 +433,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     }
 
     // Reliable fallback if offline or backend unreachable
-    if (!found && _nearestZones.isEmpty && mounted) {
-      final fallbackZones = [
-        {
-          "id": 2,
-          "name": "Gotri Zone",
-          "address": "Gotri Main Road, Vadodara, Gujarat",
-          "distance": "1.2 km",
-          "phone": "+91 98765 43210",
-          "image_url": "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=600&auto=format&fit=crop&q=60",
-          "hours": "Open 24x7",
-          "isPopular": true,
-          "color": const Color(0xFFF5F3FF),
-          "iconColor": const Color(0xFF4313B8),
-          "center": {"lat": 22.3168, "lng": 73.1415},
-          "points": [{"lat": 22.3168, "lng": 73.1415}],
-        },
-        {
-          "id": 6,
-          "name": "Manjalpur Zone",
-          "address": "Manjalpur Main Road, Vadodara, Gujarat",
-          "distance": "2.8 km",
-          "phone": "+91 8980966677",
-          "image_url": "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=60",
-          "hours": "Open 24x7",
-          "isPopular": true,
-          "color": const Color(0xFFF5F3FF),
-          "iconColor": const Color(0xFF4313B8),
-          "center": {"lat": 22.2684, "lng": 73.1952},
-          "points": [{"lat": 22.2684, "lng": 73.1952}],
-        },
-        {
-          "id": 4,
-          "name": "Aatapi Zone",
-          "address": "Ajwa Nimeta Road, Vadodara, Gujarat",
-          "distance": "4.5 km",
-          "phone": "+91 98765 43210",
-          "image_url": "https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=600&auto=format&fit=crop&q=60",
-          "hours": "Open 24x7",
-          "isPopular": true,
-          "color": const Color(0xFFF5F3FF),
-          "iconColor": const Color(0xFF4313B8),
-          "center": {"lat": 22.3600, "lng": 73.3500},
-          "points": [{"lat": 22.3600, "lng": 73.3500}],
-        },
-        {
-          "id": 5,
-          "name": "KPGU Zone",
-          "address": "Babaria Institute Campus, Vadodara",
-          "distance": "5.1 km",
-          "phone": "+91 98765 43210",
-          "image_url": "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=60",
-          "hours": "Open 24x7",
-          "isPopular": true,
-          "color": const Color(0xFFF5F3FF),
-          "iconColor": const Color(0xFF4313B8),
-          "center": {"lat": 22.2150, "lng": 73.2350},
-          "points": [{"lat": 22.2150, "lng": 73.2350}],
-        }
-      ];
+    if (mounted) {
       setState(() {
-        _nearestZones = fallbackZones;
+        if (_nearestZones.isEmpty) {
+          _nearestZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
+        }
         _isLoadingZones = false;
       });
     }
@@ -451,7 +463,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                   children: [
                     // --- 1. CURRENT LOCATION CARD ---
                     _buildCurrentLocationCard(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+
+                    // --- 2. ZONE BANNER ---
+                    _buildZoneBanner(),
+                    const SizedBox(height: 14),
 
                     // --- 3. NEAREST ZONES HEADER ---
                     _buildNearestZonesHeader(),
@@ -699,6 +715,32 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     );
   }
 
+  // Zone Banner Widget
+  Widget _buildZoneBanner() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Image.asset(
+          'assets/zone_banner.png',
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        ),
+      ),
+    );
+  }
+
   // Nearest Zones Section Header
   Widget _buildNearestZonesHeader() {
     return Row(
@@ -724,7 +766,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
 
   Widget _buildZoneImageWidget(String imageUrl, Color iconColor) {
     final clean = imageUrl.trim();
-    if (clean.isEmpty) {
+    if (clean.isEmpty || clean.contains('unsplash.com')) {
       return Icon(Icons.electric_scooter_rounded, color: iconColor, size: 24);
     }
 
@@ -745,8 +787,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     String finalUrl = clean;
     if (finalUrl.startsWith('/')) {
       finalUrl = 'https://evegah.cloud$finalUrl';
-    } else if (finalUrl.contains('localhost') || finalUrl.contains('192.168.')) {
-      finalUrl = 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=60';
     }
 
     return Image.network(
@@ -810,9 +850,9 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 children: [
                   Row(
                     children: [
-                      Flexible(
+                      Expanded(
                         child: Text(
-                          zone["name"],
+                          zone["name"]?.toString() ?? "",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
@@ -841,7 +881,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
-                          zone["address"],
+                          zone["address"]?.toString() ?? "",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
@@ -858,7 +898,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                         const Icon(Icons.access_time_rounded, size: 10, color: Color(0xFF64748B)),
                         const SizedBox(width: 2),
                         Text(
-                          zone["hours"],
+                          zone["hours"]?.toString() ?? "Open 24x7",
                           style: const TextStyle(fontSize: 9, color: Color(0xFF64748B)),
                         ),
                         if (phone.isNotEmpty) ...[
@@ -874,12 +914,17 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
               ),
             ),
 
+            const SizedBox(width: 8),
+
             // Right Distance & Direction Action
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  zone["distance"],
+                  zone["distance"]?.toString() ?? "-- km",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4313B8)),
                 ),
                 const SizedBox(height: 6),

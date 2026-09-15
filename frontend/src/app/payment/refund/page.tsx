@@ -202,7 +202,7 @@ export default function DepositRefundPage() {
   // Modal State
   const [selectedPending, setSelectedPending] = useState<PendingRefund | null>(null);
   const [damageDeductions, setDamageDeductions] = useState<number>(0);
-  const [refundMethod, setRefundMethod] = useState('ICICI Bank UPI Instant');
+  const [refundMethod, setRefundMethod] = useState('PayU India Gateway Refund');
   const [upiId, setUpiId] = useState('');
   const [refundNotes, setRefundNotes] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -258,18 +258,17 @@ export default function DepositRefundPage() {
       });
 
       if (res && res.status === 'success') {
-        setActionSuccess(`✓ Refund of ₹${netRefundAmount} successfully processed via ${refundMethod}! Transaction ID: ${res.data?.tx_id}`);
+        setActionSuccess(`✓ Security Deposit of ₹${netRefundAmount} refunded directly to original source account via PayU India Gateway! Request ID: ${res.data?.tx_id}`);
         closeRefundModal();
         await fetchDeposits();
         setTimeout(() => setActionSuccess(null), 6000);
       } else {
-        alert(res?.message || 'Refund processed with notice.');
-        closeRefundModal();
-        await fetchDeposits();
+        alert(res?.message || 'PayU Gateway Refund could not be completed.');
       }
     } catch (err: any) {
       console.error('Refund processing error:', err);
-      alert(`Refund error: ${err.message}`);
+      const serverMsg = err.response?.data?.message || err.message || 'PayU Gateway rejected the refund request.';
+      alert(`⚠️ PayU Gateway Refund Error:\n\n${serverMsg}`);
     } finally {
       setProcessing(false);
     }
@@ -876,19 +875,29 @@ export default function DepositRefundPage() {
               </div>
 
               <div className="modal-input-wrap">
-                <label className="modal-lbl">Refund Payment Gateway / Method</label>
-                <select 
-                  className="rh-select" 
-                  style={{ width: '100%', background: '#fff' }}
-                  value={refundMethod}
-                  onChange={(e) => setRefundMethod(e.target.value)}
-                >
-                  <option value="ICICI Bank UPI Instant">ICICI Bank UPI (Instant NPCI Credit)</option>
-                  <option value="PayU India Gateway Refund">PayU India Gateway Refund</option>
-                  <option value="UPI Instant Transfer">Instant UPI (GPay, PhonePe, Paytm)</option>
-                  <option value="Direct Bank Transfer (NEFT/IMPS)">Direct Bank Transfer (NEFT/IMPS)</option>
-                  <option value="Cash Refund">Cash / Offline Refund</option>
-                </select>
+                <label className="modal-lbl">Refund Payment Gateway</label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 14px',
+                  background: '#F8FAFC',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  color: '#1E293B'
+                }}>
+                  <span style={{
+                    background: '#528900',
+                    color: '#FFF',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 800
+                  }}>PayU</span>
+                  <span>PayU India Gateway (Live Refund Flow)</span>
+                </div>
               </div>
 
               <div className="modal-input-wrap">

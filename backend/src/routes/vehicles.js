@@ -727,11 +727,30 @@ router.get('/', async (req, res) => {
         END AS vehicle_status
       FROM vehicles v
       LEFT JOIN LATERAL (
-        SELECT rider_name, mobile, status
-        FROM renters
-        WHERE (vehicle_id = v.code OR vehicle_id = v.registration_number)
-          AND status IN ('Active Ride', 'Ongoing', 'Retain Ride')
-        ORDER BY id DESC LIMIT 1
+        SELECT 
+          customer_name AS rider_name,
+          mobile,
+          status
+        FROM (
+          SELECT customer_name, mobile, status, vehicle_number, created_at
+          FROM reservations
+          WHERE status IN ('Ongoing', 'Active Ride', 'In Ride')
+            AND (vehicle_number = v.code OR vehicle_number = v.registration_number)
+          UNION ALL
+          SELECT rider_name AS customer_name, mobile, status, vehicle_id AS vehicle_number, created_at
+          FROM renters ren
+          WHERE ren.status IN ('Active Ride', 'Ongoing', 'Retain Ride')
+            AND (ren.vehicle_id = v.code OR ren.vehicle_id = v.registration_number)
+            AND NOT EXISTS (
+              SELECT 1 FROM reservations past_res
+              WHERE (past_res.vehicle_number = v.code OR past_res.vehicle_number = v.registration_number)
+                AND past_res.status IN ('Completed', 'Cancelled')
+                AND past_res.returned_at IS NOT NULL
+                AND past_res.returned_at >= ren.created_at
+            )
+        ) active_rides
+        ORDER BY created_at DESC NULLS LAST
+        LIMIT 1
       ) ar ON true
       WHERE 1 = 1
     `;
@@ -846,11 +865,30 @@ router.get('/:code', async (req, res) => {
         END AS vehicle_status
       FROM vehicles v
       LEFT JOIN LATERAL (
-        SELECT rider_name, mobile, status
-        FROM renters
-        WHERE (vehicle_id = v.code OR vehicle_id = v.registration_number)
-          AND status IN ('Active Ride', 'Ongoing', 'Retain Ride')
-        ORDER BY id DESC LIMIT 1
+        SELECT 
+          customer_name AS rider_name,
+          mobile,
+          status
+        FROM (
+          SELECT customer_name, mobile, status, vehicle_number, created_at
+          FROM reservations
+          WHERE status IN ('Ongoing', 'Active Ride', 'In Ride')
+            AND (vehicle_number = v.code OR vehicle_number = v.registration_number)
+          UNION ALL
+          SELECT rider_name AS customer_name, mobile, status, vehicle_id AS vehicle_number, created_at
+          FROM renters ren
+          WHERE ren.status IN ('Active Ride', 'Ongoing', 'Retain Ride')
+            AND (ren.vehicle_id = v.code OR ren.vehicle_id = v.registration_number)
+            AND NOT EXISTS (
+              SELECT 1 FROM reservations past_res
+              WHERE (past_res.vehicle_number = v.code OR past_res.vehicle_number = v.registration_number)
+                AND past_res.status IN ('Completed', 'Cancelled')
+                AND past_res.returned_at IS NOT NULL
+                AND past_res.returned_at >= ren.created_at
+            )
+        ) active_rides
+        ORDER BY created_at DESC NULLS LAST
+        LIMIT 1
       ) ar ON true
       WHERE v.code = $1 OR v.registration_number = $1
       LIMIT 1

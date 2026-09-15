@@ -26,43 +26,50 @@ router.get('/', async (req, res) => {
       WITH unified_transactions AS (
         -- 1. ICICI Payments
         SELECT 
-          'icici_' || id::text AS id,
-          tx_id,
-          COALESCE(upi_ref_no, merchant_id, 'ICICI-UPI') AS reference_id,
-          COALESCE(rider_name, 'Rider') AS rider_name,
-          COALESCE(mobile, '') AS mobile,
-          amount::numeric AS amount,
+          'icici_' || ip.id::text AS id,
+          ip.tx_id,
+          COALESCE(ip.upi_ref_no, ip.merchant_id, 'ICICI-UPI') AS reference_id,
+          COALESCE(ip.rider_name, 'Rider') AS rider_name,
+          COALESCE(ip.mobile, '') AS mobile,
+          COALESCE(r.fare, CASE WHEN ip.amount >= 10 THEN (ip.amount - COALESCE(r.deposit, 5)) ELSE ip.amount END)::numeric AS rent_amount,
+          COALESCE(r.deposit, CASE WHEN ip.amount >= 10 THEN 5 ELSE 0 END)::numeric AS deposit_amount,
+          ip.amount::numeric AS amount,
           'Credit' AS type,
           CASE 
-            WHEN UPPER(status) = 'SUCCESS' THEN 'Successful'
-            WHEN UPPER(status) = 'PENDING' THEN 'Pending'
+            WHEN UPPER(ip.status) = 'SUCCESS' THEN 'Successful'
+            WHEN UPPER(ip.status) = 'PENDING' THEN 'Pending'
             ELSE 'Failed'
           END AS status,
           'ICICI UPI' AS payment_method,
-          COALESCE(purpose, 'Ride / Booking') AS purpose,
-          created_at
-        FROM icici_payments
+          COALESCE(ip.purpose, 'Ride / Booking') AS purpose,
+          ip.created_at
+        FROM icici_payments ip
+        LEFT JOIN reservations r ON (r.transaction_id = ip.tx_id OR r.reservation_id = ip.reservation_id)
 
         UNION ALL
 
         -- 2. PayU Payments
         SELECT 
-          'payu_' || id::text AS id,
-          tx_id,
-          COALESCE(payu_id, bank_ref_num, tx_id) AS reference_id,
-          COALESCE(rider_name, 'Rider') AS rider_name,
-          COALESCE(mobile, '') AS mobile,
-          amount::numeric AS amount,
+          'payu_' || pp.id::text AS id,
+          pp.tx_id,
+          COALESCE(pp.payu_id, pp.bank_ref_num, pp.tx_id) AS reference_id,
+          COALESCE(pp.rider_name, 'Rider') AS rider_name,
+          COALESCE(pp.mobile, '') AS mobile,
+          COALESCE(r.fare, CASE WHEN pp.amount >= 10 THEN (pp.amount - COALESCE(r.deposit, 5)) ELSE pp.amount END)::numeric AS rent_amount,
+          COALESCE(r.deposit, CASE WHEN pp.amount >= 10 THEN 5 ELSE 0 END)::numeric AS deposit_amount,
+          pp.amount::numeric AS amount,
           'Credit' AS type,
           CASE 
-            WHEN UPPER(status) = 'SUCCESS' THEN 'Successful'
-            WHEN UPPER(status) = 'PENDING' THEN 'Pending'
+            WHEN UPPER(pp.status) = 'SUCCESS' THEN 'Successful'
+            WHEN UPPER(pp.status) = 'PENDING' THEN 'Pending'
             ELSE 'Failed'
           END AS status,
           'PayU India' AS payment_method,
-          COALESCE(purpose, 'Ride Payment') AS purpose,
-          created_at
-        FROM payu_payments
+          COALESCE(pp.purpose, 'Ride Payment') AS purpose,
+          pp.created_at
+        FROM payu_payments pp
+        LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
+        WHERE pp.status != 'Refund_Failed' AND pp.purpose NOT ILIKE '%refund attempt%'
 
         UNION ALL
 
@@ -77,6 +84,8 @@ router.get('/', async (req, res) => {
             'Rider (' || wt.mobile || ')'
           ) AS rider_name,
           COALESCE(wt.mobile, '') AS mobile,
+          wt.amount::numeric AS rent_amount,
+          0.00::numeric AS deposit_amount,
           wt.amount::numeric AS amount,
           CASE 
             WHEN LOWER(wt.type) = 'debit' THEN 'Debit'
@@ -91,6 +100,7 @@ router.get('/', async (req, res) => {
           COALESCE(wt.title, wt.subtitle, 'Wallet Transaction') AS purpose,
           wt.created_at
         FROM wallet_transactions wt
+        WHERE wt.title NOT ILIKE '%deposit refund%' AND wt.subtitle NOT ILIKE '%deposit refund%'
 
         UNION ALL
 
@@ -101,10 +111,12 @@ router.get('/', async (req, res) => {
           reservation_id AS reference_id,
           COALESCE(customer_name, 'Rider') AS rider_name,
           COALESCE(mobile, '') AS mobile,
+          0.00::numeric AS rent_amount,
+          COALESCE(refund_amount, deposit, 0)::numeric AS deposit_amount,
           COALESCE(refund_amount, deposit, 0)::numeric AS amount,
           'Debit' AS type,
           'Successful' AS status,
-          COALESCE(refund_mode, 'UPI Refund') AS payment_method,
+          COALESCE(refund_mode, 'PayU India Gateway Refund') AS payment_method,
           'Security Deposit Refund' AS purpose,
           COALESCE(refund_date, returned_at, created_at) AS created_at
         FROM reservations
@@ -112,23 +124,40 @@ router.get('/', async (req, res) => {
 
         UNION ALL
 
-        -- 5. Direct / Booking Rental Plan Payments
+        -- 5. Direct / Cash / Offline Booking Payments only (avoid double-counting PayU, ICICI, Wallet)
         SELECT
           'res_' || id::text AS id,
           COALESCE(transaction_id, 'TXN-R' || id::text) AS tx_id,
           reservation_id AS reference_id,
           COALESCE(customer_name, 'Rider') AS rider_name,
           COALESCE(mobile, '') AS mobile,
-          COALESCE(fare, 0)::numeric AS amount,
+          COALESCE(fare, 0)::numeric AS rent_amount,
+          COALESCE(deposit, 0)::numeric AS deposit_amount,
+          COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0)), fare)::numeric AS amount,
           'Credit' AS type,
           'Successful' AS status,
-          COALESCE(payment_mode, 'Direct Booking') AS payment_method,
+          COALESCE(payment_mode, 'Cash / Direct Booking') AS payment_method,
           'Ride Booking (' || COALESCE(package_type, 'Rental Plan') || ')' AS purpose,
           created_at
         FROM reservations
         WHERE payment_status = 'Paid' AND COALESCE(fare, 0) > 0
-          AND NOT EXISTS (SELECT 1 FROM payu_payments pp WHERE pp.tx_id = reservations.transaction_id)
-          AND NOT EXISTS (SELECT 1 FROM icici_payments ip WHERE ip.tx_id = reservations.transaction_id)
+          AND (payment_mode IS NULL OR payment_mode NOT IN ('PayU', 'PayU India', 'ICICI UPI', 'UPI', 'Wallet', 'Evegah Wallet'))
+          AND NOT EXISTS (
+            SELECT 1 FROM payu_payments pp 
+            WHERE pp.tx_id = reservations.transaction_id 
+               OR pp.reservation_id = reservations.id::text 
+               OR pp.reservation_id = reservations.reservation_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM icici_payments ip 
+            WHERE ip.tx_id = reservations.transaction_id 
+               OR ip.reservation_id = reservations.id::text 
+               OR ip.reservation_id = reservations.reservation_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt 
+            WHERE wt.transaction_id = reservations.transaction_id
+          )
       )
       SELECT * FROM unified_transactions
     `;

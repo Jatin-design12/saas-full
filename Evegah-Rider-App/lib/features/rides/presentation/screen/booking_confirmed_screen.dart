@@ -13,6 +13,8 @@ import '../../../kyc/presentation/screens/kyc_screen.dart';
 import '../../../wallet/data/services/wallet_service.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../support/presentation/screens/help_screen.dart';
+import '../../data/services/ride_service.dart';
+import 'ride_started_screen.dart';
 
 class BookingConfirmedScreen extends StatefulWidget {
   final bool isDepositPaid;
@@ -1848,8 +1850,9 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
         ),
         child: Row(
           children: [
-            // PAY NOW / DEPOSIT PAID
+            // 1. DEPOSIT STATUS / PAY AT PICKUP
             Expanded(
+              flex: 4,
               child: SizedBox(
                 height: 54,
                 child: OutlinedButton(
@@ -1857,37 +1860,36 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                       ? null
                       : _showDepositPaymentModal,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor:
-                        const Color(0xFF4313B8),
-                    side: const BorderSide(
-                      color: Color(0xFFDDD6FE),
+                    foregroundColor: const Color(0xFF4313B8),
+                    side: BorderSide(
+                      color: _depositPaid ? const Color(0xFF22C55E) : const Color(0xFFDDD6FE),
                       width: 1.5,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
                   child: Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _depositPaid
-                            ? "Deposit Paid"
-                            : "Pay Now",
-                        style: const TextStyle(
+                        _depositPaid ? "Deposit Paid" : "Pay Deposit",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: 11.5,
+                          color: _depositPaid ? const Color(0xFF16A34A) : const Color(0xFF4313B8),
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _depositPaid
-                            ? "Successfully paid"
-                            : "Pay the deposit anytime",
-                        style: const TextStyle(
-                          color: Colors.grey,
+                        _depositPaid ? "Included" : "Pay or at Pickup",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _depositPaid ? const Color(0xFF16A34A) : Colors.grey,
                           fontSize: 8,
                         ),
                       ),
@@ -1897,67 +1899,82 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
               ),
             ),
 
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
 
-            // NAVIGATE TO PICKUP
+            // 2. START RIDE & UNLOCK
             Expanded(
+              flex: 7,
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () async {
+                    final resId = widget.reservationId.isNotEmpty
+                        ? widget.reservationId
+                        : (_fetchedReservation?['reservation_id'] ?? _fetchedReservation?['id']?.toString() ?? '1');
+                    final vehicleCode = _fetchedReservation?['vehicle_number'] ??
+                        widget.bookingData?['vehicle_number'] ??
+                        widget.bookingData?['vehicle_id'] ??
+                        'EVM1024001';
+
+                    // Start ride on backend
+                    try {
+                      await RideService().startRide(resId, vehicleNumber: vehicleCode.toString());
+                    } catch (_) {}
+
+                    if (!mounted) return;
+
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RideStartedScreen(
+                          vehicleId: vehicleCode.toString(),
+                          rideBookingId: int.tryParse(_fetchedReservation?['id']?.toString() ?? '') ?? 101,
+                        ),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFF2B0B78),
+                    backgroundColor: const Color(0xFF2B0B78),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    elevation: 0,
+                    elevation: 2,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  child: Builder(
-                    builder: (context) {
-                      final bool isDoorstep =
-                          widget.bookingData?[
-                                  'isDoorstep'] ==
-                              true ||
-                          (_fetchedReservation?[
-                                  'doorstep_delivery'] ==
-                              true);
-
-                      return Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            isDoorstep
-                                ? "Doorstep Delivery Location"
-                                : "Navigate to Pickup Zone",
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight:
-                                  FontWeight.bold,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.electric_bolt_rounded, size: 20, color: Color(0xFF8CE600)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "⚡ Start Ride",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.2,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isDoorstep
-                                ? "Vehicle will be delivered to doorstep"
-                                : "Reach 10 mins before pickup time",
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 8,
+                            SizedBox(height: 2),
+                            Text(
+                              "Tap to unlock & ride",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 8.5,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

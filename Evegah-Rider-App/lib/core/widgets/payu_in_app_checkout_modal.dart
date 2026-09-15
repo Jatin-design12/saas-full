@@ -120,36 +120,39 @@ class _PayUInAppCheckoutModalState extends State<PayUInAppCheckoutModal> {
     // PayU response webhook or return URL
     if (lower.contains('/payments/payu/response')) {
       if (isNavigationRequest) {
-        // ALWAYS allow navigation to backend response URL so backend registers success!
+        // Allow navigation so backend receives POST/GET from PayU
         return false;
       }
       _isFinished = true;
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        _handleCompletion(true, 'Payment completed successfully');
-      });
+      _verifyAndComplete(true, 'Payment completed successfully');
       return true;
     } else if (lower.contains('/payment/success') ||
                lower.contains('status=success') ||
                lower.contains('status=completed')) {
       _isFinished = true;
-      _handleCompletion(true, 'Payment completed successfully');
+      _verifyAndComplete(true, 'Payment completed successfully');
       return true;
     } else if (lower.contains('/payment/failure') ||
                lower.contains('/payment/cancel') ||
                lower.contains('status=failed') ||
                lower.contains('status=cancelled')) {
       _isFinished = true;
-      _handleCompletion(false, 'Payment failed or cancelled');
+      _verifyAndComplete(false, 'Payment failed or cancelled');
       return true;
     }
     return false;
   }
 
-  Future<void> _handleCompletion(bool success, String message) async {
-    // Also verify status with backend
+  Future<void> _verifyAndComplete(bool presumedSuccess, String message) async {
+    // Check status immediately
     try {
-      final backendStatus = await PayUService().checkPaymentStatus(widget.txnid);
-      final isRealSuccess = backendStatus.toLowerCase() == 'success' || success;
+      String backendStatus = await PayUService().checkPaymentStatus(widget.txnid);
+      if (backendStatus.toLowerCase() != 'success' && presumedSuccess) {
+        // Give backend 800ms to finish processing webhook
+        await Future.delayed(const Duration(milliseconds: 800));
+        backendStatus = await PayUService().checkPaymentStatus(widget.txnid);
+      }
+      final isRealSuccess = backendStatus.toLowerCase() == 'success' || presumedSuccess;
       if (mounted) {
         Navigator.of(context).pop(PayUPaymentResult(
           success: isRealSuccess,
@@ -160,7 +163,7 @@ class _PayUInAppCheckoutModalState extends State<PayUInAppCheckoutModal> {
     } catch (_) {
       if (mounted) {
         Navigator.of(context).pop(PayUPaymentResult(
-          success: success,
+          success: presumedSuccess,
           txId: widget.txnid,
           message: message,
         ));

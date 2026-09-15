@@ -27,7 +27,7 @@ const MOCK_ZONES = [
     phone: '+91 8980966677',
     lat: 22.2684,
     lng: 73.1952,
-    image_url: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=60',
+    image_url: '',
     center: { lat: 22.2684, lng: 73.1952 },
     points: [{ lat: 22.2684, lng: 73.1952 }],
     pricing: {
@@ -71,7 +71,7 @@ const MOCK_ZONES = [
     phone: '+91 98765 43210',
     lat: 22.3168,
     lng: 73.1415,
-    image_url: 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=600&auto=format&fit=crop&q=60',
+    image_url: '',
     center: { lat: 22.3168, lng: 73.1415 },
     points: [{ lat: 22.3168, lng: 73.1415 }],
     pricing: {
@@ -115,7 +115,7 @@ const MOCK_ZONES = [
     phone: '+91 8980966098',
     lat: 22.3615,
     lng: 73.3524,
-    image_url: 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?w=600&auto=format&fit=crop&q=60',
+    image_url: '',
     center: { lat: 22.3615, lng: 73.3524 },
     points: [{ lat: 22.3615, lng: 73.3524 }],
     pricing: {
@@ -137,7 +137,7 @@ const MOCK_ZONES = [
     phone: '+91 98765 43210',
     lat: 22.2510,
     lng: 73.2140,
-    image_url: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&auto=format&fit=crop&q=60',
+    image_url: '',
     center: { lat: 22.2510, lng: 73.2140 },
     points: [{ lat: 22.2510, lng: 73.2140 }],
     pricing: {
@@ -158,7 +158,7 @@ const MOCK_ZONES = [
     phone: '+91 98765 43210',
     lat: 20.4075,
     lng: 72.8335,
-    image_url: 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=600&auto=format&fit=crop&q=60',
+    image_url: '',
     center: { lat: 20.4075, lng: 72.8335 },
     points: [{ lat: 20.4075, lng: 72.8335 }],
     pricing: {

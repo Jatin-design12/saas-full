@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
@@ -133,29 +134,58 @@ const CSS = `
   align-items: center;
   justify-content: center;
 }
-.icici-qr-frame img {
-  width: 160px;
-  height: 160px;
+.icici-qr-frame svg {
   display: block;
+  border-radius: 4px;
 }
 .icici-vpa-txt { font-size: 12.5px; font-weight: 700; color: #701A75; margin-top: 10px; }
 .icici-ref-txt { font-size: 11px; color: #64748B; margin-top: 2px; }
-.icici-verify-btn {
-  margin-top: 10px;
+
+/* ── ICICI Live Status & Pulse ── */
+.icici-status-box {
+  margin-top: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+.icici-pulse-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 18px;
-  background: #10B981;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
+  justify-content: center;
+  gap: 8px;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 9px;
+  padding: 8px 12px;
   font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
+  font-weight: 600;
+  color: #1D4ED8;
 }
-.icici-verify-btn:hover { background: #059669; }
+.icici-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563EB;
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+  animation: iciciPulse 1.8s infinite;
+}
+@keyframes iciciPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+.icici-verified-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #ECFDF5;
+  border: 1.5px solid #10B981;
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #065F46;
+}
 
 /* ── Split Payment Box ── */
 .pm-split-box {
@@ -441,13 +471,14 @@ function MethodDetail({
   setStaffCollector,
   cashReceipt,
   setCashReceipt,
-  iciciQrUrl,
-  iciciTxId,
+  iciciQrString,
+  iciciMerchantTranId,
+  iciciRefId,
+  splitQrString,
+  splitMerchantTranId,
+  splitRefId,
   upiVerified,
-  isVerifyingUpi,
-  verifyUpiPayment,
-  splitQrUrl,
-  splitTxId,
+  isCheckingStatus,
 }: {
   method: PayMethod;
   wallet: string;
@@ -460,13 +491,14 @@ function MethodDetail({
   setStaffCollector: (v: string) => void;
   cashReceipt: string;
   setCashReceipt: (v: string) => void;
-  iciciQrUrl: string;
-  iciciTxId: string;
+  iciciQrString: string;
+  iciciMerchantTranId: string;
+  iciciRefId: string;
+  splitQrString: string;
+  splitMerchantTranId: string;
+  splitRefId: string;
   upiVerified: boolean;
-  isVerifyingUpi: boolean;
-  verifyUpiPayment: () => void;
-  splitQrUrl: string;
-  splitTxId: string;
+  isCheckingStatus: boolean;
 }) {
   if (method === 'upi') return (
     <>
@@ -475,36 +507,47 @@ function MethodDetail({
           <span>⚡</span> ICICI BANK DYNAMIC UPI QR
         </div>
         <div className="icici-qr-frame">
-          <img
-            src={iciciQrUrl}
-            alt="ICICI UPI QR Code"
-            width={160}
-            height={160}
-          />
+          {iciciQrString ? (
+            <QRCodeSVG
+              value={iciciQrString}
+              size={164}
+              level="M"
+              includeMargin={false}
+            />
+          ) : (
+            <div style={{ width: 164, height: 164, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12, fontWeight: 600 }}>
+              Generating ICICI QR...
+            </div>
+          )}
         </div>
         <div className="icici-vpa-txt">UPI VPA: EVEGAHRIDE@icici</div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#111827', marginTop: 4 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
           Scan to Pay: ₹{totalPayable.toFixed(2)}
         </div>
         <div className="icici-ref-txt">
-          Payee: Evegah | Txn Ref: {iciciTxId || 'EVG-PENDING'}
+          Payee: Evegah | Txn ID: {iciciMerchantTranId || 'EVG-GENERATING...'}
         </div>
         <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
           Works with GPay, PhonePe, Paytm, BHIM, ICICI iMobile &amp; all UPI apps
         </div>
-        <button
-          type="button"
-          className="icici-verify-btn"
-          onClick={verifyUpiPayment}
-          disabled={isVerifyingUpi}
-        >
-          {isVerifyingUpi ? 'Verifying with ICICI...' : upiVerified ? '✓ Payment Received & Verified' : 'Confirm Payment Received'}
-        </button>
+
+        <div className="icici-status-box">
+          {upiVerified ? (
+            <div className="icici-verified-badge">
+              <span>✓</span> Payment Verified via ICICI Bank
+            </div>
+          ) : (
+            <div className="icici-pulse-badge">
+              <span className="icici-pulse-dot" />
+              <span>{isCheckingStatus ? 'Verifying with ICICI Bank...' : 'Awaiting customer UPI payment...'}</span>
+            </div>
+          )}
+        </div>
       </div>
       {upiVerified && (
         <div className="pm-ok-banner">
           <span style={{ display: 'flex', color: '#16A34A' }}><ICheck s={14} /></span>
-          ICICI Bank UPI payment verified successfully for ₹{totalPayable.toFixed(2)}.
+          ICICI Bank UPI payment verified successfully for ₹{totalPayable.toFixed(2)}. Ref: {iciciRefId || iciciMerchantTranId}
         </div>
       )}
     </>
@@ -573,28 +616,39 @@ function MethodDetail({
             <span>⚡</span> ICICI QR FOR ONLINE BALANCE
           </div>
           <div className="icici-qr-frame">
-            <img
-              src={splitQrUrl}
-              alt="ICICI QR Code for Online Balance"
-              width={160}
-              height={160}
-            />
+            {splitQrString ? (
+              <QRCodeSVG
+                value={splitQrString}
+                size={164}
+                level="M"
+                includeMargin={false}
+              />
+            ) : (
+              <div style={{ width: 164, height: 164, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12, fontWeight: 600 }}>
+                Generating ICICI QR...
+              </div>
+            )}
           </div>
           <div className="icici-vpa-txt">UPI VPA: EVEGAHRIDE@icici</div>
           <div style={{ fontSize: 13.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
             Scan to pay Online Portion: ₹{onlineAmount.toFixed(2)}
           </div>
           <div className="icici-ref-txt">
-            Payee: Evegah | Txn Ref: {splitTxId || 'EVG-SPLIT'}
+            Payee: Evegah | Txn ID: {splitMerchantTranId || 'EVG-SPLIT'}
           </div>
-          <button
-            type="button"
-            className="icici-verify-btn"
-            onClick={verifyUpiPayment}
-            disabled={isVerifyingUpi}
-          >
-            {isVerifyingUpi ? 'Verifying Online Portion...' : upiVerified ? '✓ Online Portion Verified' : 'Confirm Online Portion Received'}
-          </button>
+
+          <div className="icici-status-box">
+            {upiVerified ? (
+              <div className="icici-verified-badge">
+                <span>✓</span> Online Portion Verified via ICICI
+              </div>
+            ) : (
+              <div className="icici-pulse-badge">
+                <span className="icici-pulse-dot" />
+                <span>{isCheckingStatus ? 'Verifying Online Portion...' : 'Awaiting online portion payment...'}</span>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className="pm-ok-banner">
@@ -778,13 +832,15 @@ export default function PaymentPage() {
   const [staffCollector, setStaffCollector] = useState('Himanshu (Super Admin)');
   const [cashReceipt, setCashReceipt] = useState('');
 
-  // ICICI QR fields
-  const [iciciQrUrl, setIciciQrUrl] = useState('');
-  const [iciciTxId, setIciciTxId] = useState('');
-  const [splitQrUrl, setSplitQrUrl] = useState('');
-  const [splitTxId, setSplitTxId] = useState('');
+  // ICICI QR & Polling fields
+  const [iciciQrString, setIciciQrString] = useState('');
+  const [iciciMerchantTranId, setIciciMerchantTranId] = useState('');
+  const [iciciRefId, setIciciRefId] = useState('');
+  const [splitQrString, setSplitQrString] = useState('');
+  const [splitMerchantTranId, setSplitMerchantTranId] = useState('');
+  const [splitRefId, setSplitRefId] = useState('');
   const [upiVerified, setUpiVerified] = useState(false);
-  const [isVerifyingUpi, setIsVerifyingUpi] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // Form data from previous steps
   const [rentalData, setRentalData] = useState<any>(null);
@@ -823,15 +879,13 @@ export default function PaymentPage() {
   const clampedCash = Math.min(totalPayable, Math.max(0, cashAmount));
   const onlineAmount = Math.max(0, totalPayable - clampedCash);
 
-  // ICICI QR generation for full UPI
+  // Real Dynamic ICICI QR generation for full UPI
   useEffect(() => {
     if (totalPayable <= 0) return;
-    const txId = `EVGICICI${Date.now()}`;
-    setIciciTxId(txId);
-    const fallbackQr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${totalPayable.toFixed(2)}&cu=INR&tr=${txId}`)}`;
-    setIciciQrUrl(fallbackQr);
+    setUpiVerified(false);
+    let isMounted = true;
 
-    api.post('/payments/icici/generate-qr', {
+    api.post('/payments/icici/qr', {
       amount: totalPayable,
       rider_name: kycData?.fullName || 'Rider',
       mobile: kycData?.mobile || '',
@@ -839,67 +893,97 @@ export default function PaymentPage() {
       purpose: 'ride'
     })
       .then((res: any) => {
-        if (res && res.data) {
-          setIciciTxId(res.data.tx_id || txId);
-          if (res.data.upi_string) {
-            setIciciQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(res.data.upi_string)}`);
-          }
-        }
+        if (!isMounted) return;
+        const data = res?.data || res;
+        const qrStr = res?.qrString || data?.upi_string || data?.qrString || '';
+        const mTranId = res?.merchantTranId || data?.tx_id || '';
+        const rId = res?.refId || data?.ref_id || mTranId;
+        setIciciQrString(qrStr);
+        setIciciMerchantTranId(mTranId);
+        setIciciRefId(rId);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('ICICI QR generation error:', err);
+      });
+
+    return () => { isMounted = false; };
   }, [totalPayable, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
 
-  // ICICI QR generation for Split Online portion
+  // Real Dynamic ICICI QR generation for Split Online portion
   useEffect(() => {
-    if (onlineAmount <= 0) return;
-    const sTxId = `SPLIT${Date.now()}`;
-    setSplitTxId(sTxId);
-    const fallbackSplitQr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${onlineAmount.toFixed(2)}&cu=INR&tr=${sTxId}`)}`;
-    setSplitQrUrl(fallbackSplitQr);
+    if (onlineAmount <= 0) {
+      setSplitQrString('');
+      setSplitMerchantTranId('');
+      setSplitRefId('');
+      return;
+    }
+    setUpiVerified(false);
+    let isMounted = true;
 
-    api.post('/payments/icici/generate-qr', {
+    api.post('/payments/icici/qr', {
       amount: onlineAmount,
       rider_name: kycData?.fullName || 'Rider',
       mobile: kycData?.mobile || '',
-      notes: `Split Online Part - ${rentalData?.vehicle_code || 'Rental'}`,
+      notes: `Split Online - ${rentalData?.vehicle_code || 'Rental'}`,
       purpose: 'ride'
     })
       .then((res: any) => {
-        if (res && res.data) {
-          setSplitTxId(res.data.tx_id || sTxId);
-          if (res.data.upi_string) {
-            setSplitQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(res.data.upi_string)}`);
-          }
-        }
+        if (!isMounted) return;
+        const data = res?.data || res;
+        const qrStr = res?.qrString || data?.upi_string || data?.qrString || '';
+        const mTranId = res?.merchantTranId || data?.tx_id || '';
+        const rId = res?.refId || data?.ref_id || mTranId;
+        setSplitQrString(qrStr);
+        setSplitMerchantTranId(mTranId);
+        setSplitRefId(rId);
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Split ICICI QR generation error:', err);
+      });
+
+    return () => { isMounted = false; };
   }, [onlineAmount, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
 
-  // Verify ICICI payment
-  const verifyUpiPayment = async () => {
-    setIsVerifyingUpi(true);
-    try {
-      const targetTxId = payMethod === 'split' ? splitTxId : iciciTxId;
-      const amountToVerify = payMethod === 'split' ? onlineAmount : totalPayable;
-      const res: any = await api.post('/payments/icici/verify', {
-        tx_id: targetTxId,
-        amount: amountToVerify,
-        rider_name: kycData?.fullName || 'Rider',
-        mobile: kycData?.mobile || '',
-        plan: rentalData?.plan_name || 'Standard Plan',
-        purpose: 'ride'
-      });
-      if (res && (res.status === 'success' || res.payment_status === 'SUCCESS')) {
-        setUpiVerified(true);
-      } else {
-        setUpiVerified(true);
+  // Automated real-time ICICI payment status polling
+  useEffect(() => {
+    const activeTxId = payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId;
+    const isOnlineActive = payMethod === 'upi' || (payMethod === 'split' && onlineAmount > 0);
+
+    if (!isOnlineActive || !activeTxId || upiVerified) return;
+
+    let isMounted = true;
+    let pollCount = 0;
+
+    const checkStatus = async () => {
+      if (!isMounted || upiVerified) return;
+      pollCount++;
+      try {
+        setIsCheckingStatus(true);
+        const res: any = await api.post('/payments/icici/status', {
+          merchantTranId: activeTxId
+        });
+        if (!isMounted) return;
+        const rawStatus = (res?.status || res?.Status || res?.data?.payment_status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS') {
+          setUpiVerified(true);
+        }
+      } catch (e) {
+        // Continue polling quietly
+      } finally {
+        if (isMounted) setIsCheckingStatus(false);
       }
-    } catch (e) {
-      setUpiVerified(true);
-    } finally {
-      setIsVerifyingUpi(false);
-    }
-  };
+    };
+
+    // Initial check after 1.5 seconds, then poll every 2.5 seconds
+    const timeout = setTimeout(checkStatus, 1500);
+    const interval = setInterval(checkStatus, 2500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [payMethod, iciciMerchantTranId, splitMerchantTranId, onlineAmount, upiVerified]);
 
   // Coupon validation against backend coupons
   const applyCode = (codeToApply?: string) => {
@@ -948,7 +1032,14 @@ export default function PaymentPage() {
     setCouponError('');
   };
 
+  const canContinue = () => {
+    if (payMethod === 'upi') return upiVerified;
+    if (payMethod === 'split') return onlineAmount === 0 || upiVerified;
+    return true;
+  };
+
   const handleNextStep = () => {
+    if (!canContinue()) return;
     const paymentData = {
       pay_method: payMethod,
       coupon: couponApplied ? coupon : '',
@@ -962,9 +1053,10 @@ export default function PaymentPage() {
       online_amount: payMethod === 'split' ? onlineAmount : (payMethod === 'upi' ? totalPayable : 0),
       staff_collector: staffCollector,
       cash_receipt: cashReceipt,
-      icici_tx_id: payMethod === 'split' ? splitTxId : iciciTxId,
+      icici_tx_id: payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId,
+      icici_ref_id: payMethod === 'split' ? splitRefId : iciciRefId,
       icici_vpa: 'EVEGAHRIDE@icici',
-      upi_verified: upiVerified
+      upi_verified: upiVerified,
     };
     localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));
     router.push('/new-rider/documents');
@@ -1069,13 +1161,14 @@ export default function PaymentPage() {
                         setStaffCollector={setStaffCollector}
                         cashReceipt={cashReceipt}
                         setCashReceipt={setCashReceipt}
-                        iciciQrUrl={iciciQrUrl}
-                        iciciTxId={iciciTxId}
+                        iciciQrString={iciciQrString}
+                        iciciMerchantTranId={iciciMerchantTranId}
+                        iciciRefId={iciciRefId}
+                        splitQrString={splitQrString}
+                        splitMerchantTranId={splitMerchantTranId}
+                        splitRefId={splitRefId}
                         upiVerified={upiVerified}
-                        isVerifyingUpi={isVerifyingUpi}
-                        verifyUpiPayment={verifyUpiPayment}
-                        splitQrUrl={splitQrUrl}
-                        splitTxId={splitTxId}
+                        isCheckingStatus={isCheckingStatus}
                       />
 
                       {/* 2. Payment Summary */}
@@ -1204,8 +1297,21 @@ export default function PaymentPage() {
                 {/* Footer Actions */}
                 <div className="nr-footer-actions">
                   <Link href="/new-rider/rental" className="nr-prev-btn"><ILeft /> Previous</Link>
-                  <button className="nr-continue-btn" onClick={handleNextStep}>
-                    Continue to Documents <IArr s={12} />
+                  <button
+                    className="nr-continue-btn"
+                    onClick={handleNextStep}
+                    disabled={!canContinue()}
+                    style={{
+                      opacity: canContinue() ? 1 : 0.55,
+                      cursor: canContinue() ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {payMethod === 'upi' && !upiVerified
+                      ? 'Awaiting ICICI Payment...'
+                      : payMethod === 'split' && onlineAmount > 0 && !upiVerified
+                      ? 'Awaiting Online Portion...'
+                      : 'Continue to Documents'}
+                    <IArr s={12} />
                   </button>
                 </div>
 

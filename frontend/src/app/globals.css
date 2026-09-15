@@ -90,3 +90,50 @@ table{border-collapse:collapse}
   }
 }
 
+/* ── Global Sidebar Fixed & Hidden Scrollbar Integration ── */
+.ev-sb {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100vh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  z-index: 1000 !important;
+}
+
+.ev-sb-nav {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE / Edge */
+}
+.ev-sb-nav::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.ev-sb + div,
+.ev-sb + main,
+.ev-sb ~ div[class*="-main"],
+.ev-sb ~ main[class*="-main"],
+.ev-sb ~ div {
+  margin-left: 240px !important;
+  width: calc(100% - 240px) !important;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+
+@media screen and (max-width: 1536px) {
+  .ev-sb + div,
+  .ev-sb + main,
+  .ev-sb ~ div[class*="-main"],
+  .ev-sb ~ main[class*="-main"],
+  .ev-sb ~ div {
+    margin-left: 230px !important;
+    width: calc(100% - 230px) !important;
+  }
+}
+
+

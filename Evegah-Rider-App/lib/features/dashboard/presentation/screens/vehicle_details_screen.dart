@@ -161,27 +161,96 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> with Single
     // Dynamic model data fallback map
     final data = _modelDetails ?? {};
     final String name = data['name'] ?? widget.modelName ?? "Evegah City";
-    final String category = data['category'] ?? "E-Vehicle";
-    final String tagline = data['tagline'] ?? "Stylish. Powerful. Eco-friendly.";
-    final String rating = "${data['rating'] ?? 4.6}";
+    final lowerName = name.toLowerCase();
+
+    // Default per-model attributes
+    final String defaultCategory;
+    final String defaultTagline;
+    final String defaultRange;
+    final String defaultTopSpeed;
+    final String defaultBatteryCapacity;
+    final String defaultMotorPower;
+    final String defaultMainImage;
+    final List<String> defaultGallery;
+
+    if (lowerName.contains('mink')) {
+      defaultCategory = "E-Cargo";
+      defaultTagline = "Heavy Duty. Unlimited Utility.";
+      defaultRange = "75–90 km";
+      defaultTopSpeed = "45 km/h";
+      defaultBatteryCapacity = "3.2 kWh";
+      defaultMotorPower = "3000 W";
+      defaultMainImage = "assets/mink.png";
+      defaultGallery = [
+        "assets/mink.png",
+        "assets/evegah_vb_mink.png",
+        "assets/mink_banner.png",
+      ];
+    } else if (lowerName.contains('pro')) {
+      defaultCategory = "E-Scooter";
+      defaultTagline = "Compact. Powerful. Anywhere.";
+      defaultRange = "65–80 km";
+      defaultTopSpeed = "50 km/h";
+      defaultBatteryCapacity = "1.8 kWh";
+      defaultMotorPower = "1800 W";
+      defaultMainImage = "assets/pro-1.png";
+      defaultGallery = [
+        "assets/pro-1.png",
+        "assets/evegah_vb_pro.png",
+        "assets/Pro_Banner.png",
+      ];
+    } else if (lowerName.contains('fly') ||
+        lowerName.contains('cycle') ||
+        lowerName.contains('moped') ||
+        lowerName.contains('kick')) {
+      defaultCategory = "E-Bike";
+      defaultTagline = "Lightweight & Agile City Moped.";
+      defaultRange = "55–70 km";
+      defaultTopSpeed = "35 km/h";
+      defaultBatteryCapacity = "1.2 kWh";
+      defaultMotorPower = "1000 W";
+      defaultMainImage = "assets/Fly.png";
+      defaultGallery = [
+        "assets/Fly.png",
+        "assets/evegah_vb_fly.png",
+        "assets/Fly_banner.png",
+      ];
+    } else {
+      defaultCategory = "E-Vehicle";
+      defaultTagline = "Smart. Silent. Sustainable.";
+      defaultRange = "90–110 km";
+      defaultTopSpeed = "60 km/h";
+      defaultBatteryCapacity = "2.3 kWh";
+      defaultMotorPower = "2500 W";
+      defaultMainImage = "assets/city.png";
+      defaultGallery = [
+        "assets/city.png",
+        "assets/evegah_vb_city.png",
+        "assets/City_Banner.png",
+      ];
+    }
+
+    final String category = data['category'] ?? defaultCategory;
+    final String tagline = data['tagline'] ?? defaultTagline;
+    final String rating = "${data['rating'] ?? 4.8}";
     final String reviewsCount = "${data['reviews_count'] ?? 128}";
     final String description = data['description'] ??
         "$name is built for the modern commuter. It combines performance, comfort and style with zero emissions. Perfect for daily rides in the city.";
-    final String range = data['range'] ?? "90–110 km";
-    final String topSpeed = data['top_speed'] ?? "60 km/h";
-    final String batteryCapacity = data['battery_capacity'] ?? "2.3 kWh";
+    final String range = data['range'] ?? defaultRange;
+    final String topSpeed = data['top_speed'] ?? defaultTopSpeed;
+    final String batteryCapacity = data['battery_capacity'] ?? defaultBatteryCapacity;
     final String brakes = data['brakes'] ?? "Disc Brakes (Front & Rear)";
-    final String motorPower = data['motor_power'] ?? "2500 W";
+    final String motorPower = data['motor_power'] ?? defaultMotorPower;
     final String batteryType = data['battery_type'] ?? "Lithium-ion";
     final String wheelSize = data['wheel_size'] ?? "12 inch";
     final String waterResistance = data['water_resistance'] ?? "IP67";
     final String chargingTime = data['charging_time'] ?? "4 – 5 Hours";
-    final String loadCapacity = data['load_capacity'] ?? "150 kg";
+    final String loadCapacity = data['load_capacity'] ?? (lowerName.contains('mink') ? "200 kg" : "150 kg");
     final String warranty = data['warranty'] ?? "1 Year Warranty";
 
-    String mainImage = data['main_image'] ?? "assets/city.png";
+    String mainImage = data['main_image'] ?? defaultMainImage;
     if (mainImage.trim().isEmpty) {
-      mainImage = "assets/city.png";
+      mainImage = defaultMainImage;
     }
 
     List<String> galleryImages = [];
@@ -196,14 +265,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> with Single
     }
 
     if (galleryImages.isEmpty) {
-      galleryImages = [
-        mainImage,
-        "assets/ev_baroda.png",
-        "assets/mink_banner.png",
-        "assets/Pro_Banner.png",
-        "assets/city.png",
-        "assets/mink.png",
-      ];
+      galleryImages = defaultGallery;
     }
 
     Widget tabContent;

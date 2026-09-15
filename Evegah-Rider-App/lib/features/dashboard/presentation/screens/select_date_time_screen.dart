@@ -1679,21 +1679,75 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
 
       if (last10.isEmpty) return true;
 
+      int pMin = _getTimeInMinutes(pickupHour, pickupMinute, pickupPeriod);
+      int dMin = _getTimeInMinutes(dropHour, dropMinute, dropPeriod);
+
+      DateTime reqStart = DateTime(_startDate.year, _startDate.month, _startDate.day, pMin ~/ 60, pMin % 60);
+      DateTime reqEnd = DateTime(_endDate.year, _endDate.month, _endDate.day, dMin ~/ 60, dMin % 60);
+      if (reqEnd.isBefore(reqStart) || reqEnd.isAtSameMomentAs(reqStart)) {
+        reqEnd = reqStart.add(const Duration(hours: 24));
+      }
+
+      // 1. Instant check with backend /reservations/check-conflict API
+      try {
+        final conflictRes = await http.post(
+          Uri.parse('${AppConstants.apiBaseUrl}/reservations/check-conflict'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'mobile': last10,
+            'pickup_datetime': reqStart.toIso8601String(),
+            'drop_datetime': reqEnd.toIso8601String(),
+            'reservation_date': "${reqStart.year}-${reqStart.month.toString().padLeft(2, '0')}-${reqStart.day.toString().padLeft(2, '0')}",
+            'reservation_time': "${reqStart.hour.toString().padLeft(2, '0')}:${reqStart.minute.toString().padLeft(2, '0')}:00",
+          }),
+        ).timeout(const Duration(seconds: 3));
+
+        if (conflictRes.statusCode == 200) {
+          final conflictBody = jsonDecode(conflictRes.body);
+          if (conflictBody['conflict'] == true) {
+            if (mounted) {
+              final conflictMsg = conflictBody['message'] ??
+                  "You already have a booked ride during this selected date and time range. Please choose a different date or time slot.";
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  title: Row(
+                    children: const [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
+                      SizedBox(width: 8),
+                      Text("Time Conflict", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  content: Text(
+                    conflictMsg,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.4),
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4313B8)),
+                      child: const Text("OK", style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return false;
+          }
+          return true;
+        }
+      } catch (e) {
+        debugPrint("Check-conflict API error, falling back to local list: $e");
+      }
+
+      // 2. Local fallback check
       final url = Uri.parse('${AppConstants.apiBaseUrl}/reservations?mobile=${Uri.encodeComponent(last10)}');
       final res = await http.get(url).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List reservations = body['data'] ?? body['reservations'] ?? [];
-
-        int pMin = _getTimeInMinutes(pickupHour, pickupMinute, pickupPeriod);
-        int dMin = _getTimeInMinutes(dropHour, dropMinute, dropPeriod);
-
-        DateTime reqStart = DateTime(_startDate.year, _startDate.month, _startDate.day, pMin ~/ 60, pMin % 60);
-        DateTime reqEnd = DateTime(_endDate.year, _endDate.month, _endDate.day, dMin ~/ 60, dMin % 60);
-        if (reqEnd.isBefore(reqStart) || reqEnd.isAtSameMomentAs(reqStart)) {
-          reqEnd = reqStart.add(const Duration(hours: 24));
-        }
 
         for (final item in reservations) {
           final status = (item['status'] ?? '').toString();

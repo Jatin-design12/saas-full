@@ -384,7 +384,7 @@ class _ZoneMapScreenState extends State<ZoneMapScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFAFAFC),
+                            color: const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: const Color(0xFFF1F5F9)),
                           ),
@@ -408,7 +408,7 @@ class _ZoneMapScreenState extends State<ZoneMapScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFC),
+                        color: const Color(0xFFFFFFFF),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFF1F5F9)),
                       ),
@@ -501,7 +501,7 @@ class _ZoneMapScreenState extends State<ZoneMapScreen> {
                                 height: 50,
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFAFAFC),
+                                  color: const Color(0xFFFFFFFF),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Image.asset(

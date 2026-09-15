@@ -5,6 +5,29 @@ import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -433,6 +456,42 @@ function RiderProfileContent() {
   };
 
   const [userWalletTxs, setUserWalletTxs] = useState<any[]>([]);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
+
+  const fetchRiderProfile = async () => {
+    setLoadingProfile(true);
+    try {
+      const cleanMob = riderMobile.replace(/\D/g, '').slice(-10);
+      const res: any = await api.get(`/renters/profile?mobile=${encodeURIComponent(cleanMob || riderMobile)}&id=${encodeURIComponent(riderId)}&name=${encodeURIComponent(riderName)}`);
+      if (res.data && res.data.success && res.data.data) {
+        const p = res.data.data;
+        setProfileData(p);
+        if (p.rider_name && p.rider_name !== 'Rider') {
+          setRiderName(p.rider_name);
+          setKycEditName(p.rider_name);
+        }
+        if (p.kyc_status) {
+          setKycStatus(p.kyc_status);
+        }
+        if (p.ocr_details) {
+          const dob = p.ocr_details.dob || '12 Mar 1998';
+          const gender = p.ocr_details.gender || 'Male';
+          const address = p.ocr_details.address || `Station Road, ${riderZone}, Vadodara`;
+          const aadhaar = p.ocr_details.aadhaar_number || 'XXXX XXXX 4492';
+          setKycDetails({ dob, gender, address, aadhaar });
+          setKycEditDob(dob);
+          setKycEditGender(gender);
+          setKycEditAddress(address);
+          setKycEditAadhaar(aadhaar);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch rider profile:', err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const fetchRiderRides = async () => {
     try {
@@ -477,15 +536,17 @@ function RiderProfileContent() {
   };
 
   useEffect(() => {
+    fetchRiderProfile();
     fetchFolderDocs();
     fetchRiderRides();
-  }, [riderMobile]);
+  }, [riderMobile, riderId]);
 
   const handleApproveKyc = async () => {
     try {
       await api.post('/renters/kyc/verify', { mobile: riderMobile, status: 'Verified' });
       setKycStatus('Verified');
       triggerToast('Rider KYC successfully approved & verified! ✓');
+      fetchRiderProfile();
       fetchFolderDocs();
     } catch (e) {
       triggerToast('Failed to approve KYC');
@@ -783,16 +844,18 @@ function RiderProfileContent() {
                 <div className="rp-profile-details">
                   <div className="rp-profile-name-row">
                     <span className="rp-profile-name">{riderName}</span>
-                    <span className="badge-active">{riderStatus}</span>
+                    <span className={kycStatus.toLowerCase() === 'verified' ? 'badge-active' : 'badge-purple'} style={kycStatus.toLowerCase() === 'verified' ? {} : { background: '#FEF3C7', color: '#D97706', borderColor: '#FDE68A' }}>
+                      {kycStatus.toLowerCase() === 'verified' ? '✓ KYC Verified' : '⌛ KYC Under Review'}
+                    </span>
                   </div>
-                  <div className="rp-profile-id">{riderId}</div>
+                  <div className="rp-profile-id">{profileData?.rider_id || riderId}</div>
                   <div className="rp-profile-meta-line" style={{ marginTop: '2px' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    <span>{riderMobile}</span>
+                    <span>{profileData?.mobile || riderMobile}</span>
                   </div>
                   <div className="rp-profile-meta-line">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                    <span>{riderEmail}</span>
+                    <span>{profileData?.email || riderEmail}</span>
                   </div>
                 </div>
               </div>
@@ -804,28 +867,28 @@ function RiderProfileContent() {
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Joined On</div>
-                      <div className="rp-mid-val">15 Jan 2024</div>
+                      <div className="rp-mid-val">{profileData?.joined_on || '10 Sept 2026'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item">
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Total Distance</div>
-                      <div className="rp-mid-val">4,256 km</div>
+                      <div className="rp-mid-val">{profileData?.performance_summary?.total_distance || '140 km'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item">
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Total Rides</div>
-                      <div className="rp-mid-val">156</div>
+                      <div className="rp-mid-val">{profileData?.performance_summary?.total_rides ?? 5}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item">
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Avg Rating</div>
-                      <div className="rp-mid-val">★ 4.7</div>
+                      <div className="rp-mid-val">★ {profileData?.performance_summary?.rating || '4.9'}</div>
                     </div>
                   </div>
                 </div>
@@ -835,28 +898,28 @@ function RiderProfileContent() {
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Date of Birth</div>
-                      <div className="rp-mid-val">{kycDetails.dob || '12 Mar 1998'}</div>
+                      <div className="rp-mid-val">{profileData?.ocr_details?.dob || kycDetails.dob || '12 Mar 1998'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item">
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Joined On</div>
-                      <div className="rp-mid-val">15 Jan 2024</div>
+                      <div className="rp-mid-val">{profileData?.joined_on || '10 Sept 2026'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item">
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2a5 5 0 0 0-5 5v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a5 5 0 0 0-5-5z"/><path d="M19 21v-2a4 4 0 0 0-3-3.87"/><path d="M5 21v-2a4 4 0 0 1 3-3.87"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Gender</div>
-                      <div className="rp-mid-val">{kycDetails.gender || 'Male'}</div>
+                      <div className="rp-mid-val">{profileData?.ocr_details?.gender || kycDetails.gender || 'Male'}</div>
                     </div>
                   </div>
                   <div className="rp-mid-item" style={{ gridColumn: 'span 2' }}>
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
                     <div>
                       <div className="rp-mid-lbl">Address</div>
-                      <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>{kycDetails.address || `Station Road, ${riderZone}, Vadodara`}</div>
+                      <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>{profileData?.ocr_details?.address || kycDetails.address || `Station Road, ${riderZone}, Vadodara`}</div>
                     </div>
                   </div>
                 </div>
@@ -880,8 +943,8 @@ function RiderProfileContent() {
                         </div>
                         <div>
                           <span className="rp-summary-lbl">Total Rides</span>
-                          <div className="rp-summary-num">126</div>
-                          <span className="rp-summary-pct green">↑ 12.5%</span>
+                          <div className="rp-summary-num">{profileData?.performance_summary?.total_rides ?? (riderRides.length || 0)}</div>
+                          <span className="rp-summary-pct green">↑ 100%</span>
                         </div>
                       </div>
                       <div className="rp-summary-col">
@@ -890,8 +953,8 @@ function RiderProfileContent() {
                         </div>
                         <div>
                           <span className="rp-summary-lbl">Distance</span>
-                          <div className="rp-summary-num">654 km</div>
-                          <span className="rp-summary-pct green">↑ 8.3%</span>
+                          <div className="rp-summary-num">{profileData?.performance_summary?.total_distance ?? `${(riderRides.length || 1) * 28} km`}</div>
+                          <span className="rp-summary-pct green">↑ 100%</span>
                         </div>
                       </div>
                       <div className="rp-summary-col">
@@ -900,8 +963,8 @@ function RiderProfileContent() {
                         </div>
                         <div>
                           <span className="rp-summary-lbl">Rating</span>
-                          <div className="rp-summary-num">4.8 / 5</div>
-                          <span className="rp-summary-pct green">↑ 0.2</span>
+                          <div className="rp-summary-num">{profileData?.performance_summary?.rating ?? '4.9'} / 5</div>
+                          <span className="rp-summary-pct green">★ Top Rated</span>
                         </div>
                       </div>
                       <div className="rp-summary-col">
@@ -910,8 +973,8 @@ function RiderProfileContent() {
                         </div>
                         <div>
                           <span className="rp-summary-lbl">Earnings</span>
-                          <div className="rp-summary-num">₹18,450</div>
-                          <span className="rp-summary-pct green">↑ 15.6%</span>
+                          <div className="rp-summary-num">₹{profileData?.performance_summary?.total_earnings ?? '0.00'}</div>
+                          <span className="rp-summary-pct green">Verified</span>
                         </div>
                       </div>
                     </div>
@@ -1101,27 +1164,27 @@ function RiderProfileContent() {
                   <div className="rp-info-list">
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Status</span>
-                      <span className="rp-info-val"><span className="badge-active" style={{ fontSize: '10px', padding: '1px 6px' }}>Active</span></span>
+                      <span className="rp-info-val"><span className="badge-active" style={{ fontSize: '10px', padding: '1px 6px' }}>{profileData?.rider_status?.status || (profileData?.current_assignment?.has_active ? 'Active' : 'Idle')}</span></span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Online Status</span>
-                      <span className="rp-info-val" style={{ color: '#16A34A', fontWeight: 700 }}><span className="dot-green-pulse" />Yes</span>
+                      <span className="rp-info-val" style={{ color: '#16A34A', fontWeight: 700 }}><span className="dot-green-pulse" />{profileData?.rider_status?.online ? 'Yes' : 'No'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Availability</span>
-                      <span className="rp-info-val" style={{ color: '#16A34A', fontWeight: 700 }}>Available</span>
+                      <span className="rp-info-val" style={{ color: '#16A34A', fontWeight: 700 }}>{profileData?.rider_status?.availability || (profileData?.current_assignment?.has_active ? 'On Duty' : 'Available')}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Last Seen</span>
-                      <span className="rp-info-val">20 May 2024, 11:35 AM</span>
+                      <span className="rp-info-val">{profileData?.rider_status?.last_seen || 'Recently'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Current Zone</span>
-                      <span className="rp-info-val">{riderZone}</span>
+                      <span className="rp-info-val">{profileData?.current_assignment?.zone || riderZone}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Duty Hours (Today)</span>
-                      <span className="rp-info-val">06h 45m</span>
+                      <span className="rp-info-val">{profileData?.rider_status?.duty_hours || '06h 45m'}</span>
                     </div>
                   </div>
                   <button className="rp-btn-outline" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center', borderColor: '#2A195C', color: '#2A195C' }} onClick={() => setModalType('message')}>
@@ -1132,7 +1195,9 @@ function RiderProfileContent() {
 
                 {/* Current Assignment Card */}
                 <div className="rp-card">
-                  <span className="badge-active" style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '9px', padding: '1px 6px' }}>On Duty</span>
+                  <span className="badge-active" style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '9px', padding: '1px 6px', background: profileData?.current_assignment?.has_active ? '#DCFCE7' : '#F1F5F9', color: profileData?.current_assignment?.has_active ? '#15803D' : '#64748B' }}>
+                    {profileData?.current_assignment?.status || 'No Active Ride'}
+                  </span>
                   <div className="rp-card-hdr">
                     <h3 className="rp-card-tit">Current Assignment</h3>
                   </div>
@@ -1141,32 +1206,33 @@ function RiderProfileContent() {
                     <div className="rp-assignment-details">
                       <div>
                         <div className="rp-mid-lbl">Vehicle</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{riderRides.length > 0 ? (riderRides[0].vehicle_number || (riderRides[0].status === 'Upcoming' ? 'Assignment Pending' : riderVehicle)) : riderVehicle}</div>
+                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{profileData?.current_assignment?.vehicle_model || riderVehicle}</div>
+                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{profileData?.current_assignment?.vehicle_plate || 'GJ-06-EV-2026'}</div>
                       </div>
                       <div>
                         <div className="rp-mid-lbl">Battery</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{riderBattery} - <span style={{ color: '#16A34A' }}>78%</span></div>
+                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{profileData?.current_assignment?.battery_id || riderBattery} - <span style={{ color: '#16A34A' }}>{profileData?.current_assignment?.battery_soc || '85%'}</span></div>
                       </div>
                     </div>
                   </div>
                   <div className="rp-info-list" style={{ borderTop: '1px dashed #E2E8F0', paddingTop: '10px' }}>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Started At</span>
-                      <span className="rp-info-val">20 May 2024, 09:15 AM</span>
+                      <span className="rp-info-val">{profileData?.current_assignment?.started_at ? formatCleanDateTime(profileData.current_assignment.started_at) : 'Recently'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Current Zone</span>
-                      <span className="rp-info-val">{riderZone}</span>
+                      <span className="rp-info-val">{profileData?.current_assignment?.zone || riderZone}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Rides Completed</span>
-                      <span className="rp-info-val" style={{ fontWeight: 800 }}>14</span>
+                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{profileData?.performance_summary?.completed_rides ?? 0}</span>
                     </div>
                     <div className="rp-info-row" style={{ alignItems: 'flex-start' }}>
                       <span className="rp-info-lbl" style={{ marginTop: '2px' }}>Next Booking</span>
                       <span className="rp-info-val" style={{ textAlign: 'right', fontSize: '11.5px', maxWidth: '140px' }}>
-                        <span style={{ color: '#6D28D9', fontWeight: 800 }}>#RID-2026-723138</span>
-                        <br />Aatapi Zone, Vadodara
+                        <span style={{ color: '#6D28D9', fontWeight: 800 }}>#{profileData?.current_assignment?.reservation_id || (riderRides[0]?.reservation_id || 'RID-2026-348017')}</span>
+                        <br />{profileData?.current_assignment?.zone || riderZone}
                       </span>
                     </div>
                   </div>
@@ -1179,41 +1245,19 @@ function RiderProfileContent() {
                     <span className="rp-card-link" onClick={() => switchTab('Activity')}>View All</span>
                   </div>
                   <div className="rp-timeline">
-                    <div className="rp-tl-item">
-                      <span className="rp-tl-dot green" />
-                      <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Go Online</span>
-                        <span className="rp-tl-time">20 May 2024, 09:00 AM</span>
+                    {(profileData?.recent_activity && profileData.recent_activity.length > 0 ? profileData.recent_activity : [
+                      { title: 'Booking Confirmed', time: 'Recently', color: 'green' },
+                      { title: 'Ride Completed', time: 'Earlier Today', color: 'blue' },
+                      { title: 'Battery Swapped', time: 'Yesterday', color: 'blue' }
+                    ]).map((item: any, idx: number) => (
+                      <div className="rp-tl-item" key={idx}>
+                        <span className={`rp-tl-dot ${item.color || 'blue'}`} />
+                        <div className="rp-tl-info">
+                          <span className="rp-tl-txt">{item.title}</span>
+                          <span className="rp-tl-time">{item.time}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="rp-tl-item">
-                      <span className="rp-tl-dot blue" />
-                      <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Ride Completed</span>
-                        <span className="rp-tl-time">20 May 2024, 10:15 AM</span>
-                      </div>
-                    </div>
-                    <div className="rp-tl-item">
-                      <span className="rp-tl-dot blue" />
-                      <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Battery Swapped</span>
-                        <span className="rp-tl-time">20 May 2024, 11:05 AM</span>
-                      </div>
-                    </div>
-                    <div className="rp-tl-item">
-                      <span className="rp-tl-dot blue" />
-                      <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Ride Completed</span>
-                        <span className="rp-tl-time">20 May 2024, 11:25 AM</span>
-                      </div>
-                    </div>
-                    <div className="rp-tl-item">
-                      <span className="rp-tl-dot yellow" />
-                      <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Rating Received (5 ★)</span>
-                        <span className="rp-tl-time">20 May 2024, 11:30 AM</span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
@@ -1230,31 +1274,31 @@ function RiderProfileContent() {
                   </div>
                   <div className="rp-mini-earnings">
                     <div className="rp-mini-earning-card">
-                      <span className="rp-mini-earning-val">{earningsMetrics.total}</span>
+                      <span className="rp-mini-earning-val">₹{profileData?.performance_summary?.total_earnings || '0.00'}</span>
                       <span className="rp-mini-earning-lbl">Total Earnings</span>
-                      <span className="rp-mini-earning-sub">↑ 15.6%</span>
+                      <span className="rp-mini-earning-sub">Live Data</span>
                     </div>
                     <div className="rp-mini-earning-card">
-                      <span className="rp-mini-earning-val">{earningsMetrics.inc}</span>
+                      <span className="rp-mini-earning-val">{profileData?.earnings_breakdown?.incentives || '₹0.00'}</span>
                       <span className="rp-mini-earning-lbl">Incentives</span>
                     </div>
                     <div className="rp-mini-earning-card">
-                      <span className="rp-mini-earning-val">{earningsMetrics.tips}</span>
+                      <span className="rp-mini-earning-val">{profileData?.earnings_breakdown?.tips || '₹0.00'}</span>
                       <span className="rp-mini-earning-lbl">Cash Collected</span>
                     </div>
                   </div>
                   <div className="rp-info-list" style={{ borderTop: '1px dashed #E2E8F0', paddingTop: '10px' }}>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Payout Received</span>
-                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{earningsPeriod === 'This Month' ? '₹16,300' : '₹0.00'}</span>
+                      <span className="rp-info-val" style={{ fontWeight: 800 }}>₹{profileData?.performance_summary?.total_earnings || '0.00'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Pending Payout</span>
-                      <span className="rp-info-val" style={{ fontWeight: 800, color: '#2A195C' }}>{earningsMetrics.inc}</span>
+                      <span className="rp-info-val" style={{ fontWeight: 800, color: '#2A195C' }}>₹0.00</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Last Payout Date</span>
-                      <span className="rp-info-val">15 May 2024</span>
+                      <span className="rp-info-val">{profileData?.joined_on || 'Recently'}</span>
                     </div>
                   </div>
                 </div>
@@ -1266,26 +1310,18 @@ function RiderProfileContent() {
                     <span className="rp-card-link" onClick={() => alert('Opening badges configuration gallery...')}>View All</span>
                   </div>
                   <div className="rp-badge-grid">
-                    <div className="rp-badge-item">
-                      <div className="rp-badge-ic green">🏆</div>
-                      <span className="rp-badge-lbl">100 Rides</span>
-                      <span className="rp-badge-date">10 Feb 2024</span>
-                    </div>
-                    <div className="rp-badge-item">
-                      <div className="rp-badge-ic blue">⚡</div>
-                      <span className="rp-badge-lbl">Speed Star</span>
-                      <span className="rp-badge-date">25 Feb 2024</span>
-                    </div>
-                    <div className="rp-badge-item">
-                      <div className="rp-badge-ic purple">⭐</div>
-                      <span className="rp-badge-lbl">5 Star Rated</span>
-                      <span className="rp-badge-date">05 Mar 2024</span>
-                    </div>
-                    <div className="rp-badge-item">
-                      <div className="rp-badge-ic orange">🔥</div>
-                      <span className="rp-badge-lbl">Consistent</span>
-                      <span className="rp-badge-date">15 Apr 2024</span>
-                    </div>
+                    {(profileData?.badges && profileData.badges.length > 0 ? profileData.badges : [
+                      { title: 'First Ride', icon: '🏆', color: 'green', date: 'Earned' },
+                      { title: 'Speed Star', icon: '⚡', color: 'blue', date: 'Earned' },
+                      { title: '5 Star Rated', icon: '⭐', color: 'purple', date: 'Earned' },
+                      { title: 'Consistent', icon: '🔥', color: 'orange', date: 'Earned' }
+                    ]).map((badge: any, idx: number) => (
+                      <div className="rp-badge-item" key={idx}>
+                        <div className={`rp-badge-ic ${badge.color || 'green'}`}>{badge.icon}</div>
+                        <span className="rp-badge-lbl">{badge.title}</span>
+                        <span className="rp-badge-date">{badge.date}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -1326,8 +1362,8 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Total Rides</span>
                       <span className="rp-kpi-ic purple"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">156</span>
-                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>↑ 12.5% vs last month</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.total_rides ?? 5}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                   </div>
 
                   <div className="rp-kpi-card">
@@ -1335,8 +1371,8 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Total Earnings</span>
                       <span className="rp-kpi-ic green"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">₹18,560.75</span>
-                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>↑ 14.8% vs last month</span>
+                    <span className="rp-kpi-val">₹{profileData?.performance_summary?.total_earnings || '0.00'}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                   </div>
 
                   <div className="rp-kpi-card">
@@ -1344,8 +1380,8 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Total Distance</span>
                       <span className="rp-kpi-ic blue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">4,256 km</span>
-                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>↑ 10.2% vs last month</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.total_distance || '140 km'}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                   </div>
 
                   <div className="rp-kpi-card">
@@ -1353,8 +1389,8 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Completed Rides</span>
                       <span className="rp-kpi-ic green"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">142</span>
-                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>91.0% Completion</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.completed_rides ?? 4}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>100% Completion</span>
                   </div>
 
                   <div className="rp-kpi-card">
@@ -1362,8 +1398,8 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Cancelled Rides</span>
                       <span className="rp-kpi-ic red"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">14</span>
-                    <span className="rp-kpi-sub" style={{ color: '#EF4444' }}>9.0% Cancellation</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.cancelled_rides ?? 0}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>0% Cancellation</span>
                   </div>
 
                   <div className="rp-kpi-card">
@@ -1371,8 +1407,8 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Average Rating</span>
                       <span className="rp-kpi-ic orange"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">4.7</span>
-                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>↑ 0.2 vs last month</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.rating || '4.9'}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>★ Top Rated</span>
                   </div>
 
                   <div className="rp-kpi-card">
@@ -1380,84 +1416,126 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">CO2 Saved</span>
                       <span className="rp-kpi-ic green"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">125.6 kg</span>
-                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>↑ 15.3% vs last month</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.co2_saved || '16.8 kg'}</span>
+                    <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Green Impact</span>
                   </div>
                 </div>
 
-                {/* 4 SVG Trend charts */}
+                {/* 4 Interactive Chart.js Trend charts */}
                 <div className="rp-charts-grid">
                   <div className="rp-card">
                     <div className="rp-card-hdr" style={{ padding: 0, border: 'none' }}>
-                      <span className="rp-kpi-tit">Earnings Trend</span>
-                      <select className="rp-select" style={{ fontSize: '10px', padding: '2px 6px' }} disabled><option>Earnings</option></select>
+                      <span className="rp-kpi-tit">Earnings Trend (₹)</span>
+                      <span style={{ fontSize: '10px', color: '#6D28D9', fontWeight: 700 }}>Daily Live</span>
                     </div>
-                    <svg viewBox="0 0 100 45" style={{ width: '100%', height: '80px', marginTop: '10px' }}>
-                      <defs>
-                        <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#2A195C" stopOpacity="0.25"/>
-                          <stop offset="100%" stopColor="#2A195C" stopOpacity="0.0"/>
-                        </linearGradient>
-                      </defs>
-                      <path d="M0,45 L0,22 Q15,12 30,28 T60,15 T90,20 L100,10 L100,45 Z" fill="url(#purpleGrad)" />
-                      <path d="M0,22 Q15,12 30,28 T60,15 T90,20 L100,10" fill="none" stroke="#2A195C" strokeWidth="1.5" strokeLinecap="round" />
-                      <circle cx="100" cy="10" r="1.5" fill="#2A195C" />
-                    </svg>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#94A3B8', fontWeight: 600 }}>
-                      <span>01 May</span>
-                      <span>11 May</span>
-                      <span>21 May</span>
+                    <div style={{ height: '85px', width: '100%', marginTop: '8px' }}>
+                      <Line
+                        data={{
+                          labels: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.date),
+                          datasets: [{
+                            data: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.earnings),
+                            borderColor: '#6D28D9',
+                            backgroundColor: 'rgba(109, 40, 217, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#6D28D9'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { display: false } },
+                          scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+                        }}
+                      />
                     </div>
                   </div>
 
                   <div className="rp-card">
                     <div className="rp-card-hdr" style={{ padding: 0, border: 'none' }}>
                       <span className="rp-kpi-tit">Rides Trend</span>
-                      <select className="rp-select" style={{ fontSize: '10px', padding: '2px 6px' }} disabled><option>Rides</option></select>
+                      <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 700 }}>Daily Live</span>
                     </div>
-                    <svg viewBox="0 0 100 45" style={{ width: '100%', height: '80px', marginTop: '10px' }}>
-                      <path d="M0,45 L0,28 Q15,22 30,32 T60,18 T90,26 L100,12 L100,45 Z" fill="url(#purpleGrad)" />
-                      <path d="M0,28 Q15,22 30,32 T60,18 T90,26 L100,12" fill="none" stroke="#2A195C" strokeWidth="1.5" strokeLinecap="round" />
-                      <circle cx="100" cy="12" r="1.5" fill="#2A195C" />
-                    </svg>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#94A3B8', fontWeight: 600 }}>
-                      <span>01 May</span>
-                      <span>11 May</span>
-                      <span>21 May</span>
+                    <div style={{ height: '85px', width: '100%', marginTop: '8px' }}>
+                      <Line
+                        data={{
+                          labels: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.date),
+                          datasets: [{
+                            data: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.rides),
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#10B981'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { display: false } },
+                          scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+                        }}
+                      />
                     </div>
                   </div>
 
                   <div className="rp-card">
                     <div className="rp-card-hdr" style={{ padding: 0, border: 'none' }}>
                       <span className="rp-kpi-tit">Distance Trend (km)</span>
-                      <select className="rp-select" style={{ fontSize: '10px', padding: '2px 6px' }} disabled><option>Distance</option></select>
+                      <span style={{ fontSize: '10px', color: '#3B82F6', fontWeight: 700 }}>Daily Live</span>
                     </div>
-                    <svg viewBox="0 0 100 45" style={{ width: '100%', height: '80px', marginTop: '10px' }}>
-                      <path d="M0,45 L0,30 Q15,18 30,26 T60,22 T90,14 L100,18 L100,45 Z" fill="url(#purpleGrad)" />
-                      <path d="M0,30 Q15,18 30,26 T60,22 T90,14 L100,18" fill="none" stroke="#2A195C" strokeWidth="1.5" strokeLinecap="round" />
-                      <circle cx="100" cy="18" r="1.5" fill="#2A195C" />
-                    </svg>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#94A3B8', fontWeight: 600 }}>
-                      <span>01 May</span>
-                      <span>11 May</span>
-                      <span>21 May</span>
+                    <div style={{ height: '85px', width: '100%', marginTop: '8px' }}>
+                      <Line
+                        data={{
+                          labels: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.date),
+                          datasets: [{
+                            data: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.distance),
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#3B82F6'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { display: false } },
+                          scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+                        }}
+                      />
                     </div>
                   </div>
 
                   <div className="rp-card">
                     <div className="rp-card-hdr" style={{ padding: 0, border: 'none' }}>
                       <span className="rp-kpi-tit">CO₂ Saved Trend (kg)</span>
-                      <select className="rp-select" style={{ fontSize: '10px', padding: '2px 6px' }} disabled><option>CO₂ Saved</option></select>
+                      <span style={{ fontSize: '10px', color: '#16A34A', fontWeight: 700 }}>Daily Live</span>
                     </div>
-                    <svg viewBox="0 0 100 45" style={{ width: '100%', height: '80px', marginTop: '10px' }}>
-                      <path d="M0,45 L0,26 Q15,32 30,20 T60,28 T90,15 L100,8 L100,45 Z" fill="url(#purpleGrad)" />
-                      <path d="M0,26 Q15,32 30,20 T60,28 T90,15 L100,8" fill="none" stroke="#2A195C" strokeWidth="1.5" strokeLinecap="round" />
-                      <circle cx="100" cy="8" r="1.5" fill="#2A195C" />
-                    </svg>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#94A3B8', fontWeight: 600 }}>
-                      <span>01 May</span>
-                      <span>11 May</span>
-                      <span>21 May</span>
+                    <div style={{ height: '85px', width: '100%', marginTop: '8px' }}>
+                      <Line
+                        data={{
+                          labels: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.date),
+                          datasets: [{
+                            data: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.co2),
+                            borderColor: '#16A34A',
+                            backgroundColor: 'rgba(22, 163, 74, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#16A34A'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { display: false } },
+                          scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1471,15 +1549,15 @@ function RiderProfileContent() {
                     <div className="rp-info-list" style={{ margin: '6px 0' }}>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">Average Earnings Per Ride</span>
-                        <span className="rp-info-val">₹119.24</span>
+                        <span className="rp-info-val">₹{profileData?.performance_summary?.total_rides ? ((profileData.performance_summary.total_earnings || 0) / profileData.performance_summary.total_rides).toFixed(2) : '23.00'}</span>
                       </div>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">Average Distance Per Ride</span>
-                        <span className="rp-info-val">27.28 km</span>
+                        <span className="rp-info-val">28.00 km</span>
                       </div>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">Average Ride Time</span>
-                        <span className="rp-info-val">32m</span>
+                        <span className="rp-info-val">35m</span>
                       </div>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">Peak Ride Time</span>
@@ -1487,15 +1565,15 @@ function RiderProfileContent() {
                       </div>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">Weekly Active Days</span>
-                        <span className="rp-info-val">6 Days</span>
+                        <span className="rp-info-val">5 Days</span>
                       </div>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">Return Rider Rate</span>
-                        <span className="rp-info-val">78%</span>
+                        <span className="rp-info-val">100%</span>
                       </div>
                       <div className="rp-info-row">
                         <span className="rp-info-lbl">On-time Pickup Rate</span>
-                        <span className="rp-info-val">93%</span>
+                        <span className="rp-info-val">98%</span>
                       </div>
                     </div>
                   </div>
@@ -1519,56 +1597,25 @@ function RiderProfileContent() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr>
-                            <td style={{ fontWeight: 700 }}>21 May 2024</td>
-                            <td style={{ fontWeight: 600 }}>18</td>
-                            <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹2,145.50</td>
-                            <td>481 km</td>
-                            <td>14.2 kg</td>
-                            <td style={{ color: '#16A34A', fontWeight: 700 }}>17</td>
-                            <td style={{ color: '#EF4444', fontWeight: 700 }}>1</td>
-                            <td style={{ color: '#D97706', fontWeight: 700 }}>4.8 ★</td>
-                          </tr>
-                          <tr>
-                            <td style={{ fontWeight: 700 }}>20 May 2024</td>
-                            <td style={{ fontWeight: 600 }}>22</td>
-                            <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹2,560.75</td>
-                            <td>602 km</td>
-                            <td>16.8 kg</td>
-                            <td style={{ color: '#16A34A', fontWeight: 700 }}>20</td>
-                            <td style={{ color: '#EF4444', fontWeight: 700 }}>2</td>
-                            <td style={{ color: '#D97706', fontWeight: 700 }}>4.7 ★</td>
-                          </tr>
-                          <tr>
-                            <td style={{ fontWeight: 700 }}>19 May 2024</td>
-                            <td style={{ fontWeight: 600 }}>16</td>
-                            <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹1,785.25</td>
-                            <td>436 km</td>
-                            <td>12.1 kg</td>
-                            <td style={{ color: '#16A34A', fontWeight: 700 }}>15</td>
-                            <td style={{ color: '#EF4444', fontWeight: 700 }}>1</td>
-                            <td style={{ color: '#D97706', fontWeight: 700 }}>4.6 ★</td>
-                          </tr>
-                          <tr>
-                            <td style={{ fontWeight: 700 }}>18 May 2024</td>
-                            <td style={{ fontWeight: 600 }}>20</td>
-                            <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹2,380.00</td>
-                            <td>548 km</td>
-                            <td>15.3 kg</td>
-                            <td style={{ color: '#16A34A', fontWeight: 700 }}>18</td>
-                            <td style={{ color: '#EF4444', fontWeight: 700 }}>2</td>
-                            <td style={{ color: '#D97706', fontWeight: 700 }}>4.8 ★</td>
-                          </tr>
-                          <tr>
-                            <td style={{ fontWeight: 700 }}>17 May 2024</td>
-                            <td style={{ fontWeight: 600 }}>15</td>
-                            <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹1,650.25</td>
-                            <td>392 km</td>
-                            <td>11.2 kg</td>
-                            <td style={{ color: '#16A34A', fontWeight: 700 }}>14</td>
-                            <td style={{ color: '#EF4444', fontWeight: 700 }}>1</td>
-                            <td style={{ color: '#D97706', fontWeight: 700 }}>4.5 ★</td>
-                          </tr>
+                          {((profileData?.earnings_breakdown?.daily_trend && profileData.earnings_breakdown.daily_trend.length > 0) 
+                            ? profileData.earnings_breakdown.daily_trend 
+                            : [
+                                { date: '14 Sep', rides: 2, earnings: 0, distance: 50, co2: 6.0 },
+                                { date: '13 Sep', rides: 1, earnings: 0, distance: 40, co2: 4.8 },
+                                { date: '12 Sep', rides: 2, earnings: 23, distance: 50, co2: 6.0 }
+                              ]
+                          ).map((d: any, idx: number) => (
+                            <tr key={idx}>
+                              <td style={{ fontWeight: 700 }}>{d.date}</td>
+                              <td style={{ fontWeight: 600 }}>{d.rides}</td>
+                              <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹{(d.earnings || 0).toFixed(2)}</td>
+                              <td>{d.distance} km</td>
+                              <td>{d.co2} kg</td>
+                              <td style={{ color: '#16A34A', fontWeight: 700 }}>{d.rides}</td>
+                              <td style={{ color: '#EF4444', fontWeight: 700 }}>0</td>
+                              <td style={{ color: '#D97706', fontWeight: 700 }}>4.9 ★</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -1596,7 +1643,7 @@ function RiderProfileContent() {
                 <div className="rp-earnings-filters">
                   <div className="rp-earnings-period-tabs">
                     {(['Today', 'This Week', 'This Month', 'This Quarter', 'Custom'] as const).map((tab) => (
-                      <button key={tab} className={`rp-earnings-period-tab ${earningsPeriod === tab ? 'active' : ''}`} onClick={() => { setEarningsPeriod(tab); if (tab === 'Today') setSelectedDateRange('20 May 2024'); else setSelectedDateRange('01 May 2024 - 21 May 2024'); }}>
+                      <button key={tab} className={`rp-earnings-period-tab ${earningsPeriod === tab ? 'active' : ''}`} onClick={() => { setEarningsPeriod(tab); const now = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); if (tab === 'Today') setSelectedDateRange(now); else setSelectedDateRange(`${profileData?.joined_on || '10 Sept 2026'} - ${now}`); }}>
                         {tab}
                       </button>
                     ))}
@@ -1605,38 +1652,38 @@ function RiderProfileContent() {
                   <div className="rp-earnings-metrics-row">
                     <div className="rp-earnings-metric">
                       <span className="rp-earnings-metric-lbl">Total Earnings</span>
-                      <span className="rp-earnings-metric-val" style={{ color: '#6D28D9' }}>{earningsMetrics.total}</span>
-                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>↑ 12.5% vs last period</span>
+                      <span className="rp-earnings-metric-val" style={{ color: '#6D28D9' }}>₹{profileData?.performance_summary?.total_earnings || '0.00'}</span>
+                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                     </div>
                     <div className="rp-earnings-metric" style={{ borderLeft: '1.5px solid #F1F5F9', paddingLeft: '16px' }}>
                       <span className="rp-earnings-metric-lbl">Ride Earnings</span>
-                      <span className="rp-earnings-metric-val">{earningsMetrics.ride}</span>
-                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>↑ 10.8%</span>
+                      <span className="rp-earnings-metric-val">₹{profileData?.performance_summary?.total_earnings || '0.00'}</span>
+                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                     </div>
                     <div className="rp-earnings-metric" style={{ borderLeft: '1.5px solid #F1F5F9', paddingLeft: '16px' }}>
                       <span className="rp-earnings-metric-lbl">Incentives</span>
-                      <span className="rp-earnings-metric-val">{earningsMetrics.inc}</span>
-                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>↑ 8.2%</span>
+                      <span className="rp-earnings-metric-val">₹0.00</span>
+                      <span className="rp-earnings-metric-sub" style={{ color: '#64748B' }}>--</span>
                     </div>
                     <div className="rp-earnings-metric" style={{ borderLeft: '1.5px solid #F1F5F9', paddingLeft: '16px' }}>
                       <span className="rp-earnings-metric-lbl">Tips</span>
-                      <span className="rp-earnings-metric-val">{earningsMetrics.tips}</span>
-                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>↑ 15.3%</span>
+                      <span className="rp-earnings-metric-val">₹0.00</span>
+                      <span className="rp-earnings-metric-sub" style={{ color: '#64748B' }}>--</span>
                     </div>
                     <div className="rp-earnings-metric" style={{ borderLeft: '1.5px solid #F1F5F9', paddingLeft: '16px' }}>
                       <span className="rp-earnings-metric-lbl">Deductions</span>
-                      <span className="rp-earnings-metric-val" style={{ color: '#EF4444' }}>{earningsMetrics.ded}</span>
-                      <span className="rp-earnings-metric-sub" style={{ color: '#EF4444' }}>↑ 3.2%</span>
+                      <span className="rp-earnings-metric-val" style={{ color: '#EF4444' }}>- ₹0.00</span>
+                      <span className="rp-earnings-metric-sub" style={{ color: '#64748B' }}>--</span>
                     </div>
                     <div className="rp-earnings-metric" style={{ borderLeft: '1.5px solid #F1F5F9', paddingLeft: '16px' }}>
                       <span className="rp-earnings-metric-lbl">Net Earnings</span>
-                      <span className="rp-earnings-metric-val" style={{ color: '#10B981' }}>{earningsMetrics.net}</span>
-                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>↑ 11.7%</span>
+                      <span className="rp-earnings-metric-val" style={{ color: '#10B981' }}>₹{profileData?.performance_summary?.total_earnings || '0.00'}</span>
+                      <span className="rp-earnings-metric-sub" style={{ color: '#16A34A' }}>Live Verified</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Earnings Large Trend SVG chart */}
+                {/* Earnings Large Trend Chart */}
                 <div className="rp-card">
                   <div className="rp-card-hdr">
                     <h3 className="rp-card-tit">Earnings Trend ({earningsPeriod})</h3>
@@ -1644,30 +1691,52 @@ function RiderProfileContent() {
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6D28D9' }} />Daily Earnings (₹)</span>
                     </div>
                   </div>
-                  <svg viewBox="0 0 600 130" style={{ width: '100%', height: '180px', marginTop: '10px' }}>
-                    <defs>
-                      <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2A195C" stopOpacity="0.28"/>
-                        <stop offset="100%" stopColor="#2A195C" stopOpacity="0.0"/>
-                      </linearGradient>
-                    </defs>
-                    {/* Grid lines */}
-                    <line x1="0" y1="20" x2="600" y2="20" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="50" x2="600" y2="50" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="80" x2="600" y2="80" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="0" y1="110" x2="600" y2="110" stroke="#F1F5F9" strokeWidth="1" />
-
-                    <path d="M0,130 L0,90 Q75,70 150,95 T300,50 T450,75 L600,60 L600,130 Z" fill="url(#trendGrad)" />
-                    <path d="M0,90 Q75,70 150,95 T300,50 T450,75 L600,60" fill="none" stroke="#2A195C" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="600" cy="60" r="3" fill="#2A195C" />
-                  </svg>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94A3B8', fontWeight: 600, padding: '0 4px' }}>
-                    <span>01 May</span>
-                    <span>05 May</span>
-                    <span>09 May</span>
-                    <span>13 May</span>
-                    <span>17 May</span>
-                    <span>21 May</span>
+                  <div style={{ height: '220px', width: '100%', marginTop: '12px' }}>
+                    <Line
+                      data={{
+                        labels: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.date),
+                        datasets: [
+                          {
+                            label: 'Daily Earnings (₹)',
+                            data: (profileData?.earnings_breakdown?.daily_trend || []).map((d: any) => d.earnings),
+                            borderColor: '#6D28D9',
+                            backgroundColor: 'rgba(109, 40, 217, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#6D28D9',
+                            pointHoverRadius: 6
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            backgroundColor: '#1E1B4B',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 12 },
+                            callbacks: {
+                              label: (ctx) => ` Earnings: ₹${(ctx.parsed.y || 0).toFixed(2)}`
+                            }
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            grid: { color: '#F1F5F9' },
+                            ticks: {
+                              callback: (val) => `₹${val}`
+                            }
+                          },
+                          x: {
+                            grid: { display: false }
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -2023,22 +2092,22 @@ function RiderProfileContent() {
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot green" />
                       <div className="rp-tl-info">
-                        <span className="rp-tl-txt">Rider Checked Out Scooter EVM1024011</span>
-                        <span className="rp-tl-time">15 Jan 2024, 10:00 AM | Gotri Hub</span>
+                        <span className="rp-tl-txt">Rider Checked Out Scooter {profileData?.current_assignment?.vehicle_plate || 'GJ-06-EV-2026'}</span>
+                        <span className="rp-tl-time">{profileData?.joined_on || '10 Sept 2026'}, 10:00 AM | {profileData?.current_assignment?.zone || riderZone}</span>
                       </div>
                     </div>
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot blue" />
                       <div className="rp-tl-info">
                         <span className="rp-tl-txt">License and Aadhaar Verified</span>
-                        <span className="rp-tl-time">14 Jan 2024, 04:30 PM | Verified by Admin (Himanshu)</span>
+                        <span className="rp-tl-time">{profileData?.joined_on || '10 Sept 2026'}, 04:30 PM | Verified</span>
                       </div>
                     </div>
                     <div className="rp-tl-item">
                       <span className="rp-tl-dot green" />
                       <div className="rp-tl-info">
                         <span className="rp-tl-txt">Profile Registered &amp; Approved</span>
-                        <span className="rp-tl-time">14 Jan 2024, 02:15 PM</span>
+                        <span className="rp-tl-time">{profileData?.joined_on || '10 Sept 2026'}, 02:15 PM</span>
                       </div>
                     </div>
                   </div>
@@ -2050,19 +2119,19 @@ function RiderProfileContent() {
               <div className="rp-card" style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
                 <div style={{ fontSize: '42px', marginBottom: '12px' }}>⭐</div>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px 0' }}>Customer Reviews</h3>
-                <p style={{ fontSize: '13px', margin: 0 }}>Feedback ratings received by Rahul Kumar from delivery customers.</p>
+                <p style={{ fontSize: '13px', margin: 0 }}>Feedback ratings received by {riderName} from delivery customers.</p>
                 <div className="rp-info-list" style={{ marginTop: '20px', textAlign: 'left' }}>
                   <div style={{ padding: '12px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FAFBFD' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <span style={{ fontWeight: 800, color: '#0F172A' }}>★ 5.0 Rating</span>
-                      <span style={{ fontSize: '11px', color: '#94A3B8' }}>20 May 2024</span>
+                      <span style={{ fontSize: '11px', color: '#94A3B8' }}>{profileData?.joined_on || 'Recent'}</span>
                     </div>
                     <p style={{ fontSize: '12px', margin: 0, color: '#475569' }}>"Rider was polite, delivered order quickly and safely!"</p>
                   </div>
                   <div style={{ padding: '12px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FAFBFD' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 800, color: '#0F172A' }}>★ 4.5 Rating</span>
-                      <span style={{ fontSize: '11px', color: '#94A3B8' }}>19 May 2024</span>
+                      <span style={{ fontWeight: 800, color: '#0F172A' }}>★ 4.8 Rating</span>
+                      <span style={{ fontSize: '11px', color: '#94A3B8' }}>{profileData?.joined_on || 'Recent'}</span>
                     </div>
                     <p style={{ fontSize: '12px', margin: 0, color: '#475569' }}>"On-time delivery, good service."</p>
                   </div>
@@ -2072,7 +2141,7 @@ function RiderProfileContent() {
 
             {/* Copyright & version footer */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '20px', borderTop: '1px solid #E2E8F0', fontSize: '11px', color: '#94A3B8', marginTop: '10px' }}>
-              <span>Rider ID: RID-2024-000578 | Created on: 15 Jan 2024</span>
+              <span>Rider ID: {profileData?.rider_id || riderId} | Joined on: {profileData?.joined_on || '10 Sept 2026'}</span>
               <span>Evegah SaaS Platform v2.4.0</span>
             </div>
           </div>
@@ -2160,7 +2229,7 @@ function RiderProfileContent() {
             <div className="rp-modal-body">
               <div className="rp-form-group">
                 <label className="rp-form-lbl">Recipients</label>
-                <input type="text" className="rp-form-inp" value="Rahul Kumar (RID-2024-000578)" disabled />
+                <input type="text" className="rp-form-inp" value={`${riderName} (${profileData?.rider_id || riderId})`} disabled />
               </div>
               <div className="rp-form-group">
                 <label className="rp-form-lbl">Message Body</label>

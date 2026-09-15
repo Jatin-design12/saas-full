@@ -3,10 +3,12 @@ const router = express.Router();
 const db = require('../db');
 const { createNotification } = require('./notifications');
 const { getCache, setCache, delByPattern } = require('../redis');
+const { sendWhatsAppReceipt } = require('../utils/whatsapp');
 
 // Ensure reservations columns exist
 (async () => {
   try {
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS vehicle_model VARCHAR(100)`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(100)`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS discount NUMERIC(10,2) DEFAULT 0.00`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS pickup_datetime VARCHAR(100)`);
@@ -62,6 +64,8 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT 
         r.*,
+        COALESCE(r.vehicle_model, v.evegah_model_name, v.vehicle_model, r.vehicle_category, 'Evegah City') AS vehicle_model,
+        COALESCE(v.evegah_model_name, r.vehicle_model, 'Evegah City') AS evegah_model_name,
         COALESCE(b.soc, v.battery_pct, 85) as battery_pct,
         COALESCE(v.speed, '0.00') as speed,
         COALESCE(b.health, 100) as battery_health,
@@ -96,12 +100,25 @@ router.get('/', async (req, res) => {
       }
     }
 
-    if (status) {
-      query += ` AND r.status = $${pIdx}`;
-      countQuery += ` AND status = $${pIdx}`;
-      params.push(status);
-      countParams.push(status);
+    if (req.query.payment_status) {
+      query += ` AND r.payment_status = $${pIdx}`;
+      countQuery += ` AND payment_status = $${pIdx}`;
+      params.push(req.query.payment_status);
+      countParams.push(req.query.payment_status);
       pIdx++;
+    }
+
+    if (status) {
+      if (status.toLowerCase() === 'upcoming' || status.toLowerCase() === 'confirmed' || status.toLowerCase() === 'reserved') {
+        query += ` AND r.status IN ('Upcoming', 'Confirmed') AND r.payment_status = 'Paid'`;
+        countQuery += ` AND status IN ('Upcoming', 'Confirmed') AND payment_status = 'Paid'`;
+      } else {
+        query += ` AND r.status = $${pIdx}`;
+        countQuery += ` AND status = $${pIdx}`;
+        params.push(status);
+        countParams.push(status);
+        pIdx++;
+      }
     }
 
     query += ` ORDER BY r.created_at DESC LIMIT $${pIdx} OFFSET $${pIdx + 1}`;
@@ -114,11 +131,11 @@ router.get('/', async (req, res) => {
 
     const total = parseInt(countResult.rows[0].total);
 
-    // Fetch Stats summary (Confirmed = active, counts as upcoming)
+    // Fetch Stats summary (Only Paid rides count as upcoming/reserved)
     const statsResult = await db.query(`
       SELECT 
         COUNT(*) as total,
-        COUNT(CASE WHEN status IN ('Upcoming', 'Confirmed') THEN 1 END) as upcoming,
+        COUNT(CASE WHEN status IN ('Upcoming', 'Confirmed') AND payment_status = 'Paid' THEN 1 END) as upcoming,
         COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed,
         COUNT(CASE WHEN status = 'Cancelled' THEN 1 END) as cancelled
       FROM reservations
@@ -526,6 +543,108 @@ router.get('/active-ride', async (req, res) => {
   }
 });
 
+// POST /api/reservations/check-conflict - Instant pre-payment conflict detection
+router.all('/check-conflict', async (req, res) => {
+  try {
+    const params = req.method === 'GET' ? req.query : req.body;
+    const {
+      mobile,
+      pickup_datetime,
+      drop_datetime,
+      reservation_date,
+      reservation_time,
+      package_type
+    } = params || {};
+
+    const cleanMobile = (mobile || '').replace(/\D/g, '').slice(-10);
+    if (!cleanMobile) {
+      return res.json({ conflict: false, message: 'No mobile provided' });
+    }
+
+    const activeCheck = await db.query(
+      `SELECT reservation_id, status, reservation_date, reservation_time, pickup_datetime, drop_datetime, vehicle_category, vehicle_number
+       FROM reservations
+       WHERE mobile LIKE $1
+         AND status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride', 'Upcoming')
+       ORDER BY created_at DESC`,
+      [`%${cleanMobile}%`]
+    );
+
+    if (activeCheck.rows.length === 0) {
+      return res.json({ conflict: false, message: 'No conflicting active or upcoming rides' });
+    }
+
+    const toDateString = (val) => {
+      if (!val) return '';
+      if (val instanceof Date) return val.toISOString().slice(0, 10);
+      const str = String(val).trim();
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+      return str;
+    };
+
+    const parseTs = (val, timeVal) => {
+      if (!val) return null;
+      if (val instanceof Date) {
+        const d = new Date(val);
+        if (timeVal) {
+          const timeParts = String(timeVal).split(':');
+          if (timeParts.length >= 2) {
+            d.setHours(parseInt(timeParts[0], 10) || 0, parseInt(timeParts[1], 10) || 0, 0, 0);
+          }
+        }
+        return d.getTime();
+      }
+      const str = String(val).trim();
+      const combined = timeVal ? `${str} ${timeVal}` : str;
+      const ms = new Date(combined).getTime();
+      if (!isNaN(ms)) return ms;
+      const d2 = new Date(str);
+      return isNaN(d2.getTime()) ? null : d2.getTime();
+    };
+
+    const reqStartMs = parseTs(pickup_datetime || reservation_date, reservation_time);
+    const reqEndMs = parseTs(drop_datetime, null) || (reqStartMs ? reqStartMs + 86400000 : null);
+    const reqDateStr = toDateString(reservation_date || pickup_datetime);
+
+    for (const existing of activeCheck.rows) {
+      const exStartMs = parseTs(existing.pickup_datetime || existing.reservation_date, existing.reservation_time);
+      const exEndMs = parseTs(existing.drop_datetime, null) || (exStartMs ? exStartMs + 86400000 : null);
+      const exDateStr = toDateString(existing.reservation_date || existing.pickup_datetime);
+
+      let conflict = false;
+      if (reqStartMs && reqEndMs && exStartMs && exEndMs) {
+        if (reqStartMs < exEndMs && reqEndMs > exStartMs) {
+          conflict = true;
+        }
+      }
+      if (!conflict && reqDateStr && exDateStr && reqDateStr === exDateStr) {
+        conflict = true;
+      }
+
+      if (conflict) {
+        return res.json({
+          conflict: true,
+          message: `Time Conflict! You already have an active/booked ride (${existing.reservation_id}) for this selected date and time.`,
+          conflicting_reservation: {
+            reservation_id: existing.reservation_id,
+            status: existing.status,
+            pickup_datetime: existing.pickup_datetime,
+            drop_datetime: existing.drop_datetime,
+            vehicle_category: existing.vehicle_category,
+            vehicle_number: existing.vehicle_number
+          }
+        });
+      }
+    }
+
+    return res.json({ conflict: false, message: 'Time slot is available' });
+  } catch (err) {
+    console.error('Check conflict endpoint error:', err);
+    return res.json({ conflict: false, message: 'Conflict check passed' });
+  }
+});
+
 // POST /api/reservations (create new reservation — called by Rider App on booking confirmation)
 router.post('/', async (req, res) => {
   const {
@@ -615,11 +734,22 @@ router.post('/', async (req, res) => {
         }
 
         if (conflict) {
-          return res.status(400).json({
-            status: 'error',
-            has_active_ride: true,
-            message: `Time Conflict! You already have an active/booked ride (${existing.reservation_id}) for this selected date and time.`
-          });
+          // Check if payment has already been completed via gateway
+          const isPaid = (payment_status && String(payment_status).toLowerCase() === 'paid') ||
+                         Boolean(req.body.transaction_id && String(req.body.transaction_id).trim() !== '') ||
+                         Boolean(req.body.payNow || req.body.pay_now);
+
+          if (isPaid) {
+            console.log(`[Conflict Safety] Booking for ${mobile} has overlapping slot with ${existing.reservation_id}, but payment is completed (${req.body.transaction_id || payment_mode}). Preserving paid ride.`);
+            // Continue processing to insert and confirm the reservation
+            break;
+          } else {
+            return res.status(400).json({
+              status: 'error',
+              has_active_ride: true,
+              message: `Time Conflict! You already have an active/booked ride (${existing.reservation_id}) for this selected date and time.`
+            });
+          }
         }
       }
     } catch (e) {
@@ -633,14 +763,22 @@ router.post('/', async (req, res) => {
   const year = dateObj.getFullYear();
   const reservation_id = `RID-${year}-${randomSuffix}${String(mockList.length).padStart(3, '0')}`;
 
+  const isPaymentSuccess = (payment_status && String(payment_status).toLowerCase() === 'paid') ||
+                           Boolean(req.body.transaction_id && String(req.body.transaction_id).trim() !== '');
+
+  const finalPaymentStatus = isPaymentSuccess ? 'Paid' : 'Pending';
+  const finalStatus = isPaymentSuccess ? 'Upcoming' : 'Pending';
+
+  const modelToSave = vehicle_model || evegah_model_name || vehicle_category || 'Evegah City';
+
   try {
     const result = await db.query(`
       INSERT INTO reservations (
         reservation_id, customer_name, mobile, gov_id, reservation_date,
-        reservation_time, package_type, vehicle_category, fare, deposit,
+        reservation_time, package_type, vehicle_category, vehicle_model, fare, deposit,
         payment_mode, status, payment_status, pickup_zone, drop_zone, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
       RETURNING *
     `, [
       reservation_id,
@@ -650,12 +788,13 @@ router.post('/', async (req, res) => {
       reservation_date || new Date().toISOString().split('T')[0],
       reservation_time || '00:00:00',
       package_type || 'Day',
-      vehicle_category || vehicle_model || 'E-Scooter',
+      vehicle_category || 'E-Scooter',
+      modelToSave,
       parseFloat(fare) || 0,
       parseFloat(deposit) || 0,
       payment_mode || 'UPI',
-      'Upcoming',
-      payment_status || 'Paid',
+      finalStatus,
+      finalPaymentStatus,
       pickup_zone || '',
       drop_zone || ''
     ]);
@@ -667,10 +806,27 @@ router.post('/', async (req, res) => {
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
 
-    // Trigger real system notification
-    createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+    // Trigger real system notification & WhatsApp receipt ONLY when payment is successfully confirmed
+    if (isPaymentSuccess) {
+      createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
 
-    res.json({ status: 'success', message: 'Reservation created successfully', data: result.rows[0] });
+      const savedRes = result.rows[0];
+      if (savedRes?.mobile) {
+        sendWhatsAppReceipt({
+          mobile: savedRes.mobile,
+          name: savedRes.customer_name || 'Rider',
+          invoice_no: savedRes.transaction_id || savedRes.reservation_id,
+          plan: `${savedRes.package_type || 'Day'} Plan (${savedRes.vehicle_model || 'Evegah City'})`,
+          amount: (Number(savedRes.fare || 0) + Number(savedRes.deposit || 0)).toFixed(2)
+        }).catch(err => console.error('[WhatsApp] Booking receipt send notice:', err.message));
+      }
+    }
+
+    res.json({
+      status: 'success',
+      message: isPaymentSuccess ? 'Reservation confirmed successfully' : 'Reservation created (Pending Payment)',
+      data: result.rows[0]
+    });
   } catch (err) {
     console.error('Failed to create reservation in DB, saving in-memory:', err.message);
     const newRecord = {
@@ -688,8 +844,8 @@ router.post('/', async (req, res) => {
       fare: parseFloat(fare || 0).toFixed(2),
       deposit: parseFloat(deposit || 0).toFixed(2),
       payment_mode: payment_mode || 'UPI',
-      payment_status: payment_status || 'Paid',
-      status: 'Upcoming',
+      payment_status: finalPaymentStatus,
+      status: finalStatus,
       pickup_zone: pickup_zone || '',
       drop_zone: drop_zone || '',
       created_at: new Date().toISOString()
@@ -700,14 +856,19 @@ router.post('/', async (req, res) => {
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
 
-    // Trigger real system notification
-    createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+    if (isPaymentSuccess) {
+      createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+    }
 
-    res.json({ status: 'success', message: 'Reservation created (offline)', data: newRecord });
+    res.json({
+      status: 'success',
+      message: isPaymentSuccess ? 'Reservation confirmed (offline)' : 'Reservation created pending payment (offline)',
+      data: newRecord
+    });
   }
 });
 
-// POST /api/reservations/:id/pay (update payment status to Paid)
+// POST /api/reservations/:id/pay (update payment status to Paid and confirm ride)
 router.post('/:id/pay', async (req, res) => {
   const { id } = req.params;
   const { payment_method, transaction_id, razorpay_payment_id } = req.body;
@@ -715,7 +876,7 @@ router.post('/:id/pay', async (req, res) => {
   try {
     const updateResult = await db.query(`
       UPDATE reservations
-      SET payment_status = 'Paid', deposit_status = 'Paid', payment_mode = $1
+      SET payment_status = 'Paid', deposit_status = 'Paid', status = 'Upcoming', payment_mode = $1
       WHERE id::text = $2 OR reservation_id = $3
       RETURNING *
     `, [payment_method || 'ICICI UPI', id, id]);
@@ -724,12 +885,29 @@ router.post('/:id/pay', async (req, res) => {
     if (memIdx !== -1) {
       mockList[memIdx].payment_status = 'Paid';
       mockList[memIdx].deposit_status = 'Paid';
+      mockList[memIdx].status = 'Upcoming';
+    }
+
+    await delByPattern('reservations:*');
+    await delByPattern('renters:*');
+
+    createNotification('🎉 New Ride Booking Confirmed', `Payment received for reservation (${id}). Booking is now confirmed!`, 'booking');
+
+    const paidRow = updateResult.rows[0] || (memIdx !== -1 ? mockList[memIdx] : null);
+    if (paidRow?.mobile) {
+      sendWhatsAppReceipt({
+        mobile: paidRow.mobile,
+        name: paidRow.customer_name || 'Rider',
+        invoice_no: paidRow.transaction_id || paidRow.reservation_id,
+        plan: `${paidRow.package_type || 'Day'} Plan (${paidRow.vehicle_model || 'Evegah City'})`,
+        amount: (Number(paidRow.fare || 0) + Number(paidRow.deposit || 0)).toFixed(2)
+      }).catch(err => console.error('[WhatsApp] Pay verification receipt notice:', err.message));
     }
 
     res.json({
       status: 'success',
-      message: 'Payment status updated to Paid',
-      data: updateResult.rows[0] || (memIdx !== -1 ? mockList[memIdx] : { payment_status: 'Paid' })
+      message: 'Payment verified and booking confirmed',
+      data: updateResult.rows[0] || (memIdx !== -1 ? mockList[memIdx] : { payment_status: 'Paid', status: 'Upcoming' })
     });
   } catch (err) {
     console.error('Failed to update reservation payment:', err);
@@ -802,6 +980,21 @@ router.post('/:id/cancel', async (req, res) => {
       mockList[memIdx].payment_status = paymentStatus;
       if (!updated) updated = mockList[memIdx];
     }
+
+    // Release vehicle and battery inventory back to Available if allocated
+    if (reservation?.vehicle_number) {
+      await db.query(`UPDATE vehicles SET vehicle_status = 'Available', renter_name = 'None (Available)' WHERE code = $1 OR registration_number = $1`, [reservation.vehicle_number]).catch(() => {});
+      await db.query(`UPDATE renters SET status = 'Return', return_date = NOW() WHERE vehicle_id = $1`, [reservation.vehicle_number]).catch(() => {});
+    }
+    if (reservation?.battery_id) {
+      await db.query(`UPDATE batteries SET status = 'available' WHERE battery_id = $1 OR id::text = $1`, [reservation.battery_id]).catch(() => {});
+    }
+
+    await delByPattern('reservations:*');
+    await delByPattern('vehicles:*');
+    await delByPattern('renters:*');
+    await delByPattern('stats:*');
+    await delByPattern('batteries:*');
 
     res.json({
       status: 'success',
@@ -1051,21 +1244,37 @@ router.post('/:id/return', async (req, res) => {
     // Release vehicle and battery inventory back to Available
     try {
       if (reservation && reservation.vehicle_number) {
-        await db.query(`UPDATE vehicles SET vehicle_status = 'Available', renter_name = 'None (Available)' WHERE code = $1 OR vehicle_number = $1`, [reservation.vehicle_number]);
+        await db.query(
+          `UPDATE vehicles SET vehicle_status = 'Available', renter_name = 'None (Available)' WHERE code = $1 OR registration_number = $1`,
+          [reservation.vehicle_number]
+        );
       }
       if (reservation && reservation.battery_id) {
-        await db.query(`UPDATE batteries SET status = 'available' WHERE battery_id = $1 OR id = $1`, [reservation.battery_id]);
+        await db.query(
+          `UPDATE batteries SET status = 'available' WHERE battery_id = $1 OR id::text = $1`,
+          [reservation.battery_id]
+        );
       }
       // Also update renters table for this rider to Return
-      if (reservation && reservation.mobile) {
-        const cleanMob = reservation.mobile.replace(/\D/g, '').slice(-10);
-        await db.query(`
-          UPDATE renters 
-          SET status = 'Return', return_date = NOW() 
-          WHERE mobile LIKE $1 OR mobile = $2
-        `, [`%${cleanMob}%`, reservation.mobile]).catch(() => {});
-      }
-    } catch (_) {}
+      const vNum = reservation?.vehicle_number;
+      const cleanMob = reservation?.mobile ? reservation.mobile.replace(/\D/g, '').slice(-10) : '';
+      await db.query(`
+        UPDATE renters 
+        SET status = 'Return', return_date = NOW() 
+        WHERE (mobile LIKE $1 AND mobile != '') 
+           OR ($2 != '' AND vehicle_id = $2)
+      `, [`%${cleanMob}%`, vNum || '']).catch((rErr) => {
+        console.warn('Renters update on return notice:', rErr.message);
+      });
+
+      await delByPattern('vehicles:*');
+      await delByPattern('renters:*');
+      await delByPattern('reservations:*');
+      await delByPattern('stats:*');
+      await delByPattern('batteries:*');
+    } catch (relErr) {
+      console.error('Error releasing vehicle/battery on return:', relErr.message);
+    }
 
     res.json({
       status: 'success',
@@ -1078,13 +1287,13 @@ router.post('/:id/return', async (req, res) => {
   }
 });
 
-// POST /api/reservations/:id/refund-deposit — Process deposit refund to rider
+// POST /api/reservations/:id/refund-deposit — Process deposit refund to rider via live PayU Gateway
 router.post('/:id/refund-deposit', async (req, res) => {
   const { id } = req.params;
   const {
     refund_amount,
     deductions = 0,
-    refund_mode = 'UPI Instant Refund',
+    refund_mode = 'PayU India Gateway Refund',
     notes = '',
     upi_id = '',
     bank_account = ''
@@ -1095,71 +1304,104 @@ router.post('/:id/refund-deposit', async (req, res) => {
   const refTxId = `REF-${Date.now().toString().slice(-8)}`;
 
   try {
-    let updated;
+    // 1. Fetch reservation or renter record first without mutating DB
+    let target = null;
     try {
-      const dbRes = await db.query(`
+      const dbRes = await db.query(
+        'SELECT * FROM reservations WHERE id::text = $1 OR reservation_id = $1 LIMIT 1',
+        [id]
+      );
+      if (dbRes.rows.length > 0) target = dbRes.rows[0];
+    } catch (_) {}
+
+    if (!target) {
+      try {
+        const renterRes = await db.query(
+          'SELECT * FROM renters WHERE id::text = $1 OR vehicle_id = $1 LIMIT 1',
+          [id]
+        );
+        if (renterRes.rows.length > 0) target = renterRes.rows[0];
+      } catch (_) {}
+    }
+
+    if (!target) {
+      return res.status(404).json({
+        status: 'error',
+        message: `Ride reservation or rental record (${id}) not found.`
+      });
+    }
+
+    // 2. Trigger Live PayU Gateway Refund (cancel_refund_transaction)
+    const payuRouter = require('./payu');
+    let payuResult = null;
+
+    try {
+      payuResult = await payuRouter.processPayURefund({
+        payuId: target.transaction_id || target.payu_id || '',
+        txnid: target.transaction_id || '',
+        reservationId: target.reservation_id || id,
+        mobile: target.mobile || '',
+        amount: refundAmt,
+        refundTxId: refTxId
+      });
+    } catch (payuErr) {
+      console.error('PayU deposit refund call error:', payuErr);
+      return res.status(500).json({
+        status: 'error',
+        message: `PayU Gateway Connection Exception: ${payuErr.message}`
+      });
+    }
+
+    // Strictly enforce live PayU Gateway success: NO mock simulation!
+    if (!payuResult || !payuResult.success) {
+      const gatewayError = payuResult?.error || payuResult?.message || 'PayU gateway rejected the refund transaction.';
+      return res.status(400).json({
+        status: 'error',
+        message: `PayU Live Refund Failed: ${gatewayError}`
+      });
+    }
+
+    // 3. ONLY after verified PayU Gateway success, persist refund in database
+    const finalRefundTxId = payuResult.payu_request_id || payuResult.refund_tx_id || refTxId;
+
+    try {
+      await db.query(`
         UPDATE reservations
         SET deposit_status = 'Refunded',
             refund_amount = $1,
             refund_deductions = $2,
-            refund_mode = $3,
-            refund_tx_id = $4,
+            refund_mode = 'PayU India Gateway Refund',
+            refund_tx_id = $3,
             refund_date = NOW(),
-            return_notes = COALESCE($5, return_notes)
-        WHERE id::text = $6 OR reservation_id = $6
-        RETURNING *
-      `, [refundAmt, dedAmt, refund_mode, refTxId, notes, id]);
-      if (dbRes.rows.length > 0) updated = dbRes.rows[0];
-    } catch (e) {
-      console.warn('DB refund update error:', e.message);
+            return_notes = COALESCE($4, return_notes)
+        WHERE id::text = $5 OR reservation_id = $5
+      `, [refundAmt, dedAmt, finalRefundTxId, notes, id]);
+    } catch (dbErr) {
+      console.warn('DB reservations refund status update error:', dbErr.message);
     }
 
-    if (!updated) {
-      // Check if it's a renter record
-      const renterUpdate = await db.query(`
+    try {
+      await db.query(`
         UPDATE renters
         SET status = 'Refunded',
             deposit = 0
         WHERE id::text = $1 OR vehicle_id = $1
-        RETURNING *
-      `, [id]).catch(() => ({ rows: [] }));
-      if (renterUpdate.rows[0]) {
-        updated = renterUpdate.rows[0];
-      }
-    }
+      `, [id]);
+    } catch (_) {}
 
-    // If PayU refund method selected, trigger PayU gateway refund API
-    let payuResult = null;
-    if (refund_mode && refund_mode.toLowerCase().includes('payu')) {
-      try {
-        const payuRouter = require('./payu');
-        if (typeof payuRouter.processPayURefund === 'function') {
-          const originalPayuId = updated?.transaction_id || updated?.payu_id || '';
-          payuResult = await payuRouter.processPayURefund({
-            payuId: originalPayuId,
-            amount: refundAmt,
-            refundTxId: refTxId
-          });
-        }
-      } catch (payuErr) {
-        console.warn('PayU deposit refund call warning:', payuErr.message);
-      }
-    }
-
-    // Insert transaction into wallet_transactions as Debit / Refund
-    const riderMob = (updated?.mobile || '').replace(/\D/g, '').slice(-10);
+    // 4. Record refund transaction in wallet_transactions
+    const riderMob = (target.mobile || '').replace(/\D/g, '').slice(-10);
     await db.query(`
       INSERT INTO wallet_transactions (
         mobile, title, subtitle, amount, type, status, payment_method, transaction_id
       )
-      VALUES ($1, $2, $3, $4, 'Debit', 'Success', $5, $6)
+      VALUES ($1, $2, $3, $4, 'Debit', 'Success', 'PayU India Gateway', $5)
     `, [
       riderMob || '0000000000',
-      'Security Deposit Refund',
-      `${refund_mode}${upi_id ? ` to ${upi_id}` : (bank_account ? ` to A/C ${bank_account}` : '')}`,
+      'Security Deposit Refund (PayU)',
+      `Refunded ₹${refundAmt} to original source account via PayU Gateway (Req: ${finalRefundTxId})`,
       refundAmt,
-      refund_mode,
-      refTxId
+      finalRefundTxId
     ]).catch(err => console.warn('Wallet transaction insert error:', err.message));
 
     // Clear caches
@@ -1169,13 +1411,14 @@ router.post('/:id/refund-deposit', async (req, res) => {
 
     res.json({
       status: 'success',
-      message: `Security deposit of ₹${refundAmt} refunded successfully via ${refund_mode}.`,
+      message: `Security deposit of ₹${refundAmt} refunded successfully to original source account via PayU Gateway (Request ID: ${finalRefundTxId}).`,
       data: {
-        tx_id: refTxId,
+        tx_id: finalRefundTxId,
         refund_amount: refundAmt,
         deductions: dedAmt,
-        refund_mode,
-        refund_date: new Date().toISOString()
+        refund_mode: 'PayU India Gateway Refund',
+        refund_date: new Date().toISOString(),
+        payu_response: payuResult
       }
     });
   } catch (err) {
@@ -1187,18 +1430,25 @@ router.post('/:id/refund-deposit', async (req, res) => {
 // POST /api/reservations/:id/start (Start ride -> status = 'Ongoing')
 router.post('/:id/start', async (req, res) => {
   const { id } = req.params;
+  const { vehicle_number } = req.body || {};
   await delByPattern('reservations:*');
   await delByPattern('renters:*');
+  await delByPattern('vehicles:*');
 
   try {
     let reservation;
     try {
-      const updateRes = await db.query(`
+      let query = `
         UPDATE reservations
         SET status = 'Ongoing'
-        WHERE id::text = $1 OR reservation_id = $2
-        RETURNING *
-      `, [id, id]);
+      `;
+      const params = [id, id];
+      if (vehicle_number) {
+        query += `, vehicle_number = COALESCE(vehicle_number, $3)`;
+        params.push(vehicle_number);
+      }
+      query += ` WHERE id::text = $1 OR reservation_id = $2 RETURNING *`;
+      const updateRes = await db.query(query, params);
       if (updateRes.rows.length > 0) reservation = updateRes.rows[0];
     } catch (dbErr) {
       console.warn('DB start update failed, fallback to in-memory:', dbErr.message);
@@ -1207,8 +1457,26 @@ router.post('/:id/start', async (req, res) => {
     const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
     if (idx !== -1) {
       mockList[idx].status = 'Ongoing';
+      if (vehicle_number && !mockList[idx].vehicle_number) {
+        mockList[idx].vehicle_number = vehicle_number;
+      }
       if (!reservation) reservation = mockList[idx];
     }
+
+    // Update vehicle to 'In Ride'
+    const targetVehicle = vehicle_number || reservation?.vehicle_number;
+    if (targetVehicle) {
+      await db.query(`
+        UPDATE vehicles 
+        SET vehicle_status = 'In Ride', renter_name = $1 
+        WHERE code = $2 OR registration_number = $2
+      `, [reservation?.customer_name || 'Active Rider', targetVehicle]).catch(() => {});
+    }
+
+    await delByPattern('reservations:*');
+    await delByPattern('vehicles:*');
+    await delByPattern('renters:*');
+    await delByPattern('stats:*');
 
     res.json({
       status: 'success',

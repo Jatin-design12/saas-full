@@ -377,7 +377,7 @@ export default function EmployeeDashboard() {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <Sidebar />
 
-      <div style={{ flex: 1, marginLeft: '230px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <TopBar />
 
         <main style={{ padding: '24px 32px 60px', flex: 1 }}>

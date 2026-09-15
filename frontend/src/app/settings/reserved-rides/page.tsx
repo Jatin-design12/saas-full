@@ -6,7 +6,7 @@ import TopBar from '@/components/TopBar';
 
 const CSS = `
 .rr-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Inter', sans-serif; }
-.rr-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
+.rr-main { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
 .rr-page { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
 
 /* Breadcrumb */
@@ -52,11 +52,12 @@ const CSS = `
 .rr-table td .rider-name { font-weight: 700; color: #0F172A; display: block; line-height: 1.2; }
 .rr-table td .rider-phone { font-size: 11px; color: #64748B; font-weight: 500; display: block; margin-top: 1px; }
 
-.rr-table td .vehicle-cat { font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 6px; }
-.rr-table td .vehicle-plate { font-size: 11px; color: #64748B; font-weight: 500; font-family: monospace; display: block; margin-top: 2px; }
+.rr-table td .vehicle-cat { font-weight: 750; color: #0F172A; font-size: 13px; }
+.rr-table td .vehicle-plate { font-size: 11px; color: #64748B; font-weight: 600; font-family: monospace; display: block; margin-top: 2px; }
 
-.rr-table td .pickup-drop { font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
-.rr-table td .zone-item { display: flex; align-items: center; gap: 4px; color: #475569; }
+.rr-table td .pickup-drop { font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.rr-table td .zone-item-pickup { display: inline-flex; align-items: center; background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700; font-size: 11px; padding: 2.5px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.01em; }
+.rr-table td .zone-item-drop { display: inline-flex; align-items: center; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; font-weight: 700; font-size: 11px; padding: 2.5px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.01em; }
 
 .rr-table td .date-time { display: flex; flex-direction: column; gap: 2px; }
 .rr-table td .dt-item { display: flex; align-items: center; gap: 4px; color: #475569; font-weight: 600; }
@@ -132,6 +133,8 @@ interface Reservation {
   reservation_time: string;
   package_type: string;
   vehicle_category: string;
+  vehicle_model?: string;
+  evegah_model_name?: string;
   vehicle_number: string;
   fare: string;
   deposit: string;
@@ -159,10 +162,12 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
 
   // Modals & Calendar state
+  const now = new Date();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [calendarYear, setCalendarYear] = useState(2026);
-  const [calendarMonth, setCalendarMonth] = useState(6); // 6 = July
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>('2026-07-12');
+  const [calendarYear, setCalendarYear] = useState(now.getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(now.getMonth());
+  const todayInitialStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(todayInitialStr);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null);
 
@@ -223,6 +228,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
 
         const mapped = (body.data || [])
           .filter((r: any) => !deletedIds.includes(r.id) && !deletedIds.includes(r.reservation_id))
+          .filter((r: any) => (r.payment_status || '').toLowerCase() === 'paid' && (r.status || '').toLowerCase() !== 'pending')
           .map((r: any, idx: number) => {
             const isGenericName = !r.customer_name || r.customer_name.trim() === '' || r.customer_name === 'Guest Rider' || r.customer_name === 'Evegah Rider' || r.customer_name.toLowerCase() === 'customer';
             const matchedProfile = realRiderProfiles[idx % realRiderProfiles.length];
@@ -469,8 +475,12 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
     return colors[idx % colors.length];
   };
 
-  // Filter reserved list: default shows all reserved rides in system unless status filter applied
+  // Filter reserved list: strictly show only paid and confirmed rides in the system
   const displayList = list.filter(r => {
+    const isPaid = (r.payment_status || '').toLowerCase() === 'paid';
+    const isPending = (r.status || '').toLowerCase() === 'pending' || (r.payment_status || '').toLowerCase() === 'pending';
+    if (!isPaid || isPending) return false;
+
     if (statusFilter) {
       return r.status.toLowerCase() === statusFilter.toLowerCase();
     }
@@ -500,7 +510,17 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div className="rr-subtitle">View and manage all reserved rides in the system</div>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="rr-btn rr-btn-primary" onClick={() => setIsCalendarOpen(true)}>
+                <button
+                  className="rr-btn rr-btn-primary"
+                  onClick={() => {
+                    const curDate = new Date();
+                    setCalendarYear(curDate.getFullYear());
+                    setCalendarMonth(curDate.getMonth());
+                    const curTodayStr = `${curDate.getFullYear()}-${String(curDate.getMonth() + 1).padStart(2, '0')}-${String(curDate.getDate()).padStart(2, '0')}`;
+                    setSelectedCalendarDate(curTodayStr);
+                    setIsCalendarOpen(true);
+                  }}
+                >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                    Booking Calendar
                 </button>
@@ -728,18 +748,17 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                             </td>
                             <td>
                               <div className="vehicle-cat">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h4l-3 4.5"/><path d="M12 17.5V11l-3-4H5"/><path d="M16.5 11H9"/></svg>
-                                {res.vehicle_category}
+                                {res.vehicle_model || res.evegah_model_name || res.vehicle_category || 'Evegah City'}
                               </div>
                               <span className="vehicle-plate">{res.vehicle_number || 'Pending Allocation'}</span>
                             </td>
                             <td>
                               <div className="pickup-drop">
-                                <div className="zone-item">
-                                  <span style={{ color: '#10B981' }}>●</span> {res.pickup_zone || 'CP Zone'}
+                                <div className="zone-item-pickup">
+                                  {res.pickup_zone || 'Gotri Zone'}
                                 </div>
-                                <div className="zone-item">
-                                  <span style={{ color: '#EF4444' }}>▲</span> {res.drop_zone || 'Indira Gandhi Airport'}
+                                <div className="zone-item-drop">
+                                  {res.drop_zone || res.pickup_zone || 'Gotri Zone'}
                                 </div>
                               </div>
                             </td>
@@ -886,14 +905,17 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                       Next Month &gt;
                     </button>
                   </div>
-                  <div style={{ display: 'flex', gap: '14px', fontSize: '11px', fontWeight: '700' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6366F1' }}>
+                  <div style={{ display: 'flex', gap: '14px', fontSize: '11px', fontWeight: '700', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#059669' }}>
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 0 2px #DCFCE7' }} /> Today
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#6366F1' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366F1' }} /> Upcoming
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10B981' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#10B981' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} /> Confirmed
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#EF4444' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#EF4444' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} /> Cancelled
                     </span>
                   </div>
@@ -917,13 +939,34 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                     const dayBookings = list.filter(r => r.reservation_date && r.reservation_date.includes(dateKey));
                     const isSelected = selectedCalendarDate === dateKey;
 
+                    const today = new Date();
+                    const isToday = today.getFullYear() === calendarYear &&
+                                    today.getMonth() === calendarMonth &&
+                                    today.getDate() === day;
+
                     return (
                       <div
                         key={day}
                         className={`cal-day-cell ${isSelected ? 'active-date' : ''} ${dayBookings.length > 0 ? 'has-bookings' : ''}`}
                         onClick={() => setSelectedCalendarDate(dateKey)}
+                        style={{ position: 'relative' }}
                       >
-                        <div className="cal-day-num">{day}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div className="cal-day-num">{day}</div>
+                          {isToday && (
+                            <span
+                              title="Today (Current Date)"
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                backgroundColor: '#10B981',
+                                boxShadow: '0 0 0 2px #DCFCE7',
+                                display: 'inline-block'
+                              }}
+                            />
+                          )}
+                        </div>
                         {dayBookings.length > 0 && (
                           <div className="cal-booking-badge shadow-sm" style={{ background: dayBookings[0].status === 'Confirmed' ? '#10B981' : '#6366F1' }}>
                             {dayBookings.length} Ride{dayBookings.length > 1 ? 's' : ''}
@@ -937,7 +980,15 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               {/* Expandable Booking Details Panel for Selected Date */}
               <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '12px', padding: '14px', marginTop: '10px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>📅 Scheduled Bookings for {selectedCalendarDate ? formatDate(selectedCalendarDate) : 'Selected Date'}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    Scheduled Bookings for {selectedCalendarDate ? formatDate(selectedCalendarDate) : 'Selected Date'}
+                  </span>
                   <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>
                     {list.filter(r => r.reservation_date && r.reservation_date.includes(selectedCalendarDate)).length} Bookings Found
                   </span>
@@ -949,34 +1000,80 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {list.filter(r => r.reservation_date && r.reservation_date.includes(selectedCalendarDate)).map(res => (
-                      <div key={res.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>
-                            {res.customer_name} <span style={{ fontSize: '11px', color: '#6366F1', fontFamily: 'monospace', marginLeft: '6px' }}>({res.reservation_id})</span>
+                    {list.filter(r => r.reservation_date && r.reservation_date.includes(selectedCalendarDate)).map(res => {
+                      const isCompleted = (res.status || '').toLowerCase() === 'completed';
+                      return (
+                        <div key={res.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>
+                              {res.customer_name} <span style={{ fontSize: '11px', color: '#6366F1', fontFamily: 'monospace', marginLeft: '6px' }}>({res.reservation_id})</span>
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', gap: '12px', marginTop: '3px', flexWrap: 'wrap' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                  <circle cx="12" cy="10" r="3"/>
+                                </svg>
+                                {res.pickup_zone}
+                              </span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="10"/>
+                                  <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                {res.reservation_time ? res.reservation_time.substring(0, 5) : '09:00'}
+                              </span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/>
+                                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                                  <line x1="12" y1="22.08" x2="12" y2="12"/>
+                                </svg>
+                                {res.package_type}
+                              </span>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', gap: '10px', marginTop: '2px' }}>
-                            <span>📍 {res.pickup_zone}</span>
-                            <span>⏰ {res.reservation_time ? res.reservation_time.substring(0, 5) : '09:00'}</span>
-                            <span>📦 {res.package_type}</span>
-                          </div>
-                        </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>₹{res.fare}</span>
-                          <span className={`status-badge ${res.status.toLowerCase() === 'confirmed' ? 'badge-confirmed' : 'badge-upcoming'}`}>
-                            {res.status}
-                          </span>
-                          <button
-                            className="rr-btn rr-btn-primary"
-                            style={{ height: '30px', fontSize: '11px', padding: '0 10px' }}
-                            onClick={() => { setIsCalendarOpen(false); openDetailsModal(res); }}
-                          >
-                            Allocate Vehicle
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>₹{res.fare}</span>
+                            <span className={`status-badge ${
+                              res.status.toLowerCase() === 'confirmed' ? 'badge-confirmed' :
+                              res.status.toLowerCase() === 'completed' ? 'badge-completed' :
+                              res.status.toLowerCase() === 'cancelled' ? 'badge-cancelled' : 'badge-upcoming'
+                            }`}>
+                              {res.status}
+                            </span>
+                            <button
+                              className="rr-btn"
+                              disabled={isCompleted}
+                              style={{
+                                height: '30px',
+                                fontSize: '11px',
+                                padding: '0 12px',
+                                fontWeight: '700',
+                                borderRadius: '7px',
+                                background: isCompleted ? '#F1F5F9' : '#2a195c',
+                                borderColor: isCompleted ? '#CBD5E1' : '#2a195c',
+                                color: isCompleted ? '#94A3B8' : '#fff',
+                                cursor: isCompleted ? 'not-allowed' : 'pointer',
+                                opacity: isCompleted ? 0.65 : 1,
+                                transition: 'all 0.15s'
+                              }}
+                              onClick={() => {
+                                if (!isCompleted) {
+                                  setIsCalendarOpen(false);
+                                  openDetailsModal(res);
+                                }
+                              }}
+                              title={isCompleted ? 'Ride is completed — vehicle allocation disabled' : 'Allocate vehicle for this reservation'}
+                            >
+                              Allocate Vehicle
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -995,7 +1092,12 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
         <div className="rr-modal-ov">
           <div className="rr-modal-box">
             <div className="rr-modal-hdr">
-              <span className="rr-modal-tit">🛡️ Reservation Details & Operator Actions</span>
+              <span className="rr-modal-tit" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Reservation Details & Operator Actions
+              </span>
               <button className="rr-modal-close" onClick={() => { setIsDetailsOpen(false); setSelectedRes(null); setAllocVehicle(''); setAllocBattery(''); }}>&times;</button>
             </div>
             <div className="rr-modal-body">
@@ -1022,8 +1124,10 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                   <span className="sim-detail-val">{formatDate(selectedRes.reservation_date)} @ {selectedRes.reservation_time.substring(0, 5)}</span>
                 </div>
                 <div className="sim-detail-row">
-                  <span className="sim-detail-key">Package & Vehicle Category</span>
-                  <span className="sim-detail-val">{selectedRes.package_type} package / {selectedRes.vehicle_category}</span>
+                  <span className="sim-detail-key">Package & Vehicle Model</span>
+                  <span className="sim-detail-val" style={{ color: '#2A195C', fontWeight: 800 }}>
+                    {selectedRes.package_type} package / {selectedRes.vehicle_model || selectedRes.evegah_model_name || selectedRes.vehicle_category || 'Evegah City'}
+                  </span>
                 </div>
                 <div className="sim-detail-row">
                   <span className="sim-detail-key">Fare & Deposit paid</span>
@@ -1062,9 +1166,17 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               {/* Operator vehicle + battery allocation with rider present address and pre-ride vehicle inspection */}
               {selectedRes.status.toLowerCase() === 'upcoming' && (
                 <div style={{ background: '#EEF2FF', border: '1.5px solid #C7D2FE', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '850', color: '#2A195C', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    🛠️ Operator Action: Vehicle Allocation & Pre-Ride Verification
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '850', color: '#2A195C', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                      </svg>
+                      Operator Action: Vehicle Allocation & Pre-Ride Verification
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: '750', color: '#4338CA', background: '#E0E7FF', padding: '2px 8px', borderRadius: '6px' }}>
+                      Target Model: {selectedRes.vehicle_model || selectedRes.evegah_model_name || 'Evegah City'}
+                    </span>
+                  </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div className="sim-form-group">
@@ -1079,7 +1191,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
 
                     <div className="sim-grid-2">
                       <div className="sim-form-group">
-                        <span className="sim-form-lbl">Select Vehicle *</span>
+                        <span className="sim-form-lbl">Select Vehicle ({selectedRes.vehicle_model || selectedRes.evegah_model_name || 'Evegah City'}) *</span>
                         <select
                           className="rr-select"
                           style={{ width: '100%' }}
@@ -1090,7 +1202,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                           {availableVehicles.length > 0
                             ? availableVehicles.map((v: any) => (
                                 <option key={v.code} value={v.code}>
-                                  {v.code} — {v.evegah_model_name || v.vehicle_category || 'Vehicle'} ({v.zone || 'Unassigned'})
+                                  {v.code} — {v.evegah_model_name || v.vehicle_model || v.vehicle_category || 'Vehicle'} ({v.zone || 'Unassigned'})
                                 </option>
                               ))
                             : <option disabled>No available vehicles found</option>
@@ -1122,8 +1234,12 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                     <div className="sim-form-group">
                       <span className="sim-form-lbl">Pre-Ride Vehicle Inspection Capture *</span>
                       <div style={{ border: '1.5px dashed #A5B4FC', borderRadius: '8px', padding: '10px', background: '#fff', textAlign: 'center', cursor: 'pointer' }}>
-                        <div style={{ fontSize: '12px', color: '#4F46E5', fontWeight: '700' }}>
-                          📸 Click to Upload or Capture Pre-Ride Vehicle Inspection Photo
+                        <div style={{ fontSize: '12px', color: '#4F46E5', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                          </svg>
+                          Click to Upload or Capture Pre-Ride Vehicle Inspection Photo
                         </div>
                         <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
                           Supports JPG, PNG (Max 5MB) — Required before handing over key
@@ -1133,10 +1249,13 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
 
                     <button
                       className="rr-btn rr-btn-primary"
-                      style={{ background: '#10B981', borderColor: '#10B981', alignSelf: 'flex-end', marginTop: '4px' }}
+                      style={{ background: '#10B981', borderColor: '#10B981', alignSelf: 'flex-end', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       onClick={() => handleAllocateVehicle(selectedRes.id)}
                     >
-                      ✅ Confirm Allocation & Move to Active Renters
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                      Confirm Allocation & Move to Active Renters
                     </button>
                   </div>
                 </div>
@@ -1147,13 +1266,17 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
                   className="rr-btn"
-                  style={{ color: '#2A195C', borderColor: '#C7D2FE', background: '#EEF2FF' }}
+                  style={{ color: '#2A195C', borderColor: '#C7D2FE', background: '#EEF2FF', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   onClick={() => {
                     setIsDetailsOpen(false);
                     router.push(`/renters/profile?id=${selectedRes.id}&name=${encodeURIComponent(selectedRes.customer_name)}&mobile=${encodeURIComponent(selectedRes.mobile)}`);
                   }}
                 >
-                  👤 View Full Rider Profile
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  View Full Rider Profile
                 </button>
                 {selectedRes.status.toLowerCase() === 'upcoming' && (
                   <button 

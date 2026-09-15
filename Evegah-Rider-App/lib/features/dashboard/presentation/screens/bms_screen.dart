@@ -68,7 +68,9 @@ class _BmsScreenState extends State<BmsScreen> {
           if (data['status'] == 'success' && data['data'] != null) {
             final List list = data['data'];
             final active = list.firstWhere(
-              (r) => r['status'] == 'Confirmed' || r['status'] == 'Upcoming' || r['status'] == 'Ongoing',
+              (r) =>
+                  (r['status'] == 'Confirmed' || r['status'] == 'Upcoming' || r['status'] == 'Ongoing') &&
+                  (r['payment_status'] ?? '').toString().toLowerCase() == 'paid',
               orElse: () => null,
             );
             if (active != null) {

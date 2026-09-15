@@ -32,11 +32,83 @@ class _RentEvScreenState extends State<RentEvScreen> {
   String? dropRaw;
   bool isDifferentDropZone = false;
   double flexiDropFee = 49.0;
-  List<Map<String, dynamic>> _liveBackendZones = [];
+  static final List<Map<String, dynamic>> _defaultOperationalZones = [
+    {
+      "id": 2,
+      "name": "Gotri Zone",
+      "address": "Gotri Main Road, Vadodara, Gujarat",
+      "distance": "1.2 km",
+      "phone": "+91 98765 43210",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.3168,
+      "lng": 73.1415,
+      "center": {"lat": 22.3168, "lng": 73.1415},
+      "points": [{"lat": 22.3168, "lng": 73.1415}],
+    },
+    {
+      "id": 6,
+      "name": "Manjalpur Zone",
+      "address": "Manjalpur Main Road, Vadodara, Gujarat",
+      "distance": "2.8 km",
+      "phone": "+91 8980966677",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.2684,
+      "lng": 73.1952,
+      "center": {"lat": 22.2684, "lng": 73.1952},
+      "points": [{"lat": 22.2684, "lng": 73.1952}],
+    },
+    {
+      "id": 4,
+      "name": "Aatapi Zone",
+      "address": "Ajwa Nimeta Road, Vadodara, Gujarat",
+      "distance": "4.5 km",
+      "phone": "+91 98765 43210",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.3600,
+      "lng": 73.3500,
+      "center": {"lat": 22.3600, "lng": 73.3500},
+      "points": [{"lat": 22.3600, "lng": 73.3500}],
+    },
+    {
+      "id": 5,
+      "name": "KPGU Zone",
+      "address": "Babaria Institute Campus, Vadodara",
+      "distance": "5.1 km",
+      "phone": "+91 98765 43210",
+      "image_url": "",
+      "hours": "Open 24x7",
+      "isPopular": true,
+      "color": const Color(0xFFF5F3FF),
+      "iconColor": const Color(0xFF4313B8),
+      "lat": 22.2150,
+      "lng": 73.2350,
+      "center": {"lat": 22.2150, "lng": 73.2350},
+      "points": [{"lat": 22.2150, "lng": 73.2350}],
+    },
+  ];
+
+  List<Map<String, dynamic>> _liveBackendZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
 
   @override
   void initState() {
     super.initState();
+    _liveBackendZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
+    if (selectedZoneData == null && _liveBackendZones.isNotEmpty) {
+      selectedZoneData = _liveBackendZones.first;
+      selectedLocation = "${_liveBackendZones.first['name']}, Vadodara";
+    }
     _loadLiveBackendZones();
   }
 
@@ -53,7 +125,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
 
     for (final url in urls) {
       try {
-        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
         if (res.statusCode == 200) {
           final data = json.decode(res.body);
           if (data['status'] == 'success' && data['data'] != null && (data['data'] as List).isNotEmpty) {
@@ -985,7 +1057,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
       ),
     );
 
-    if (src.trim().isEmpty) return fallback;
+    if (src.trim().isEmpty || src.contains('unsplash.com')) return fallback;
 
     bool isBase64 = src.startsWith('data:image') ||
         (!src.startsWith('http') && !src.startsWith('assets') && !src.startsWith('blob:') && src.length > 100);

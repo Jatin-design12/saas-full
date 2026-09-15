@@ -118,19 +118,127 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
     }
   }
 
+  /// Checks for any booking time conflict before opening payment gateway
+  Future<bool> _checkPrePaymentConflict() async {
+    try {
+      final userMobile = await SessionService().getUserMobile() ?? '';
+      final cleanMobile = userMobile.replaceAll(RegExp(r'\D'), '');
+      final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
+
+      final pickupDt = _parseDateTimeRobust(widget.pickupRaw) ?? _parseDateTimeRobust(widget.pickupDateTime);
+      final dropDt = _parseDateTimeRobust(widget.dropRaw) ?? _parseDateTimeRobust(widget.dropDateTime);
+
+      final pickupDate = pickupDt != null
+          ? "${pickupDt.year}-${pickupDt.month.toString().padLeft(2, '0')}-${pickupDt.day.toString().padLeft(2, '0')}"
+          : DateTime.now().toIso8601String().split('T')[0];
+      final pickupTime = pickupDt != null
+          ? "${pickupDt.hour.toString().padLeft(2, '0')}:${pickupDt.minute.toString().padLeft(2, '0')}:00"
+          : '10:00:00';
+
+      final res = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/reservations/check-conflict'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mobile': last10.isNotEmpty ? last10 : userMobile,
+          'pickup_datetime': pickupDt?.toIso8601String() ?? widget.pickupDateTime,
+          'drop_datetime': dropDt?.toIso8601String() ?? widget.dropDateTime,
+          'reservation_date': pickupDate,
+          'reservation_time': pickupTime,
+        }),
+      ).timeout(const Duration(seconds: 4));
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['conflict'] == true) {
+          final conflictMsg = body['message']?.toString() ??
+              "You already have an active or booked ride during this selected date and time.";
+          if (mounted) {
+            _showConflictDialog(conflictMsg);
+          }
+          return false;
+        }
+      }
+    } catch (e) {
+      debugPrint("Pre-payment conflict check error: $e");
+    }
+    return true;
+  }
+
+  void _showConflictDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEF3C7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Booking Time Conflict",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF200F54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                },
+                child: const Text("Change Date & Time", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Dismiss", style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Triggers the selected active payment gateway (PayU, ICICI UPI, etc.)
-  void _triggerPayment({required bool payNow}) {
+  void _triggerPayment() async {
     final double amountToPay = _totalPayable;
 
-    if (amountToPay <= 0 || !payNow) {
-      _confirmBooking(payNow: payNow);
+    // Instant Conflict Check BEFORE opening gateway or taking payment
+    final canProceed = await _checkPrePaymentConflict();
+    if (!canProceed) return;
+
+    // Zero payable amount (e.g. 100% coupon) can confirm directly
+    if (amountToPay <= 0) {
+      _confirmBooking(payNow: true, transactionId: 'FREE-COUPON-${DateTime.now().millisecondsSinceEpoch}');
       return;
     }
 
     if (_paymentMethod == 'PayU' || _activeGatewayId == 'payu') {
       _triggerPayUPayment(amountToPay: amountToPay);
     } else {
-      _triggerIciciUpiPayment(payNow: payNow);
+      _triggerIciciUpiPayment();
     }
   }
 
@@ -170,12 +278,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
         if (result != null && result.success) {
           _confirmBooking(payNow: true, transactionId: result.txId);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result?.message ?? "PayU payment was cancelled or failed. Booking NOT confirmed."),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          _showPaymentFailedDialog(result?.message ?? "PayU payment was cancelled or failed.");
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,24 +287,80 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
             backgroundColor: Colors.orange,
           ),
         );
-        _triggerIciciUpiPayment(payNow: true);
+        _triggerIciciUpiPayment();
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Payment error: $e"), backgroundColor: Colors.redAccent),
-        );
+        _showPaymentFailedDialog("Payment error: $e");
       }
     }
   }
 
+  void _showPaymentFailedDialog(String reason) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEE2E2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close_rounded, color: Color(0xFFDC2626), size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Payment Failed",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              reason.isNotEmpty ? reason : "Your PayU payment could not be processed. Booking was not confirmed.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4313B8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _triggerPayUPayment(amountToPay: _totalPayable);
+                },
+                child: const Text("Retry Payment", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancel / Choose Another Option", style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Triggers ICICI Bank UPI intent modal or confirms booking
-  void _triggerIciciUpiPayment({required bool payNow}) {
+  void _triggerIciciUpiPayment() {
     final double amountToPay = _totalPayable;
 
-    if (amountToPay <= 0 || !payNow) {
-      _confirmBooking(payNow: payNow);
+    if (amountToPay <= 0) {
+      _confirmBooking(payNow: true, transactionId: 'FREE-COUPON-${DateTime.now().millisecondsSinceEpoch}');
       return;
     }
 
@@ -227,12 +386,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       },
       onPaymentFailed: (msg) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg.isNotEmpty ? msg : "UPI Payment Cancelled"),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          _showPaymentFailedDialog(msg.isNotEmpty ? msg : "UPI Payment Cancelled / Failed. Ride was not confirmed.");
         }
       },
     );
@@ -293,6 +447,12 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
 
   /// Posts the booking to the backend with active payment mode (PayU or ICICI UPI).
   Future<void> _confirmBooking({required bool payNow, String? transactionId}) async {
+    // Strict safety check: Never confirm booking if payment is not completed
+    if (!payNow || transactionId == null || transactionId.trim().isEmpty) {
+      _showPaymentFailedDialog("Payment could not be verified. Booking was not confirmed.");
+      return;
+    }
+
     // Show loading
     showDialog(
       context: context,
@@ -1456,7 +1616,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               child: SizedBox(
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () => _triggerPayment(payNow: _depositOption == 'Pay Now'),
+                  onPressed: _triggerPayment,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2B0B78), // Deep purple
                     foregroundColor: Colors.white,
@@ -1469,11 +1629,9 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _depositOption == 'Pay Now'
-                              ? (_activeGatewayId == 'payu'
-                                  ? "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via PayU"
-                                  : "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via UPI")
-                              : "Confirm Booking",
+                          _activeGatewayId == 'payu'
+                              ? "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via PayU"
+                              : "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via UPI",
                           maxLines: 1,
                           softWrap: false,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),

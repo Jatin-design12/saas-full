@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
 import '../../../../core/services/icici_upi_service.dart';
+import '../../../../core/services/payu_service.dart';
+import '../../../../core/widgets/payu_in_app_checkout_modal.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -14,29 +16,127 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _showPriceDetails = false;
   bool _isProcessing = false;
 
-  void _processPayment() {
-    IciciUpiService().showUpiPaymentModal(
+  Future<void> _processPayment() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final payuData = await PayUService().initiatePayment(
+        amount: 65.50,
+        purpose: 'ride',
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      if (payuData != null && (payuData['checkout_url'] != null || payuData['action_url'] != null)) {
+        final txnid = payuData['txnid']?.toString() ?? '';
+        final checkoutUrl = payuData['checkout_url']?.toString() ?? payuData['action_url']?.toString() ?? '';
+
+        final result = await PayUInAppCheckoutModal.show(
+          context: context,
+          checkoutUrl: checkoutUrl,
+          txnid: txnid,
+          amount: 65.50,
+        );
+
+        if (!mounted) return;
+
+        if (result != null && result.success) {
+          // Automatically redirect to our booking confirmed screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const BookingConfirmedScreen(isDepositPaid: true),
+            ),
+          );
+        } else {
+          // Display failed status
+          _showPaymentFailedDialog(result?.message ?? "PayU payment was cancelled or failed.");
+        }
+      } else {
+        // Fallback to UPI modal
+        IciciUpiService().showUpiPaymentModal(
+          context: context,
+          amount: 65.50,
+          note: 'Evegah Ride Payment',
+          onPaymentSuccess: (txId) {
+            if (!mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const BookingConfirmedScreen(isDepositPaid: true),
+              ),
+            );
+          },
+          onPaymentFailed: (msg) {
+            if (!mounted) return;
+            _showPaymentFailedDialog(msg.isNotEmpty ? msg : "UPI Payment Cancelled");
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        _showPaymentFailedDialog("Payment initiation failed: $e");
+      }
+    }
+  }
+
+  void _showPaymentFailedDialog(String reason) {
+    if (!mounted) return;
+    showDialog(
       context: context,
-      amount: 65.50,
-      note: 'Evegah Ride Payment',
-      onPaymentSuccess: (txId) {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const BookingConfirmedScreen(isDepositPaid: true),
-          ),
-        );
-      },
-      onPaymentFailed: (msg) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg.isNotEmpty ? msg : "UPI Payment Cancelled"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      },
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEE2E2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close_rounded, color: Color(0xFFDC2626), size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Payment Failed",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              reason.isNotEmpty ? reason : "Your transaction could not be processed. Please try again.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4313B8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _processPayment();
+                },
+                child: const Text("Retry Payment", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Choose Another Method", style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

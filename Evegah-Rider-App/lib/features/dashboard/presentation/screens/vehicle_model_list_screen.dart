@@ -25,86 +25,38 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
     "E-Cycle",
   ];
 
-  // Default models with fleet_bg backgrounds
+  // Default models matching Evegah banner assets
   final List<Map<String, dynamic>> _defaultModels = [
     {
       "id": 1,
       "name": "Evegah City",
       "tagline": "Smart. Silent. Sustainable.",
       "category": "E-Vehicle",
-      "pillCategory": "E-Vehicle",
-      "pillBg": Color(0xFFEDE9FE),
-      "pillColor": Color(0xFF6B21A8),
-      "bgImage": "assets/fleet_bg1.png",
-      "vehicleImage": "assets/city.png",
-      "range": "80–100 km",
-      "speed": "45 km/h",
-      "capacity": "2 Seats",
-      "btnBg": Color(0xFF4313B8),
+      "bannerImage": "assets/evegah_vb_city.png",
       "isFavorite": false,
     },
     {
       "id": 2,
-      "name": "Evegah Pro",
-      "tagline": "Compact. Powerful. Anywhere.",
-      "category": "E-Scooter",
-      "pillCategory": "E-Scooter",
-      "pillBg": Color(0xFFDCFCE7),
-      "pillColor": Color(0xFF15803D),
-      "bgImage": "assets/fleet_bg2.png",
-      "vehicleImage": "assets/pro-1.png",
-      "range": "10–12 km",
-      "speed": "10 km/h",
-      "capacity": "1 Seat",
-      "btnBg": Color(0xFF16A34A),
+      "name": "Evegah Fly",
+      "tagline": "Lightweight & Agile City Moped.",
+      "category": "E-Bike",
+      "bannerImage": "assets/evegah_vb_fly.png",
       "isFavorite": false,
     },
     {
       "id": 3,
-      "name": "EverRide Lite",
-      "tagline": "Light. Smart. Everyday.",
-      "category": "E-Bike",
-      "pillCategory": "E-Bike",
-      "pillBg": Color(0xFFE0F2FE),
-      "pillColor": Color(0xFF0369A1),
-      "bgImage": "assets/fleet_bg3.png",
-      "vehicleImage": "assets/Fly.png",
-      "range": "35–50 km",
-      "speed": "25 km/h",
-      "capacity": "1 Seat",
-      "btnBg": Color(0xFF0284C7),
+      "name": "Evegah Mink",
+      "tagline": "Heavy Duty. Unlimited Utility.",
+      "category": "E-Car",
+      "bannerImage": "assets/evegah_vb_mink.png",
       "isFavorite": false,
     },
     {
       "id": 4,
-      "name": "EcoRide Plus",
-      "tagline": "Pedal the Change.",
-      "category": "E-Cycle",
-      "pillCategory": "E-Cycle",
-      "pillBg": Color(0xFFFFEDD5),
-      "pillColor": Color(0xFFC2410C),
-      "bgImage": "assets/fleet_bg4.png",
-      "vehicleImage": "assets/fly-1.png",
-      "range": "60–80 km",
-      "speed": "25 km/h",
-      "capacity": "1 Seat",
-      "btnBg": Color(0xFFEA580C),
-      "isFavorite": false,
-    },
-    {
-      "id": 5,
-      "name": "Evegah Mink",
-      "tagline": "Heavy Duty. Unlimited Utility.",
-      "category": "E-Car",
-      "pillCategory": "E-Vehicle",
-      "pillBg": Color(0xFFEDE9FE),
-      "pillColor": Color(0xFF6B21A8),
-      "bgImage": "assets/fleet_bg1.png",
-      "vehicleImage": "assets/MINK-1.png",
-      "range": "70–90 km",
-      "speed": "30 km/h",
-      "capacity": "2 Seats",
-      "btnBg": Color(0xFF7C3AED),
+      "name": "Evegah Pro",
+      "tagline": "Compact. Powerful. Anywhere.",
+      "category": "E-Scooter",
+      "bannerImage": "assets/evegah_vb_pro.png",
       "isFavorite": false,
     },
   ];
@@ -122,6 +74,19 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  String _getBannerImage(String modelName) {
+    final lower = modelName.toLowerCase();
+    if (lower.contains('mink')) {
+      return 'assets/evegah_vb_mink.png';
+    } else if (lower.contains('pro')) {
+      return 'assets/evegah_vb_pro.png';
+    } else if (lower.contains('fly') || lower.contains('cycle') || lower.contains('kick') || lower.contains('moped') || lower.contains('bike')) {
+      return 'assets/evegah_vb_fly.png';
+    } else {
+      return 'assets/evegah_vb_city.png';
+    }
   }
 
   Future<void> _fetchLiveVehicleModels() async {
@@ -142,68 +107,19 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
           final List list = decoded['data'] ?? [];
           if (list.isNotEmpty && mounted) {
             final List<Map<String, dynamic>> updated = [];
-            final bgList = [
-              "assets/fleet_bg1.png",
-              "assets/fleet_bg2.png",
-              "assets/fleet_bg3.png",
-              "assets/fleet_bg4.png"
-            ];
 
             for (int i = 0; i < list.length; i++) {
               final raw = list[i];
               final String name = raw['name'] ?? 'Evegah EV';
               final String category = raw['category'] ?? 'E-Vehicle';
               final String tagline = raw['tagline'] ?? 'Smart. Silent. Sustainable.';
-              final String range = raw['range'] ?? '80–100 km';
-              final String speed = raw['top_speed'] ?? '45 km/h';
-              final String capacity = raw['seating_capacity'] != null
-                  ? "${raw['seating_capacity']} Seats"
-                  : (category.contains('Cycle') || category.contains('Scooter') || category.contains('Moped')
-                      ? "1 Seat"
-                      : "2 Seats");
-
-              String vehicleImg = "assets/city.png";
-              if (name.toLowerCase().contains("pro") || category.toLowerCase().contains("scooter")) {
-                vehicleImg = "assets/pro-1.png";
-              } else if (name.toLowerCase().contains("mink") || category.toLowerCase().contains("cargo")) {
-                vehicleImg = "assets/MINK-1.png";
-              } else if (name.toLowerCase().contains("fly") || category.toLowerCase().contains("bike") || category.toLowerCase().contains("moped")) {
-                vehicleImg = "assets/Fly.png";
-              }
-
-              final String bgImage = bgList[i % bgList.length];
-              Color pillBg = const Color(0xFFEDE9FE);
-              Color pillColor = const Color(0xFF6B21A8);
-              Color btnBg = const Color(0xFF4313B8);
-
-              if (category.toLowerCase().contains("scooter")) {
-                pillBg = const Color(0xFFDCFCE7);
-                pillColor = const Color(0xFF15803D);
-                btnBg = const Color(0xFF16A34A);
-              } else if (category.toLowerCase().contains("bike")) {
-                pillBg = const Color(0xFFE0F2FE);
-                pillColor = const Color(0xFF0369A1);
-                btnBg = const Color(0xFF0284C7);
-              } else if (category.toLowerCase().contains("cycle")) {
-                pillBg = const Color(0xFFFFEDD5);
-                pillColor = const Color(0xFFC2410C);
-                btnBg = const Color(0xFFEA580C);
-              }
 
               updated.add({
                 "id": raw['id'] ?? i,
                 "name": name,
                 "tagline": tagline,
                 "category": category,
-                "pillCategory": category,
-                "pillBg": pillBg,
-                "pillColor": pillColor,
-                "bgImage": bgImage,
-                "vehicleImage": vehicleImg,
-                "range": range,
-                "speed": speed,
-                "capacity": capacity,
-                "btnBg": btnBg,
+                "bannerImage": _getBannerImage(name),
                 "isFavorite": false,
               });
             }
@@ -322,7 +238,7 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
                   Text(
                     "Our EV Fleet",
                     style: TextStyle(
-                      fontSize: 22,
+                      fontSize: 12,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF0F172A),
                       letterSpacing: -0.4,
@@ -332,7 +248,7 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
                   Text(
                     "Choose a ride for a greener tomorrow",
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 8,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF64748B),
                     ),
@@ -349,25 +265,7 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
                 _searchQuery = "";
               });
             },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
-                  "View All",
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF4313B8),
-                  ),
-                ),
-                SizedBox(width: 3),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 16,
-                  color: Color(0xFF4313B8),
-                ),
-              ],
-            ),
+            
           ),
         ],
       ),
@@ -535,117 +433,66 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
     );
   }
 
-  // Wide Vehicle Card Matching Reference Image Exactly
+  // Vehicle Card Item - Renders full-bleed banner image (assets/evegah_vb_*.png) and links to details
   Widget _buildWideVehicleCard(Map<String, dynamic> item) {
-    final String name = item["name"] ?? "Evegah City";
-    final String tagline = item["tagline"] ?? "Smart. Silent. Sustainable.";
-    final String category = item["pillCategory"] ?? "E-Vehicle";
-    final Color pillBg = item["pillBg"] ?? const Color(0xFFEDE9FE);
-    final Color pillColor = item["pillColor"] ?? const Color(0xFF6B21A8);
-    final String bgImage = item["bgImage"] ?? "assets/fleet_bg1.png";
-    final String vehicleImage = (item["vehicleImage"] ?? item["image"] ?? "assets/city.png").toString();
-    final String range = item["range"] ?? "80–100 km";
-    final String speed = item["speed"] ?? "45 km/h";
-    final String capacity = item["capacity"] ?? "2 Seats";
-    final Color btnBg = item["btnBg"] ?? const Color(0xFF4313B8);
+    final String name = item["name"] ?? "Evegah EV";
+    final String bannerPath = item["bannerImage"] ?? _getBannerImage(name);
     final bool isFavorite = item["isFavorite"] == true;
 
     return Container(
-      height: 205,
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(23),
+        borderRadius: BorderRadius.circular(19),
         child: Stack(
           children: [
-            // 1. Background City Landscape graphic (fleet_bg1..4)
-            Positioned.fill(
-              child: Image.asset(
-                bgImage,
-                fit: BoxFit.cover,
-                alignment: Alignment.centerRight,
-              ),
-            ),
-
-            // 2. Background-Removed Vehicle PNG on Right Side with Shadow
-            Positioned(
-              right: 6,
-              bottom: 8,
-              top: 22,
-              width: 175,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    bottom: 2,
-                    child: Container(
-                      width: 110,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.all(Radius.elliptical(110, 12)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.16),
-                            blurRadius: 14,
-                            spreadRadius: 2,
-                          ),
-                        ],
+            // 1. Direct Banner Image (1942 / 809 ratio)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => VehicleDetailsScreen(
+                      vehicleId: name,
+                      modelName: name,
+                    ),
+                  ),
+                );
+              },
+              child: AspectRatio(
+                aspectRatio: 1942 / 809,
+                child: Image.asset(
+                  bannerPath,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFFF1F5F9),
+                    child: Center(
+                      child: Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => VehicleDetailsScreen(
-                            vehicleId: name,
-                            modelName: name,
-                          ),
-                        ),
-                      );
-                    },
-                    child: vehicleImage.startsWith('http')
-                        ? Image.network(
-                            vehicleImage,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                            errorBuilder: (context, error, stackTrace) => const Icon(
-                              Icons.electric_moped_rounded,
-                              size: 70,
-                              color: Color(0xFF4313B8),
-                            ),
-                          )
-                        : Image.asset(
-                            vehicleImage,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                            errorBuilder: (context, error, stackTrace) => const Icon(
-                              Icons.electric_moped_rounded,
-                              size: 70,
-                              color: Color(0xFF4313B8),
-                            ),
-                          ),
-                  ),
-                ],
+                ),
               ),
             ),
 
-            // 3. Favorite Heart Button on Top Right
+            // 2. Favorite Heart Button on Top Right
             Positioned(
-              top: 12,
-              right: 12,
+              top: 10,
+              right: 10,
               child: GestureDetector(
                 onTap: () {
                   setState(() {
@@ -656,13 +503,12 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.white.withValues(alpha: 0.92),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
@@ -675,158 +521,9 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
                 ),
               ),
             ),
-
-            // 4. Left Content Column
-            Positioned(
-              top: 14,
-              left: 14,
-              bottom: 14,
-              width: 190,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Pill category badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: pillBg,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: pillColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      // Model Name
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      // Tagline
-                      Text(
-                        tagline,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Specs Row (⚡ Range, ⏲️ Top Speed, 👥 Capacity)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildSpecCol(Icons.bolt_rounded, range, "Range"),
-                      _buildSpecCol(Icons.speed_rounded, speed, "Top Speed"),
-                      _buildSpecCol(Icons.people_alt_rounded, capacity, "Capacity"),
-                    ],
-                  ),
-
-                  // "View Details ->" Action Button
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => VehicleDetailsScreen(
-                            vehicleId: name,
-                            modelName: name,
-                          ),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: btnBg,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: btnBg.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Text(
-                            "View Details",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          SizedBox(width: 5),
-                          Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSpecCol(IconData icon, String value, String label) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 13, color: const Color(0xFF4313B8)),
-        const SizedBox(width: 3),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 7.5,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -838,38 +535,44 @@ class _VehicleModelListScreenState extends State<VehicleModelListScreen> {
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          _BottomBadgeItem(
-            icon: Icons.eco_rounded,
-            circleBg: Color(0xFFDCFCE7),
-            iconColor: Color(0xFF16A34A),
-            title: "Eco Friendly",
-            subtitle: "Zero Emission",
-          ),
-          _BottomBadgeItem(
-            icon: Icons.account_balance_wallet_rounded,
-            circleBg: Color(0xFFEDE9FE),
-            iconColor: Color(0xFF7C3AED),
-            title: "Affordable",
-            subtitle: "Save More",
-          ),
-          _BottomBadgeItem(
-            icon: Icons.verified_user_rounded,
-            circleBg: Color(0xFFDCFCE7),
-            iconColor: Color(0xFF16A34A),
-            title: "Safe & Reliable",
-            subtitle: "Ride with Confidence",
-          ),
-          _BottomBadgeItem(
-            icon: Icons.eco_rounded,
-            circleBg: Color(0xFFDCFCE7),
-            iconColor: Color(0xFF16A34A),
-            title: "Sustainable",
-            subtitle: "A Cleaner Tomorrow",
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: const [
+            _BottomBadgeItem(
+              icon: Icons.eco_rounded,
+              circleBg: Color(0xFFDCFCE7),
+              iconColor: Color(0xFF16A34A),
+              title: "Eco Friendly",
+              subtitle: "Zero Emission",
+            ),
+            SizedBox(width: 16),
+            _BottomBadgeItem(
+              icon: Icons.account_balance_wallet_rounded,
+              circleBg: Color(0xFFEDE9FE),
+              iconColor: Color(0xFF7C3AED),
+              title: "Affordable",
+              subtitle: "Save More",
+            ),
+            SizedBox(width: 16),
+            _BottomBadgeItem(
+              icon: Icons.verified_user_rounded,
+              circleBg: Color(0xFFDCFCE7),
+              iconColor: Color(0xFF16A34A),
+              title: "Safe & Reliable",
+              subtitle: "Ride with Confidence",
+            ),
+            SizedBox(width: 16),
+            _BottomBadgeItem(
+              icon: Icons.eco_rounded,
+              circleBg: Color(0xFFDCFCE7),
+              iconColor: Color(0xFF16A34A),
+              title: "Sustainable",
+              subtitle: "A Cleaner Tomorrow",
+            ),
+          ],
+        ),
       ),
     );
   }

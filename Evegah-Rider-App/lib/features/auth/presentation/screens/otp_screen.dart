@@ -444,7 +444,7 @@ class _OtpScreenState extends State<OtpScreen> with SingleTickerProviderStateMix
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: const BorderSide(color: Color(0xFF2a195c), width: 2.2),
                                 ),
-                                fillColor: isFocused ? const Color(0xFFF3F0FF) : const Color(0xFFFAFAFA),
+                                fillColor: isFocused ? const Color(0xFFF3F0FF) : const Color(0xFFFFFFFF),
                                 filled: true,
                               ),
                               onChanged: (val) => _onDigitChanged(index, val),

@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 const CSS = `
 .ma-page {
@@ -433,13 +434,34 @@ export default function AddMaintenancePage() {
   const [reminderDays, setReminderDays] = useState("Before 5 Days");
   const [notes, setNotes] = useState("Ensure proper tyre pressure after replacement. Test ride completed.");
 
-  // Uploaded mock photos list
-  const [photos, setPhotos] = useState<string[]>([
-    "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&q=80&w=150",
-    "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=150",
-    "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=150"
-  ]);
+  // Uploaded photos state - connected with zone images and file upload (no mock unsplash)
+  const [photos, setPhotos] = useState<string[]>([]);
 
+  useEffect(() => {
+    api.get('/zones').then((res: any) => {
+      const zList = res.data?.zones || res.zones || res.data || [];
+      if (Array.isArray(zList)) {
+        const found = zList.find((z: any) => z.name?.toLowerCase().includes(activeZone.toLowerCase()) || activeZone.toLowerCase().includes(z.name?.toLowerCase())) || zList[0];
+        if (found?.image_url) {
+          setPhotos([found.image_url]);
+        }
+      }
+    }).catch(err => console.error('Failed to load zone image:', err));
+  }, [activeZone]);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setPhotos(p => [...p, event.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+ 
   // Derived cost sums
   const totalPartsCost = useMemo(() => {
     return parts.reduce((sum, p) => sum + (p.qty * p.cost), 0);
@@ -881,7 +903,10 @@ export default function AddMaintenancePage() {
                       <button type="button" className="ma-photo-card-del" onClick={() => handleRemovePhoto(idx)}>x</button>
                     </div>
                   ))}
-                  <div className="ma-upload-dashed">+ Upload</div>
+                  <label className="ma-upload-dashed" style={{ cursor: 'pointer' }}>
+                    + Upload
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+                  </label>
                 </div>
               </div>
 

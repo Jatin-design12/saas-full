@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -142,17 +143,19 @@ class DashboardService {
   Future<Map<String, dynamic>?> fetchLiveModelDetails(String modelName) async {
     final cleanName = Uri.encodeComponent(modelName);
     final urls = [
-      'http://localhost:5000/api/vehicles/models/$cleanName',
-      'http://127.0.0.1:5000/api/vehicles/models/$cleanName',
-      'http://10.0.2.2:5000/api/vehicles/models/$cleanName',
       '${AppConstants.apiBaseUrl}/vehicles/models/$cleanName',
+      if (kDebugMode) ...[
+        'http://localhost:5000/api/vehicles/models/$cleanName',
+        'http://10.0.2.2:5000/api/vehicles/models/$cleanName',
+        'http://192.168.1.4:5000/api/vehicles/models/$cleanName',
+      ],
     ];
 
     for (final url in urls) {
       try {
         final response = await http
             .get(Uri.parse(url))
-            .timeout(const Duration(milliseconds: 600));
+            .timeout(const Duration(seconds: 3));
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {

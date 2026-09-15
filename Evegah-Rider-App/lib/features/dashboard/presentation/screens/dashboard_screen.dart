@@ -10,6 +10,7 @@ import 'select_location_screen.dart';
 import 'select_date_time_screen.dart';
 import '../../../notifications/presentation/screens/notification_screen.dart';
 import '../../../rides/presentation/screen/ride_history_screen.dart';
+import '../../../rides/presentation/screen/ride_started_screen.dart';
 import '../../../wallet/presentation/screens/wallet_screen.dart';
 import '../../../wallet/data/services/wallet_service.dart';
 import '../../../unlock/presentation/screens/scan_qr_screen.dart';
@@ -53,21 +54,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final List<Map<String, dynamic>> _evFleet = [
     {
-      "name": "EverRide Lite",
-      "tagline": "Light. Smart. Everyday.",
-      "category": "E-Bike",
-      "tagColor": const Color(0xFFDBEAFE),
-      "tagTextColor": const Color(0xFF1E40AF),
-      "cardBg": const Color(0xFFEFF5FD),
-      "sideCardBg": const Color(0xFFEFF5FD),
-      "btnColor": const Color(0xFF55739E),
-      "image": "assets/Fly.png",
-      "range": "35–50 km",
-      "speed": "25 km/h",
-      "capacity": "1 Seat",
-      "isFavorite": false,
-    },
-    {
       "name": "Evegah City",
       "tagline": "Smart. Silent. Sustainable.",
       "category": "E-Vehicle",
@@ -98,6 +84,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       "isFavorite": false,
     },
     {
+      "name": "EverRide Lite",
+      "tagline": "Light. Smart. Everyday.",
+      "category": "E-Bike",
+      "tagColor": const Color(0xFFDBEAFE),
+      "tagTextColor": const Color(0xFF1E40AF),
+      "cardBg": const Color(0xFFEFF5FD),
+      "sideCardBg": const Color(0xFFEFF5FD),
+      "btnColor": const Color(0xFF55739E),
+      "image": "assets/Fly.png",
+      "range": "35–50 km",
+      "speed": "25 km/h",
+      "capacity": "1 Seat",
+      "isFavorite": false,
+    },
+    {
       "name": "EcoRide Plus",
       "tagline": "Pedal the Change.",
       "category": "E-Cycle",
@@ -120,8 +121,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
-    _fleetPageController = PageController(viewportFraction: 0.68, initialPage: 1);
-    _currentFleetIndex = 1;
+    _fleetPageController =
+    PageController(viewportFraction: 0.485, initialPage: 0);
+    _currentFleetIndex = 0;
+    
     _startCarouselTimer();
     _loadBookingState();
     _fetchActiveBooking();
@@ -134,7 +137,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<String> urls = [
       '${AppConstants.apiBaseUrl}/vehicles/models',
       if (kDebugMode) ...[
-        'http://192.168.1.4:5000/api/vehicles/models',
         'http://localhost:5000/api/vehicles/models',
         'http://10.0.2.2:5000/api/vehicles/models',
       ]
@@ -162,10 +164,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               String img = "assets/city.png";
               final String rawImg = (item['main_image'] ?? item['image'] ?? '').toString().toLowerCase();
-              if (rawImg.contains('pro') || name.toLowerCase().contains("pro") || category.toLowerCase().contains("scooter")) {
+              if (name.toLowerCase().contains("city")) {
+                img = "assets/city.png";
+              } else if (rawImg.contains('pro') || name.toLowerCase().contains("pro") || category.toLowerCase().contains("scooter")) {
                 img = "assets/pro-1.png";
               } else if (rawImg.contains('mink') || name.toLowerCase().contains("mink") || category.toLowerCase().contains("cargo")) {
-                img = "assets/MINK-1.png";
+                img = "assets/mink.png";
               } else if (rawImg.contains('fly-1') || rawImg.contains('cycle') || name.toLowerCase().contains("eco") || category.toLowerCase().contains("cycle")) {
                 img = "assets/fly-1.png";
               } else if (rawImg.contains('fly') || name.toLowerCase().contains("fly") || category.toLowerCase().contains("bike") || category.toLowerCase().contains("moped")) {
@@ -214,6 +218,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               });
             }
 
+            // Sort dynamicFleet so Evegah City is always first
+            dynamicFleet.sort((a, b) {
+              final aName = (a['name'] ?? '').toString().toLowerCase();
+              final bName = (b['name'] ?? '').toString().toLowerCase();
+              if (aName.contains('city')) return -1;
+              if (bName.contains('city')) return 1;
+              return 0;
+            });
+
             setState(() {
               _evFleet.clear();
               _evFleet.addAll(dynamicFleet);
@@ -251,7 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<String> urls = [
       '${AppConstants.apiBaseUrl}/banners',
       if (kDebugMode) ...[
-        'http://192.168.1.4:5000/api/banners',
+        'http://localhost:5000/api/banners',
         'http://localhost:5000/api/banners',
         'http://10.0.2.2:5000/api/banners',
       ]
@@ -326,9 +339,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadBookingState() async {
     final booked = await SessionService().hasBookedFirstRide();
-    setState(() {
-      hasBookedRide = booked;
-    });
+    if (mounted) {
+      setState(() {
+        hasBookedRide = booked;
+      });
+    }
   }
 
   Future<void> _fetchActiveBooking() async {
@@ -342,7 +357,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final urls = [
       '${AppConstants.apiBaseUrl}/reservations?search=${Uri.encodeComponent(last10)}',
       if (kDebugMode) ...[
-        'http://192.168.1.4:5000/api/reservations?search=${Uri.encodeComponent(last10)}',
+        'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(last10)}',
         'http://localhost:5000/api/reservations?search=${Uri.encodeComponent(last10)}',
       ]
     ];
@@ -360,10 +375,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             final active = list.firstWhere(
               (r) =>
-                  r['status'] == 'Confirmed' ||
-                  r['status'] == 'Ongoing' ||
-                  r['status'] == 'In Progress' ||
-                  r['status'] == 'Started',
+                  ((r['status'] == 'Confirmed' ||
+                    r['status'] == 'Ongoing' ||
+                    r['status'] == 'In Progress' ||
+                    r['status'] == 'Started') &&
+                   (r['payment_status'] ?? '').toString().toLowerCase() == 'paid'),
               orElse: () => null,
             );
 
@@ -629,6 +645,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }
             },
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final isOngoing = (activeBooking?['status'] == 'Ongoing' || activeBooking?['status'] == 'Started');
+                if (isOngoing) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RideStartedScreen(
+                        vehicleId: activeBooking?['vehicle_number']?.toString() ?? 'EVM1024001',
+                        rideBookingId: int.tryParse(activeBooking?['id']?.toString() ?? '101') ?? 101,
+                      ),
+                    ),
+                  ).then((_) => _fetchActiveBooking());
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ScanQrScreen(),
+                    ),
+                  ).then((_) => _fetchActiveBooking());
+                }
+              },
+              icon: Icon(
+                (activeBooking?['status'] == 'Ongoing' || activeBooking?['status'] == 'Started')
+                    ? Icons.navigation_rounded
+                    : Icons.qr_code_scanner_rounded,
+                size: 16,
+              ),
+              label: Text(
+                (activeBooking?['status'] == 'Ongoing' || activeBooking?['status'] == 'Started')
+                    ? "View Active Ride"
+                    : "⚡ Start Ride / Unlock Vehicle",
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8CE600),
+                foregroundColor: const Color(0xFF200F54),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
           ),
         ],
       ),
@@ -1710,7 +1777,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   shadowColor: const Color(0xFF16A34A).withValues(alpha: 0.14),
                   badgeIcon: Icons.card_giftcard_rounded,
                   badgeBg: const Color(0xFF16A34A),
-                  image: "assets/mink-1.png",
+                  image: "assets/MINK-1.png",
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1915,7 +1982,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   "Choose Your EV Ride",
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0F172A),
                     letterSpacing: -0.4,
@@ -1925,7 +1992,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   "Clean Rides. Greener Tomorrows.",
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF64748B),
                   ),
@@ -1946,7 +2013,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF5F3FF),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(15),
                   border: Border.all(color: const Color(0xFFDDD6FE)),
                 ),
                 child: Row(
@@ -1955,7 +2022,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Text(
                       "View All",
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF4313B8),
                       ),
@@ -1975,10 +2042,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         const SizedBox(height: 14),
 
-        // 2. Center-Elevated 3D Card Carousel (1000000% Pixel Perfect to media_1789287607711.png)
+        // 2. Center-Elevated 3D Card Carousel 
         if (fleetList.isEmpty)
           Container(
-            height: 180,
+            height: 150,
             alignment: Alignment.center,
             child: const Text(
               "Loading fleet models...",
@@ -1987,11 +2054,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           )
         else
           SizedBox(
-            height: 385,
+            height: 310,
             child: PageView.builder(
               controller: _fleetPageController,
               clipBehavior: Clip.none,
               itemCount: fleetList.length,
+              padEnds: false,
               onPageChanged: (idx) {
                 setState(() {
                   _currentFleetIndex = idx;
@@ -1999,58 +2067,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               itemBuilder: (context, index) {
                 final item = fleetList[index];
-                final isCenter = index == _currentFleetIndex;
-
-                return AnimatedBuilder(
-                  animation: _fleetPageController,
-                  builder: (context, child) {
-                    double pageOffset = index.toDouble();
-                    if (_fleetPageController.hasClients && _fleetPageController.position.haveDimensions) {
-                      pageOffset = (_fleetPageController.page ?? index.toDouble()) - index;
-                    } else {
-                      pageOffset = (_currentFleetIndex.toDouble()) - index;
-                    }
-
-                    final double scale = (1.0 - (pageOffset.abs() * 0.12)).clamp(0.86, 1.0);
-                    final double opacity = (1.0 - (pageOffset.abs() * 0.18)).clamp(0.82, 1.0);
-
-                    // True 3D perspective matrix matching reference media_1789287607711.png
-                    final Matrix4 matrix = Matrix4.identity()
-                      ..setEntry(3, 2, 0.0014) // 3D depth perspective
-                      ..rotateY(pageOffset * -0.16) // 3D Y-axis angle toward center
-                      ..setTranslationRaw(-pageOffset * 16.0, 0.0, 0.0); // Smooth horizontal tuck
-
-                    return Transform(
-                      transform: matrix,
-                      alignment: Alignment.center,
-                      child: Transform.scale(
-                        scale: scale,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: _buildExactFleetCard(
-                            item: item,
-                            isCenter: isCenter,
-                            onDetailsTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => VehicleDetailsScreen(
-                                    vehicleId: item["name"]?.toString() ?? "Evegah City",
-                                    modelName: item["name"]?.toString() ?? "Evegah City",
-                                  ),
-                                ),
-                              );
-                            },
-                            onBookTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const RentEvScreen(),
-                                ),
-                              );
-                            },
-                          ),
+                return _buildExactFleetCard(
+                  item: item,
+                  isCenter: index == _currentFleetIndex,
+                  onDetailsTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VehicleDetailsScreen(
+                          vehicleId: item["name"]?.toString() ?? "Evegah City",
+                          modelName: item["name"]?.toString() ?? "Evegah City",
                         ),
+                      ),
+                    );
+                  },
+                  onBookTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RentEvScreen(),
                       ),
                     );
                   },
@@ -2085,280 +2120,205 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Exact Card Builder Matching Reference Design media_1789287607711.png 1000%
+  // Responsive 2-Card Fleet Card Builder
   Widget _buildExactFleetCard({
     required Map<String, dynamic> item,
     required bool isCenter,
     required VoidCallback onDetailsTap,
     required VoidCallback onBookTap,
   }) {
-    final Color cardBackground = isCenter
-        ? const Color(0xFFFFFFFF)
-        : (item["cardBg"] as Color? ?? const Color(0xFFF8FAFC));
-
+    final Color cardBackground = const Color(0xFFFFFFFF);
     final Color tagColor = item["tagColor"] as Color? ?? const Color(0xFFF3E8FF);
     final Color tagTextColor = item["tagTextColor"] as Color? ?? const Color(0xFF6B21A8);
-    final Color btnColor = item["btnColor"] as Color? ?? const Color(0xFF4313B8);
     final String name = item["name"] ?? "Evegah City";
     final String tagline = item["tagline"] ?? "Smart. Silent. Sustainable.";
     final String category = item["category"] ?? "E-Vehicle";
     final String imagePath = item["image"] ?? "assets/city.png";
     final String range = item["range"] ?? "80–100 km";
     final String speed = item["speed"] ?? "45 km/h";
-    final String capacity = item["capacity"] ?? "2 Seats";
     final bool isFavorite = item["isFavorite"] == true;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
       decoration: BoxDecoration(
         color: cardBackground,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isCenter ? const Color(0xFFE9D5FF).withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.9),
-          width: isCenter ? 1.5 : 1.2,
+          color: const Color(0xFFE2E8F0),
+          width: 1.0,
         ),
-        boxShadow: isCenter
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF4313B8).withValues(alpha: 0.14),
-                  blurRadius: 24,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 10),
-                ),
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  blurRadius: 6,
-                  offset: const Offset(0, -2),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(23),
+        borderRadius: BorderRadius.circular(19),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Row: Category Badge Pill + (Heart Favorite on Center Card)
+              // Top Row: Category Badge Pill + Heart Favorite
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: tagColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: tagTextColor,
-                        letterSpacing: -0.1,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: tagColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: tagTextColor,
+                        ),
                       ),
                     ),
                   ),
-                  if (isCenter)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          item["isFavorite"] = !isFavorite;
-                        });
-                      },
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          size: 18,
-                          color: isFavorite ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
-                        ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        item["isFavorite"] = !isFavorite;
+                      });
+                    },
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
                       ),
-                    )
-                  else
-                    const SizedBox(height: 34),
+                      child: Icon(
+                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        size: 14,
+                        color: isFavorite ? const Color(0xFFE11D48) : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
                 ],
               ),
 
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
 
               // Title & Subtitle Tagline
               Text(
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: isCenter ? 18 : 16.5,
+                style: const TextStyle(
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                  letterSpacing: -0.3,
+                  color: Color(0xFF0F172A),
                 ),
               ),
-              const SizedBox(height: 2),
               Text(
                 tagline,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 9,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),
                 ),
               ),
 
-              // Transparent Vehicle Stage with Realistic Soft Floor Shadow
+              // Vehicle Image Stage
               Expanded(
                 child: Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Floor Shadow Ellipse
-                      Positioned(
-                        bottom: 4,
-                        child: Container(
-                          width: 125,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.all(Radius.elliptical(125, 14)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.16),
-                                blurRadius: 16,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Background-Removed Vehicle PNG
-                      GestureDetector(
-                        onTap: isCenter ? onBookTap : onDetailsTap,
-                        child: Image.asset(
-                          imagePath,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          filterQuality: FilterQuality.high,
-                          errorBuilder: (context, error, stackTrace) => const Icon(
-                            Icons.electric_moped_rounded,
-                            size: 65,
-                            color: Color(0xFF4313B8),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: GestureDetector(
+                    onTap: onDetailsTap,
+                    child: Image.asset(
+                      imagePath,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.electric_moped_rounded,
+                          size: 45,
+                          color: Color(0xFF4313B8),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
 
-              // Spec Row: 3 columns for center card, 2 columns for side cards (per media_1789287607711.png)
+              // Spec Row: 2 Clean Columns (Range + Top Speed)
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
                 decoration: BoxDecoration(
-                  color: isCenter ? const Color(0xFFF8FAFC) : Colors.white.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFF1F5F9)),
                 ),
                 child: Row(
                   children: [
-                    // Spec 1: Range
                     Expanded(
                       child: _buildDesignSpecItem(
                         icon: Icons.bolt_rounded,
-                        iconColor: isCenter ? const Color(0xFF4F14E0) : btnColor,
+                        iconColor: const Color(0xFF4F14E0),
                         value: range,
                         label: "Range",
                       ),
                     ),
-                    Container(width: 1, height: 24, color: const Color(0xFFE2E8F0)),
-                    // Spec 2: Top Speed
+                    Container(width: 1, height: 18, color: const Color(0xFFE2E8F0)),
                     Expanded(
                       child: _buildDesignSpecItem(
                         icon: Icons.speed_rounded,
-                        iconColor: isCenter ? const Color(0xFF2563EB) : btnColor,
+                        iconColor: const Color(0xFF2563EB),
                         value: speed,
-                        label: "Top Speed",
+                        label: "Speed",
                       ),
                     ),
-                    if (isCenter) ...[
-                      Container(width: 1, height: 24, color: const Color(0xFFE2E8F0)),
-                      // Spec 3: Capacity (Center Card Only)
-                      Expanded(
-                        child: _buildDesignSpecItem(
-                          icon: Icons.people_alt_rounded,
-                          iconColor: const Color(0xFF7C3AED),
-                          value: capacity,
-                          label: "Capacity",
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
-              // Action Button: Book This Ride for Center, View Details for Side Cards
+              // Action Button: Book Ride
               InkWell(
-                onTap: isCenter ? onBookTap : onDetailsTap,
-                borderRadius: BorderRadius.circular(25),
+                onTap: onBookTap,
+                borderRadius: BorderRadius.circular(18),
                 child: Container(
                   width: double.infinity,
-                  height: 40,
+                  height: 28,
                   decoration: BoxDecoration(
-                    gradient: isCenter
-                        ? const LinearGradient(
-                            colors: [Color(0xFF4F14E0), Color(0xFF380BAA)],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          )
-                        : null,
-                    color: isCenter ? null : btnColor,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isCenter ? const Color(0xFF4F14E0) : btnColor).withValues(alpha: 0.28),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F14E0), Color(0xFF380BAA)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   alignment: Alignment.center,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                    children: const [
                       Text(
-                        isCenter ? "Book This Ride" : "View Details",
-                        style: const TextStyle(
-                          fontSize: 12.5,
+                        "Book Ride",
+                        style: TextStyle(
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
-                          letterSpacing: -0.1,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      const Icon(
+                      SizedBox(width: 3),
+                      Icon(
                         Icons.arrow_forward_rounded,
-                        size: 15,
+                        size: 10,
                         color: Colors.white,
                       ),
                     ],
@@ -2381,23 +2341,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: iconColor),
-        const SizedBox(height: 2),
+        Icon(icon, size: 10, color: iconColor),
+        const SizedBox(height: 1),
         Text(
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 10,
+            fontSize: 8.5,
             fontWeight: FontWeight.w800,
             color: Color(0xFF0F172A),
           ),
         ),
-        const SizedBox(height: 1),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 8,
+            fontSize: 7.5,
             fontWeight: FontWeight.w500,
             color: Color(0xFF64748B),
           ),

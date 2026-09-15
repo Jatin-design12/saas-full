@@ -55,7 +55,18 @@ class PayUService {
     final riderName = (userProfile['name'] != null && userProfile['name']!.isNotEmpty)
         ? userProfile['name']!
         : (profile.userName.isNotEmpty ? profile.userName : 'Evegah Rider');
-    final userEmail = profile.email.isNotEmpty ? profile.email : 'rider@evegah.com';
+    String resolvedEmail = profile.email.trim();
+    if (resolvedEmail.isEmpty && userProfile['email'] != null) {
+      resolvedEmail = userProfile['email']!.trim();
+    }
+    if (resolvedEmail.isEmpty) {
+      final syncProfile = SessionService().userProfileSync;
+      if (syncProfile['email'] != null && syncProfile['email']!.trim().isNotEmpty) {
+        resolvedEmail = syncProfile['email']!.trim();
+      }
+    }
+    // Individual rider-specific email per user account so each transaction is unique
+    final userEmail = resolvedEmail.isNotEmpty ? resolvedEmail : 'rider_$userMobile@evegah.com';
 
     final endpoints = _getEndpoints('/payments/payu/initiate');
 

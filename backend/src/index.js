@@ -100,9 +100,7 @@ app.get('/api/v1/getzoneDetailWithBikeCountList', async (req, res) => {
         country: z.country,
         type: z.type,
         address: z.address || z.locality || `${z.name}, Vadodara, Gujarat`,
-        image_url: (z.image_url && !z.image_url.startsWith('data:') && !z.image_url.startsWith('blob:') && z.image_url.length < 500)
-          ? z.image_url
-          : 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=600&auto=format&fit=crop&q=60',
+        image_url: z.image_url || '',
         phone: z.phone || z.contact_number || '+91 98765 43210',
         map_link: z.map_link || `https://maps.google.com/?q=${encodeURIComponent(z.name + ', Vadodara')}`,
         open_time: z.open_time || '06:00 AM',

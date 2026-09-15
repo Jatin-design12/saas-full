@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:evegah_rider_app/core/constants/app_constants.dart';
+import 'package:evegah_rider_app/core/services/session_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -52,17 +53,22 @@ class NotificationService {
   ];
 
   Future<List<Map<String, dynamic>>> fetchNotifications() async {
+    final savedMobile = await SessionService().getUserMobile() ?? SessionService().userMobileSync ?? '';
+    final cleanMobile = savedMobile.replaceAll(RegExp(r'\D'), '').trim();
+    final queryParam = cleanMobile.isNotEmpty ? '?mobile=$cleanMobile' : '';
+    final headers = cleanMobile.isNotEmpty ? {'x-user-mobile': cleanMobile} : <String, String>{};
+
     final urls = [
-      '${AppConstants.apiBaseUrl}/notifications',
+      '${AppConstants.apiBaseUrl}/notifications$queryParam',
       if (kDebugMode) ...[
-        'http://192.168.1.4:5000/api/notifications',
-        'http://localhost:5000/api/notifications',
+        'http://192.168.1.4:5000/api/notifications$queryParam',
+        'http://localhost:5000/api/notifications$queryParam',
       ]
     ];
 
     for (final url in urls) {
       try {
-        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
+        final res = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 4));
         if (res.statusCode == 200) {
           final body = json.decode(res.body);
           if (body['status'] == 'success' && body['data'] is List) {

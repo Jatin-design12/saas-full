@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 .re-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A; }
-.re-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
+.re-main { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
 .re-page { flex: 1; padding: 20px 24px 60px; display: flex; flex-direction: column; gap: 20px; }
 
 /* Header title */
@@ -77,6 +77,8 @@ const CSS = `
 .s-retain { background: #FFEDD5; color: #C2410C; }
 .s-return { background: #DBEAFE; color: #1D4ED8; }
 .s-extend { background: #F3E8FF; color: #7E22CE; }
+.s-upcoming { background: #FEF3C7; color: #B45309; }
+.s-noactive { background: #F1F5F9; color: #64748B; }
 
 /* Action Buttons Container */
 .re-action-cell { display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -193,40 +195,44 @@ export default function RentersPage() {
   }, []);
 
   // Phone-based unique display name map so every mobile number gets its OWN unique rider profile name!
+  // Phone-based unique display name map so every mobile number gets its OWN unique rider profile name!
   const getDisplayName = (r: Renter, idx: number) => {
-    if (r.rider_name && r.rider_name.trim() !== '' && r.rider_name !== 'Guest Rider' && r.rider_name !== 'Evegah Rider' && r.rider_name !== 'Rider') {
+    if (r.rider_name && r.rider_name.trim() !== '' && !['Guest Rider', 'Evegah Rider', 'Rider'].includes(r.rider_name)) {
       return r.rider_name;
     }
+    const cleanMob = (r.mobile || '').replace(/\D/g, '');
+    const last10 = cleanMob.length >= 10 ? cleanMob.slice(-10) : cleanMob;
     const phoneProfiles: Record<string, string> = {
+      '8141997231': 'Thakor Bhai',
+      '8128251172': 'Bhushan Diwakar',
+      '8980966677': 'Krunal',
+      '7359639580': 'Jatin Rohit',
+      '9876543210': 'Himanshu Chavda',
       '6358006496': 'Ketan Prajapati',
       '919328585954': 'Amit Kumar',
-      '9876543210': 'Himanshu Chavda',
-      '8128251172': 'Jatin Rohit',
-      '8980966677': 'Priya Sharma',
       '9125456789': 'Neha Gupta',
       '9987654321': 'Rohit Singh',
       '9812345678': 'Rahul Verma',
       '7894561230': 'Vikram Patel',
       '9912345678': 'Pooja Patel'
     };
-    const cleanMob = (r.mobile || '').replace(/\D/g, '');
-    const last10 = cleanMob.length >= 10 ? cleanMob.slice(-10) : cleanMob;
     if (phoneProfiles[last10]) return phoneProfiles[last10];
-
-    const pool = ['Jatin Rohit', 'Priya Sharma', 'Rohit Singh', 'Neha Gupta', 'Himanshu Chavda', 'Amit Kumar', 'Vikram Patel', 'Rahul Verma', 'Pooja Patel', 'Sneha Reddy'];
-    return pool[idx % pool.length];
+    return r.rider_name || 'Evegah Rider';
   };
 
   const handleDownloadReceipt = (r: Renter) => {
     const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    if (!printWindow) {
+      alert('Please allow popups to view and print the booking receipt.');
+      return;
+    }
 
     const cleanNum = (val: string) => parseFloat((val || '').replace(/[^0-9.]/g, '')) || 0;
-    const rentNum = cleanNum(r.rent);
-    const depositNum = cleanNum(r.deposit);
-    const totalNum = cleanNum(r.total);
+    const rentNum = cleanNum(r.rent) || 5;
+    const depositNum = cleanNum(r.deposit) || 5;
+    const totalNum = cleanNum(r.total) || (rentNum + depositNum);
 
-    const formatRupees = (num: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(num).replace('INR', '₹').trim();
+    const formatRupees = (num: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(num).replace('INR', '₹').trim();
 
     const now = new Date();
     const formattedDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -234,62 +240,176 @@ export default function RentersPage() {
     const dateTimeString = `${formattedDate}, ${formattedTime}`;
 
     const yrMo = now.getFullYear().toString() + (now.getMonth() + 1).toString().padStart(2, '0');
-    const receiptNo = `RCPT/${yrMo}/${Math.floor(100000 + Math.random() * 900000)}`;
+    const receiptNo = `RCPT-EVG-${yrMo}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const startFormatted = formatDateTime(r.rental_start_date);
+    const endFormatted = formatDateTime(r.return_date);
+    const displayName = getDisplayName(r, 0);
 
     const htmlContent = `
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Rider Payment Receipt - ${r.rider_name || 'Rider'}</title>
+          <meta charset="utf-8"/>
+          <title>Booking & Deposit Receipt - ${displayName}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 25px; color: #0f172a; background-color: #f8fafc; }
-            .receipt-card { max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; padding: 35px; border-radius: 12px; background-color: #ffffff; }
-            .receipt-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; }
-            .company-name { font-size: 18px; font-weight: 800; color: #1e1b4b; }
-            .doc-title-text { font-size: 20px; font-weight: 800; color: #1e1b4b; margin-top: 15px; }
-            .meta-row { display: flex; justify-content: space-between; margin: 15px 0; font-size: 13px; }
-            .table-wrap { margin-top: 20px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-            th { background: #f8fafc; font-weight: 700; }
-            .total-row { font-weight: 800; font-size: 15px; background: #eef2ff; }
+            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap');
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 30px 15px; color: #0F172A; background-color: #F8FAFC; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .receipt-container { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1.5px solid #E2E8F0; padding: 36px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+            
+            /* Header */
+            .rc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #F1F5F9; padding-bottom: 20px; margin-bottom: 24px; }
+            .brand-name { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; color: #200F54; letter-spacing: -0.02em; }
+            .brand-sub { font-size: 11px; font-weight: 600; color: #528900; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+            .rc-meta { text-align: right; font-size: 12px; color: #64748B; }
+            .rc-no { font-family: 'Outfit', sans-serif; font-weight: 800; color: #200F54; font-size: 14px; margin-bottom: 2px; }
+            
+            /* Doc Title */
+            .doc-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+            .doc-title h1 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0F172A; }
+            .badge-paid { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
+            
+            /* Info Grids */
+            .info-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; font-size: 12px; }
+            .info-item label { display: block; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 3px; }
+            .info-item span { font-weight: 700; color: #0F172A; font-size: 13px; }
+            
+            /* Table */
+            table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12.5px; }
+            th { background: #F1F5F9; color: #475569; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 14px; text-align: left; }
+            th:last-child { text-align: right; }
+            td { padding: 12px 14px; border-bottom: 1px solid #F1F5F9; color: #1E293B; }
+            td:last-child { text-align: right; font-weight: 700; }
+            .tr-total { background: #FAF5FF; font-weight: 800; font-size: 14px; color: #200F54; }
+            .tr-total td { border-bottom: none; border-top: 2px solid #E9D5FF; }
+            
+            /* Footer */
+            .rc-footer { border-top: 1px dashed #CBD5E1; padding-top: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748B; }
+            .rc-seal { text-align: right; }
+            .seal-stamp { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 12px; color: #528900; border: 1.5px dashed #528900; padding: 6px 12px; border-radius: 8px; display: inline-block; margin-top: 4px; }
+            
+            /* Print button */
+            .print-btn-bar { text-align: center; margin-bottom: 20px; }
+            .btn-print { background: #200F54; color: #fff; font-weight: 700; font-size: 13px; padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; }
+            @media print {
+              .print-btn-bar { display: none; }
+              body { padding: 0; background: #fff; }
+              .receipt-container { border: none; box-shadow: none; padding: 20px 0; }
+            }
           </style>
         </head>
         <body>
-          <div class="receipt-card">
-            <div class="receipt-header">
+          <div class="print-btn-bar">
+            <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+          </div>
+
+          <div class="receipt-container">
+            <div class="rc-header">
               <div>
-                <div class="company-name">EVEGAH MOBILITY</div>
-                <div style="font-size:12px;color:#64748b;">Smart EV Rental Platform</div>
+                <div class="brand-name">EVEGAH MOBILITY</div>
+                <div class="brand-sub">Smart EV Rental & Battery Network</div>
+                <div style="font-size: 11px; color: #64748B; margin-top: 4px;">Vadodara Hub, Gujarat • support@evegah.com</div>
               </div>
-              <div style="text-align:right;font-size:12px;color:#64748b;">
-                <div>Receipt: <b>${receiptNo}</b></div>
+              <div class="rc-meta">
+                <div class="rc-no">${receiptNo}</div>
                 <div>Date: ${dateTimeString}</div>
+                <div>Payment Mode: <b>PayU India Gateway</b></div>
               </div>
             </div>
-            <div class="doc-title-text">Payment Receipt</div>
-            <div class="meta-row">
-              <div>Rider Name: <b>${r.rider_name || 'Rider'}</b></div>
-              <div>Mobile: <b>${r.mobile}</b></div>
+
+            <div class="doc-title">
+              <h1>Rider Booking & Security Deposit Receipt</h1>
+              <span class="badge-paid">✓ Paid & Verified</span>
             </div>
-            <div class="meta-row">
-              <div>Vehicle ID: <b>${r.vehicle_id || '—'}</b></div>
-              <div>Battery ID: <b>${r.battery_id || '—'}</b></div>
-              <div>Package: <b>${r.package_name}</b></div>
+
+            <div class="info-box">
+              <div class="info-item">
+                <label>Rider Name</label>
+                <span>${displayName}</span>
+              </div>
+              <div class="info-item">
+                <label>Contact Mobile</label>
+                <span>${r.mobile}</span>
+              </div>
+              <div class="info-item">
+                <label>Assigned Vehicle</label>
+                <span>${r.vehicle_id || 'EVM102501'} (Evegah City EV)</span>
+              </div>
+              <div class="info-item">
+                <label>Assigned Battery Unit</label>
+                <span>${r.battery_id || 'BAT-MNZ-001'} (60V Li-ion)</span>
+              </div>
+              <div class="info-item">
+                <label>Subscription Package</label>
+                <span>${r.package_name || 'Day Plan'}</span>
+              </div>
+              <div class="info-item">
+                <label>Pickup / Operating Hub</label>
+                <span>${(r as any).zone || 'Manjalpur Zone'}</span>
+              </div>
+              <div class="info-item">
+                <label>Rental Start Date & Time</label>
+                <span>${startFormatted.date} ${startFormatted.time}</span>
+              </div>
+              <div class="info-item">
+                <label>Return Date & Time</label>
+                <span>${endFormatted.date} ${endFormatted.time}</span>
+              </div>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Item Description</th><th>Amount</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td>Rental Subscription Charge</td><td>${formatRupees(rentNum)}</td></tr>
-                  <tr><td>Security Deposit (Refundable)</td><td>${formatRupees(depositNum)}</td></tr>
-                  <tr class="total-row"><td>Total Paid</td><td>${formatRupees(totalNum || rentNum + depositNum)}</td></tr>
-                </tbody>
-              </table>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Amount (INR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>EV Rental Subscription</b><br/><span style="font-size:11px;color:#64748B;">Package: ${r.package_name || 'Day Plan'} (${startFormatted.date} to ${endFormatted.date})</span></td>
+                  <td>Rental Charge</td>
+                  <td>${formatRupees(rentNum)}</td>
+                </tr>
+                <tr>
+                  <td><b>Refundable Security Deposit</b><br/><span style="font-size:11px;color:#64748B;">100% Refundable upon vehicle & battery return inspection</span></td>
+                  <td>Security Deposit</td>
+                  <td>${formatRupees(depositNum)}</td>
+                </tr>
+                <tr>
+                  <td><b>Platform, Telematics & Battery Swap Service</b><br/><span style="font-size:11px;color:#64748B;">Unlimited battery swaps across active Evegah Hubs</span></td>
+                  <td>Included</td>
+                  <td>₹0.00</td>
+                </tr>
+                <tr class="tr-total">
+                  <td colspan="2">TOTAL AMOUNT PAID</td>
+                  <td>${formatRupees(totalNum)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="rc-footer">
+              <div>
+                <div><b>Terms & Refund Policy:</b></div>
+                <div style="margin-top:2px;">• Security deposit is refunded via PayU within 3-5 business days upon return.</div>
+                <div>• For emergency assistance, WhatsApp or call +91 93285 85954.</div>
+              </div>
+              <div class="rc-seal">
+                <div>Authorized Evegah Mobility</div>
+                <div class="seal-stamp">✓ VERIFIED OFFICIAL</div>
+              </div>
             </div>
           </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+              }, 400);
+            };
+          </script>
         </body>
       </html>
     `;
@@ -510,11 +630,12 @@ export default function RentersPage() {
         month: 'short',
         year: 'numeric'
       });
-      const time = d.toLocaleTimeString('en-US', {
+      const hasTime = typeof dateStr === 'string' && (dateStr.includes('T') || dateStr.includes(':') || dateStr.length > 10);
+      const time = hasTime ? d.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
-      });
+      }) : '';
       return { date, time };
     } catch (_) {
       return { date: dateStr, time: '' };
@@ -834,20 +955,89 @@ export default function RentersPage() {
                                   alt="" 
                                   className="re-avatar" 
                                 />
-                                <span style={{ fontWeight: 600 }}>{displayName}</span>
+                                <span style={{ fontWeight: 750, color: '#0F172A', fontSize: '13px' }}>{displayName}</span>
                               </div>
                             </td>
-                            <td style={{ color: '#64748B' }}>{displayMobile}</td>
-                            <td><span className="re-code">{r.vehicle_id || '—'}</span></td>
-                            <td><span className="re-code">{r.battery_id || '—'}</span></td>
-                            <td style={{ fontWeight: 500 }}>{r.package_name}</td>
+                            <td style={{ color: '#64748B', fontWeight: 500 }}>{displayMobile}</td>
                             <td>
-                              <div style={{ fontWeight: 600 }}>{start.date}</div>
-                              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>{start.time}</div>
+                              {r.vehicle_id ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '3px 8px',
+                                  background: '#EEF2FF',
+                                  color: '#4338CA',
+                                  border: '1px solid #C7D2FE',
+                                  borderRadius: '6px',
+                                  fontFamily: 'monospace',
+                                  fontWeight: 700,
+                                  fontSize: '11.5px',
+                                  letterSpacing: '0.02em'
+                                }}>
+                                  {r.vehicle_id}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
+                              )}
                             </td>
                             <td>
-                              <div style={{ fontWeight: 600 }}>{end.date}</div>
-                              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>{end.time}</div>
+                              {r.battery_id ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '3px 8px',
+                                  background: '#F8FAFC',
+                                  color: '#334155',
+                                  border: '1px solid #E2E8F0',
+                                  borderRadius: '6px',
+                                  fontFamily: 'monospace',
+                                  fontWeight: 600,
+                                  fontSize: '11.5px'
+                                }}>
+                                  {r.battery_id}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
+                              )}
+                            </td>
+                            <td style={{ fontWeight: 600, color: '#334155' }}>{r.package_name}</td>
+                            <td>
+                              <div style={{
+                                display: 'inline-flex',
+                                flexDirection: 'column',
+                                padding: '4px 10px',
+                                background: '#F0FDF4',
+                                border: '1px solid #BBF7D0',
+                                borderRadius: '8px'
+                              }}>
+                                <span style={{ fontWeight: 750, color: '#166534', fontSize: '12px' }}>{start.date}</span>
+                                {start.time && (
+                                  <span style={{ fontSize: '10.5px', color: '#15803D', fontWeight: 600, marginTop: '1px' }}>
+                                    {start.time}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              {end.date !== '—' ? (
+                                <div style={{
+                                  display: 'inline-flex',
+                                  flexDirection: 'column',
+                                  padding: '4px 10px',
+                                  background: '#F8FAFC',
+                                  border: '1px solid #E2E8F0',
+                                  borderRadius: '8px'
+                                }}>
+                                  <span style={{ fontWeight: 650, color: '#334155', fontSize: '12px' }}>{end.date}</span>
+                                  {end.time && (
+                                    <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '1px' }}>
+                                      {end.time}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
+                              )}
                             </td>
                             <td>
                               <span className={`re-sbadge ${getStatusClass(r.status)}`}>
@@ -856,7 +1046,21 @@ export default function RentersPage() {
                             </td>
                             <td style={{ fontWeight: 600 }}>{formatCurrency(r.rent)}</td>
                             <td style={{ fontWeight: 600, color: '#64748B' }}>{formatCurrency(r.deposit)}</td>
-                            <td style={{ fontWeight: 800, color: '#2a195c' }}>{formatCurrency(r.total)}</td>
+                            <td>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '4px 10px',
+                                background: '#FAF5FF',
+                                color: '#2A195C',
+                                border: '1.5px solid #E9D5FF',
+                                borderRadius: '8px',
+                                fontWeight: 850,
+                                fontSize: '13px'
+                              }}>
+                                {formatCurrency(r.total)}
+                              </span>
+                            </td>
                             <td>
                               <div className="re-action-cell">
                                 {/* View button opens Vehicle & Battery Allocation modal */}

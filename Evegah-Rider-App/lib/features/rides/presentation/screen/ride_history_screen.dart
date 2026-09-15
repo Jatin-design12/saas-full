@@ -290,13 +290,18 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
         !rawPlate.toString().contains('GJ-06-EV-1024') &&
         !rawPlate.toString().toLowerCase().contains('pending');
 
+    final pStat = (r['payment_status'] ?? '').toString().trim().toLowerCase();
+    if (stat == 'pending' || pStat == 'pending' || pStat == 'unpaid' || pStat == 'failed') {
+      return 'Pending Payment';
+    }
+
     if (stat == 'confirmed') {
       if (hasAssignedVehicle || (start != null && now.isAfter(start))) {
         return 'Ongoing';
       }
     }
 
-    if (stat == 'upcoming' || stat == 'pending' || stat == 'confirmed') {
+    if (stat == 'upcoming' || stat == 'confirmed') {
       return 'Upcoming';
     }
     return 'Upcoming';
@@ -1268,6 +1273,10 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
       badgeBg = const Color(0xFFEEF2FF);
       badgeText = const Color(0xFF4313B8);
       dotColor = const Color(0xFF6366F1);
+    } else if (status == 'Pending Payment') {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeText = const Color(0xFFD97706);
+      dotColor = const Color(0xFFF59E0B);
     } else if (status == 'Completed') {
       badgeBg = const Color(0xFFF1F5F9);
       badgeText = const Color(0xFF475569);

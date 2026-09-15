@@ -130,7 +130,30 @@ router.post('/initiate', async (req, res) => {
     const txnid = `EVGPAYU${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
     const cleanMobile = (mobile || '').replace(/\D/g, '') || '9876543210';
     const cleanName = (rider_name || 'Evegah Rider').trim();
-    const cleanEmail = (email || 'rider@evegah.com').trim();
+    let resolvedEmail = (email || '').trim();
+    if (!resolvedEmail || resolvedEmail === 'rider@evegah.com') {
+      try {
+        const last10 = cleanMobile.slice(-10);
+        const renterQuery = await db.query(
+          "SELECT email FROM renters WHERE mobile LIKE $1 AND email IS NOT NULL AND email != '' AND email != 'rider@evegah.com' LIMIT 1",
+          [`%${last10}%`]
+        );
+        if (renterQuery.rows.length > 0 && renterQuery.rows[0].email) {
+          resolvedEmail = renterQuery.rows[0].email.trim();
+        } else {
+          const userQuery = await db.query(
+            "SELECT email FROM users WHERE (mobile LIKE $1 OR phone LIKE $1) AND email IS NOT NULL AND email != '' AND email != 'rider@evegah.com' LIMIT 1",
+            [`%${last10}%`]
+          );
+          if (userQuery.rows.length > 0 && userQuery.rows[0].email) {
+            resolvedEmail = userQuery.rows[0].email.trim();
+          }
+        }
+      } catch (_) {}
+    }
+    const cleanEmail = (resolvedEmail && resolvedEmail !== 'rider@evegah.com')
+      ? resolvedEmail
+      : `rider_${cleanMobile}@evegah.com`;
     const formattedAmount = numAmount.toFixed(2);
     const productInfo = purpose === 'ride' ? 'Evegah Ride Booking' : 'Evegah Wallet Top-Up';
 
@@ -221,8 +244,9 @@ router.get('/checkout/:txnid', async (req, res) => {
     const formattedAmount = parseFloat(payment.amount).toFixed(2);
     const productInfo = payment.purpose === 'ride' ? 'Evegah Ride Booking' : 'Evegah Wallet Top-Up';
     const cleanMobile = (payment.mobile || '').replace(/\D/g, '') || '9876543210';
-    const cleanName = (payment.rider_name || 'Evegah Rider').trim();
-    const cleanEmail = (payment.email || 'rider@evegah.com').trim();
+    const cleanEmail = (payment.email && payment.email.trim() !== 'rider@evegah.com')
+      ? payment.email.trim()
+      : `rider_${cleanMobile}@evegah.com`;
 
     const host = req.get('host') || 'evegah.cloud';
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
@@ -306,7 +330,7 @@ router.get('/checkout/:txnid', async (req, res) => {
 router.all('/response', async (req, res) => {
   try {
     const payload = { ...req.query, ...req.body };
-    const {
+    let {
       txnid,
       status,
       amount,
@@ -323,11 +347,50 @@ router.all('/response', async (req, res) => {
       client_redirect
     } = payload;
 
+    // Check existing payment in database if txnid exists
+    let existingPayment = null;
+    if (txnid) {
+      try {
+        const pRes = await db.query('SELECT * FROM payu_payments WHERE tx_id = $1 LIMIT 1', [txnid]);
+        if (pRes.rows && pRes.rows.length > 0) {
+          existingPayment = pRes.rows[0];
+        }
+      } catch (e) {
+        console.warn('DB check for existing payment notice:', e.message);
+      }
+    }
+
+    if (existingPayment) {
+      if (!amount || parseFloat(amount) === 0) amount = existingPayment.amount;
+      if (!udf1) udf1 = existingPayment.purpose;
+      if (!udf2) udf2 = existingPayment.reservation_id;
+      if (!udf3) udf3 = existingPayment.mobile;
+      if (!firstname) firstname = existingPayment.rider_name;
+      if (!email) email = existingPayment.email;
+    }
+
     const creds = await getPayUCredentials();
     const isHashValid = verifyPayUResponseHash(payload, creds.salt);
-    const payuTxId = mihpayid || payuMoneyId || '';
-    const numAmount = parseFloat(amount || 0);
-    const isSuccess = (status || '').toLowerCase() === 'success' && (isHashValid || creds.env === 'test');
+    const payuTxId = mihpayid || payuMoneyId || existingPayment?.payu_id || '';
+    let numAmount = parseFloat(amount || (existingPayment ? existingPayment.amount : 0));
+
+    let isSuccess = (status || '').toLowerCase() === 'success' && (isHashValid || creds.env === 'test');
+
+    // If status is success from PayU, but hash didn't match (due to proxy, encoding, or additionalCharges), verify with PayU server directly
+    if (!isSuccess && (status || '').toLowerCase() === 'success' && txnid) {
+      console.log(`PayU response hash verification fallback for ${txnid}...`);
+      const verifyRes = await verifyPayUPaymentWithGateway(txnid);
+      if (verifyRes.verified && verifyRes.status === 'Success') {
+        isSuccess = true;
+        if (verifyRes.amount) numAmount = verifyRes.amount;
+      }
+    }
+
+    // If already marked as Success in DB, retain Success status
+    if (!isSuccess && existingPayment && (existingPayment.status || '').toLowerCase() === 'success') {
+      isSuccess = true;
+      numAmount = parseFloat(existingPayment.amount || numAmount);
+    }
 
     const cleanMobile = (udf3 || '').replace(/\D/g, '');
     const purpose = udf1 || 'wallet';
@@ -336,11 +399,14 @@ router.all('/response', async (req, res) => {
 
     // Update payu_payments record
     try {
-      await db.query(`
-        UPDATE payu_payments
-        SET status = $1, payu_id = $2, bank_ref_num = $3, error_message = $4, raw_response = $5, updated_at = NOW()
-        WHERE tx_id = $6
-      `, [isSuccess ? 'Success' : 'Failed', payuTxId, bank_ref_num || null, errMsg, JSON.stringify(payload), txnid]);
+      if (txnid) {
+        await db.query(`
+          UPDATE payu_payments
+          SET status = $1, payu_id = COALESCE($2, payu_id), bank_ref_num = COALESCE($3, bank_ref_num), 
+              error_message = $4, raw_response = $5, updated_at = NOW()
+          WHERE tx_id = $6
+        `, [isSuccess ? 'Success' : 'Failed', payuTxId || null, bank_ref_num || null, errMsg, JSON.stringify(payload), txnid]);
+      }
     } catch (e) {
       console.warn('Failed to update payu_payments table:', e.message);
     }
@@ -376,7 +442,7 @@ router.all('/response', async (req, res) => {
       if (reservationId) {
         try {
           await db.query(
-            `UPDATE reservations SET payment_status = 'Paid', payment_mode = 'PayU', status = 'Confirmed', transaction_id = $1 WHERE id = $2`,
+            `UPDATE reservations SET payment_status = 'Paid', payment_mode = 'PayU', status = 'Confirmed', transaction_id = $1 WHERE id::text = $2 OR reservation_id = $2`,
             [txnid, reservationId]
           );
         } catch (resErr) {
@@ -386,12 +452,13 @@ router.all('/response', async (req, res) => {
 
       // Send WhatsApp Receipt
       if (cleanMobile && numAmount > 0) {
-        sendWhatsAppReceipt(cleanMobile, {
-          amount: numAmount,
-          tx_id: txnid,
-          payment_mode: 'PayU India',
-          purpose: purpose === 'ride' ? 'EV Ride Booking' : 'Wallet Top-Up'
-        }).catch(() => {});
+        sendWhatsAppReceipt({
+          mobile: cleanMobile,
+          name: firstname || 'Rider',
+          invoice_no: txnid,
+          plan: purpose === 'ride' ? 'EV Ride Booking' : 'Wallet Top-Up',
+          amount: numAmount
+        }).catch((wErr) => console.error('[PayU] WhatsApp receipt notice:', wErr.message));
       }
     }
 
@@ -440,8 +507,17 @@ router.all('/response', async (req, res) => {
           <div class="row"><span class="lbl">Amount</span><span class="val">₹${numAmount.toFixed(2)}</span></div>
           <div class="row"><span class="lbl">Gateway</span><span class="val">PayU India</span></div>
           <div class="row"><span class="lbl">Status</span><span class="val" style="color: ${statusColor};">${isSuccess ? 'SUCCESS' : 'FAILED'}</span></div>
-          <button onclick="window.close()" class="btn">Close Window</button>
+          <button onclick="if(window.opener){window.close();}else{window.history.back();}" class="btn">${isSuccess ? 'Continue to App' : 'Close Window'}</button>
         </div>
+        <script>
+          if (${isSuccess}) {
+            setTimeout(function() {
+              try {
+                if (window.opener) { window.close(); }
+              } catch (_) {}
+            }, 1500);
+          }
+        </script>
       </body>
       </html>
     `);
@@ -572,6 +648,14 @@ router.post('/refund', async (req, res) => {
       refundTxId: refund_tx_id
     });
 
+    if (!result.success) {
+      return res.status(400).json({
+        status: 'error',
+        message: result.error || 'PayU refund rejected by gateway',
+        data: result
+      });
+    }
+
     res.json({
       status: 'success',
       message: result.message,
@@ -584,16 +668,115 @@ router.post('/refund', async (req, res) => {
 });
 
 /**
- * Process Refund via PayU Gateway
+ * Process Live Refund via PayU Gateway (cancel_refund_transaction)
  */
-async function processPayURefund({ payuId, amount, refundTxId }) {
+async function processPayURefund({ payuId, txnid, reservationId, mobile, amount, refundTxId }) {
   const creds = await getPayUCredentials();
   const formattedAmount = parseFloat(amount).toFixed(2);
   const token = refundTxId || `REF-${Date.now()}`;
-  const var1 = payuId || '';
 
-  // PayU command hash: sha512(key|command|var1|salt)
-  const hashString = `${creds.key}|cancel_refund_transaction|${var1}|${creds.salt}`;
+  // 1. Dynamically resolve PayU's internal payment ID (mihpayid)
+  let mihpayid = '';
+
+  // Check if payuId is already a numeric PayU ID
+  if (payuId && /^\d{6,}$/.test(String(payuId).trim())) {
+    mihpayid = String(payuId).trim();
+  }
+
+  // Look up in payu_payments table by tx_id (merchant transaction ID)
+  if (!mihpayid) {
+    const lookupTx = txnid || (payuId && String(payuId).startsWith('EVG') ? payuId : null);
+    if (lookupTx) {
+      const q = await db.query(
+        "SELECT payu_id, tx_id FROM payu_payments WHERE tx_id = $1 AND payu_id IS NOT NULL AND payu_id != '' LIMIT 1",
+        [lookupTx]
+      ).catch(() => ({ rows: [] }));
+      if (q.rows.length > 0 && q.rows[0].payu_id && /^\d+$/.test(q.rows[0].payu_id)) {
+        mihpayid = q.rows[0].payu_id;
+      }
+    }
+  }
+
+  // Look up by reservation_id
+  if (!mihpayid && reservationId) {
+    try {
+      const resRow = await db.query(
+        "SELECT transaction_id, mobile FROM reservations WHERE id::text = $1 OR reservation_id = $1 LIMIT 1",
+        [String(reservationId)]
+      );
+      if (resRow.rows.length > 0) {
+        const rTx = resRow.rows[0].transaction_id;
+        if (rTx && /^\d{6,}$/.test(String(rTx).trim())) {
+          mihpayid = String(rTx).trim();
+        } else if (rTx && String(rTx).startsWith('EVG')) {
+          const q = await db.query(
+            "SELECT payu_id FROM payu_payments WHERE tx_id = $1 AND payu_id IS NOT NULL AND payu_id != '' LIMIT 1",
+            [rTx]
+          );
+          if (q.rows.length > 0 && q.rows[0].payu_id && /^\d+$/.test(q.rows[0].payu_id)) {
+            mihpayid = q.rows[0].payu_id;
+          }
+        }
+        if (!mobile && resRow.rows[0].mobile) {
+          mobile = resRow.rows[0].mobile;
+        }
+      }
+    } catch (_) {}
+
+    if (!mihpayid) {
+      const q = await db.query(
+        "SELECT payu_id, tx_id FROM payu_payments WHERE (reservation_id = $1 OR tx_id LIKE $2) AND payu_id IS NOT NULL AND payu_id != '' ORDER BY id DESC LIMIT 1",
+        [String(reservationId), `%${String(reservationId).slice(-6)}%`]
+      ).catch(() => ({ rows: [] }));
+      if (q.rows.length > 0 && q.rows[0].payu_id && /^\d+$/.test(q.rows[0].payu_id)) {
+        mihpayid = q.rows[0].payu_id;
+      }
+    }
+  }
+
+  // Look up by mobile
+  if (!mihpayid && mobile) {
+    const cleanMob = String(mobile).replace(/\D/g, '').slice(-10);
+    if (cleanMob.length === 10) {
+      const q = await db.query(
+        "SELECT payu_id, tx_id FROM payu_payments WHERE mobile LIKE $1 AND status = 'Success' AND payu_id IS NOT NULL AND payu_id != '' ORDER BY id DESC LIMIT 1",
+        [`%${cleanMob}%`]
+      ).catch(() => ({ rows: [] }));
+      if (q.rows.length > 0 && q.rows[0].payu_id && /^\d+$/.test(q.rows[0].payu_id)) {
+        mihpayid = q.rows[0].payu_id;
+      }
+    }
+  }
+
+  // If still not resolved, query PayU Gateway verify_payment API live using txnid
+  const effectiveTxnid = txnid || (payuId && String(payuId).startsWith('EVG') ? payuId : null);
+  if (!mihpayid && effectiveTxnid) {
+    try {
+      const verifyRes = await verifyPayUPaymentWithGateway(effectiveTxnid);
+      if (verifyRes.verified && verifyRes.payuId) {
+        mihpayid = String(verifyRes.payuId);
+        // Save payu_id in DB for future reference
+        await db.query(
+          "UPDATE payu_payments SET payu_id = $1 WHERE tx_id = $2",
+          [mihpayid, effectiveTxnid]
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('PayU live verification during refund error:', e.message);
+    }
+  }
+
+  if (!mihpayid) {
+    return {
+      success: false,
+      error: `Could not resolve PayU Payment ID (mihpayid) for booking ${reservationId || effectiveTxnid || 'unknown'}. Only rides paid through PayU Gateway can be refunded via this live gateway API.`
+    };
+  }
+
+  // 2. Compute PayU Hash for cancel_refund_transaction
+  // Formula: sha512(key|command|var1|salt) where var1 is mihpayid
+  const command = 'cancel_refund_transaction';
+  const hashString = `${creds.key}|${command}|${mihpayid}|${creds.salt}`;
   const hash = crypto.createHash('sha512').update(hashString).digest('hex');
 
   const endpoint = creds.env === 'production'
@@ -603,15 +786,18 @@ async function processPayURefund({ payuId, amount, refundTxId }) {
   try {
     const params = new URLSearchParams();
     params.append('key', creds.key);
-    params.append('command', 'cancel_refund_transaction');
-    params.append('var1', var1);
+    params.append('command', command);
+    params.append('var1', mihpayid);
     params.append('var2', token);
     params.append('var3', formattedAmount);
     params.append('hash', hash);
 
     const fetchRes = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
       body: params.toString()
     });
 
@@ -621,31 +807,53 @@ async function processPayURefund({ payuId, amount, refundTxId }) {
       jsonRes = JSON.parse(textRes);
     } catch (_) {}
 
-    await db.query(`
-      INSERT INTO payu_payments (tx_id, payu_id, amount, status, purpose, raw_response)
-      VALUES ($1, $2, $3, 'Refunded', 'Security Deposit Refund via PayU', $4)
-    `, [token, var1, formattedAmount, JSON.stringify(jsonRes || { response: textRes })]).catch(() => {});
+    // PayU response format:
+    // Success: { "status": 1, "msg": "Refund Request Queued", "request_id": "...", "bank_ref_num": "..." }
+    // Failure: { "status": 0, "msg": "..." }
+    const isSuccess = jsonRes && (
+      (jsonRes.status == 1 || jsonRes.status === '1') &&
+      jsonRes.status != 0 &&
+      jsonRes.status !== '0'
+    );
 
-    return {
-      success: true,
-      refund_tx_id: token,
-      gateway: 'PayU India',
-      message: `PayU refund of ₹${formattedAmount} processed successfully.`,
-      raw: jsonRes || textRes
-    };
+    if (isSuccess) {
+      const payuRequestId = jsonRes.request_id || token;
+      const bankRef = jsonRes.bank_ref_num || '';
+
+      await db.query(`
+        INSERT INTO payu_payments (tx_id, payu_id, amount, status, purpose, bank_ref_num, raw_response)
+        VALUES ($1, $2, $3, 'Refunded', 'Security Deposit Refund via PayU', $4, $5)
+      `, [token, mihpayid, formattedAmount, bankRef, JSON.stringify(jsonRes)]).catch(() => {});
+
+      return {
+        success: true,
+        refund_tx_id: token,
+        payu_request_id: payuRequestId,
+        bank_ref_num: bankRef,
+        gateway: 'PayU India',
+        message: jsonRes.msg || `PayU refund of ₹${formattedAmount} queued successfully.`,
+        raw: jsonRes
+      };
+    } else {
+      const errMsg = jsonRes?.msg || textRes || 'PayU refund request failed or rejected by gateway.';
+      console.warn('PayU Gateway rejected refund:', errMsg, 'Response:', textRes);
+
+      await db.query(`
+        INSERT INTO payu_payments (tx_id, payu_id, amount, status, purpose, error_message, raw_response)
+        VALUES ($1, $2, $3, 'Refund_Failed', 'PayU Refund Attempt Rejected', $4, $5)
+      `, [token, mihpayid, formattedAmount, errMsg, JSON.stringify(jsonRes || { raw: textRes })]).catch(() => {});
+
+      return {
+        success: false,
+        error: errMsg,
+        raw: jsonRes || textRes
+      };
+    }
   } catch (err) {
-    console.warn('PayU Refund API dispatch error (recording offline/manual gateway refund):', err.message);
-    await db.query(`
-      INSERT INTO payu_payments (tx_id, payu_id, amount, status, purpose, raw_response)
-      VALUES ($1, $2, $3, 'Refunded', 'Security Deposit Refund via PayU', $4)
-    `, [token, var1, formattedAmount, JSON.stringify({ error: err.message, manual: true })]).catch(() => {});
-
+    console.error('PayU Refund Network error:', err.message);
     return {
-      success: true,
-      refund_tx_id: token,
-      gateway: 'PayU India',
-      message: `PayU refund request registered for ₹${formattedAmount}. Ref: ${token}`,
-      offline: true
+      success: false,
+      error: `Network error connecting to PayU Gateway: ${err.message}`
     };
   }
 }

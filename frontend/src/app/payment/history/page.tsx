@@ -54,21 +54,23 @@ const CSS = `
 .ph-dt-wrap { width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; }
 .ph-dt-wrap::-webkit-scrollbar { height:8px; }
 .ph-dt-wrap::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:8px; }
-.ph-dt { width:100%; min-width:1450px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+.ph-dt { width:100%; min-width:1550px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
 .ph-dt th { height:52px; padding:0 14px; font-size:10.5px; font-weight:800; color:#64748B; text-transform:uppercase; letter-spacing:.055em; text-align:left; background:#F8FAFC; border-bottom:1px solid #DDE4EE; white-space:nowrap; vertical-align:middle; }
 .ph-dt td { height:68px; padding:10px 14px; font-size:12.5px; color:#334155; border-bottom:1px solid #EEF2F6; vertical-align:middle; overflow:hidden; }
 .ph-dt tbody tr:last-child td { border-bottom:none; }
 .ph-dt tbody tr:hover td { background:#FBFAFF; }
 .ph-dt th:first-child,.ph-dt td:first-child { width:48px; padding-left:16px; padding-right:7px; text-align:center; }
-.ph-dt th:nth-child(2),.ph-dt td:nth-child(2) { width:195px; }
-.ph-dt th:nth-child(3),.ph-dt td:nth-child(3) { width:170px; }
-.ph-dt th:nth-child(4),.ph-dt td:nth-child(4) { width:255px; }
-.ph-dt th:nth-child(5),.ph-dt td:nth-child(5) { width:105px; }
-.ph-dt th:nth-child(6),.ph-dt td:nth-child(6) { width:145px; }
-.ph-dt th:nth-child(7),.ph-dt td:nth-child(7) { width:205px; }
-.ph-dt th:nth-child(8),.ph-dt td:nth-child(8) { width:125px; }
-.ph-dt th:nth-child(9),.ph-dt td:nth-child(9) { width:130px; }
-.ph-dt th:nth-child(10),.ph-dt td:nth-child(10) { width:125px; }
+.ph-dt th:nth-child(2),.ph-dt td:nth-child(2) { width:190px; }
+.ph-dt th:nth-child(3),.ph-dt td:nth-child(3) { width:160px; }
+.ph-dt th:nth-child(4),.ph-dt td:nth-child(4) { width:220px; }
+.ph-dt th:nth-child(5),.ph-dt td:nth-child(5) { width:100px; }
+.ph-dt th:nth-child(6),.ph-dt td:nth-child(6) { width:140px; }
+.ph-dt th:nth-child(7),.ph-dt td:nth-child(7) { width:180px; }
+.ph-dt th:nth-child(8),.ph-dt td:nth-child(8) { width:110px; }
+.ph-dt th:nth-child(9),.ph-dt td:nth-child(9) { width:110px; }
+.ph-dt th:nth-child(10),.ph-dt td:nth-child(10) { width:135px; }
+.ph-dt th:nth-child(11),.ph-dt td:nth-child(11) { width:120px; }
+.ph-dt th:nth-child(12),.ph-dt td:nth-child(12) { width:115px; }
 
 .ph-rider-cell { display:flex; align-items:center; gap:10px; min-width:0; }
 .ph-rider-avatar { width:38px; height:38px; border-radius:50%; object-fit:cover; background:#2A195C; color:#FFF; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex:0 0 38px; }
@@ -134,6 +136,8 @@ interface PaymentRecord {
   reference_id: string;
   rider_name: string;
   mobile: string;
+  rent_amount?: number | string;
+  deposit_amount?: number | string;
   amount: number;
   type: 'Credit' | 'Debit';
   status: 'Successful' | 'Pending' | 'Failed';
@@ -532,15 +536,17 @@ export default function PaymentHistoryPage() {
                 <table className="ph-dt">
                   <colgroup>
                     <col style={{ width: 48 }} />
-                    <col style={{ width: 195 }} />
-                    <col style={{ width: 170 }} />
-                    <col style={{ width: 255 }} />
-                    <col style={{ width: 105 }} />
-                    <col style={{ width: 145 }} />
-                    <col style={{ width: 205 }} />
-                    <col style={{ width: 125 }} />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 125 }} />
+                    <col style={{ width: 190 }} />
+                    <col style={{ width: 160 }} />
+                    <col style={{ width: 220 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 140 }} />
+                    <col style={{ width: 180 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 135 }} />
+                    <col style={{ width: 120 }} />
+                    <col style={{ width: 115 }} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -560,7 +566,9 @@ export default function PaymentHistoryPage() {
                       <th>TYPE</th>
                       <th>GATEWAY / METHOD</th>
                       <th>PURPOSE</th>
-                      <th>AMOUNT</th>
+                      <th>RENT</th>
+                      <th>DEPOSIT</th>
+                      <th>TOTAL</th>
                       <th>STATUS</th>
                       <th>ACTIONS</th>
                     </tr>
@@ -568,14 +576,14 @@ export default function PaymentHistoryPage() {
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                        <td colSpan={12} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
                           <div className="ph-spinner" style={{ marginBottom: 8 }} />
                           <div>Loading live transaction history...</div>
                         </td>
                       </tr>
                     ) : displayRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={10} style={{ textAlign: 'center', padding: '50px 20px', color: '#64748B' }}>
+                        <td colSpan={12} style={{ textAlign: 'center', padding: '50px 20px', color: '#64748B' }}>
                           <div style={{ fontSize: '32px', marginBottom: '8px' }}>💳</div>
                           <div style={{ fontWeight: 700, fontSize: '15px', color: '#1E293B' }}>No Transactions Found</div>
                           <div style={{ fontSize: '13px', marginTop: '4px' }}>Try adjusting your search query or status filter.</div>
@@ -659,7 +667,21 @@ export default function PaymentHistoryPage() {
                               </div>
                             </td>
 
-                            {/* Amount */}
+                            {/* Rent Amount */}
+                            <td>
+                              <span style={{ fontWeight: 700, color: '#334155' }}>
+                                ₹{Number(r.rent_amount ?? r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+
+                            {/* Deposit Amount */}
+                            <td>
+                              <span style={{ fontWeight: 700, color: Number(r.deposit_amount) > 0 ? '#B45309' : '#94A3B8' }}>
+                                ₹{Number(r.deposit_amount ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+
+                            {/* Total Amount */}
                             <td>
                               <span className={`ph-amount ${isCredit ? 'credit' : 'debit'}`} title={`${isCredit ? '+' : '-'}₹${Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}>
                                 <span className="ph-amount-sign">{isCredit ? '+' : '-'}</span><span>₹{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>

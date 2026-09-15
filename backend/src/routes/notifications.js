@@ -2,32 +2,30 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// In-memory notifications telemetry list
-let MOCK_NOTIFICATIONS = [
-  {
-    id: 'notif-wallet-01',
-    title: '💳 Wallet Top-Up Successful',
-    message: '₹500.00 successfully added to your EVegah Wallet.',
-    type: 'payment',
-    read: false,
-    created_at: new Date(Date.now() - 180000).toISOString()
-  },
-  {
-    id: 'notif-booking-02',
-    title: '🛵 EV Ride Booking Alert',
-    message: 'Your EV Scooter reservation in Gotri Zone is confirmed & ready for pickup.',
-    type: 'booking',
-    read: false,
-    created_at: new Date(Date.now() - 900000).toISOString()
-  },
-  {
-    id: 'notif-bms-03',
-    title: '⚡ BMS Alert: Low Battery (18% SOC)',
-    message: 'Vehicle battery is low (18% SOC). Swap at the nearest EVegah Swap Station.',
-    type: 'alert',
-    read: false,
-    created_at: new Date(Date.now() - 3600000).toISOString()
-  },
+// Ensure notifications table exists
+(async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR(100) PRIMARY KEY,
+        mobile VARCHAR(50),
+        rider_id VARCHAR(100),
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        type VARCHAR(50) DEFAULT 'system',
+        read BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await db.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS mobile VARCHAR(50)`);
+    await db.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS rider_id VARCHAR(100)`);
+  } catch (e) {
+    console.warn('Notifications table init notice:', e.message);
+  }
+})();
+
+// General system broadcast fallback announcements
+const GENERAL_BROADCASTS = [
   {
     id: 'notif-offer-04',
     title: '🎁 Special Offer Alert: 25% OFF',
@@ -46,21 +44,121 @@ let MOCK_NOTIFICATIONS = [
   }
 ];
 
-// GET /api/notifications
+// GET /api/notifications — Rider-specific notifications
 router.get('/', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20');
-    res.json({ status: 'success', data: result.rows, unreadCount: result.rows.filter(r => !r.read).length });
+    const rawMobile = req.query.mobile || req.headers['x-user-mobile'] || '';
+    const cleanMobile = rawMobile.replace(/\D/g, '').slice(-10);
+
+    const riderNotifications = [];
+
+    if (cleanMobile) {
+      // 1. Fetch DB notifications specifically for this mobile or general broadcast
+      try {
+        const result = await db.query(`
+          SELECT * FROM notifications 
+          WHERE (mobile LIKE $1 OR mobile IS NULL OR mobile = '')
+          ORDER BY created_at DESC 
+          LIMIT 30
+        `, [`%${cleanMobile}%`]);
+        if (result.rows.length > 0) {
+          riderNotifications.push(...result.rows);
+        }
+      } catch (dbErr) {
+        console.warn('Error reading notifications table:', dbErr.message);
+      }
+
+      // 2. Synthesize real rider-specific notifications from recent wallet transactions
+      try {
+        const walletTx = await db.query(`
+          SELECT transaction_id, title, subtitle, amount, type, created_at
+          FROM wallet_transactions
+          WHERE mobile LIKE $1
+          ORDER BY created_at DESC
+          LIMIT 5
+        `, [`%${cleanMobile}%`]);
+
+        walletTx.rows.forEach(w => {
+          const isCredit = (w.type || '').toLowerCase() === 'credit';
+          riderNotifications.push({
+            id: `notif-wlt-${w.transaction_id}`,
+            title: isCredit ? `💳 Wallet Credited (+₹${w.amount})` : `⚡ Wallet Debited (-₹${w.amount})`,
+            message: `${w.title || 'Transaction'}: ${w.subtitle || `₹${w.amount} processed`}`,
+            type: 'payment',
+            read: false,
+            created_at: w.created_at
+          });
+        });
+      } catch (_) {}
+
+      // 3. Synthesize real rider-specific notifications from recent ride reservations
+      try {
+        const resTx = await db.query(`
+          SELECT reservation_id, package_type, pickup_zone, status, fare, created_at
+          FROM reservations
+          WHERE mobile LIKE $1
+          ORDER BY created_at DESC
+          LIMIT 5
+        `, [`%${cleanMobile}%`]);
+
+        resTx.rows.forEach(r => {
+          riderNotifications.push({
+            id: `notif-res-${r.reservation_id}`,
+            title: `🛵 EV Ride ${r.status || 'Confirmed'} (${r.reservation_id})`,
+            message: `Your ${r.package_type || 'EV'} booking in ${r.pickup_zone || 'station'} is ${r.status || 'Confirmed'}.`,
+            type: 'booking',
+            read: false,
+            created_at: r.created_at
+          });
+        });
+      } catch (_) {}
+
+      // Add general broadcast offers
+      riderNotifications.push(...GENERAL_BROADCASTS);
+    } else {
+      // Unauthenticated or general viewer: only show general broadcasts
+      try {
+        const result = await db.query(`
+          SELECT * FROM notifications 
+          WHERE (mobile IS NULL OR mobile = '')
+          ORDER BY created_at DESC 
+          LIMIT 10
+        `);
+        if (result.rows.length > 0) {
+          riderNotifications.push(...result.rows);
+        } else {
+          riderNotifications.push(...GENERAL_BROADCASTS);
+        }
+      } catch (_) {
+        riderNotifications.push(...GENERAL_BROADCASTS);
+      }
+    }
+
+    // Sort by created_at DESC & deduplicate by ID
+    const seen = new Set();
+    const unique = [];
+    riderNotifications
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .forEach(n => {
+        if (!seen.has(n.id)) {
+          seen.add(n.id);
+          unique.push(n);
+        }
+      });
+
+    const unreadCount = unique.filter(r => !r.read).length;
+    res.json({ status: 'success', data: unique, unreadCount });
   } catch (err) {
-    const unreadCount = MOCK_NOTIFICATIONS.filter(r => !r.read).length;
-    res.json({ status: 'success', data: MOCK_NOTIFICATIONS, unreadCount });
+    console.error('Failed to get notifications:', err);
+    res.json({ status: 'success', data: GENERAL_BROADCASTS, unreadCount: 1 });
   }
 });
 
-// POST /api/notifications (Create notification — helper function exported)
-const createNotification = async (title, message, type = 'booking') => {
+// POST /api/notifications (Create notification)
+const createNotification = async (title, message, type = 'booking', mobile = null) => {
   const notif = {
     id: `notif-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+    mobile: mobile || null,
     title,
     message,
     type,
@@ -69,27 +167,35 @@ const createNotification = async (title, message, type = 'booking') => {
   };
   try {
     await db.query(`
-      INSERT INTO notifications (id, title, message, type, read, created_at)
-      VALUES ($1, $2, $3, $4, false, NOW())
-    `, [notif.id, notif.title, notif.message, notif.type]);
+      INSERT INTO notifications (id, mobile, title, message, type, read, created_at)
+      VALUES ($1, $2, $3, $4, $5, false, NOW())
+    `, [notif.id, notif.mobile, notif.title, notif.message, notif.type]);
   } catch (_) {}
-  MOCK_NOTIFICATIONS.unshift(notif);
   return notif;
 };
 
 router.post('/', async (req, res) => {
-  const { title, message, type } = req.body;
-  const notif = await createNotification(title || 'New System Alert', message || '', type);
+  const { title, message, type, mobile } = req.body;
+  const notif = await createNotification(title || 'System Notification', message || '', type, mobile);
   res.json({ status: 'success', data: notif });
 });
 
 // POST /api/notifications/mark-read
 router.post('/mark-read', async (req, res) => {
   try {
-    await db.query('UPDATE notifications SET read = true');
+    const rawMobile = req.body.mobile || req.query.mobile || req.headers['x-user-mobile'] || '';
+    const cleanMobile = rawMobile.replace(/\D/g, '').slice(-10);
+
+    if (cleanMobile) {
+      await db.query(
+        "UPDATE notifications SET read = true WHERE mobile LIKE $1 OR mobile IS NULL OR mobile = ''",
+        [`%${cleanMobile}%`]
+      );
+    } else {
+      await db.query('UPDATE notifications SET read = true');
+    }
   } catch (_) {}
-  MOCK_NOTIFICATIONS.forEach(n => n.read = true);
-  res.json({ status: 'success', message: 'All notifications marked as read' });
+  res.json({ status: 'success', message: 'Notifications marked as read' });
 });
 
 module.exports = router;
