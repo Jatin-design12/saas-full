@@ -78,13 +78,29 @@ async function sendWhatsAppReceipt(firstArg, secondArg = {}) {
   ];
 
   // If template has dynamic URL button configured
-  if (receipt_url && getEnv('WHATSAPP_TEMPLATE_URL_BUTTON_INDEX')) {
+  const buttonIndex = getEnv('WHATSAPP_TEMPLATE_URL_BUTTON_INDEX', '0');
+  if (buttonIndex !== '') {
+    let buttonParam = '';
+    if (receipt_url) {
+      try {
+        const u = new URL(String(receipt_url));
+        buttonParam = `${u.pathname || ''}${u.search || ''}`.replace(/^\/+/, '');
+      } catch {
+        buttonParam = String(receipt_url).replace(/^\/+/, '');
+      }
+    }
+    if (!buttonParam) {
+      // Dynamic URL buttons in WhatsApp template require a parameter.
+      // Fallback to invoice / receipt id so Meta API accepts the request.
+      buttonParam = String(displayInvNo || 'receipt').replace(/^\/+/, '');
+    }
+
     bodyComponents.push({
       type: 'button',
       sub_type: 'url',
-      index: getEnv('WHATSAPP_TEMPLATE_URL_BUTTON_INDEX', '0'),
+      index: String(buttonIndex),
       parameters: [
-        { type: 'text', text: receipt_url }
+        { type: 'text', text: buttonParam }
       ]
     });
   }

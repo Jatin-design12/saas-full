@@ -673,15 +673,6 @@ export default function BatterySwapPage() {
           <TopBar 
             title="Battery Swap" 
             subtitle="Complete your battery swap and payment" 
-            showSearch={true}
-            searchPlaceholder="Search by rider name, mobile, vehicle or booking ID..."
-            notificationCount={6}
-            userName="Priya Sharma"
-            userRole="Employee"
-            userAvatar="/priya_avatar.png"
-            hideZone={false}
-            hideLeftAvatar={true}
-            showHand={false}
           />
 
           {/* Double Column Page Content */}

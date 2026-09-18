@@ -42,6 +42,7 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/rides', require('./routes/rides'));
 app.use('/api/retain-rider', require('./routes/rides'));
 app.use('/api/payments/icici', require('./routes/icici'));
+app.use('/api/icici', require('./routes/icici'));
 app.use('/api/payments/payu', require('./routes/payu'));
 app.use('/api/payments/history', require('./routes/paymentHistory'));
 app.use('/api/payments/cash-collection', (req, res, next) => {
