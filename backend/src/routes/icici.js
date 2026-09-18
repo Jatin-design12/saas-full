@@ -136,20 +136,40 @@ async function handleGenerateQr(req, res) {
       String(billNumber || '').trim() ||
       `EVG${Date.now()}${crypto.randomBytes(2).toString('hex')}`;
 
+    // Helper to format dates as DD/MM/YYYY HH:MM:SS per ICICI doc
+    const formatIciciDate = (d) => {
+      const dt = d instanceof Date ? d : new Date();
+      const dd = String(dt.getDate()).padStart(2, '0');
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const yyyy = dt.getFullYear();
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const min = String(dt.getMinutes()).padStart(2, '0');
+      const ss = String(dt.getSeconds()).padStart(2, '0');
+      return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+    };
+
+    const now = new Date();
+    const expiryDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days default per doc
+
+    // Payload strictly matching ICICI Bank "QR API with Expiry" documentation
     const payload = {
       amount: numAmount.toFixed(2),
       merchantId: String(resolvedMid),
-      subMerchantId: String(resolvedMid),
       terminalId: mcc,
       merchantTranId: txnId,
       billNumber: txnId.slice(0, 50),
+      validatePayerAccFlag: 'N',
+      refId: '',
+      validityStartDateTime: formatIciciDate(now),
+      validityEndDateTime: formatIciciDate(expiryDate),
+      update: 'N',
     };
 
     let upstream = null;
     let refId = null;
     let encryptedFallback = false;
 
-    // Call upstream ICICI Bank Live API with asymmetric RSA encryption
+    // Call upstream ICICI Bank API with asymmetric RSA 4096-bit encryption
     try {
       const encryptedBody = encryptIciciAsymmetricPayload(payload);
       const upstreamUrl = `${ICICI_BASE_URL}${ICICI_QR_ENDPOINT}`;
@@ -200,18 +220,9 @@ async function handleGenerateQr(req, res) {
       refId = txnId;
     }
 
-    // Official NPCI / ICICI QR String format
-    // upi://pay?pa=<merchant VPA>&pn=<merchant name>&tr=<Refid>&am=<amount>&cu=INR
-    // CRITICAL NPCI FIX:
-    // 1) pa MUST NOT have '@' encoded as '%40' (i.e. 'pa=user@icici', NEVER 'pa=user%40icici').
-    //    Scanning apps (PhonePe, Google Pay, Paytm) pass the 'pa' value to NPCI reqValAdd directly without decoding %40,
-    //    which causes NPCI error: "receivers UPI id or vpa is not available"!
-    // 2) Omit 'mc' unless specifically requested: When mc is present, NPCI enforces strict merchant classification.
-    //    If the merchant's onboarding MCC is different or unverified, NPCI fails with U17/U30.
-    let qrString = `upi://pay?pa=${resolvedVpa}&pn=${encodeURIComponent(resolvedPayee).replace(/%20/g, '+')}&tr=${encodeURIComponent(refId)}&am=${numAmount.toFixed(2)}&cu=INR`;
-    if (includeMcc && mcc && mcc !== 'none') {
-      qrString += `&mc=${encodeURIComponent(mcc)}`;
-    }
+    // Official NPCI / ICICI QR String format per ICICI API Documentation (Page 9):
+    // upi://pay?pa=<merchant VPA>&pn=<merchant name>&tr=<Refid>&am=<amount>&cu=INR&mc=<MCC code>
+    const qrString = `upi://pay?pa=${resolvedVpa}&pn=${encodeURIComponent(resolvedPayee).replace(/%20/g, '+')}&tr=${encodeURIComponent(refId)}&am=${numAmount.toFixed(2)}&cu=INR&mc=${encodeURIComponent(mcc)}`;
 
     // Record in PostgreSQL icici_payments table
     try {

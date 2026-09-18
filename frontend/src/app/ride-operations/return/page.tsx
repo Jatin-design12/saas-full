@@ -554,6 +554,7 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
 
   const currentDeposit = Number(selectedRider?.deposit_amount) || 1000;
   const netRefund = Math.max(0, currentDeposit - deductions);
+  const extraDue = Math.max(0, deductions - currentDeposit);
 
   // Calculate extension fare
   const getExtensionFare = () => {
@@ -565,9 +566,18 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
   };
   const extensionFare = getExtensionFare();
 
-  // Dynamic ICICI QR generation for extension fare
+  // Dynamic ICICI QR generation for extension fare OR return extra due
   useEffect(() => {
-    if (mainTab !== 'extend' || (extendPayMethod !== 'upi' && extendPayMethod !== 'split') || extensionFare <= 0) return;
+    const isExtend = mainTab === 'extend' && (extendPayMethod === 'upi' || extendPayMethod === 'split') && extensionFare > 0;
+    const isReturnDue = mainTab === 'return' && extraDue > 0;
+    if (!isExtend && !isReturnDue) return;
+
+    const payAmount = isExtend ? extensionFare : extraDue;
+    const payNotes = isExtend
+      ? `Ride Extension for ${selectedRider?.vehicle_id || 'Vehicle'}`
+      : `Return Overdue/Damage Fee for ${selectedRider?.vehicle_id || 'Vehicle'}`;
+    const payPurpose = isExtend ? 'ride_extension' : 'ride_return_damage';
+
     setUpiVerified(false);
     let isMounted = true;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -576,10 +586,11 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount: extensionFare,
+        amount: payAmount,
         rider_name: selectedRider?.name || 'Rider',
-        notes: `Ride Extension for ${selectedRider?.vehicle_id || 'Vehicle'}`,
-        purpose: 'ride_extension'
+        mobile: selectedRider?.mobile || '',
+        notes: payNotes,
+        purpose: payPurpose
       })
     })
       .then(r => r.json())
@@ -594,14 +605,16 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
         setIciciMerchantTranId(mTranId);
         setIciciRefId(rId);
       })
-      .catch(err => console.error('Extend Ride ICICI QR error:', err));
+      .catch(err => console.error('ICICI QR error:', err));
 
     return () => { isMounted = false; };
-  }, [mainTab, extendPayMethod, extensionFare, selectedRider]);
+  }, [mainTab, extendPayMethod, extensionFare, extraDue, selectedRider]);
 
-  // Automated status polling for extension payment
+  // Automated status polling for ICICI UPI payment (Extend or Return)
   useEffect(() => {
-    if ((extendPayMethod !== 'upi' && extendPayMethod !== 'split') || !iciciMerchantTranId || upiVerified) return;
+    const isExtendActive = mainTab === 'extend' && (extendPayMethod === 'upi' || extendPayMethod === 'split');
+    const isReturnActive = mainTab === 'return' && extraDue > 0;
+    if ((!isExtendActive && !isReturnActive) || !iciciMerchantTranId || upiVerified) return;
 
     let isMounted = true;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -635,7 +648,7 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [extendPayMethod, iciciMerchantTranId, upiVerified]);
+  }, [mainTab, extendPayMethod, extraDue, iciciMerchantTranId, upiVerified]);
 
   // Handlers for operations
   const handleCompleteReturn = async () => {
@@ -1178,46 +1191,83 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
                                 </div>
                               </div>
 
-                                {/* Net Refund Calculation */}
-                              <div className="ro-settle-box" style={{ background: '#F0FDF4', borderColor: '#BBF7D0' }}>
-                                <div className="ro-settle-title" style={{ color: '#166534' }}>Net Refund Amount</div>
-                                <div className="ro-refund-big">₹{netRefund.toFixed(2)}</div>
-                                <p style={{ fontSize: 12, color: '#15803D', margin: '6px 0 14px' }}>
-                                  Net refund recorded. The refund request will be forwarded to the Deposit Refunds page for Super Admin OTP / Master Password approval.
-                                </p>
+                              {extraDue > 0 ? (
+                                <div className="ro-settle-box" style={{ background: '#FFFBEB', borderColor: '#FDE68A' }}>
+                                  <div className="ro-settle-title" style={{ color: '#B45309' }}>Additional Balance Due from Rider</div>
+                                  <div className="ro-refund-big" style={{ color: '#DC2626' }}>₹{extraDue.toFixed(2)}</div>
+                                  <p style={{ fontSize: 12, color: '#92400E', margin: '6px 0 14px' }}>
+                                    Total inspection deductions exceed initial security deposit. Scan &amp; Pay the balance via ICICI Bank UPI.
+                                  </p>
 
-                                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
-                                  Refund Payment Mode
-                                </div>
-                                <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
-                                  {[
-                                    { id: 'upi', label: 'UPI Payout' },
-                                    { id: 'cash', label: 'Cash Counter' },
-                                    { id: 'wallet', label: 'Rider Wallet' }
-                                  ].map(m => (
-                                    <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
-                                      <input
-                                        type="radio"
-                                        name="refundMethod"
-                                        checked={refundMethod === m.id}
-                                        onChange={() => setRefundMethod(m.id as any)}
-                                      />
-                                      {m.label}
-                                    </label>
-                                  ))}
-                                </div>
-
-                                {refundMethod === 'upi' && (
-                                  <div className="nr-ph" style={{ marginTop: 6 }}>
-                                    <span className="nr-ph-icon">📱</span>
-                                    <input
-                                      placeholder="rider@upi"
-                                      value={upiId}
-                                      onChange={e => setUpiId(e.target.value)}
-                                    />
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#FFFFFF', padding: 14, borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                                    <div style={{ width: 148, height: 148, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      {iciciQrString ? (
+                                        <QRCodeSVG value={iciciQrString} size={136} level="M" />
+                                      ) : (
+                                        <div style={{ fontSize: 11, color: '#94A3B8' }}>Generating ICICI QR...</div>
+                                      )}
+                                    </div>
+                                    <div style={{ fontSize: 11.5, fontWeight: 700, color: '#701A75', marginTop: 6 }}>
+                                      UPI VPA: {iciciVpa}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                                      Ref: {iciciRefId || iciciMerchantTranId || 'EVG-GENERATING...'}
+                                    </div>
+                                    <div style={{ marginTop: 8, width: '100%' }}>
+                                      {upiVerified ? (
+                                        <div style={{ background: '#ECFDF5', border: '1px solid #10B981', color: '#065F46', padding: '6px 10px', borderRadius: 6, fontSize: 11.5, fontWeight: 700, textAlign: 'center' }}>
+                                          ✓ Balance Paid &amp; Verified via ICICI
+                                        </div>
+                                      ) : (
+                                        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', padding: '5px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>
+                                          {isCheckingStatus ? 'Verifying with Bank...' : `Scan to Pay ₹${extraDue.toFixed(2)}`}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                )}
-                              </div>
+                                </div>
+                              ) : (
+                                /* Net Refund Calculation */
+                                <div className="ro-settle-box" style={{ background: '#F0FDF4', borderColor: '#BBF7D0' }}>
+                                  <div className="ro-settle-title" style={{ color: '#166534' }}>Net Refund Amount</div>
+                                  <div className="ro-refund-big">₹{netRefund.toFixed(2)}</div>
+                                  <p style={{ fontSize: 12, color: '#15803D', margin: '6px 0 14px' }}>
+                                    Net refund recorded. The refund request will be forwarded to the Deposit Refunds page for Super Admin OTP / Master Password approval.
+                                  </p>
+
+                                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                                    Refund Payment Mode
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
+                                    {[
+                                      { id: 'upi', label: 'UPI Payout' },
+                                      { id: 'cash', label: 'Cash Counter' },
+                                      { id: 'wallet', label: 'Rider Wallet' }
+                                    ].map(m => (
+                                      <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+                                        <input
+                                          type="radio"
+                                          name="refundMethod"
+                                          checked={refundMethod === m.id}
+                                          onChange={() => setRefundMethod(m.id as any)}
+                                        />
+                                        {m.label}
+                                      </label>
+                                    ))}
+                                  </div>
+
+                                  {refundMethod === 'upi' && (
+                                    <div className="nr-ph" style={{ marginTop: 6 }}>
+                                      <span className="nr-ph-icon"><IPhone /></span>
+                                      <input
+                                        placeholder="rider@upi"
+                                        value={upiId}
+                                        onChange={e => setUpiId(e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1227,8 +1277,18 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
                           <button className="nr-cancel-btn" onClick={() => setActiveStep(2)}>
                             <ILeft /> Back to Inspection
                           </button>
-                          <button className="nr-continue-btn" onClick={handleCompleteReturn}>
-                            Confirm Return &amp; Submit Refund Request (₹{netRefund}) &gt;
+                          <button
+                            className="nr-continue-btn"
+                            onClick={handleCompleteReturn}
+                            disabled={loading || (extraDue > 0 && !upiVerified)}
+                            style={{
+                              opacity: (extraDue > 0 && !upiVerified) ? 0.65 : 1,
+                              cursor: (extraDue > 0 && !upiVerified) ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {extraDue > 0
+                              ? (upiVerified ? 'Confirm Return & Settle Payment >' : `Awaiting ICICI UPI Payment (₹${extraDue.toFixed(2)})...`)
+                              : `Confirm Return & Submit Refund Request (₹${netRefund.toFixed(2)}) >`}
                           </button>
                         </div>
                       </div>

@@ -451,11 +451,27 @@ const PAY_TABS: { id: PayMethod; label: string; icon: React.ReactNode }[] = [
   { id: 'wallet', label: 'Wallet', icon: <IWalletIcon /> },
 ];
 
+const IZap = ({ s = 13 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
+);
+
+const IScale = ({ s = 14 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+    <path d="M7 21h10" />
+    <path d="M12 3v18" />
+    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+  </svg>
+);
+
 const WALLETS = [
-  { id: 'paytm', label: 'Paytm', emoji: '🔵' },
-  { id: 'phonepe', label: 'PhonePe', emoji: '🟣' },
-  { id: 'gpay', label: 'GPay', emoji: '🟢' },
-  { id: 'amazon', label: 'Amazon', emoji: '🟡' },
+  { id: 'paytm', label: 'Paytm', color: '#00BAF2' },
+  { id: 'phonepe', label: 'PhonePe', color: '#5F259F' },
+  { id: 'gpay', label: 'GPay', color: '#0F9D58' },
+  { id: 'amazon', label: 'Amazon', color: '#FF9900' },
 ];
 
 /* ── Conditional method input area ── */
@@ -504,7 +520,7 @@ function MethodDetail({
     <>
       <div className="icici-qr-card">
         <div className="icici-badge">
-          <span>⚡</span> ICICI BANK DYNAMIC UPI QR
+          <span style={{ display: 'flex', alignItems: 'center' }}><IZap s={13} /></span> ICICI BANK DYNAMIC UPI QR
         </div>
         <div className="icici-qr-frame">
           {iciciQrString ? (
@@ -534,7 +550,7 @@ function MethodDetail({
         <div className="icici-status-box">
           {upiVerified ? (
             <div className="icici-verified-badge">
-              <span>✓</span> Payment Verified via ICICI Bank
+              <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Payment Verified via ICICI Bank
             </div>
           ) : (
             <div className="icici-pulse-badge">
@@ -557,7 +573,7 @@ function MethodDetail({
     <>
       <div className="pm-split-box">
         <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span>⚖️</span> Split Payment (Cash + ICICI QR)
+          <span style={{ display: 'flex', alignItems: 'center', color: '#2A195C' }}><IScale s={14} /></span> Split Payment (Cash + ICICI QR)
         </div>
         <div className="pm-split-grid">
           <div className="pm-fld" style={{ marginBottom: 0 }}>
@@ -613,7 +629,7 @@ function MethodDetail({
       {onlineAmount > 0 ? (
         <div className="icici-qr-card">
           <div className="icici-badge">
-            <span>⚡</span> ICICI QR FOR ONLINE BALANCE
+            <span style={{ display: 'flex', alignItems: 'center' }}><IZap s={13} /></span> ICICI QR FOR ONLINE BALANCE
           </div>
           <div className="icici-qr-frame">
             {splitQrString ? (
@@ -640,7 +656,7 @@ function MethodDetail({
           <div className="icici-status-box">
             {upiVerified ? (
               <div className="icici-verified-badge">
-                <span>✓</span> Online Portion Verified via ICICI
+                <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Online Portion Verified via ICICI
               </div>
             ) : (
               <div className="icici-pulse-badge">
@@ -720,7 +736,7 @@ function MethodDetail({
       <div className="pm-wallet-row">
         {WALLETS.map(w => (
           <button key={w.id} className={`pm-wallet-pill ${wallet === w.id ? 'sel' : ''}`} onClick={() => setWallet(w.id)}>
-            <span>{w.emoji}</span>{w.label}
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: w.color, display: 'inline-block', marginRight: 6 }} />{w.label}
           </button>
         ))}
       </div>
