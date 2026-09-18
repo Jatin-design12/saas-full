@@ -754,9 +754,9 @@ function RiderProfileContent() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="rp-shell page-transition">
+      <div className="rp-shell">
         <Sidebar activePath="/renters" />
-        <div className="rp-main">
+        <div className="rp-main page-transition">
           <TopBar hideZone={false} />
 
           <div className="rp-page">

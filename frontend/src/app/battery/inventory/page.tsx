@@ -322,6 +322,59 @@ export default function BatteryInventoryPage() {
     setSelectedLocation('All Locations');
   };
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const isAllSelected = filtered.length > 0 && selectedIds.length === filtered.length;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filtered.map(b => b.battery_id));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleDeleteSingle = async (batteryId: string) => {
+    if (!window.confirm(`Are you sure you want to delete battery "${batteryId}"?`)) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/batteries/${encodeURIComponent(batteryId)}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSelectedIds(prev => prev.filter(x => x !== batteryId));
+        fetchBatteries();
+      } else {
+        alert('Failed to delete battery');
+      }
+    } catch (err: any) {
+      alert('Error deleting battery: ' + err.message);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected batteries?`)) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/batteries/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ battery_ids: selectedIds })
+      });
+      if (res.ok) {
+        setSelectedIds([]);
+        fetchBatteries();
+      } else {
+        alert('Failed to delete selected batteries');
+      }
+    } catch (err: any) {
+      alert('Error deleting batteries: ' + err.message);
+    }
+  };
+
   // Live KPI calculation from real DB entries
   const totalBatteries = batteries.length;
   const assignedCount = batteries.filter(b => b.assigned_to && b.assigned_to !== '-' && b.assigned_to !== '').length;
@@ -458,7 +511,20 @@ export default function BatteryInventoryPage() {
                 <p className="bi-sub">Manage and track all battery stock across locations</p>
               </div>
               <div className="bi-actions">
-                <button className="bi-btn bi-btn-primary" onClick={() => router.push('/battery/inventory/new')}>
+                {selectedIds.length > 0 && (
+                  <button
+                    className="bi-btn"
+                    style={{ background: '#FEF2F2', borderColor: '#F87171', color: '#DC2626', fontWeight: 700 }}
+                    onClick={handleDeleteSelected}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    Delete Selected ({selectedIds.length})
+                  </button>
+                )}
+                <button className="bi-btn bi-btn-primary" onClick={() => router.push('/battery/list')}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Battery
                 </button>
@@ -596,7 +662,15 @@ export default function BatteryInventoryPage() {
                 <table className="bi-dt">
                   <thead>
                     <tr>
-                      <th style={{ width: '30px' }}><input type="checkbox" /></th>
+                      <th style={{ width: '36px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          onChange={handleSelectAll}
+                          style={{ cursor: 'pointer' }}
+                          title="Select All"
+                        />
+                      </th>
                       <th>Battery ID</th>
                       <th>Serial Number</th>
                       <th>Battery Type</th>
@@ -607,7 +681,7 @@ export default function BatteryInventoryPage() {
                       <th>Location</th>
                       <th>In Use / Assigned To</th>
                       <th>Last Updated</th>
-                      <th>Actions</th>
+                      <th style={{ textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -624,16 +698,23 @@ export default function BatteryInventoryPage() {
                         <td colSpan={12} style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
                           <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px', color: '#64748B' }}>No Batteries Found</div>
                           <div style={{ fontSize: '12.5px', color: '#94A3B8', marginBottom: '16px' }}>There are no battery records matching your active filters.</div>
-                          <button className="bi-btn bi-btn-primary" style={{ margin: '0 auto' }} onClick={() => router.push('/battery/inventory/new')}>
-                            Register New Battery
+                          <button className="bi-btn bi-btn-primary" style={{ margin: '0 auto' }} onClick={() => router.push('/battery/list')}>
+                            Add Battery
                           </button>
                         </td>
                       </tr>
                     ) : (
                       filtered.map(b => (
-                        <tr key={b.battery_id}>
-                          <td><input type="checkbox" /></td>
-                          <td className="td-id" onClick={() => router.push(`/battery/inventory/${b.battery_id}`)}>{b.battery_id}</td>
+                        <tr key={b.battery_id} style={{ background: selectedIds.includes(b.battery_id) ? '#F0FDF4' : undefined }}>
+                          <td style={{ width: '36px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(b.battery_id)}
+                              onChange={() => handleToggleSelect(b.battery_id)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td className="td-id" onClick={() => router.push(`/battery/inward?id=${encodeURIComponent(b.battery_id)}`)}>{b.battery_id}</td>
                           <td style={{ fontFamily: 'monospace' }}>{b.serial_number || '-'}</td>
                           <td>{b.battery_type || 'Li-ion'}</td>
                           <td>{b.capacity || '-'}</td>
@@ -643,12 +724,12 @@ export default function BatteryInventoryPage() {
                           </td>
                           <td>
                             <span className={`status-badge ${
-                              (b.status || '').toLowerCase() === 'healthy' || (b.status || '').toLowerCase() === 'idle' ? 'badge-healthy' :
+                              (b.status || '').toLowerCase() === 'healthy' || (b.status || '').toLowerCase() === 'idle' || (b.status || '').toLowerCase() === 'available' ? 'badge-healthy' :
                               (b.status || '').toLowerCase() === 'fair' ? 'badge-fair' :
                               (b.status || '').toLowerCase() === 'poor' ? 'badge-poor' :
                               (b.status || '').toLowerCase().includes('maintenance') ? 'badge-maintenance' : 'badge-decommissioned'
                             }`}>
-                              {b.status || 'idle'}
+                              {b.status || 'available'}
                             </span>
                           </td>
                           <td>{b.location || '-'}</td>
@@ -656,13 +737,25 @@ export default function BatteryInventoryPage() {
                             {b.assigned_to || '-'}
                           </td>
                           <td>{formatDate(b.updated_at)}</td>
-                          <td>
-                            <div className="action-row">
-                              <button className="action-btn" title="View details" onClick={() => router.push(`/battery/inventory/${b.battery_id}`)}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="action-row" style={{ justifyContent: 'center' }}>
+                              <button
+                                className="action-btn"
+                                title="View Inward Specs"
+                                onClick={() => router.push(`/battery/inward?id=${encodeURIComponent(b.battery_id)}`)}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                               </button>
-                              <button className="action-btn" title="More Options" onClick={() => router.push(`/battery/inventory/${b.battery_id}`)}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                              <button
+                                className="action-btn"
+                                title="Delete Battery"
+                                style={{ color: '#DC2626' }}
+                                onClick={() => handleDeleteSingle(b.battery_id)}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
                               </button>
                             </div>
                           </td>

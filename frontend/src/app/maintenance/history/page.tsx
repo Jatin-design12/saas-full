@@ -151,17 +151,18 @@ export default function ServiceHistoryPage() {
       const res = await fetch(`${apiUrl}/maintenance?status=Completed`);
       if (res.ok) {
         const body = await res.json();
-        if (Array.isArray(body.data) && body.data.length > 0) {
-          const mapped = body.data.map((item: any) => ({
+        const rawList = Array.isArray(body) ? body : (body.data || []);
+        if (Array.isArray(rawList)) {
+          const mapped = rawList.map((item: any) => ({
             id: item.ticket_id || item.id,
-            subDate: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '18 Jun 2026',
-            vehicleReg: item.vehicle_code || 'GJ06EV1234',
-            vehicleModel: item.vehicle_model || 'Ather 450X',
-            vehicleKm: item.km_reading || '12,450 km',
-            serviceType: item.issue_category || 'Battery Check',
-            mechanicName: item.assigned_technician || 'Ramesh Patel',
-            serviceDateTime: item.scheduled_date ? new Date(item.scheduled_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '18 Jun 2026 10:30 AM',
-            cost: item.estimated_cost ? `₹${item.estimated_cost}` : '₹850',
+            subDate: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Completed',
+            vehicleReg: item.vehicle_code || item.vehicle_id || 'EV-001',
+            vehicleModel: item.vehicle_model || 'Evegah Pro',
+            vehicleKm: item.km_reading || '0 km',
+            serviceType: item.issue_category || 'General Service',
+            mechanicName: item.assigned_technician || 'Technician',
+            serviceDateTime: item.scheduled_date ? new Date(item.scheduled_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Completed',
+            cost: item.estimated_cost ? `₹${item.estimated_cost}` : '₹0',
             status: 'Completed'
           }));
           setHistoryList(mapped);
@@ -170,17 +171,7 @@ export default function ServiceHistoryPage() {
       }
     } catch (_) {}
 
-    // Fallback seed
-    setHistoryList([
-      { id: 'MAIN-2026-00021', subDate: '18 Jun 2026', vehicleReg: 'GJ06EV1234', vehicleModel: 'Ather 450X', vehicleKm: '12,450 km', serviceType: 'Battery Check', mechanicName: 'Ramesh Patel', serviceDateTime: '18 Jun 2026 10:30 AM', cost: '₹850', status: 'Completed' },
-      { id: 'MAIN-2026-00020', subDate: '17 Jun 2026', vehicleReg: 'GJ06EV5678', vehicleModel: 'Hero Lectro', vehicleKm: '8,900 km', serviceType: 'General Service', mechanicName: 'Suresh Yadav', serviceDateTime: '17 Jun 2026 04:15 PM', cost: '₹600', status: 'Completed' },
-      { id: 'MAIN-2026-00019', subDate: '16 Jun 2026', vehicleReg: 'GJ06EV9012', vehicleModel: 'Ola S1 Pro', vehicleKm: '9,230 km', serviceType: 'Tyre Replacement', mechanicName: 'Mahesh Singh', serviceDateTime: '16 Jun 2026 11:20 AM', cost: '₹1,200', status: 'Completed' },
-      { id: 'MAIN-2026-00018', subDate: '15 Jun 2026', vehicleReg: 'GJ06EV3456', vehicleModel: 'EMotorad', vehicleKm: '7,150 km', serviceType: 'Brake Check', mechanicName: 'Ramesh Patel', serviceDateTime: '15 Jun 2026 02:30 PM', cost: '₹500', status: 'Completed' },
-      { id: 'MAIN-2026-00017', subDate: '14 Jun 2026', vehicleReg: 'GJ06EV7890', vehicleModel: 'Ather 450X', vehicleKm: '10,230 km', serviceType: 'Battery Check', mechanicName: 'Suresh Yadav', serviceDateTime: '14 Jun 2026 10:00 AM', cost: '₹850', status: 'Completed' },
-      { id: 'MAIN-2026-00016', subDate: '13 Jun 2026', vehicleReg: 'GJ06EV1122', vehicleModel: 'Hero Lectro', vehicleKm: '6,800 km', serviceType: 'Chain Lube', mechanicName: 'Mahesh Singh', serviceDateTime: '13 Jun 2026 12:00 PM', cost: '₹300', status: 'Completed' },
-      { id: 'MAIN-2026-00015', subDate: '12 Jun 2026', vehicleReg: 'GJ06EV3344', vehicleModel: 'Ola S1 Pro', vehicleKm: '11,450 km', serviceType: 'General Service', mechanicName: 'Ramesh Patel', serviceDateTime: '12 Jun 2026 03:45 PM', cost: '₹600', status: 'Completed' },
-      { id: 'MAIN-2026-00014', subDate: '11 Jun 2026', vehicleReg: 'GJ06EV5566', vehicleModel: 'EMotorad', vehicleKm: '9,120 km', serviceType: 'Tyre Replacement', mechanicName: 'Suresh Yadav', serviceDateTime: '11 Jun 2026 11:30 AM', cost: '₹1,200', status: 'Completed' }
-    ]);
+    setHistoryList([]);
   };
 
   useEffect(() => {
@@ -198,6 +189,48 @@ export default function ServiceHistoryPage() {
       return matchSearch && matchType && matchMech;
     });
   }, [historyList, search, serviceTypeFilter, mechanicFilter]);
+
+  // Dynamic Metrics
+  const completedCount = useMemo(() => {
+    return historyList.filter(h => h.status === 'Completed').length;
+  }, [historyList]);
+
+  const generalCount = useMemo(() => {
+    return historyList.filter(h => h.serviceType === 'General Service').length;
+  }, [historyList]);
+
+  const totalCost = useMemo(() => {
+    return historyList.reduce((acc, h) => {
+      const num = parseInt(String(h.cost || '').replace(/[^0-9]/g, ''), 10);
+      return acc + (isNaN(num) ? 0 : num);
+    }, 0);
+  }, [historyList]);
+
+  const avgCost = useMemo(() => {
+    if (historyList.length === 0) return 0;
+    return Math.round(totalCost / historyList.length);
+  }, [totalCost, historyList.length]);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    historyList.forEach(h => {
+      counts[h.serviceType] = (counts[h.serviceType] || 0) + 1;
+    });
+    return counts;
+  }, [historyList]);
+
+  const topMechanics = useMemo(() => {
+    const mechMap: Record<string, number> = {};
+    historyList.forEach(h => {
+      if (h.mechanicName) {
+        mechMap[h.mechanicName] = (mechMap[h.mechanicName] || 0) + 1;
+      }
+    });
+    return Object.entries(mechMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name, count]) => ({ name, count }));
+  }, [historyList]);
 
   // Select all handler
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -241,18 +274,22 @@ export default function ServiceHistoryPage() {
   };
 
   // Chart.js Donut Config
-  const chartData = {
-    labels: ['Battery Check', 'General Service', 'Tyre Replacement', 'Brake Check', 'Chain Lube', 'Other Services'],
-    datasets: [
-      {
-        data: [38, 32, 26, 16, 10, 6],
-        backgroundColor: ['#10B981', '#3B82F6', '#F97316', '#EF4444', '#06B6D4', '#8B5CF6'],
-        hoverBackgroundColor: ['#059669', '#2563EB', '#EA580C', '#DC2626', '#0891B2', '#7C3AED'],
-        borderWidth: 2,
-        borderColor: '#ffffff',
-      },
-    ],
-  };
+  const chartData = useMemo(() => {
+    const labels = ['Battery Check', 'General Service', 'Tyre Replacement', 'Brake Check', 'Chain Lube', 'Other Services'];
+    const data = labels.map(lbl => typeCounts[lbl] || 0);
+    return {
+      labels,
+      datasets: [
+        {
+          data: historyList.length > 0 ? data : [0, 0, 0, 0, 0, 0],
+          backgroundColor: ['#10B981', '#3B82F6', '#F97316', '#EF4444', '#06B6D4', '#8B5CF6'],
+          hoverBackgroundColor: ['#059669', '#2563EB', '#EA580C', '#DC2626', '#0891B2', '#7C3AED'],
+          borderWidth: 2,
+          borderColor: '#ffffff',
+        },
+      ],
+    };
+  }, [typeCounts, historyList.length]);
 
   const chartOptions = {
     cutout: '72%',
@@ -358,7 +395,7 @@ export default function ServiceHistoryPage() {
                 </div>
                 <div>
                   <div className="his-kpi-lbl">Total Services</div>
-                  <div className="his-kpi-val">128</div>
+                  <div className="his-kpi-val">{historyList.length}</div>
                   <div className="his-kpi-sub">Across all zones</div>
                 </div>
               </div>
@@ -369,8 +406,10 @@ export default function ServiceHistoryPage() {
                 </div>
                 <div>
                   <div className="his-kpi-lbl">Completed</div>
-                  <div className="his-kpi-val">112</div>
-                  <div className="his-kpi-sub" style={{ color: '#10B981', fontWeight: 700 }}>87.5% of total</div>
+                  <div className="his-kpi-val">{completedCount}</div>
+                  <div className="his-kpi-sub" style={{ color: '#10B981', fontWeight: 700 }}>
+                    {historyList.length > 0 ? ((completedCount / historyList.length) * 100).toFixed(1) : '0'}% of total
+                  </div>
                 </div>
               </div>
 
@@ -380,8 +419,10 @@ export default function ServiceHistoryPage() {
                 </div>
                 <div>
                   <div className="his-kpi-lbl">General Service</div>
-                  <div className="his-kpi-val">56</div>
-                  <div className="his-kpi-sub" style={{ color: '#3B82F6', fontWeight: 700 }}>43.8% of total</div>
+                  <div className="his-kpi-val">{generalCount}</div>
+                  <div className="his-kpi-sub" style={{ color: '#3B82F6', fontWeight: 700 }}>
+                    {historyList.length > 0 ? ((generalCount / historyList.length) * 100).toFixed(1) : '0'}% of total
+                  </div>
                 </div>
               </div>
 
@@ -391,8 +432,10 @@ export default function ServiceHistoryPage() {
                 </div>
                 <div>
                   <div className="his-kpi-lbl">Tyre / Brake / Others</div>
-                  <div className="his-kpi-val">72</div>
-                  <div className="his-kpi-sub" style={{ color: '#F97316', fontWeight: 700 }}>56.2% of total</div>
+                  <div className="his-kpi-val">{Math.max(0, historyList.length - generalCount)}</div>
+                  <div className="his-kpi-sub" style={{ color: '#F97316', fontWeight: 700 }}>
+                    {historyList.length > 0 ? (((historyList.length - generalCount) / historyList.length) * 100).toFixed(1) : '0'}% of total
+                  </div>
                 </div>
               </div>
             </div>
@@ -537,14 +580,13 @@ export default function ServiceHistoryPage() {
 
                 {/* Footer Pagination */}
                 <div className="his-tft">
-                  <div>Showing 1 to {filteredList.length} of 128 entries</div>
+                  <div>Showing 1 to {filteredList.length} of {historyList.length} entries</div>
                   <div className="his-pg-wrap">
                     <button className="his-pg-btn" disabled>&lt;</button>
                     <button className="his-pg-btn active">1</button>
                     <button className="his-pg-btn">2</button>
                     <button className="his-pg-btn">3</button>
                     <span style={{ color: '#94A3B8', padding: '0 4px' }}>...</span>
-                    <button className="his-pg-btn">16</button>
                     <button className="his-pg-btn">&gt;</button>
                     <select className="his-select" style={{ height: '28px', padding: '0 6px', fontSize: '11.5px', marginLeft: '6px' }}>
                       <option>10 / page</option>
@@ -567,46 +609,46 @@ export default function ServiceHistoryPage() {
                   <div className="donut-chart-container">
                     <Doughnut data={chartData} options={chartOptions} />
                     <div className="donut-center-label">
-                      <div className="donut-center-val">128</div>
+                      <div className="donut-center-val">{historyList.length}</div>
                       <div className="donut-center-sub">TOTAL</div>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div className="srv-summary-item">
-                      <div><span className="srv-summary-dot" style={{ background: '#10B981' }}></span>Battery Check</div>
-                      <span style={{ fontWeight: 800 }}>38 (29.7%)</span>
-                    </div>
-                    <div className="srv-summary-item">
-                      <div><span className="srv-summary-dot" style={{ background: '#3B82F6' }}></span>General Service</div>
-                      <span style={{ fontWeight: 800 }}>32 (25.0%)</span>
-                    </div>
-                    <div className="srv-summary-item">
-                      <div><span className="srv-summary-dot" style={{ background: '#F97316' }}></span>Tyre Replacement</div>
-                      <span style={{ fontWeight: 800 }}>26 (20.3%)</span>
-                    </div>
-                    <div className="srv-summary-item">
-                      <div><span className="srv-summary-dot" style={{ background: '#EF4444' }}></span>Brake Check</div>
-                      <span style={{ fontWeight: 800 }}>16 (12.5%)</span>
-                    </div>
-                    <div className="srv-summary-item">
-                      <div><span className="srv-summary-dot" style={{ background: '#06B6D4' }}></span>Chain Lube</div>
-                      <span style={{ fontWeight: 800 }}>10 (7.8%)</span>
-                    </div>
-                    <div className="srv-summary-item">
-                      <div><span className="srv-summary-dot" style={{ background: '#8B5CF6' }}></span>Other Services</div>
-                      <span style={{ fontWeight: 800 }}>6 (4.7%)</span>
-                    </div>
+                    {Object.keys(typeCounts).length > 0 ? (
+                      Object.entries(typeCounts).map(([typeName, count]) => (
+                        <div key={typeName} className="srv-summary-item">
+                          <div>
+                            <span className="srv-summary-dot" style={{ background: '#3B82F6' }}></span>
+                            {typeName}
+                          </div>
+                          <span style={{ fontWeight: 800 }}>
+                            {count} ({historyList.length > 0 ? ((count / historyList.length) * 100).toFixed(1) : 0}%)
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="srv-summary-item">
+                          <div><span className="srv-summary-dot" style={{ background: '#10B981' }}></span>Battery Check</div>
+                          <span style={{ fontWeight: 800 }}>0 (0%)</span>
+                        </div>
+                        <div className="srv-summary-item">
+                          <div><span className="srv-summary-dot" style={{ background: '#3B82F6' }}></span>General Service</div>
+                          <span style={{ fontWeight: 800 }}>0 (0%)</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div style={{ borderTop: '1.5px solid #F1F5F9', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
                       <span style={{ color: '#64748B', fontWeight: 600 }}>Total Cost</span>
-                      <span style={{ fontWeight: 800, color: '#0F172A', marginLeft: 'auto' }}>₹86,540</span>
+                      <span style={{ fontWeight: 800, color: '#0F172A', marginLeft: 'auto' }}>₹{totalCost.toLocaleString('en-IN')}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
                       <span style={{ color: '#64748B', fontWeight: 600 }}>Avg. Cost / Service</span>
-                      <span style={{ fontWeight: 800, color: '#0F172A', marginLeft: 'auto' }}>₹676</span>
+                      <span style={{ fontWeight: 800, color: '#0F172A', marginLeft: 'auto' }}>₹{avgCost.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -615,33 +657,21 @@ export default function ServiceHistoryPage() {
                 <div className="his-widget">
                   <h4 className="his-widget-title">Top Mechanics</h4>
                   <div className="mech-rank-list">
-                    <div className="mech-rank-item">
-                      <div className="mech-rank-user">
-                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#2A195C', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          RP
+                    {topMechanics.length > 0 ? (
+                      topMechanics.map(m => (
+                        <div key={m.name} className="mech-rank-item">
+                          <div className="mech-rank-user">
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#2A195C', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {m.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+                            </div>
+                            <span>{m.name}</span>
+                          </div>
+                          <span>{m.count}</span>
                         </div>
-                        <span>Ramesh Patel</span>
-                      </div>
-                      <span>48</span>
-                    </div>
-                    <div className="mech-rank-item">
-                      <div className="mech-rank-user">
-                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#2A195C', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          SY
-                        </div>
-                        <span>Suresh Yadav</span>
-                      </div>
-                      <span>42</span>
-                    </div>
-                    <div className="mech-rank-item">
-                      <div className="mech-rank-user">
-                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#2A195C', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          MS
-                        </div>
-                        <span>Mahesh Singh</span>
-                      </div>
-                      <span>38</span>
-                    </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#94A3B8', textAlign: 'center', padding: '8px 0' }}>No mechanics recorded yet</div>
+                    )}
                   </div>
                   <div style={{ textAlign: 'center', marginTop: '6px' }}>
                     <a href="#" className="help-btn" style={{ textDecoration: 'none' }}>View All Mechanics &rarr;</a>

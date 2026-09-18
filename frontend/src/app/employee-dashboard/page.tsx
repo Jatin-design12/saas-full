@@ -1040,12 +1040,12 @@ export default function EmployeeDashboard() {
                   <div style={{ textAlign: 'center', padding: '14px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '18px' }}>
                     <div style={{ width: '130px', height: '130px', margin: '0 auto 8px', background: '#FFFFFF', padding: '8px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <QRCodeSVG
-                        value={`upi://pay?pa=EVEGAHRIDE@icici&pn=Evegah&am=${Number(selectedOverdueRide.dueAmount).toFixed(2)}&cu=INR`}
+                        value={`upi://pay?pa=EVEGAHUAT@icici&pn=Evegah&am=${Number(selectedOverdueRide.dueAmount).toFixed(2)}&cu=INR`}
                         size={114}
                         level="M"
                       />
                     </div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#701A75', marginBottom: 2 }}>UPI ID: EVEGAHRIDE@icici</div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#701A75', marginBottom: 2 }}>UPI ID: EVEGAHUAT@icici</div>
                     <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Scan with GPay, PhonePe, Paytm or BHIM</span>
                   </div>
                 )}

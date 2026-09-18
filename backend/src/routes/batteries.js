@@ -39,34 +39,264 @@ router.get('/', async (req, res) => {
     queryText += ' ORDER BY battery_id ASC';
 
     const result = await db.bmsQuery(queryText, params);
-    let rows = result.rows || [];
-
-    if (rows.length === 0) {
-      const defaultBatteries = [
-        { battery_id: 'BAT-GT-60V-01', status: 'available', soc: 98, voltage: 67.2, current: 0, temp: 28, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'Gotri Zone' },
-        { battery_id: 'BAT-GT-60V-02', status: 'available', soc: 92, voltage: 65.5, current: 0, temp: 29, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'Gotri Zone' },
-        { battery_id: 'BAT-GT-72V-01', status: 'available', soc: 100, voltage: 84.0, current: 0, temp: 27, capacity: '72V / 40Ah', battery_type: 'Li-ion', zone: 'Gotri Zone' },
-        { battery_id: 'BAT-MJ-60V-01', status: 'available', soc: 95, voltage: 66.8, current: 0, temp: 28, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'Manjalpur Zone' },
-        { battery_id: 'BAT-MJ-60V-02', status: 'available', soc: 91, voltage: 65.2, current: 0, temp: 29, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'Manjalpur Zone' },
-        { battery_id: 'BAT-KP-60V-01', status: 'available', soc: 96, voltage: 66.9, current: 0, temp: 27, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'KPGU Zone' },
-        { battery_id: 'BAT-AT-60V-01', status: 'available', soc: 97, voltage: 67.0, current: 0, temp: 28, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'Aatapi Zone' },
-        { battery_id: 'BAT-MD-60V-01', status: 'available', soc: 94, voltage: 66.4, current: 0, temp: 30, capacity: '60V / 30Ah', battery_type: 'Li-ion', zone: 'Moti Daman Zone' },
-      ];
-      let filtered = defaultBatteries;
-      if (zone && String(zone).trim() && String(zone).trim().toLowerCase() !== 'all zones') {
-        filtered = filtered.filter(b => b.zone.toLowerCase().includes(String(zone).trim().toLowerCase()));
-      }
-      if (status && status !== 'all') {
-        filtered = filtered.filter(b => b.status.toLowerCase() === status.toLowerCase());
-      }
-      rows = filtered.length > 0 ? filtered : defaultBatteries;
-    }
+    const rows = result.rows || [];
 
     res.json(rows);
-    setCache(cacheKey, rows, 60);
+    setCache(cacheKey, rows, 30);
   } catch (err) {
     console.error('Fetch batteries error:', err);
     res.json([]);
+  }
+});
+
+// GET /api/batteries/stats - Aggregated real metrics directly from PostgreSQL
+router.get('/stats', async (req, res) => {
+  try {
+    const { zone } = req.query;
+    let zoneFilter = '';
+    const params = [];
+    if (zone && String(zone).trim() && String(zone).trim().toLowerCase() !== 'all zones') {
+      zoneFilter = ' WHERE zone ILIKE $1';
+      params.push(`%${String(zone).trim()}%`);
+    }
+
+    const queryText = `
+      SELECT 
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE LOWER(status) = 'available')::int as available,
+        COUNT(*) FILTER (WHERE LOWER(status) IN ('in_use', 'in use'))::int as in_use,
+        COUNT(*) FILTER (WHERE LOWER(status) = 'charging')::int as charging,
+        COUNT(*) FILTER (WHERE LOWER(status) = 'maintenance')::int as maintenance,
+        COALESCE(ROUND(AVG(COALESCE(soh, health, 100))), 100)::int as avg_soh,
+        COALESCE(ROUND(AVG(COALESCE(soc, 85))), 85)::int as avg_soc,
+        COUNT(*) FILTER (WHERE soc < 20)::int as low_soc
+      FROM batteries
+      ${zoneFilter}
+    `;
+
+    const result = await db.bmsQuery(queryText, params);
+    const stats = result.rows[0] || {
+      total: 0,
+      available: 0,
+      in_use: 0,
+      charging: 0,
+      maintenance: 0,
+      avg_soh: 100,
+      avg_soc: 85,
+      low_soc: 0
+    };
+
+    res.json(stats);
+  } catch (err) {
+    console.error('Fetch battery stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch battery stats' });
+  }
+});
+
+// GET /api/batteries/swap-history - List real battery swap records
+router.get('/swap-history', async (req, res) => {
+  try {
+    const { search, status, zone } = req.query;
+    let queryText = 'SELECT * FROM battery_swaps WHERE 1=1';
+    const params = [];
+    let paramCount = 1;
+
+    if (zone && String(zone).trim() && String(zone).trim().toLowerCase() !== 'all zones') {
+      queryText += ` AND zone ILIKE $${paramCount}`;
+      params.push(`%${String(zone).trim()}%`);
+      paramCount++;
+    }
+
+    if (status && status !== 'all' && status !== 'All') {
+      queryText += ` AND LOWER(status) = LOWER($${paramCount})`;
+      params.push(status);
+      paramCount++;
+    }
+
+    if (search && String(search).trim()) {
+      const s = `%${String(search).trim()}%`;
+      queryText += ` AND (swap_id ILIKE $${paramCount} OR rider_name ILIKE $${paramCount} OR vehicle_number ILIKE $${paramCount} OR old_battery_id ILIKE $${paramCount} OR new_battery_id ILIKE $${paramCount} OR station ILIKE $${paramCount})`;
+      params.push(s);
+      paramCount++;
+    }
+
+    queryText += ' ORDER BY created_at DESC LIMIT 200';
+
+    const result = await db.bmsQuery(queryText, params);
+    const rows = result.rows || [];
+
+    // Also get KPI metrics for swap history
+    const statsResult = await db.bmsQuery(`
+      SELECT 
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE status = 'Completed')::int as completed,
+        COUNT(*) FILTER (WHERE status = 'Ongoing')::int as ongoing,
+        COUNT(*) FILTER (WHERE status = 'Failed')::int as failed,
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)::int as today
+      FROM battery_swaps
+    `);
+    const stats = statsResult.rows[0] || { total: rows.length, completed: rows.length, ongoing: 0, failed: 0, today: 0 };
+
+    res.json({
+      data: rows,
+      stats
+    });
+  } catch (err) {
+    console.error('Fetch swap history error:', err);
+    res.json({ data: [], stats: { total: 0, completed: 0, ongoing: 0, failed: 0, today: 0 } });
+  }
+});
+
+// POST /api/batteries/swap - Record a battery swap and update battery and rider states
+router.post('/swap', async (req, res) => {
+  try {
+    const {
+      rider_name,
+      rider_mobile,
+      vehicle_number,
+      old_battery_id,
+      old_battery_soc,
+      new_battery_id,
+      new_battery_soc,
+      amount,
+      payment_mode,
+      payment_ref,
+      zone,
+      station,
+      operator,
+      notes
+    } = req.body;
+
+    if (!new_battery_id) {
+      return res.status(400).json({ error: 'new_battery_id is required' });
+    }
+
+    const swapId = `SW-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const insertSql = `
+      INSERT INTO battery_swaps (
+        swap_id, rider_name, rider_mobile, vehicle_number, old_battery_id, old_battery_soc,
+        new_battery_id, new_battery_soc, amount, payment_mode, payment_ref, zone,
+        station, operator, duration, swap_type, status, notes
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+      RETURNING *
+    `;
+
+    const swapResult = await db.bmsQuery(insertSql, [
+      swapId,
+      rider_name || 'Rider',
+      rider_mobile || '',
+      vehicle_number || '',
+      old_battery_id || '',
+      parseInt(old_battery_soc) || 15,
+      new_battery_id,
+      parseInt(new_battery_soc) || 98,
+      parseFloat(amount) || 150.00,
+      payment_mode || 'UPI',
+      payment_ref || '',
+      zone || 'Gotri Zone',
+      station || `${zone || 'Gotri'} Station`,
+      operator || 'Station Staff',
+      '42s',
+      'Automated',
+      'Completed',
+      notes || 'Battery swapped at station'
+    ]);
+
+    // Update old battery status -> charging
+    if (old_battery_id) {
+      await db.bmsQuery(`
+        UPDATE batteries SET 
+          status = 'charging', 
+          soc = $1, 
+          vehicle_number = NULL, 
+          rider_name = NULL,
+          updated_at = NOW()
+        WHERE battery_id = $2
+      `, [parseInt(old_battery_soc) || 15, old_battery_id]).catch(() => {});
+    }
+
+    // Update new battery status -> in_use
+    if (new_battery_id) {
+      await db.bmsQuery(`
+        UPDATE batteries SET 
+          status = 'in_use', 
+          vehicle_number = $1, 
+          rider_name = $2,
+          updated_at = NOW()
+        WHERE battery_id = $3
+      `, [vehicle_number || null, rider_name || null, new_battery_id]).catch(() => {});
+    }
+
+    // Update active rider in renters table if vehicle or rider matches
+    if (vehicle_number || rider_name) {
+      await db.query(`
+        UPDATE renters SET 
+          battery_id = $1 
+        WHERE (vehicle_id = $2 OR rider_name ILIKE $3) AND status ILIKE '%active%'
+      `, [new_battery_id, vehicle_number || '', rider_name || '']).catch(() => {});
+    }
+
+    try {
+      await delByPattern('batteries:*');
+      await delByPattern('renters:*');
+    } catch (e) {}
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Battery swap processed and recorded successfully',
+      swap: swapResult.rows[0]
+    });
+  } catch (err) {
+    console.error('Execute battery swap error:', err);
+    res.status(500).json({ error: 'Failed to record battery swap', details: err.message });
+  }
+});
+
+// POST /api/batteries/bulk-delete - Delete multiple batteries
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const { battery_ids } = req.body;
+    if (!Array.isArray(battery_ids) || battery_ids.length === 0) {
+      return res.status(400).json({ error: 'battery_ids array is required' });
+    }
+
+    await db.bmsQuery('DELETE FROM batteries WHERE battery_id = ANY($1)', [battery_ids]);
+    try {
+      await delByPattern('batteries:*');
+    } catch (e) {}
+
+    res.json({
+      status: 'success',
+      message: `Deleted ${battery_ids.length} batteries successfully`,
+      deleted_ids: battery_ids
+    });
+  } catch (err) {
+    console.error('Bulk delete batteries error:', err);
+    res.status(500).json({ error: 'Failed to bulk delete batteries', details: err.message });
+  }
+});
+
+// DELETE /api/batteries/:battery_id - Delete single battery
+router.delete('/:battery_id', async (req, res) => {
+  const { battery_id } = req.params;
+  try {
+    const result = await db.bmsQuery('DELETE FROM batteries WHERE battery_id = $1 RETURNING *', [battery_id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Battery not found' });
+    }
+
+    try {
+      await delByPattern('batteries:*');
+    } catch (e) {}
+
+    res.json({
+      status: 'success',
+      message: `Battery ${battery_id} deleted successfully`
+    });
+  } catch (err) {
+    console.error('Delete battery error:', err);
+    res.status(500).json({ error: 'Failed to delete battery', details: err.message });
   }
 });
 

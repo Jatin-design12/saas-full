@@ -15,7 +15,7 @@ const CSS = `
 /* ── shell & layout ── */
 .nr-shell { display: flex; min-height: 100vh; background: #fff; font-family: Inter, sans-serif; }
 .nr-main  { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; flex: 1; min-width: 0; background: #fff; }
-.nr-page  { flex: 1; padding: 20px 22px 70px; background-color: #FFF;}
+.nr-page  { flex: 1; padding: 20px 22px 70px;}
 
 /* ── breadcrumb ── */
 .nr-bc { display: flex; align-items: center; gap: 7px; padding: 14px 0 0; font-size: 12px; color: #9CA3AF; }
@@ -230,34 +230,74 @@ export default function RetainRiderReviewPage() {
   const totalPayable = Math.max(0, rentRate + deposit - discount);
   const payMethod = payment?.payment_method || 'upi';
 
+  const [confirmedVoucherId, setConfirmedVoucherId] = useState('');
+
   const handleConfirmSubmit = async () => {
     if (!agreed) {
       alert('Please agree to the Retain Ride terms before confirming.');
       return;
     }
     setIsSubmitting(true);
-    const newRideId = `RID-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newRideId = `RID-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
     setConfirmedRideId(newRideId);
+
+    const voucherToUse = payment?.cash_voucher_number || payment?.voucher_number || null;
+    if (voucherToUse) setConfirmedVoucherId(voucherToUse);
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      await fetch(`${apiUrl}/retain-rider`, {
+      
+      // 1. Create official reservation entry
+      const res = await fetch(`${apiUrl}/reservations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: riderName,
+          customer_name: riderName,
           mobile: riderPhone,
-          rider_id: riderId,
-          vehicle_id: vehicleCode,
+          gov_id: rider?.aadhaar || rider?.gov_id || 'GOV-ON-FILE',
+          reservation_date: rental?.start_date || new Date().toISOString().split('T')[0],
+          reservation_time: rental?.start_time || '10:00:00',
+          pickup_datetime: rental?.pickup_datetime || `${rental?.start_date || ''} ${rental?.start_time || ''}`.trim(),
+          drop_datetime: rental?.drop_datetime || `${rental?.return_date || ''} ${rental?.return_time || ''}`.trim(),
+          package_type: rental?.plan_type || planType || 'Daily Pass',
+          vehicle_category: 'E-Scooter',
+          vehicle_model: rental?.vehicle_model || 'Evegah City',
+          vehicle_number: vehicleCode,
           battery_id: batteryId,
-          package_name: planType,
-          rent: rentRate,
+          fare: rentRate,
           deposit: deposit,
-          total: totalPayable,
-          payment_method: payMethod,
-          status: 'Active Ride',
+          total_payable: totalPayable,
+          payment_mode: payMethod === 'cash' ? 'Cash' : (payMethod === 'upi' ? 'ICICI UPI' : (payMethod === 'split' ? 'Split' : 'Wallet')),
+          payment_status: 'Paid',
+          pickup_zone: rental?.pickup_zone || 'Gotri Zone',
+          drop_zone: rental?.drop_zone || 'Gotri Zone',
+          transaction_id: payment?.transaction_id || voucherToUse || newRideId,
+          cash_voucher_number: voucherToUse,
+          coupon_code: payment?.coupon_code || null,
+          discount: discount
         })
       });
+
+      const resData = await res.json();
+      if (resData?.data?.reservation_id) {
+        setConfirmedRideId(resData.data.reservation_id);
+      }
+      if (resData?.data?.cash_voucher_number) {
+        setConfirmedVoucherId(resData.data.cash_voucher_number);
+      }
+
+      // 2. Retain rider record
+      await fetch(`${apiUrl}/renters/retain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rider_name: riderName,
+          vehicle_id: vehicleCode,
+          package_name: planType,
+          renewal_rent: rentRate
+        })
+      }).catch(() => {});
+
     } catch (err) {
       console.error('Retain rider submission fallback:', err);
     } finally {
@@ -272,6 +312,7 @@ export default function RetainRiderReviewPage() {
     `Hello ${riderName},\n` +
     `Your retain ride registration is confirmed!\n\n` +
     `• Ride ID: ${confirmedRideId || 'RID-202409'}\n` +
+    (confirmedVoucherId ? `• Cash Voucher / Receipt: ${confirmedVoucherId}\n` : '') +
     `• Vehicle: ${vehicleName} (${vehicleCode})\n` +
     `• Battery: ${batteryId}\n` +
     `• Plan: ${planType}\n` +
@@ -472,6 +513,11 @@ export default function RetainRiderReviewPage() {
             <p className="success-modal-sub">
               Ride for <strong>{riderName}</strong> ({riderPhone}) has been successfully registered and marked as Active.<br/>
               Vehicle: <strong>{vehicleName}</strong> | Ride ID: <strong>{confirmedRideId}</strong>
+              {confirmedVoucherId && (
+                <div style={{ marginTop: 10, padding: '8px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: 13, color: '#166534', fontWeight: 700 }}>
+                  💵 Cash Voucher / Receipt: <span style={{ fontFamily: 'monospace' }}>{confirmedVoucherId}</span>
+                </div>
+              )}
             </p>
             <div className="modal-actions">
               <a

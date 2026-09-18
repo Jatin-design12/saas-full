@@ -29,8 +29,17 @@ router.get('/', async (req, res) => {
           'icici_' || ip.id::text AS id,
           ip.tx_id,
           COALESCE(ip.upi_ref_no, ip.merchant_id, 'ICICI-UPI') AS reference_id,
-          COALESCE(ip.rider_name, 'Rider') AS rider_name,
-          COALESCE(ip.mobile, '') AS mobile,
+          COALESCE(
+            NULLIF(ip.rider_name, 'Rider'),
+            r.customer_name,
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ip.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Evegah Rider'
+          ) AS rider_name,
+          COALESCE(
+            NULLIF(ip.mobile, ''),
+            r.mobile,
+            ''
+          ) AS mobile,
           COALESCE(r.fare, CASE WHEN ip.amount >= 10 THEN (ip.amount - COALESCE(r.deposit, 5)) ELSE ip.amount END)::numeric AS rent_amount,
           COALESCE(r.deposit, CASE WHEN ip.amount >= 10 THEN 5 ELSE 0 END)::numeric AS deposit_amount,
           ip.amount::numeric AS amount,
@@ -48,13 +57,22 @@ router.get('/', async (req, res) => {
 
         UNION ALL
 
-        -- 2. PayU Payments
+        -- 2. PayU Payments (Collections only - refunds are recorded in Section 4 below)
         SELECT 
           'payu_' || pp.id::text AS id,
           pp.tx_id,
           COALESCE(pp.payu_id, pp.bank_ref_num, pp.tx_id) AS reference_id,
-          COALESCE(pp.rider_name, 'Rider') AS rider_name,
-          COALESCE(pp.mobile, '') AS mobile,
+          COALESCE(
+            NULLIF(pp.rider_name, 'Rider'),
+            r.customer_name,
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(pp.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Evegah Rider'
+          ) AS rider_name,
+          COALESCE(
+            NULLIF(pp.mobile, ''),
+            r.mobile,
+            ''
+          ) AS mobile,
           COALESCE(r.fare, CASE WHEN pp.amount >= 10 THEN (pp.amount - COALESCE(r.deposit, 5)) ELSE pp.amount END)::numeric AS rent_amount,
           COALESCE(r.deposit, CASE WHEN pp.amount >= 10 THEN 5 ELSE 0 END)::numeric AS deposit_amount,
           pp.amount::numeric AS amount,
@@ -69,7 +87,9 @@ router.get('/', async (req, res) => {
           pp.created_at
         FROM payu_payments pp
         LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
-        WHERE pp.status != 'Refund_Failed' AND pp.purpose NOT ILIKE '%refund attempt%'
+        WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
+          AND pp.purpose NOT ILIKE '%refund%'
+          AND pp.tx_id NOT LIKE 'REF-%'
 
         UNION ALL
 
@@ -116,7 +136,7 @@ router.get('/', async (req, res) => {
           COALESCE(refund_amount, deposit, 0)::numeric AS amount,
           'Debit' AS type,
           'Successful' AS status,
-          COALESCE(refund_mode, 'PayU India Gateway Refund') AS payment_method,
+          COALESCE(refund_mode, 'PayU') AS payment_method,
           'Security Deposit Refund' AS purpose,
           COALESCE(refund_date, returned_at, created_at) AS created_at
         FROM reservations
@@ -127,8 +147,8 @@ router.get('/', async (req, res) => {
         -- 5. Direct / Cash / Offline Booking Payments only (avoid double-counting PayU, ICICI, Wallet)
         SELECT
           'res_' || id::text AS id,
-          COALESCE(transaction_id, 'TXN-R' || id::text) AS tx_id,
-          reservation_id AS reference_id,
+          COALESCE(cash_voucher_number, transaction_id, 'CSH-VCHR-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
+          COALESCE(cash_voucher_number, transaction_id, reservation_id) AS reference_id,
           COALESCE(customer_name, 'Rider') AS rider_name,
           COALESCE(mobile, '') AS mobile,
           COALESCE(fare, 0)::numeric AS rent_amount,
@@ -136,7 +156,10 @@ router.get('/', async (req, res) => {
           COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0)), fare)::numeric AS amount,
           'Credit' AS type,
           'Successful' AS status,
-          COALESCE(payment_mode, 'Cash / Direct Booking') AS payment_method,
+          CASE 
+            WHEN payment_mode ILIKE '%cash%' THEN 'Cash'
+            ELSE COALESCE(payment_mode, 'Cash')
+          END AS payment_method,
           'Ride Booking (' || COALESCE(package_type, 'Rental Plan') || ')' AS purpose,
           created_at
         FROM reservations
@@ -258,6 +281,117 @@ router.get('/', async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching payment history:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+/**
+ * GET /api/payments/cash-collection
+ * Dedicated Cash Collection Report & Vouchers Ledger
+ */
+router.get('/cash-collection', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const offset = (page - 1) * limit;
+    const search = (req.query.search || '').trim().toLowerCase();
+    const zone = (req.query.zone || '').trim();
+    const fromDate = req.query.from_date;
+    const toDate = req.query.to_date;
+
+    let whereClause = `WHERE (payment_mode ILIKE '%cash%' OR cash_voucher_number IS NOT NULL)`;
+    const params = [];
+
+    if (zone && zone !== 'All Zones') {
+      params.push(`%${zone}%`);
+      whereClause += ` AND (pickup_zone ILIKE $${params.length} OR drop_zone ILIKE $${params.length})`;
+    }
+
+    if (search) {
+      params.push(`%${search}%`);
+      const idx = params.length;
+      whereClause += ` AND (
+        customer_name ILIKE $${idx} OR 
+        mobile ILIKE $${idx} OR 
+        reservation_id ILIKE $${idx} OR 
+        cash_voucher_number ILIKE $${idx} OR 
+        transaction_id ILIKE $${idx}
+      )`;
+    }
+
+    if (fromDate) {
+      params.push(fromDate);
+      whereClause += ` AND created_at >= $${params.length}::date`;
+    }
+
+    if (toDate) {
+      params.push(toDate);
+      whereClause += ` AND created_at <= ($${params.length}::date + interval '1 day')`;
+    }
+
+    // Aggregates for KPI cards
+    const summaryRes = await db.query(`
+      SELECT
+        COUNT(*)::int AS total_vouchers,
+        COALESCE(SUM(COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0)))), 0)::numeric AS total_cash_collected,
+        COALESCE(SUM(CASE WHEN created_at::date = CURRENT_DATE THEN COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0))) ELSE 0 END), 0)::numeric AS today_cash_collected,
+        COALESCE(SUM(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0))) ELSE 0 END), 0)::numeric AS this_month_cash_collected
+      FROM reservations
+      ${whereClause}
+    `, params);
+
+    const summary = summaryRes.rows[0] || {
+      total_vouchers: 0,
+      total_cash_collected: 0,
+      today_cash_collected: 0,
+      this_month_cash_collected: 0
+    };
+
+    // List of vouchers
+    const listRes = await db.query(`
+      SELECT
+        id,
+        reservation_id,
+        COALESCE(cash_voucher_number, transaction_id, 'CSH-VCHR-' || SUBSTRING(id::text, 1, 8)) AS voucher_number,
+        transaction_id,
+        customer_name AS rider_name,
+        mobile,
+        fare::numeric,
+        deposit::numeric,
+        COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0)))::numeric AS total_amount,
+        payment_mode,
+        payment_status,
+        status,
+        package_type,
+        vehicle_model,
+        pickup_zone,
+        drop_zone,
+        COALESCE(cash_collected_by, 'Counter Cashier') AS collected_by,
+        created_at
+      FROM reservations
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `, params);
+
+    res.json({
+      status: 'success',
+      summary: {
+        total_vouchers: parseInt(summary.total_vouchers) || 0,
+        total_cash_collected: parseFloat(summary.total_cash_collected) || 0,
+        today_cash_collected: parseFloat(summary.today_cash_collected) || 0,
+        this_month_cash_collected: parseFloat(summary.this_month_cash_collected) || 0
+      },
+      pagination: {
+        page,
+        limit,
+        total: parseInt(summary.total_vouchers) || 0,
+        pages: Math.ceil((parseInt(summary.total_vouchers) || 0) / limit)
+      },
+      data: listRes.rows
+    });
+  } catch (err) {
+    console.error('Error fetching cash collection report:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });

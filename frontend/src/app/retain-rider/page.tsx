@@ -15,7 +15,7 @@ const CSS = `
 /* ── shell & layout ── */
 .nr-shell { display: flex; min-height: 100vh; background: #fff; font-family: Inter, sans-serif; }
 .nr-main  { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; flex: 1; min-width: 0; background: #fff; }
-.nr-page  { flex: 1; padding: 20px 22px 70px; background-color: #FFF;}
+.nr-page  { flex: 1; padding: 20px 22px 70px; }
 
 /* ── breadcrumb ── */
 .nr-bc { display: flex; align-items: center; gap: 7px; padding: 14px 0 0; font-size: 12px; color: #9CA3AF; }

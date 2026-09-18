@@ -9,15 +9,15 @@ class AppConstants {
   static String get getVehicleModel => '$apiBaseUrl/v1/getVehicleModel';
 
   // ICICI Bank Live UPI Merchant Configurations (from Bank Documentation)
-  static const String iciciMid = '9496988';
-  static const String iciciVpa = 'EVEGAHRIDE@icici';
+  static const String iciciMid = '613268';
+  static const String iciciVpa = 'EVEGAHUAT@icici';
   static const String iciciPayeeName = 'Evegah';
-  static const String iciciApiKey = 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ';
+  static const String iciciApiKey = 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp';
   static const String iciciBaseUrl = 'https://apibankingone.icici.bank.in/api/MerchantAPI/UPI/v0';
-  static const String iciciQrEndpoint = '/QR3/9496988';
-  static const String iciciTxnStatusEndpoint = '/TransactionStatus3/9496988';
-  static const String iciciCallbackStatusEndpoint = '/CallbackStatus2/9496988';
-  static const String iciciRefundEndpoint = '/Refund/9496988';
+  static const String iciciQrEndpoint = '/QR3/613268';
+  static const String iciciTxnStatusEndpoint = '/TransactionStatus3/613268';
+  static const String iciciCallbackStatusEndpoint = '/CallbackStatus2/613268';
+  static const String iciciRefundEndpoint = '/Refund/613268';
 
   // Secure Storage & Shared Preference Keys
   static const String keyAccessToken = 'access_token';

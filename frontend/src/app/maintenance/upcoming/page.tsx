@@ -174,22 +174,23 @@ export default function UpcomingServicesPage() {
       const res = await fetch(`${apiUrl}/maintenance`);
       if (res.ok) {
         const body = await res.json();
-        if (Array.isArray(body.data) && body.data.length > 0) {
-          const mapped = body.data.map((item: any) => ({
+        const rawList = Array.isArray(body) ? body : (body.data || []);
+        if (Array.isArray(rawList)) {
+          const mapped = rawList.map((item: any) => ({
             id: item.ticket_id || item.id,
             rawId: item.id,
-            subDate: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '19 Jun 2026',
-            vehicleReg: item.vehicle_code || 'GJ06EV1234',
-            vehicleModel: item.vehicle_model || 'Ather 450X',
-            vehicleKm: item.km_reading || '12,450 km',
-            serviceType: item.issue_category || 'Battery Check',
-            scheduledDateTime: item.scheduled_date ? new Date(item.scheduled_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '19 Jun 2026 10:00 AM',
-            mechanicName: item.assigned_technician || 'Ramesh Patel',
-            serviceCenter: item.service_center || 'Alkapuri Service Center',
-            statusText: item.status === 'Scheduled' ? 'Today' : item.status,
+            subDate: item.created_at ? new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Today',
+            vehicleReg: item.vehicle_code || item.vehicle_id || 'EV-001',
+            vehicleModel: item.vehicle_model || 'Evegah Pro',
+            vehicleKm: item.km_reading || '0 km',
+            serviceType: item.issue_category || 'General Service',
+            scheduledDateTime: item.scheduled_date ? new Date(item.scheduled_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Scheduled',
+            mechanicName: item.assigned_technician || 'Technician',
+            serviceCenter: item.service_center || 'Evegah Hub',
+            statusText: item.status === 'Scheduled' ? 'Today' : item.status || 'Pending',
             statusType: (item.status || '').toLowerCase().includes('today') || item.status === 'Scheduled' ? 'today' : 'days',
-            cost: item.estimated_cost ? `₹${item.estimated_cost}` : '₹850',
-            description: item.description || 'Routine diagnostic and preventive check'
+            cost: item.estimated_cost ? `₹${item.estimated_cost}` : '₹0',
+            description: item.description || 'Preventive maintenance check'
           }));
           setServicesList(mapped);
           return;
@@ -197,17 +198,7 @@ export default function UpcomingServicesPage() {
       }
     } catch (_) {}
 
-    // Fallback seed list if API endpoint returns empty
-    setServicesList([
-      { id: 'MAIN-2026-00045', subDate: '19 Jun 2026', vehicleReg: 'GJ06EV1234', vehicleModel: 'Ather 450X', vehicleKm: '12,450 km', serviceType: 'Battery Check', scheduledDateTime: '19 Jun 2026 10:00 AM', mechanicName: 'Ramesh Patel', serviceCenter: 'Evegah Service Center', statusText: 'Today', statusType: 'today', cost: '₹850', description: 'BMS cell balancing and telemetry check' },
-      { id: 'MAIN-2026-00046', subDate: '19 Jun 2026', vehicleReg: 'GJ06EV5678', vehicleModel: 'Hero Lectro', vehicleKm: '8,900 km', serviceType: 'General Service', scheduledDateTime: '19 Jun 2026 02:00 PM', mechanicName: 'Suresh Yadav', serviceCenter: 'Evegah Service Center', statusText: 'Today', statusType: 'today', cost: '₹600', description: 'Chain lube and brake lever adjustment' },
-      { id: 'MAIN-2026-00047', subDate: '20 Jun 2026', vehicleReg: 'GJ06EV9012', vehicleModel: 'Ola S1 Pro', vehicleKm: '9,230 km', serviceType: 'Tyre Replacement', scheduledDateTime: '20 Jun 2026 11:00 AM', mechanicName: 'Mahesh Singh', serviceCenter: 'Evegah Service Center', statusText: 'Tomorrow', statusType: 'tomorrow', cost: '₹1,200', description: 'Rear tubeless tyre replacement' },
-      { id: 'MAIN-2026-00048', subDate: '20 Jun 2026', vehicleReg: 'GJ06EV3456', vehicleModel: 'EMotorad', vehicleKm: '7,150 km', serviceType: 'Brake Check', scheduledDateTime: '20 Jun 2026 03:30 PM', mechanicName: 'Ramesh Patel', serviceCenter: 'Alkapuri Service Center', statusText: 'Tomorrow', statusType: 'tomorrow', cost: '₹500', description: 'Brake pad inspection and fluid flush' },
-      { id: 'MAIN-2026-00049', subDate: '19 Jun 2026', vehicleReg: 'GJ06EV7890', vehicleModel: 'Ather 450X', vehicleKm: '10,230 km', serviceType: 'Battery Check', scheduledDateTime: '21 Jun 2026 10:30 AM', mechanicName: 'Suresh Yadav', serviceCenter: 'Manjalpur Service Center', statusText: 'In 2 Days', statusType: 'days', cost: '₹850', description: 'State of charge telemetry verification' },
-      { id: 'MAIN-2026-00050', subDate: '20 Jun 2026', vehicleReg: 'GJ06EV1122', vehicleModel: 'Hero Lectro', vehicleKm: '6,800 km', serviceType: 'Chain Lube', scheduledDateTime: '22 Jun 2026 12:00 PM', mechanicName: 'Mahesh Singh', serviceCenter: 'Waghodia Service Center', statusText: 'In 3 Days', statusType: 'days', cost: '₹300', description: 'Drive chain cleaning and lubing' },
-      { id: 'MAIN-2026-00051', subDate: '20 Jun 2026', vehicleReg: 'GJ06EV3344', vehicleModel: 'Ola S1 Pro', vehicleKm: '11,450 km', serviceType: 'General Service', scheduledDateTime: '23 Jun 2026 02:30 PM', mechanicName: 'Ramesh Patel', serviceCenter: 'Alkapuri Service Center', statusText: 'In 4 Days', statusType: 'days', cost: '₹600', description: 'Motor controller check and electrical wiring test' },
-      { id: 'MAIN-2026-00052', subDate: '24 Jun 2026', vehicleReg: 'GJ06EV5566', vehicleModel: 'EMotorad', vehicleKm: '9,120 km', serviceType: 'Tyre Replacement', scheduledDateTime: '24 Jun 2026 11:30 AM', mechanicName: 'Suresh Yadav', serviceCenter: 'Manjalpur Service Center', statusText: 'In 5 Days', statusType: 'days', cost: '₹1,200', description: 'Front tyre tread replacement' }
-    ]);
+    setServicesList([]);
   };
 
   useEffect(() => {
@@ -266,19 +257,44 @@ export default function UpcomingServicesPage() {
     alert(`Exporting ${selectedIds.length > 0 ? selectedIds.length : filteredList.length} maintenance record(s) to CSV/Excel...`);
   };
 
+  // Dynamic metric calculations
+  const todayCount = useMemo(() => {
+    return servicesList.filter(s => s.statusText === 'Today').length;
+  }, [servicesList]);
+
+  const tomorrowCount = useMemo(() => {
+    return servicesList.filter(s => s.statusText === 'Tomorrow').length;
+  }, [servicesList]);
+
+  const weekCount = useMemo(() => {
+    return servicesList.filter(s => s.statusType === 'days' || s.statusText === 'Today' || s.statusText === 'Tomorrow').length;
+  }, [servicesList]);
+
+  const overdueCount = useMemo(() => {
+    return servicesList.filter(s => (s.statusText || '').toLowerCase().includes('overdue')).length;
+  }, [servicesList]);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    servicesList.forEach(s => {
+      counts[s.serviceType] = (counts[s.serviceType] || 0) + 1;
+    });
+    return counts;
+  }, [servicesList]);
+
   // Chart.js Donut Config
-  const chartData = {
+  const chartData = useMemo(() => ({
     labels: ['Today', 'Tomorrow', 'Next 7 Days', 'Next 30 Days', 'Overdue'],
     datasets: [
       {
-        data: [5, 4, 10, 5, 2],
+        data: [todayCount, tomorrowCount, weekCount, servicesList.length, overdueCount],
         backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F97316', '#EF4444'],
         hoverBackgroundColor: ['#2563EB', '#7C3AED', '#059669', '#EA580C', '#DC2626'],
         borderWidth: 2,
         borderColor: '#ffffff',
       },
     ],
-  };
+  }), [todayCount, tomorrowCount, weekCount, servicesList.length, overdueCount]);
 
   const chartOptions = {
     cutout: '72%',
@@ -395,7 +411,7 @@ export default function UpcomingServicesPage() {
                 </div>
                 <div>
                   <div className="up-kpi-lbl">Today</div>
-                  <div className="up-kpi-val">5</div>
+                  <div className="up-kpi-val">{todayCount}</div>
                   <div className="up-kpi-sub">Due today</div>
                 </div>
               </div>
@@ -406,7 +422,7 @@ export default function UpcomingServicesPage() {
                 </div>
                 <div>
                   <div className="up-kpi-lbl">This Week</div>
-                  <div className="up-kpi-val">14</div>
+                  <div className="up-kpi-val">{weekCount}</div>
                   <div className="up-kpi-sub" style={{ color: '#10B981', fontWeight: 700 }}>Next 7 days</div>
                 </div>
               </div>
@@ -417,7 +433,7 @@ export default function UpcomingServicesPage() {
                 </div>
                 <div>
                   <div className="up-kpi-lbl">This Month</div>
-                  <div className="up-kpi-val">24</div>
+                  <div className="up-kpi-val">{servicesList.length}</div>
                   <div className="up-kpi-sub">Next 30 days</div>
                 </div>
               </div>
@@ -428,7 +444,7 @@ export default function UpcomingServicesPage() {
                 </div>
                 <div>
                   <div className="up-kpi-lbl">Overdue</div>
-                  <div className="up-kpi-val" style={{ color: '#EF4444' }}>2</div>
+                  <div className="up-kpi-val" style={{ color: '#EF4444' }}>{overdueCount}</div>
                   <div className="up-kpi-sub" style={{ color: '#EF4444', fontWeight: 700 }}>Requires attention</div>
                 </div>
               </div>
@@ -595,7 +611,7 @@ export default function UpcomingServicesPage() {
 
                 {/* Footer Pagination */}
                 <div className="up-tft">
-                  <div>Showing 1 to {filteredList.length} of 24 entries</div>
+                  <div>Showing 1 to {filteredList.length} of {servicesList.length} entries</div>
                   <div className="up-pg-wrap">
                     <button className="up-pg-btn" disabled>&lt;</button>
                     <button className="up-pg-btn active">1</button>
@@ -617,7 +633,7 @@ export default function UpcomingServicesPage() {
                   <div className="donut-chart-container">
                     <Doughnut data={chartData} options={chartOptions} />
                     <div className="donut-center-label">
-                      <div className="donut-center-val">24</div>
+                      <div className="donut-center-val">{servicesList.length}</div>
                       <div className="donut-center-sub">TOTAL</div>
                     </div>
                   </div>
@@ -625,23 +641,23 @@ export default function UpcomingServicesPage() {
                   <div className="donut-legend-list">
                     <div className="donut-legend-item">
                       <div><span className="donut-dot" style={{ background: '#3B82F6' }}></span>Today</div>
-                      <span>5</span>
+                      <span>{todayCount}</span>
                     </div>
                     <div className="donut-legend-item">
                       <div><span className="donut-dot" style={{ background: '#8B5CF6' }}></span>Tomorrow</div>
-                      <span>4</span>
+                      <span>{tomorrowCount}</span>
                     </div>
                     <div className="donut-legend-item">
                       <div><span className="donut-dot" style={{ background: '#10B981' }}></span>Next 7 Days</div>
-                      <span>10</span>
+                      <span>{weekCount}</span>
                     </div>
                     <div className="donut-legend-item">
                       <div><span className="donut-dot" style={{ background: '#F97316' }}></span>Next 30 Days</div>
-                      <span>5</span>
+                      <span>{servicesList.length}</span>
                     </div>
                     <div className="donut-legend-item">
                       <div><span className="donut-dot" style={{ background: '#EF4444' }}></span>Overdue</div>
-                      <span style={{ color: '#EF4444', fontWeight: 800 }}>2</span>
+                      <span style={{ color: '#EF4444', fontWeight: 800 }}>{overdueCount}</span>
                     </div>
                   </div>
                 </div>
@@ -650,30 +666,21 @@ export default function UpcomingServicesPage() {
                 <div className="up-widget">
                   <h4 className="up-widget-title">Upcoming Service Types</h4>
                   <div className="type-rank-list">
-                    <div className="type-rank-item">
-                      <span>Battery Check</span>
-                      <span className="type-rank-val">8</span>
-                    </div>
-                    <div className="type-rank-item">
-                      <span>General Service</span>
-                      <span className="type-rank-val">6</span>
-                    </div>
-                    <div className="type-rank-item">
-                      <span>Tyre Replacement</span>
-                      <span className="type-rank-val">4</span>
-                    </div>
-                    <div className="type-rank-item">
-                      <span>Brake Check</span>
-                      <span className="type-rank-val">3</span>
-                    </div>
-                    <div className="type-rank-item">
-                      <span>Chain Lube</span>
-                      <span className="type-rank-val">2</span>
-                    </div>
-                    <div className="type-rank-item">
-                      <span>Other Services</span>
-                      <span className="type-rank-val">1</span>
-                    </div>
+                    {Object.keys(typeCounts).length > 0 ? (
+                      Object.entries(typeCounts).map(([typeName, count]) => (
+                        <div key={typeName} className="type-rank-item">
+                          <span>{typeName}</span>
+                          <span className="type-rank-val">{count}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="type-rank-item"><span>Battery Check</span><span className="type-rank-val">0</span></div>
+                        <div className="type-rank-item"><span>General Service</span><span className="type-rank-val">0</span></div>
+                        <div className="type-rank-item"><span>Tyre Replacement</span><span className="type-rank-val">0</span></div>
+                        <div className="type-rank-item"><span>Brake Check</span><span className="type-rank-val">0</span></div>
+                      </>
+                    )}
                   </div>
                   <div style={{ textAlign: 'right', marginTop: '4px' }}>
                     <span className="widget-link" onClick={() => router.push('/maintenance/all')}>View All &rarr;</span>
@@ -686,7 +693,7 @@ export default function UpcomingServicesPage() {
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     Need Attention
                   </div>
-                  <div className="attn-sub">2 services are overdue</div>
+                  <div className="attn-sub">{overdueCount} services are overdue</div>
                   <div style={{ marginTop: '4px' }}>
                     <span className="widget-link" style={{ color: '#B91C1C', fontWeight: 800 }} onClick={() => router.push('/maintenance/all?status=Overdue')}>View Overdue Services &rarr;</span>
                   </div>

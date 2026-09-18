@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -244,10 +244,50 @@ const CSS = `
 .ba-tl-time { font-size: 11px; color: #94A3B8; margin-top: 2px; font-weight: 500; }
 `;
 
-export default function BatteryInwardDetailsPage() {
+function BatteryInwardDetailsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedId = searchParams?.get('id') || searchParams?.get('battery_id') || '';
+
+  const [battery, setBattery] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Overview');
-  const [notes] = useState('Regular battery inward');
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBattery = async () => {
+      setLoading(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      try {
+        if (requestedId) {
+          const res = await fetch(`${apiUrl}/batteries/${encodeURIComponent(requestedId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted && data && data.battery_id) {
+              setBattery(data);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+        // Fallback to first available battery in database
+        const listRes = await fetch(`${apiUrl}/batteries`);
+        if (listRes.ok) {
+          const list = await listRes.json();
+          if (isMounted && Array.isArray(list) && list.length > 0) {
+            setBattery(list[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching battery detail:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchBattery();
+    return () => { isMounted = false; };
+  }, [requestedId]);
+
   const [checklist] = useState([
     { name: 'Battery Physical Check', status: 'OK' },
     { name: 'Voltage Check', status: 'OK' },
@@ -259,12 +299,22 @@ export default function BatteryInwardDetailsPage() {
     { name: 'Documents Verified', status: 'OK' }
   ]);
 
-
-
-
-  const handleTabClick = (tabName: string) => {
-    setActiveTab(tabName);
-  };
+  const bId = battery?.battery_id || requestedId || 'BAT-GT-60V-01';
+  const bSoc = typeof battery?.soc === 'number' ? battery.soc : parseInt(battery?.soc) || 92;
+  const bSoh = battery?.soh ? parseInt(battery.soh) : (battery?.health ? parseInt(battery.health) : 98);
+  const bStatus = (battery?.status || 'available').toLowerCase();
+  const bType = battery?.battery_type || 'Li-ion NMC';
+  const bVolt = battery?.voltage || (bSoc > 80 ? 67.2 : 64.5);
+  const bCap = battery?.capacity || '60V / 30Ah';
+  const bZone = battery?.zone || 'Gotri Zone';
+  const bLocation = battery?.location || `${bZone} Dock #01`;
+  const bModel = battery?.model || 'TR-6030N';
+  const bSerial = battery?.serial_number || bId;
+  const bCycles = battery?.cycles || 25;
+  const bTemp = battery?.temp || 28;
+  const bPurchDate = battery?.purchase_date ? new Date(battery.purchase_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '10 Jan 2026';
+  const bWarrDate = battery?.warranty_valid_till ? new Date(battery.warranty_valid_till).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '10 Jan 2028';
+  const bNotes = battery?.notes || 'Standard inward inspection passed. Battery ready for dock swapping.';
 
   return (
     <>
@@ -283,33 +333,29 @@ export default function BatteryInwardDetailsPage() {
                 </svg>
               </button>
               <div className="ba-bc-text">
-                <a href="/battery/inventory" className="ba-bc-link">Battery</a>
+                <a href="/battery/list" className="ba-bc-link">Battery List</a>
                 <span className="ba-bc-sep">&gt;</span>
                 <span className="ba-bc-sep">Battery Inward</span>
                 <span className="ba-bc-sep">&gt;</span>
-                <span className="ba-bc-cur">BAT-450X-12340001</span>
+                <span className="ba-bc-cur">{bId}</span>
               </div>
             </div>
 
             {/* Page Title Row */}
             <div className="ba-title-row">
               <div className="ba-title-left">
-                <h1 className="ba-h1">Battery Inward Details</h1>
-                <span className="ba-badge-completed">Completed</span>
+                <h1 className="ba-h1">Battery Inward: {bId}</h1>
+                <span className="ba-badge-completed" style={{ background: bStatus === 'available' ? '#DCFCE7' : '#EFF6FF', color: bStatus === 'available' ? '#16A34A' : '#2563EB', borderColor: bStatus === 'available' ? '#BBF7D0' : '#BFDBFE' }}>
+                  {bStatus.replace('_', ' ')}
+                </span>
               </div>
               <div className="ba-actions">
-                <button className="ba-btn-secondary" onClick={() => alert('View on Map clicked')}>
+                <button className="ba-btn-secondary" onClick={() => router.push('/battery/list')}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
                   </svg>
-                  View on Map
-                </button>
-                <button className="ba-btn-secondary" onClick={() => alert('More Actions clicked')}>
-                  <span>More Actions</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  Back to Battery List
                 </button>
               </div>
             </div>
@@ -330,11 +376,11 @@ export default function BatteryInwardDetailsPage() {
                 </div>
                 <div className="ba-soc-panel">
                   <div className="ba-soc-text-row">
-                    <span style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A' }}>78%</span>
+                    <span style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A' }}>{bSoc}%</span>
                     <span className="ba-soc-label">Battery SoC</span>
                   </div>
                   <div className="ba-soc-bar-bg">
-                    <div className="ba-soc-bar-val" style={{ width: '78%' }}></div>
+                    <div className="ba-soc-bar-val" style={{ width: `${bSoc}%`, background: bSoc > 70 ? '#10B981' : bSoc > 25 ? '#F59E0B' : '#EF4444' }}></div>
                   </div>
                 </div>
               </div>
@@ -343,8 +389,10 @@ export default function BatteryInwardDetailsPage() {
               <div className="ba-profile-right" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {/* Battery Header Row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A', margin: 0 }}>BAT-450X-12340001</h2>
-                  <span className="ba-badge-healthy">Healthy</span>
+                  <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A', margin: 0 }}>{bId}</h2>
+                  <span className="ba-badge-healthy" style={{ background: bSoh >= 90 ? '#ECFDF5' : '#FEF3C7', color: bSoh >= 90 ? '#10B981' : '#D97706' }}>
+                    {bSoh >= 90 ? 'Healthy Pack' : 'Service Due'} ({bSoh}% SOH)
+                  </span>
                 </div>
 
                 {/* Metadata Grid */}
@@ -357,7 +405,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Battery Type</span>
-                        <span className="ba-detail-val">Li-ion</span>
+                        <span className="ba-detail-val">{bType}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -366,7 +414,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Voltage</span>
-                        <span className="ba-detail-val">48.6 V</span>
+                        <span className="ba-detail-val">{bVolt} V</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -375,7 +423,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Capacity</span>
-                        <span className="ba-detail-val">45 Ah</span>
+                        <span className="ba-detail-val">{bCap}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -383,8 +431,8 @@ export default function BatteryInwardDetailsPage() {
                         <IconWeight />
                       </div>
                       <div className="ba-detail-text">
-                        <span className="ba-detail-lbl">Weight</span>
-                        <span className="ba-detail-val">10.2 kg</span>
+                        <span className="ba-detail-lbl">Pack Weight</span>
+                        <span className="ba-detail-val">11.4 kg</span>
                       </div>
                     </div>
                   </div>
@@ -397,7 +445,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Compatible Model</span>
-                        <span className="ba-detail-val">Ather 450X</span>
+                        <span className="ba-detail-val">{bModel}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -406,7 +454,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Battery Serial No.</span>
-                        <span className="ba-detail-val">BAT450X2120001</span>
+                        <span className="ba-detail-val">{bSerial}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -416,8 +464,8 @@ export default function BatteryInwardDetailsPage() {
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Status</span>
                         <span className="ba-detail-val" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
-                          Active
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: bStatus === 'available' ? '#10B981' : '#3B82F6', display: 'inline-block' }}></span>
+                          {bStatus.replace('_', ' ')}
                         </span>
                       </div>
                     </div>
@@ -427,7 +475,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Inward Type</span>
-                        <span className="ba-detail-val">Manual</span>
+                        <span className="ba-detail-val">Station Inward</span>
                       </div>
                     </div>
                   </div>
@@ -439,8 +487,8 @@ export default function BatteryInwardDetailsPage() {
                         <IconUser />
                       </div>
                       <div className="ba-detail-text">
-                        <span className="ba-detail-val">Rahul Sharma</span>
-                        <span className="ba-detail-lbl">Inward Operator</span>
+                        <span className="ba-detail-val">{battery?.assigned_to || battery?.rider_name || 'Station Fleet'}</span>
+                        <span className="ba-detail-lbl">Assigned To</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -449,7 +497,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Inward Date & Time</span>
-                        <span className="ba-detail-val" style={{ whiteSpace: 'nowrap' }}>20 May 2024, 10:15 AM</span>
+                        <span className="ba-detail-val" style={{ whiteSpace: 'nowrap' }}>{bPurchDate}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -457,8 +505,8 @@ export default function BatteryInwardDetailsPage() {
                         <IconPin />
                       </div>
                       <div className="ba-detail-text">
-                        <span className="ba-detail-lbl">Inward Location</span>
-                        <span className="ba-detail-val">Palika Bazaar, CP</span>
+                        <span className="ba-detail-lbl">Assigned Zone</span>
+                        <span className="ba-detail-val">{bZone}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -466,8 +514,8 @@ export default function BatteryInwardDetailsPage() {
                         <IconSpeedometer />
                       </div>
                       <div className="ba-detail-text">
-                        <span className="ba-detail-lbl">Odometer Reading</span>
-                        <span className="ba-detail-val">2,156 km</span>
+                        <span className="ba-detail-lbl">Dock Location</span>
+                        <span className="ba-detail-val">{bLocation}</span>
                       </div>
                     </div>
                   </div>
@@ -480,7 +528,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Current SoH</span>
-                        <span className="ba-detail-val" style={{ color: '#10B981' }}>Good (92%)</span>
+                        <span className="ba-detail-val" style={{ color: '#10B981' }}>{bSoh}% SOH</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -489,7 +537,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Cycle Count</span>
-                        <span className="ba-detail-val">45</span>
+                        <span className="ba-detail-val">{bCycles}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -497,8 +545,8 @@ export default function BatteryInwardDetailsPage() {
                         <IconFactory />
                       </div>
                       <div className="ba-detail-text">
-                        <span className="ba-detail-lbl">Manufactured On</span>
-                        <span className="ba-detail-val">10 Apr 2024</span>
+                        <span className="ba-detail-lbl">Supplier / Make</span>
+                        <span className="ba-detail-val">{battery?.supplier || battery?.make || 'Trontek Power'}</span>
                       </div>
                     </div>
                     <div className="ba-detail-item">
@@ -507,7 +555,7 @@ export default function BatteryInwardDetailsPage() {
                       </div>
                       <div className="ba-detail-text">
                         <span className="ba-detail-lbl">Warranty Valid Till</span>
-                        <span className="ba-detail-val">14 Apr 2025</span>
+                        <span className="ba-detail-val">{bWarrDate}</span>
                       </div>
                     </div>
                   </div>
@@ -518,7 +566,7 @@ export default function BatteryInwardDetailsPage() {
             {/* Tabs Row */}
             <div className="ba-tabs">
               {['Overview', 'Battery Health', 'Inward Metrics', 'Documents', 'History'].map((tab) => (
-                <div key={tab} className={`ba-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => handleTabClick(tab)}>
+                <div key={tab} className={`ba-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
                   {tab}
                 </div>
               ))}
@@ -607,7 +655,7 @@ export default function BatteryInwardDetailsPage() {
                           </svg>
                           Notes
                         </span>
-                        <div className="ba-info-val-notes">{notes}</div>
+                        <div className="ba-info-val-notes">{bNotes}</div>
                       </div>
                     </div>
                   </div>
@@ -948,5 +996,13 @@ export default function BatteryInwardDetailsPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function BatteryInwardDetailsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: '#64748B' }}>Loading battery inward telemetry...</div>}>
+      <BatteryInwardDetailsContent />
+    </Suspense>
   );
 }

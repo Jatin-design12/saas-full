@@ -21,9 +21,9 @@ const DEFAULT_GATEWAYS = [
     name: 'ICICI Bank UPI',
     provider: 'icici',
     active: true,
-    key_id: '9496988',
-    key_secret: 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ',
-    vpa: 'EVEGAHRIDE@icici',
+    key_id: '613268',
+    key_secret: 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp',
+    vpa: 'EVEGAHUAT@icici',
     payee_name: 'Evegah',
     environment: 'production',
     notes: 'Direct Merchant UPI QR & Intent Launch'

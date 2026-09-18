@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -90,44 +90,86 @@ const CSS = `
 @keyframes sh-slideup { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 `;
 
-interface SwapItem {
-  id: string;
-  batteryId: string;
-  vehiclePlate: string;
-  socOld: number;
-  socNew: number;
-  location: string;
+interface SwapRecord {
+  id: string | number;
+  swap_id: string;
+  rider_name: string;
+  rider_mobile: string;
+  vehicle_number: string;
+  old_battery_id: string;
+  old_battery_soc: number;
+  new_battery_id: string;
+  new_battery_soc: number;
+  amount: number | string;
+  payment_mode: string;
+  payment_ref: string;
+  zone: string;
+  station: string;
   operator: string;
   duration: string;
-  type: 'Automated' | 'Manual Hub';
-  status: 'Completed' | 'Ongoing' | 'Failed';
-  time: string;
+  swap_type: string;
+  status: string;
+  notes?: string;
+  created_at: string;
 }
 
-const INITIAL_SWAPS: SwapItem[] = [
-  { id: 'SW-2024-05892', batteryId: 'BAT-450X-12340001', vehiclePlate: 'GJ-06-EV-1024', socOld: 14, socNew: 98, location: 'Gotri Hub', operator: 'Self-Service', duration: '42s', type: 'Automated', status: 'Completed', time: '20 May 2024, 10:15 AM' },
-  { id: 'SW-2024-05891', batteryId: 'BAT-450X-12340002', vehiclePlate: 'GJ-06-EV-1025', socOld: 8, socNew: 95, location: 'Manjalpur Hub', operator: 'Rajesh Sharma', duration: '1m 12s', type: 'Manual Hub', status: 'Completed', time: '20 May 2024, 10:02 AM' },
-  { id: 'SW-2024-05890', batteryId: 'BAT-450X-12340003', vehiclePlate: 'GJ-06-EV-1026', socOld: 22, socNew: 92, location: 'Gotri Hub', operator: 'Self-Service', duration: '48s', type: 'Automated', status: 'Completed', time: '20 May 2024, 09:48 AM' },
-  { id: 'SW-2024-05889', batteryId: 'BAT-450X-12340004', vehiclePlate: 'GJ-06-EV-1027', socOld: 15, socNew: 15, location: 'KPGU Hub', operator: 'Amit Singh', duration: '2m 15s', type: 'Manual Hub', status: 'Failed', time: '20 May 2024, 09:30 AM' },
-  { id: 'SW-2024-05888', batteryId: 'BAT-450X-12340005', vehiclePlate: 'GJ-06-EV-1028', socOld: 19, socNew: 97, location: 'Aatapi Hub', operator: 'Self-Service', duration: '40s', type: 'Automated', status: 'Completed', time: '20 May 2024, 09:12 AM' },
-  { id: 'SW-2024-05887', batteryId: 'BAT-450X-12340006', vehiclePlate: 'GJ-06-EV-1029', socOld: 5, socNew: 24, location: 'Manjalpur Hub', operator: 'Rajesh Sharma', duration: '45s', type: 'Manual Hub', status: 'Ongoing', time: '20 May 2024, 09:05 AM' },
-  { id: 'SW-2024-05886', batteryId: 'BAT-450X-12340007', vehiclePlate: 'GJ-06-EV-1030', socOld: 12, socNew: 96, location: 'Moti Daman Hub', operator: 'Self-Service', duration: '44s', type: 'Automated', status: 'Completed', time: '19 May 2024, 06:40 PM' },
-  { id: 'SW-2024-05885', batteryId: 'BAT-450X-12340002', vehiclePlate: 'GJ-06-EV-1025', socOld: 17, socNew: 99, location: 'Gotri Hub', operator: 'Self-Service', duration: '51s', type: 'Automated', status: 'Completed', time: '19 May 2024, 05:22 PM' },
-];
-
 export default function SwapHistoryPage() {
-  const [swaps, setSwaps] = useState<SwapItem[]>(INITIAL_SWAPS);
+  const [swaps, setSwaps] = useState<SwapRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedZone, setSelectedZone] = useState('All Zones');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDetail, setSelectedDetail] = useState<SwapRecord | null>(null);
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: '' });
 
   const triggerToast = (msg: string) => {
     setToast({ show: true, msg });
     setTimeout(() => setToast({ show: false, msg: '' }), 3000);
   };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const z = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones';
+      setSelectedZone(z);
+    }
+    const handleZone = (e: any) => {
+      const z = e?.detail?.name || (typeof e?.detail === 'string' ? e.detail : 'All Zones');
+      if (z) setSelectedZone(z);
+    };
+    window.addEventListener('evegah_active_zone_changed', handleZone);
+    window.addEventListener('evegah_zone_changed', handleZone);
+    return () => {
+      window.removeEventListener('evegah_active_zone_changed', handleZone);
+      window.removeEventListener('evegah_zone_changed', handleZone);
+    };
+  }, []);
+
+  const fetchSwaps = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const zParam = selectedZone && selectedZone !== 'All Zones' && selectedZone !== 'Multiple Zones'
+        ? `?zone=${encodeURIComponent(selectedZone)}`
+        : '';
+      const res = await fetch(`${apiUrl}/batteries/swap-history${zParam}`);
+      if (res.ok) {
+        const result = await res.json();
+        const list = result.data || result.swaps || (Array.isArray(result) ? result : []);
+        setSwaps(list);
+      }
+    } catch (err) {
+      console.error('Error fetching swap history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSwaps();
+  }, [selectedZone]);
 
   // Reset all filters
   const resetFilters = () => {
@@ -142,32 +184,56 @@ export default function SwapHistoryPage() {
   // Filtered dataset
   const filteredSwaps = useMemo(() => {
     return swaps.filter(item => {
+      const sId = item.swap_id || String(item.id);
       const matchSearch = searchQuery === '' ||
-        item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.batteryId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.vehiclePlate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.operator.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = statusFilter === '' || item.status === statusFilter;
-      const matchType = typeFilter === '' || item.type === typeFilter;
-      const matchLocation = locationFilter === '' || item.location === locationFilter;
+        sId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.rider_name && item.rider_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.vehicle_number && item.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.old_battery_id && item.old_battery_id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.new_battery_id && item.new_battery_id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.operator && item.operator.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchStatus = statusFilter === '' || item.status?.toLowerCase() === statusFilter.toLowerCase();
+      const matchType = typeFilter === '' || item.swap_type?.toLowerCase().includes(typeFilter.toLowerCase());
+      const matchLocation = locationFilter === '' ||
+        (item.station && item.station.toLowerCase().includes(locationFilter.toLowerCase())) ||
+        (item.zone && item.zone.toLowerCase().includes(locationFilter.toLowerCase()));
+
       return matchSearch && matchStatus && matchType && matchLocation;
     });
   }, [swaps, searchQuery, statusFilter, typeFilter, locationFilter]);
 
-  // Paginated dataset (5 items per page)
+  // Paginated dataset (10 items per page)
+  const pageSize = 10;
   const paginatedSwaps = useMemo(() => {
-    const start = (currentPage - 1) * 5;
-    return filteredSwaps.slice(start, start + 5);
+    const start = (currentPage - 1) * pageSize;
+    return filteredSwaps.slice(start, start + pageSize);
   }, [filteredSwaps, currentPage]);
 
-  const totalPages = Math.ceil(filteredSwaps.length / 5) || 1;
+  const totalPages = Math.ceil(filteredSwaps.length / pageSize) || 1;
 
   // Calculate metrics based on state
   const totalSwapsCount = swaps.length;
-  const completedSwapsCount = swaps.filter(s => s.status === 'Completed').length;
-  const ongoingSwapsCount = swaps.filter(s => s.status === 'Ongoing').length;
-  const failedSwapsCount = swaps.filter(s => s.status === 'Failed').length;
-  const uniqueLocations = Array.from(new Set(swaps.map(s => s.location))).length;
+  const completedSwapsCount = swaps.filter(s => s.status?.toLowerCase() === 'completed').length;
+  const ongoingSwapsCount = swaps.filter(s => s.status?.toLowerCase() === 'ongoing').length;
+  const failedSwapsCount = swaps.filter(s => s.status?.toLowerCase() === 'failed').length;
+  const uniqueLocations = Array.from(new Set(swaps.map(s => s.station || s.zone).filter(Boolean))).length;
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <>
@@ -175,14 +241,14 @@ export default function SwapHistoryPage() {
       <div className="sh-shell">
         <Sidebar activePath="/battery/swap-history" />
         <div className="sh-main">
-          <TopBar />
+          <TopBar title="Battery Swap History" subtitle={`Track all physical and automated battery transactions (${selectedZone})`} />
           <div className="sh-page">
             {/* Breadcrumb */}
             <div className="sh-bc">
               <a href="/">Dashboard</a>
-              <span className="sh-bc-sep">/</span>
-              <span className="sh-bc-sep">Battery</span>
-              <span className="sh-bc-sep">/</span>
+              <span className="sh-bc-sep">&gt;</span>
+              <a href="/battery/list">Battery</a>
+              <span className="sh-bc-sep">&gt;</span>
               <span className="sh-bc-cur">Swap History</span>
             </div>
 
@@ -190,85 +256,96 @@ export default function SwapHistoryPage() {
             <div className="sh-title-row">
               <div>
                 <h1 className="sh-h1">Battery Swap History</h1>
-                <p className="sh-sub">Monitor battery transactions, swap durations, and logs across automated and manual hubs.</p>
+                <p className="sh-sub">Real database records of battery swaps, SoC exchanges, and station logs across {selectedZone}.</p>
               </div>
               <div className="sh-actions">
                 <button className="sh-btn" onClick={() => triggerToast('CSV report export queued')}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export CSV
                 </button>
-                <button className="sh-btn-primary sh-btn" onClick={() => {
-                  const newId = `SW-2024-0${Math.floor(10000 + Math.random() * 90000)}`;
-                  const newSwap: SwapItem = {
-                    id: newId,
-                    batteryId: 'BAT-450X-12340001',
-                    vehiclePlate: 'DL-01-AB-1234',
-                    socOld: 12,
-                    socNew: 98,
-                    location: 'Palika Bazaar, CP',
-                    operator: 'Self-Service',
-                    duration: '45s',
-                    type: 'Automated',
-                    status: 'Completed',
-                    time: new Date().toLocaleString('en-US', { hour12: true, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                  };
-                  setSwaps([newSwap, ...swaps]);
-                  setCurrentPage(1);
-                  triggerToast(`Swap transaction ${newId} logged successfully!`);
-                }}>
-                  + Log Swap
-                </button>
+                <a href="/battery-swap" className="sh-btn-primary sh-btn" style={{ textDecoration: 'none' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14M5 12h14"/></svg>
+                  New Battery Swap
+                </a>
               </div>
             </div>
 
             {/* KPI Summary Row */}
             <div className="sh-stats-row">
               <div className="sh-stat-card">
-                <div className="sh-stat-ic ic-purple">⚡</div>
+                <div className="sh-stat-ic ic-purple">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                </div>
                 <div className="sh-stat-info">
                   <span className="sh-stat-lbl">Total Swaps</span>
                   <div className="sh-stat-val">{totalSwapsCount}</div>
                   <div className="sh-stat-sub">Cumulative count</div>
                 </div>
               </div>
+
               <div className="sh-stat-card">
-                <div className="sh-stat-ic ic-green">✓</div>
+                <div className="sh-stat-ic ic-green">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
                 <div className="sh-stat-info">
                   <span className="sh-stat-lbl">Completed</span>
                   <div className="sh-stat-val">{completedSwapsCount}</div>
                   <div className="sh-stat-sub">
                     <span className="sh-stat-sub-green">
-                      {((completedSwapsCount / totalSwapsCount) * 100).toFixed(1)}%
+                      {totalSwapsCount > 0 ? ((completedSwapsCount / totalSwapsCount) * 100).toFixed(1) + '%' : '100%'}
                     </span>
                     <span>success rate</span>
                   </div>
                 </div>
               </div>
+
               <div className="sh-stat-card">
-                <div className="sh-stat-ic ic-blue">🔄</div>
+                <div className="sh-stat-ic ic-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="23 4 23 10 17 10" />
+                    <polyline points="1 20 1 14 7 14" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                </div>
                 <div className="sh-stat-info">
                   <span className="sh-stat-lbl">Ongoing</span>
                   <div className="sh-stat-val">{ongoingSwapsCount}</div>
                   <div className="sh-stat-sub">In progress active</div>
                 </div>
               </div>
+
               <div className="sh-stat-card">
-                <div className="sh-stat-ic ic-red">✕</div>
+                <div className="sh-stat-ic ic-red">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </div>
                 <div className="sh-stat-info">
                   <span className="sh-stat-lbl">Failed</span>
                   <div className="sh-stat-val">{failedSwapsCount}</div>
                   <div className="sh-stat-sub">
                     <span className="sh-stat-sub-red">
-                      {((failedSwapsCount / totalSwapsCount) * 100).toFixed(1)}%
+                      {totalSwapsCount > 0 ? ((failedSwapsCount / totalSwapsCount) * 100).toFixed(1) + '%' : '0%'}
                     </span>
                     <span>error rate</span>
                   </div>
                 </div>
               </div>
+
               <div className="sh-stat-card">
-                <div className="sh-stat-ic ic-orange">📍</div>
+                <div className="sh-stat-ic ic-orange">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
                 <div className="sh-stat-info">
-                  <span className="sh-stat-lbl">Locations</span>
+                  <span className="sh-stat-lbl">Stations</span>
                   <div className="sh-stat-val">{uniqueLocations}</div>
                   <div className="sh-stat-sub">Active stations</div>
                 </div>
@@ -279,11 +356,16 @@ export default function SwapHistoryPage() {
             <div className="sh-filter-card">
               <div className="sh-filter-grid">
                 <div className="sh-search-wrap">
-                  <span className="sh-search-icon">🔍</span>
+                  <span className="sh-search-icon">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </span>
                   <input
                     type="text"
                     className="sh-search-input"
-                    placeholder="Search Swap ID, Battery, Vehicle..."
+                    placeholder="Search Swap ID, Rider, Battery, Vehicle..."
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   />
@@ -297,19 +379,15 @@ export default function SwapHistoryPage() {
                 <select className="sh-select" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}>
                   <option value="">All Types</option>
                   <option value="Automated">Automated</option>
-                  <option value="Manual Hub">Manual Hub</option>
+                  <option value="Manual">Manual Hub</option>
                 </select>
                 <select className="sh-select" value={locationFilter} onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}>
                   <option value="">All Locations</option>
-                  <option value="Gotri Hub">Gotri Hub</option>
-                  <option value="Manjalpur Hub">Manjalpur Hub</option>
-                  <option value="KPGU Hub">KPGU Hub</option>
-                  <option value="Aatapi Hub">Aatapi Hub</option>
-                  <option value="Moti Daman Hub">Moti Daman Hub</option>
+                  <option value="Gotri">Gotri Station</option>
+                  <option value="Manjalpur">Manjalpur Hub</option>
+                  <option value="KPGU">KPGU Station</option>
+                  <option value="Aatapi">Aatapi Hub</option>
                 </select>
-                <div style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600 }}>
-                  Showing {filteredSwaps.length} results
-                </div>
                 <button className="sh-reset-btn" onClick={resetFilters}>
                   Reset Filters
                 </button>
@@ -318,77 +396,121 @@ export default function SwapHistoryPage() {
 
             {/* Table */}
             <div className="sh-tcard">
-              <table className="sh-dt">
-                <thead>
-                  <tr>
-                    <th>Swap Transaction ID</th>
-                    <th>Battery ID</th>
-                    <th>Vehicle Plate</th>
-                    <th>SOC Exchange</th>
-                    <th>Location</th>
-                    <th>Swap Type</th>
-                    <th>Duration</th>
-                    <th>Operator</th>
-                    <th>Timestamp</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'center' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedSwaps.length === 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="sh-dt">
+                  <thead>
                     <tr>
-                      <td colSpan={11} style={{ textAlign: 'center', padding: '30px', color: '#64748B' }}>
-                        No swap history matches your filters.
-                      </td>
+                      <th>Swap ID</th>
+                      <th>Rider &amp; Vehicle</th>
+                      <th>Old Battery (Return)</th>
+                      <th>New Battery (Issued)</th>
+                      <th>Station / Zone</th>
+                      <th>Swap Type</th>
+                      <th>Duration</th>
+                      <th>Fee &amp; Payment</th>
+                      <th>Timestamp</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'center' }}>Action</th>
                     </tr>
-                  ) : (
-                    paginatedSwaps.map((item) => (
-                      <tr key={item.id}>
-                        <td className="td-id" onClick={() => alert(`Transaction Details:\nID: ${item.id}\nTime: ${item.time}\nStation: ${item.location}\nOperator: ${item.operator}`)}>
-                          {item.id}
-                        </td>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.batteryId}</td>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.vehiclePlate}</td>
-                        <td style={{ fontWeight: 700 }}>
-                          <span style={{ color: '#DC2626' }}>{item.socOld}%</span>
-                          <span style={{ margin: '0 6px', color: '#94A3B8' }}>→</span>
-                          <span style={{ color: '#16A34A' }}>{item.socNew}%</span>
-                        </td>
-                        <td>{item.location}</td>
-                        <td style={{ fontWeight: 600 }}>{item.type}</td>
-                        <td>{item.duration}</td>
-                        <td style={{ fontWeight: 600 }}>{item.operator}</td>
-                        <td style={{ color: '#64748B', fontSize: '12.5px' }}>{item.time}</td>
-                        <td>
-                          <span className={`status-badge ${item.status === 'Completed' ? 'badge-completed' : item.status === 'Ongoing' ? 'badge-ongoing' : 'badge-failed'}`}>
-                            {item.status}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="action-row" style={{ justifyContent: 'center' }}>
-                            <button className="action-btn" title="View Swap Log" onClick={() => alert(`Swap Transaction ID: ${item.id}\nDuration: ${item.duration}\nOperator: ${item.operator}\nType: ${item.type}\nSOC Delta: ${item.socNew - item.socOld}% increase`)}>👁</button>
-                            <button className="action-btn" title="Flag Transaction" onClick={() => {
-                              alert(`Transaction ${item.id} has been flagged for review.`);
-                              triggerToast(`Flagged transaction ${item.id}.`);
-                            }}>🚩</button>
-                            <button className="action-btn" title="Mark Fail / Success" onClick={() => {
-                              const newStatus = item.status === 'Completed' ? 'Failed' : 'Completed';
-                              const updated = swaps.map(s => s.id === item.id ? { ...s, status: newStatus as any } : s);
-                              setSwaps(updated);
-                              triggerToast(`Status of ${item.id} changed to ${newStatus}.`);
-                            }}>🔄</button>
-                          </div>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                          Loading swap records from database...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : paginatedSwaps.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                          No swap history found matching filters for {selectedZone}.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedSwaps.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <strong style={{ color: '#2A195C', fontFamily: 'monospace' }}>
+                              {item.swap_id || `SWP-${item.id}`}
+                            </strong>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 700, color: '#0F172A' }}>{item.rider_name || 'Rider'}</span>
+                              <span style={{ fontSize: '11px', color: '#64748B' }}>
+                                {item.vehicle_number} &bull; {item.rider_mobile || '-'}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.old_battery_id || '-'}</span>
+                              <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: 700 }}>
+                                SoC: {item.old_battery_soc ?? 0}%
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#2A195C' }}>
+                                {item.new_battery_id || '-'}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: 700 }}>
+                                SoC: {item.new_battery_soc ?? 100}%
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 600 }}>{item.station || 'Depot'}</span>
+                              <span style={{ fontSize: '11px', color: '#64748B' }}>{item.zone || selectedZone}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                              {item.swap_type || 'Manual Hub'}
+                            </span>
+                          </td>
+                          <td>{item.duration || '1m 20s'}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 700, color: '#0F172A' }}>₹{item.amount || 150}</span>
+                              <span style={{ fontSize: '10.5px', color: '#64748B' }}>
+                                {item.payment_mode || 'UPI / ICICI'}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ color: '#64748B', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                            {formatDate(item.created_at)}
+                          </td>
+                          <td>
+                            <span className={`status-badge badge-${(item.status || 'completed').toLowerCase()}`}>
+                              {item.status || 'Completed'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              className="action-btn"
+                              title="View Swap Details"
+                              onClick={() => setSelectedDetail(item)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Table Footer / Pagination */}
               <div className="sh-tcard-ft">
                 <span className="sh-tcard-ft-lbl">
-                  Showing {(currentPage - 1) * 5 + 1} to {Math.min(currentPage * 5, filteredSwaps.length)} of {filteredSwaps.length} logs
+                  Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredSwaps.length)} of {filteredSwaps.length} logs
                 </span>
                 <div className="sh-pg">
                   <button className="sh-pgb" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>&lt;</button>
@@ -402,13 +524,129 @@ export default function SwapHistoryPage() {
               </div>
             </div>
 
+            {/* Swap Details Modal */}
+            {selectedDetail && (
+              <div style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(15, 23, 42, 0.6)',
+                backdropFilter: 'blur(3px)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px'
+              }}>
+                <div style={{
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  width: '100%',
+                  maxWidth: '560px',
+                  padding: '24px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+                  border: '1px solid #E2E8F0'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
+                        Swap Log: {selectedDetail.swap_id || `SWP-${selectedDetail.id}`}
+                      </h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>
+                        Recorded on {formatDate(selectedDetail.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedDetail(null)}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94A3B8' }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', fontSize: '13px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Rider</label>
+                      <div style={{ fontWeight: 700, color: '#0F172A' }}>{selectedDetail.rider_name}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748B' }}>{selectedDetail.rider_mobile}</div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Vehicle</label>
+                      <div style={{ fontWeight: 700, color: '#0F172A' }}>{selectedDetail.vehicle_number}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748B' }}>Assigned Fleet Unit</div>
+                    </div>
+
+                    <div style={{ background: '#FEF2F2', padding: '10px', borderRadius: '8px', border: '1px solid #FECACA' }}>
+                      <label style={{ fontSize: '10.5px', color: '#DC2626', fontWeight: 700, textTransform: 'uppercase' }}>Old Battery (Return)</label>
+                      <div style={{ fontWeight: 800, color: '#991B1B' }}>{selectedDetail.old_battery_id}</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>Returned SoC: {selectedDetail.old_battery_soc}%</div>
+                    </div>
+
+                    <div style={{ background: '#F0FDF4', padding: '10px', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                      <label style={{ fontSize: '10.5px', color: '#16A34A', fontWeight: 700, textTransform: 'uppercase' }}>New Battery (Issued)</label>
+                      <div style={{ fontWeight: 800, color: '#166534' }}>{selectedDetail.new_battery_id}</div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#16A34A' }}>Fresh SoC: {selectedDetail.new_battery_soc}%</div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Station &amp; Zone</label>
+                      <div style={{ fontWeight: 600, color: '#0F172A' }}>{selectedDetail.station || 'Depot'}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748B' }}>{selectedDetail.zone}</div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Operator &amp; Type</label>
+                      <div style={{ fontWeight: 600, color: '#0F172A' }}>{selectedDetail.operator || 'Operator'}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748B' }}>{selectedDetail.swap_type} &bull; {selectedDetail.duration}</div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Payment &amp; Ref</label>
+                      <div style={{ fontWeight: 700, color: '#0F172A' }}>₹{selectedDetail.amount} ({selectedDetail.payment_mode})</div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>Ref: {selectedDetail.payment_ref || 'ICICI-UPI'}</div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Status</label>
+                      <div>
+                        <span className={`status-badge badge-${(selectedDetail.status || 'completed').toLowerCase()}`}>
+                          {selectedDetail.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedDetail.notes && (
+                    <div style={{ marginTop: '14px', padding: '10px', background: '#F8FAFC', borderRadius: '8px', fontSize: '12px', color: '#475569' }}>
+                      <strong>Notes: </strong>{selectedDetail.notes}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '18px' }}>
+                    <button
+                      onClick={() => setSelectedDetail(null)}
+                      style={{ padding: '8px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#fff', color: '#334155', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
 
       {toast.show && (
-        <div className="sh-toast sh-toast-green">
-          <span>🔔</span>
+        <div className="sh-toast">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
           <span>{toast.msg}</span>
         </div>
       )}

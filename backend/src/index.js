@@ -44,6 +44,10 @@ app.use('/api/retain-rider', require('./routes/rides'));
 app.use('/api/payments/icici', require('./routes/icici'));
 app.use('/api/payments/payu', require('./routes/payu'));
 app.use('/api/payments/history', require('./routes/paymentHistory'));
+app.use('/api/payments/cash-collection', (req, res, next) => {
+  req.url = '/cash-collection';
+  return require('./routes/paymentHistory')(req, res, next);
+});
 app.use('/api/payments/gateways', require('./routes/gateways'));
 app.use('/api/payments/config', (req, res, next) => {
   req.url = '/config';
@@ -173,4 +177,12 @@ app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Evegah Backend running on http://localhost:${PORT}`);
+
+  // Start WhatsApp Ride Alerts & Overdue Penalty Engine
+  try {
+    const { startRideAlertsEngine } = require('./cron/rideAlertCron');
+    startRideAlertsEngine(60);
+  } catch (err) {
+    console.error('Could not start Ride Alerts Cron:', err.message);
+  }
 });

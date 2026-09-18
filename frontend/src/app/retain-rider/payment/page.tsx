@@ -10,7 +10,7 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 .nr-shell{display:flex;min-height:100vh;background:#fff;font-family:Inter,sans-serif;}
 .nr-main{margin-left:230px;display:flex;flex-direction:column;min-height:100vh;flex:1;min-width:0;background:#fff;}
-.nr-page{flex:1;padding:20px 22px 70px; background-color: #FFF;}
+.nr-page{flex:1;padding:20px 22px 70px;}
 .nr-bc{display:flex;align-items:center;gap:7px;padding:14px 0 0;font-size:12px;color:#9CA3AF;}
 .nr-bc a{color:#9CA3AF;text-decoration:none;} .nr-bc a:hover{color:#2A195C;} .nr-bc-sep{color:#D1D5DB;} .nr-bc-cur{color:#2A195C;font-weight:600;}
 .nr-title-row{display:flex;align-items:flex-start;justify-content:space-between;margin:14px 0 20px;gap:16px;}
@@ -219,9 +219,21 @@ export default function RetainRiderPaymentPage() {
   const [deposit, setDeposit] = useState(500);
   const [discount, setDiscount] = useState(0);
 
-  // Split payment
+  // Split and Cash payment
   const [cashAmount, setCashAmount] = useState(0);
   const [staffCollector, setStaffCollector] = useState('Himanshu (Super Admin)');
+  const [cashReceipt, setCashReceipt] = useState('');
+
+  // Auto-generate cash voucher when cash or split is selected
+  useEffect(() => {
+    if (payMethod === 'cash' || payMethod === 'split') {
+      if (!cashReceipt) {
+        const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const randCode = Math.floor(1000 + Math.random() * 9000);
+        setCashReceipt(`CSH-VCHR-${todayStr}-${randCode}`);
+      }
+    }
+  }, [payMethod, cashReceipt]);
 
   // Dynamic ICICI QR & Polling state
   const [iciciQrString, setIciciQrString] = useState('');
@@ -230,7 +242,7 @@ export default function RetainRiderPaymentPage() {
   const [splitQrString, setSplitQrString] = useState('');
   const [splitMerchantTranId, setSplitMerchantTranId] = useState('');
   const [splitRefId, setSplitRefId] = useState('');
-  const [iciciVpa, setIciciVpa] = useState('EVEGAHRIDE@icici');
+  const [iciciVpa, setIciciVpa] = useState('EVEGAHUAT@icici');
   const [upiVerified, setUpiVerified] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
@@ -430,17 +442,25 @@ export default function RetainRiderPaymentPage() {
 
   const handleContinue = () => {
     if (typeof window !== 'undefined') {
+      const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const finalVoucher = cashReceipt || `CSH-VCHR-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
       const paymentData = {
         base_rent: baseRent,
         deposit_amount: deposit,
         discount_amount: discount,
         total_payable: totalPayable,
-        payment_method: payMethod,
+        payment_method: payMethod === 'cash' ? 'Cash' : (payMethod === 'upi' ? 'ICICI UPI' : (payMethod === 'split' ? 'Split' : 'Wallet')),
+        payment_mode: payMethod === 'cash' ? 'Cash' : (payMethod === 'upi' ? 'ICICI UPI' : (payMethod === 'split' ? 'Split' : 'Wallet')),
         cash_amount: payMethod === 'split' ? clampedCash : payMethod === 'cash' ? totalPayable : 0,
         online_amount: payMethod === 'split' ? onlineAmount : payMethod === 'upi' ? totalPayable : 0,
         collector_name: staffCollector,
+        cash_voucher_number: (payMethod === 'cash' || payMethod === 'split') ? finalVoucher : null,
+        voucher_number: (payMethod === 'cash' || payMethod === 'split') ? finalVoucher : null,
+        cash_receipt: (payMethod === 'cash' || payMethod === 'split') ? finalVoucher : null,
+        transaction_id: (payMethod === 'cash' || payMethod === 'split') ? finalVoucher : (iciciMerchantTranId || `EVG-${Date.now()}`),
         coupon_code: couponApplied ? coupon : null,
         status: 'Paid',
+        payment_status: 'Paid'
       };
       localStorage.setItem('evegah_retain_payment', JSON.stringify(paymentData));
       localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));
@@ -624,6 +644,73 @@ export default function RetainRiderPaymentPage() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Cash Collection */}
+                    {payMethod === 'cash' && (
+                      <div style={{ background: '#F8FAFC', border: '1.5px solid #CBD5E1', borderRadius: 12, padding: '18px', marginBottom: 18 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>💵 Direct Desk Cash Collection</div>
+                            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Collect cash from rider and generate official cash voucher</div>
+                          </div>
+                          <span style={{ background: '#DCFCE7', color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: 6, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>
+                            ✓ Zero GST
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
+                            <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>CASH AMOUNT PAYABLE</div>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: '#2A195C', marginTop: 4 }}>₹{totalPayable.toFixed(2)}</div>
+                            <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>Rent ₹{baseRent} + Deposit ₹{deposit}</div>
+                          </div>
+
+                          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 14px' }}>
+                            <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>OFFICIAL CASH VOUCHER NO.</div>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginTop: 6, fontFamily: 'monospace' }}>
+                              {cashReceipt || 'CSH-VCHR-GENERATING...'}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#16A34A', marginTop: 4, fontWeight: 600 }}>Auto-Generated for Ledger</div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Cash Collected By (Staff)</label>
+                            <input
+                              className="nr-inp"
+                              value={staffCollector}
+                              onChange={e => setStaffCollector(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: '#334155', display: 'block', marginBottom: 6 }}>Custom Voucher / Receipt No. (Optional)</label>
+                            <input
+                              className="nr-inp"
+                              value={cashReceipt}
+                              placeholder="e.g. CSH-VCHR-..."
+                              onChange={e => setCashReceipt(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fleet Balance / Wallet */}
+                    {payMethod === 'wallet' && (
+                      <div style={{ background: '#F8FAFC', border: '1.5px solid #CBD5E1', borderRadius: 12, padding: '18px', marginBottom: 18 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>💳 Rider Fleet / Wallet Balance</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px' }}>
+                          <div>
+                            <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600 }}>AVAILABLE WALLET BALANCE</div>
+                            <div style={{ fontSize: 20, fontWeight: 800, color: '#16A34A', marginTop: 2 }}>₹2,500.00</div>
+                          </div>
+                          <span style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 6, fontSize: 11.5, fontWeight: 700, padding: '4px 10px' }}>
+                            Sufficient Balance Available
+                          </span>
+                        </div>
                       </div>
                     )}
 

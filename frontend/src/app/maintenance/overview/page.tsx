@@ -175,6 +175,48 @@ export default function MaintenanceOverviewPage() {
     }
   }, []);
 
+  const [stats, setStats] = useState({
+    total_vehicles: 0,
+    due_for_service: 0,
+    under_maintenance: 0,
+    overdue: 0,
+    serviced_vehicles: 0
+  });
+
+  const [overviewMetrics, setOverviewMetrics] = useState<{
+    upcoming_services: any[];
+    top_costs: any[];
+    recent_history: any[];
+    total_cost: number;
+    avg_cost: number;
+  }>({
+    upcoming_services: [],
+    top_costs: [],
+    recent_history: [],
+    total_cost: 0,
+    avg_cost: 0
+  });
+
+  const fetchStatsAndMetrics = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const [sRes, mRes] = await Promise.all([
+        fetch(`${apiUrl}/maintenance/stats`).then(r => r.json()).catch(() => null),
+        fetch(`${apiUrl}/maintenance/overview-metrics`).then(r => r.json()).catch(() => null)
+      ]);
+      if (sRes?.data) {
+        setStats(sRes.data);
+      }
+      if (mRes?.data) {
+        setOverviewMetrics(mRes.data);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    fetchStatsAndMetrics();
+  }, []);
+
   // Fetch data directly from Backend API (no mock auto-restore override)
   const fetchRecords = async () => {
     try {
@@ -184,34 +226,27 @@ export default function MaintenanceOverviewPage() {
         const body = await res.json();
         if (Array.isArray(body.data)) {
           const mapped = body.data.map((m: any) => ({
-            id: m.ticket_id || `JC-2026-${m.id.substring(0, 6)}`,
+            id: m.ticket_id || `JC-2026-${(m.id || '').substring(0, 6)}`,
             rawId: m.id,
             vehicleId: m.vehicle_code || 'EV-12KA-1234',
             vehicleNumber: m.vehicle_code || 'GJ06EV1234',
-            vehicleModel: m.vehicle_model || 'Ather 450X',
+            vehicleModel: m.vehicle_model || 'Evegah EV',
             serviceType: m.issue_category || 'General Service',
             status: m.status || 'Scheduled',
-            dueDate: m.scheduled_date ? new Date(m.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '22 Jun 2026',
+            dueDate: m.scheduled_date ? new Date(m.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pending Date',
             dueText: m.status === 'Overdue' ? 'Overdue' : 'On Time',
-            lastService: m.last_service_date ? new Date(m.last_service_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '15 Jun 2026',
+            lastService: m.last_service_date ? new Date(m.last_service_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
             zone: m.zone || activeZone,
-            cost: m.estimated_cost ? `₹${m.estimated_cost}` : '₹850'
+            cost: m.estimated_cost ? `₹${m.estimated_cost}` : '₹0'
           }));
           setRecords(mapped);
           return;
         }
       }
-    } catch (_) {}
-
-    // Initial default seed ONLY if empty and first load
-    setRecords([
-      { id: "MAIN-2026-00045", vehicleId: "EVM1024011", vehicleNumber: "GJ06EV1234", vehicleModel: "Evegah City", serviceType: "Battery Check", status: "Due Soon", dueDate: "22 Jun 2026", dueText: "In 3 days", lastService: "22 May 2026", zone: "Gotri Zone", cost: "₹850" },
-      { id: "MAIN-2026-00046", vehicleId: "EVM1024012", vehicleNumber: "GJ06EV5678", vehicleModel: "Evegah Mink", serviceType: "General Service", status: "Under Maintenance", dueDate: "19 Jun 2026", dueText: "Today", lastService: "10 May 2026", zone: "Gotri Zone", cost: "₹600" },
-      { id: "MAIN-2026-00047", vehicleId: "EVM1024023", vehicleNumber: "GJ06EV9012", vehicleModel: "Evegah City", serviceType: "Tyre Replacement", status: "Completed", dueDate: "15 Jun 2026", dueText: "15 Jun 2026", lastService: "15 Jun 2026", zone: "Gotri Zone", cost: "₹1,200" },
-      { id: "MAIN-2026-00048", vehicleId: "EVM102501", vehicleNumber: "GJ06EV3456", vehicleModel: "Evegah City", serviceType: "Brake Check", status: "Overdue", dueDate: "10 Jun 2026", dueText: "9 days ago", lastService: "25 Apr 2026", zone: "Manjalpur Zone", cost: "₹500" },
-      { id: "MAIN-2026-00049", vehicleId: "EVM102502", vehicleNumber: "GJ06EV7890", vehicleModel: "Evegah Mink", serviceType: "Battery Check", status: "Due Soon", dueDate: "25 Jun 2026", dueText: "In 6 days", lastService: "25 May 2026", zone: "Manjalpur Zone", cost: "₹850" },
-      { id: "MAIN-2026-00050", vehicleId: "EVM102503", vehicleNumber: "GJ06EV1122", vehicleModel: "Evegah City", serviceType: "Chain Lube", status: "Completed", dueDate: "10 Jun 2026", dueText: "10 Jun 2026", lastService: "10 Jun 2026", zone: "Manjalpur Zone", cost: "₹300" }
-    ]);
+      setRecords([]);
+    } catch (_) {
+      setRecords([]);
+    }
   };
 
   useEffect(() => {
@@ -254,16 +289,17 @@ export default function MaintenanceOverviewPage() {
   };
 
   // Chart.js Donut Config
-  const completedCount = records.filter(r => r.status === 'Completed').length;
-  const underMaintCount = records.filter(r => r.status === 'Under Maintenance').length;
-  const dueSoonCount = records.filter(r => r.status === 'Due Soon').length;
-  const overdueCount = records.filter(r => r.status === 'Overdue').length;
+  const completedCount = stats.serviced_vehicles || records.filter(r => r.status === 'Completed').length;
+  const underMaintCount = stats.under_maintenance || records.filter(r => r.status === 'Under Maintenance').length;
+  const dueSoonCount = stats.due_for_service || records.filter(r => r.status === 'Due Soon').length;
+  const overdueCount = stats.overdue || records.filter(r => r.status === 'Overdue').length;
+  const totalChartServices = completedCount + underMaintCount + dueSoonCount + overdueCount;
 
   const chartData = {
     labels: ['Completed', 'Under Maintenance', 'Due Soon', 'Overdue'],
     datasets: [
       {
-        data: [completedCount || 16, underMaintCount || 7, dueSoonCount || 4, overdueCount || 3],
+        data: [completedCount, underMaintCount, dueSoonCount, overdueCount],
         backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'],
         hoverBackgroundColor: ['#059669', '#2563EB', '#D97706', '#DC2626'],
         borderWidth: 2,
@@ -339,7 +375,7 @@ export default function MaintenanceOverviewPage() {
                 </div>
                 <div>
                   <div className="mo-stat-lbl">Total Vehicles</div>
-                  <div className="mo-stat-val">128</div>
+                  <div className="mo-stat-val">{stats.total_vehicles}</div>
                   <div className="mo-stat-sub" style={{ color: '#64748B' }}>Across all zones</div>
                 </div>
               </div>
@@ -350,8 +386,8 @@ export default function MaintenanceOverviewPage() {
                 </div>
                 <div>
                   <div className="mo-stat-lbl">Due for Service</div>
-                  <div className="mo-stat-val">14</div>
-                  <div className="mo-stat-sub" style={{ color: '#D97706' }}>10.9% of total</div>
+                  <div className="mo-stat-val">{stats.due_for_service}</div>
+                  <div className="mo-stat-sub" style={{ color: '#D97706' }}>{stats.total_vehicles > 0 ? ((stats.due_for_service / stats.total_vehicles) * 100).toFixed(1) : '0'}% of total</div>
                 </div>
               </div>
 
@@ -361,8 +397,8 @@ export default function MaintenanceOverviewPage() {
                 </div>
                 <div>
                   <div className="mo-stat-lbl">Under Maintenance</div>
-                  <div className="mo-stat-val">7</div>
-                  <div className="mo-stat-sub" style={{ color: '#3B82F6' }}>5.4% of total</div>
+                  <div className="mo-stat-val">{stats.under_maintenance}</div>
+                  <div className="mo-stat-sub" style={{ color: '#3B82F6' }}>{stats.total_vehicles > 0 ? ((stats.under_maintenance / stats.total_vehicles) * 100).toFixed(1) : '0'}% of total</div>
                 </div>
               </div>
 
@@ -372,8 +408,8 @@ export default function MaintenanceOverviewPage() {
                 </div>
                 <div>
                   <div className="mo-stat-lbl">Overdue</div>
-                  <div className="mo-stat-val" style={{ color: '#EF4444' }}>3</div>
-                  <div className="mo-stat-sub" style={{ color: '#EF4444' }}>Requires action</div>
+                  <div className="mo-stat-val" style={{ color: '#EF4444' }}>{stats.overdue}</div>
+                  <div className="mo-stat-sub" style={{ color: '#EF4444' }}>{stats.overdue > 0 ? 'Requires action' : 'All clear'}</div>
                 </div>
               </div>
 
@@ -383,8 +419,8 @@ export default function MaintenanceOverviewPage() {
                 </div>
                 <div>
                   <div className="mo-stat-lbl">Serviced Vehicles</div>
-                  <div className="mo-stat-val">104</div>
-                  <div className="mo-stat-sub" style={{ color: '#16A34A' }}>81.2% of total</div>
+                  <div className="mo-stat-val">{stats.serviced_vehicles}</div>
+                  <div className="mo-stat-sub" style={{ color: '#16A34A' }}>{stats.total_vehicles > 0 ? ((stats.serviced_vehicles / stats.total_vehicles) * 100).toFixed(1) : '0'}% of total</div>
                 </div>
               </div>
             </div>
@@ -524,35 +560,35 @@ export default function MaintenanceOverviewPage() {
                 <div className="mo-chart-box">
                   <Doughnut data={chartData} options={chartOptions} />
                   <div className="mo-chart-label">
-                    <div className="mo-chart-label-val">30</div>
+                    <div className="mo-chart-label-val">{totalChartServices}</div>
                     <div className="mo-chart-label-lbl">TOTAL SERVICES</div>
                   </div>
                 </div>
 
                 <div className="mo-legend">
-                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#10B981' }}></span>Completed ({completedCount || 16})</div>
-                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#3B82F6' }}></span>Under Maint. ({underMaintCount || 7})</div>
-                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#F59E0B' }}></span>Due Soon ({dueSoonCount || 4})</div>
-                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#EF4444' }}></span>Overdue ({overdueCount || 3})</div>
+                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#10B981' }}></span>Completed ({completedCount})</div>
+                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#3B82F6' }}></span>Under Maint. ({underMaintCount})</div>
+                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#F59E0B' }}></span>Due Soon ({dueSoonCount})</div>
+                  <div className="mo-legend-item"><span className="mo-legend-dot" style={{ background: '#EF4444' }}></span>Overdue ({overdueCount})</div>
                 </div>
 
                 <div className="mo-cost-box">
                   <div className="mo-cost-row">
                     <div>
                       <div className="mo-cost-label">Total Cost (This Month)</div>
-                      <div style={{ fontSize: '11px', color: '#10B981', fontWeight: 700, marginTop: '2px' }}>↑ 12.8% vs last month</div>
+                      <div style={{ fontSize: '11px', color: '#10B981', fontWeight: 700, marginTop: '2px' }}>Live Fleet Expense</div>
                     </div>
-                    <div className="mo-cost-val">₹32,400</div>
+                    <div className="mo-cost-val">₹{Number(overviewMetrics.total_cost || 0).toLocaleString('en-IN')}</div>
                   </div>
                   <div className="mo-cost-row" style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
                     <div className="mo-cost-label">Avg Cost / Service</div>
-                    <div className="mo-cost-val" style={{ fontSize: '14px' }}>₹1,420</div>
+                    <div className="mo-cost-val" style={{ fontSize: '14px' }}>₹{Number(overviewMetrics.avg_cost || 0).toLocaleString('en-IN')}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Row Grid (3 Cards matching Screenshot) */}
+            {/* Bottom Row Grid (3 Live Metric Cards) */}
             <div className="mo-bottom-grid">
               {/* Card 1: Upcoming Services */}
               <div className="mo-card">
@@ -562,61 +598,31 @@ export default function MaintenanceOverviewPage() {
                 </div>
 
                 <div className="mo-bottom-list">
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <EVBikeIcon />
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-1234</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Periodic Service (Every 30 Days)</div>
+                  {overviewMetrics.upcoming_services && overviewMetrics.upcoming_services.length > 0 ? (
+                    overviewMetrics.upcoming_services.map((item: any, idx: number) => (
+                      <div key={item.id || idx} className="mo-bottom-item">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <EVBikeIcon />
+                          <div>
+                            <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>{item.vehicle_code || item.vehicle_number || item.id}</div>
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>{item.issue_category || item.service_type || 'Periodic Inspection'}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span className={`mo-badge ${item.status === 'Overdue' ? 'mo-badge-overdue' : (item.status === 'Due Soon' ? 'mo-badge-due' : 'mo-badge-under')}`}>
+                            {item.status || 'Scheduled'}
+                          </span>
+                          <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
+                            {item.scheduled_date ? new Date(item.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Upcoming'}
+                          </div>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '24px 0', textAlign: 'center', color: '#94A3B8', fontSize: '12.5px' }}>
+                      No upcoming services scheduled
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className="mo-badge mo-badge-due">Due Soon</span>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>22 Jun 2026</div>
-                    </div>
-                  </div>
-
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <EVBikeIcon />
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-8901</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Battery Check (Every 45 Days)</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className="mo-badge mo-badge-under">Upcoming</span>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>24 Jun 2026</div>
-                    </div>
-                  </div>
-
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <EVBikeIcon />
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-2345</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Tyre Replacement (Every 60 Days)</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className="mo-badge mo-badge-under">Upcoming</span>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>28 Jun 2026</div>
-                    </div>
-                  </div>
-
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <EVBikeIcon />
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-3456</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Brake Service (Every 30 Days)</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className="mo-badge mo-badge-under">Upcoming</span>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>29 Jun 2026</div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -627,60 +633,33 @@ export default function MaintenanceOverviewPage() {
                   <a href="/reports" style={{ fontSize: '12px', fontWeight: 700, color: '#6366F1', textDecoration: 'none' }}>View Report &rarr;</a>
                 </div>
 
-                <div className="mo-cost-bar-container">
-                  <div className="mo-cost-bar-row">
-                    <span>Battery Replacement</span>
-                    <strong style={{ color: '#0F172A' }}>₹12,400</strong>
+                {overviewMetrics.top_costs && overviewMetrics.top_costs.length > 0 ? (
+                  <>
+                    {overviewMetrics.top_costs.map((item: any, idx: number) => {
+                      const maxCost = Math.max(...overviewMetrics.top_costs.map((c: any) => Number(c.amount) || 0), 1);
+                      const pct = Math.min(100, Math.round(((Number(item.amount) || 0) / maxCost) * 100));
+                      return (
+                        <div key={item.category || idx} className="mo-cost-bar-container">
+                          <div className="mo-cost-bar-row">
+                            <span>{item.category}</span>
+                            <strong style={{ color: '#0F172A' }}>₹{Number(item.amount || 0).toLocaleString('en-IN')}</strong>
+                          </div>
+                          <div className="mo-cost-bar-track">
+                            <div className="mo-cost-bar-fill" style={{ width: `${pct}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #F1F5F9', paddingTop: '10px', marginTop: '10px', fontWeight: 800, fontSize: '13.5px' }}>
+                      <span>Total</span>
+                      <span style={{ color: '#0F172A' }}>₹{Number(overviewMetrics.total_cost || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ padding: '24px 0', textAlign: 'center', color: '#94A3B8', fontSize: '12.5px' }}>
+                    No maintenance cost logs recorded
                   </div>
-                  <div className="mo-cost-bar-track">
-                    <div className="mo-cost-bar-fill" style={{ width: '80%' }}></div>
-                  </div>
-                </div>
-
-                <div className="mo-cost-bar-container">
-                  <div className="mo-cost-bar-row">
-                    <span>Tyre Replacement</span>
-                    <strong style={{ color: '#0F172A' }}>₹8,100</strong>
-                  </div>
-                  <div className="mo-cost-bar-track">
-                    <div className="mo-cost-bar-fill" style={{ width: '55%' }}></div>
-                  </div>
-                </div>
-
-                <div className="mo-cost-bar-container">
-                  <div className="mo-cost-bar-row">
-                    <span>Brake Service</span>
-                    <strong style={{ color: '#0F172A' }}>₹6,200</strong>
-                  </div>
-                  <div className="mo-cost-bar-track">
-                    <div className="mo-cost-bar-fill" style={{ width: '40%' }}></div>
-                  </div>
-                </div>
-
-                <div className="mo-cost-bar-container">
-                  <div className="mo-cost-bar-row">
-                    <span>General Service</span>
-                    <strong style={{ color: '#0F172A' }}>₹3,200</strong>
-                  </div>
-                  <div className="mo-cost-bar-track">
-                    <div className="mo-cost-bar-fill" style={{ width: '25%' }}></div>
-                  </div>
-                </div>
-
-                <div className="mo-cost-bar-container">
-                  <div className="mo-cost-bar-row">
-                    <span>Periodic Service</span>
-                    <strong style={{ color: '#0F172A' }}>₹2,500</strong>
-                  </div>
-                  <div className="mo-cost-bar-track">
-                    <div className="mo-cost-bar-fill" style={{ width: '18%' }}></div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #F1F5F9', paddingTop: '10px', marginTop: '10px', fontWeight: 800, fontSize: '13.5px' }}>
-                  <span>Total</span>
-                  <span style={{ color: '#0F172A' }}>₹32,400</span>
-                </div>
+                )}
               </div>
 
               {/* Card 3: Recent Service History */}
@@ -691,60 +670,29 @@ export default function MaintenanceOverviewPage() {
                 </div>
 
                 <div className="mo-bottom-list">
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>✓</div>
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-3456</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Periodic Service</div>
+                  {overviewMetrics.recent_history && overviewMetrics.recent_history.length > 0 ? (
+                    overviewMetrics.recent_history.map((item: any, idx: number) => (
+                      <div key={item.id || idx} className="mo-bottom-item">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>✓</div>
+                          <div>
+                            <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>{item.vehicle_code || item.vehicle_number || item.id}</div>
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>{item.issue_category || item.service_type || 'Service Completed'}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: '800', color: '#16A34A', fontSize: '12.5px' }}>₹{Number(item.cost || item.estimated_cost || 0).toLocaleString('en-IN')}</div>
+                          <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>
+                            {item.completed_at ? new Date(item.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Recent'}
+                          </div>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '24px 0', textAlign: 'center', color: '#94A3B8', fontSize: '12.5px' }}>
+                      No recent service records completed
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: '800', color: '#16A34A', fontSize: '12.5px' }}>₹850</div>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>15 Jun 2026</div>
-                    </div>
-                  </div>
-
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>✓</div>
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-5678</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Battery Check</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: '800', color: '#16A34A', fontSize: '12.5px' }}>₹1,200</div>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>14 Jun 2026</div>
-                    </div>
-                  </div>
-
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>✓</div>
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-9012</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Brake Service</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: '800', color: '#16A34A', fontSize: '12.5px' }}>₹950</div>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>12 Jun 2026</div>
-                    </div>
-                  </div>
-
-                  <div className="mo-bottom-item">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800 }}>✓</div>
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>EV-12KA-1111</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Tyre Replacement</div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: '800', color: '#16A34A', fontSize: '12.5px' }}>₹1,500</div>
-                      <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>10 Jun 2026</div>
-                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -817,7 +765,7 @@ export default function MaintenanceOverviewPage() {
 
           </div>
         </div>
-      </div>
+      
     </>
   );
 }

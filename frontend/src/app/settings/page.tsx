@@ -276,9 +276,9 @@ function SettingsContent() {
           name: 'ICICI Bank UPI',
           provider: 'icici',
           active: true,
-          key_id: '9496988',
-          key_secret: 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ',
-          vpa: 'EVEGAHRIDE@icici',
+          key_id: '613268',
+          key_secret: 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp',
+          vpa: 'EVEGAHUAT@icici',
           payee_name: 'Evegah',
           environment: 'production',
           notes: 'Direct Merchant UPI QR & Intent Launch'
@@ -378,7 +378,9 @@ function SettingsContent() {
       strong_password_policy: true,
       max_login_attempts: 5,
       session_timeout_seconds: 1800,
-      allow_concurrent_logins: false
+      allow_concurrent_logins: false,
+      refund_auth_mobile: '8128251172',
+      refund_auth_password: 'Qatar@2022'
     },
     system: {
       system_time_zone: '(UTC +05:30) Asia/Kolkata',
@@ -445,6 +447,17 @@ function SettingsContent() {
     notes: ''
   });
 
+  const [showRefundPwd, setShowRefundPwd] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const role = (localStorage.getItem('evegah_role') || 'super_admin').toLowerCase();
+      const roleName = (localStorage.getItem('evegah_user_role_name') || 'Super Admin').toLowerCase();
+      setIsSuperAdmin(role.includes('super') || roleName.includes('super') || role === 'admin');
+    }
+  }, []);
+
   // Merge local state with database state cleanly
   const currentSettings = {
     ...localSettings,
@@ -452,6 +465,10 @@ function SettingsContent() {
     payments: {
       ...localSettings.payments,
       ...((dbSettings && dbSettings.payments) || {})
+    },
+    security: {
+      ...localSettings.security,
+      ...((dbSettings && dbSettings.security) || {})
     }
   };
 
@@ -2810,6 +2827,66 @@ function SettingsContent() {
                         </label>
                       </div>
                     </div>
+
+                    {/* Super Admin Only: Security Deposit Refund Authorization */}
+                    {isSuperAdmin && (
+                      <div className="se-card se-grid-all" style={{ border: '2px solid #2A195C', background: '#FCFAFF' }}>
+                        <div className="se-card-hdr">
+                          <div className="se-card-ic" style={{ background: '#2A195C', color: '#fff' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                          </div>
+                          <div className="se-card-text">
+                            <span className="se-card-tit" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              Deposit Refund Authorization Security
+                              <span style={{ fontSize: '10.5px', background: '#2A195C', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 800 }}>SUPER ADMIN ONLY</span>
+                            </span>
+                            <span className="se-card-sub">Configure the authorized mobile number for OTP approval and the master password required before any security deposit refund is processed.</span>
+                          </div>
+                        </div>
+
+                        <div className="se-field">
+                          <div className="se-field-info">
+                            <span className="se-field-tit">Refund Authorization Mobile (for OTP)</span>
+                            <span className="se-field-desc">System dispatches automated WhatsApp OTP to this number when a deposit refund is initiated.</span>
+                          </div>
+                          <div style={{ width: '220px' }}>
+                            <input
+                              type="text"
+                              className="se-input"
+                              placeholder="e.g. 8128251172"
+                              value={currentSettings.security.refund_auth_mobile || '8128251172'}
+                              onChange={(e) => updateField('security', 'refund_auth_mobile', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="se-field">
+                          <div className="se-field-info">
+                            <span className="se-field-tit">Refund Master Password</span>
+                            <span className="se-field-desc">Master password that can alternatively be entered to instantly authorize refund transactions.</span>
+                          </div>
+                          <div style={{ width: '220px', position: 'relative' }}>
+                            <input
+                              type={showRefundPwd ? "text" : "password"}
+                              className="se-input"
+                              placeholder="Master Password"
+                              value={currentSettings.security.refund_auth_password || 'Qatar@2022'}
+                              onChange={(e) => updateField('security', 'refund_auth_password', e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowRefundPwd(!showRefundPwd)}
+                              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#64748B', fontWeight: 700 }}
+                            >
+                              {showRefundPwd ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -3246,9 +3323,9 @@ function SettingsContent() {
                       clientSecret = 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4';
                     } else if (prov === 'icici') {
                       defaultName = 'ICICI Bank UPI';
-                      keyId = '9496988';
-                      secret = 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ';
-                      vpa = 'EVEGAHRIDE@icici';
+                      keyId = '613268';
+                      secret = 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp';
+                      vpa = 'EVEGAHUAT@icici';
                     } else if (prov === 'phonepe') {
                       defaultName = 'PhonePe';
                       defaultEnv = 'test';
@@ -3354,7 +3431,7 @@ function SettingsContent() {
                     className="se-form-input"
                     value={gatewayForm.vpa || ''}
                     onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, vpa: e.target.value }))}
-                    placeholder="e.g. EVEGAHRIDE@icici"
+                    placeholder="e.g. EVEGAHUAT@icici"
                   />
                 </div>
               )}

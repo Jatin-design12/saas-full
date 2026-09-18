@@ -1401,7 +1401,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
               final String detailText = isPayU
                   ? "100% Secure Checkout (256-bit SSL)"
                   : isIcici
-                      ? "VPA: ${gw['vpa'] ?? 'EVEGAHRIDE@icici'}"
+                      ? "VPA: ${gw['vpa'] ?? 'EVEGAHUAT@icici'}"
                       : "Instant automated digital checkout";
 
               final String badgeText = isPayU ? "SSL Verified" : "NPCI Verified";

@@ -379,7 +379,19 @@ export default function TopBar({
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <header className="ev-tb">
         {/* Hamburger */}
-        <div className="ev-tb-hamburger" onClick={() => onToggle?.()}>
+        <div 
+          className="ev-tb-hamburger" 
+          onClick={() => {
+            if (onToggle) {
+              onToggle();
+            }
+            const current = typeof window !== 'undefined' && localStorage.getItem('evegah_sidebar_collapsed') === 'true';
+            const next = !current;
+            localStorage.setItem('evegah_sidebar_collapsed', String(next));
+            window.dispatchEvent(new Event('evegah_sidebar_toggle'));
+          }}
+          title="Toggle Sidebar (Expand / Collapse to Icons)"
+        >
           <span />
           <span />
           <span />

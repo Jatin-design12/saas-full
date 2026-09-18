@@ -5,17 +5,31 @@ import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 
 
-/* ── Evegah Logo (uses real logo.png from public/) ── */
-export const EvegahLogo = ({ height = 40 }: { height?: number }) => (
-  <Image
-    src="/logo.png"
-    alt="Evegah"
-    width={160}
-    height={42}
-    style={{ height: height, width: 'auto', objectFit: 'contain', display: 'block' }}
-    priority
-  />
-);
+/* ── Evegah Logo (uses real logo.png or evegah_brand.png when collapsed) ── */
+export const EvegahLogo = ({ height = 40, collapsed = false }: { height?: number; collapsed?: boolean }) => {
+  if (collapsed) {
+    return (
+      <Image
+        src="/evegah_brand.png"
+        alt="Evegah"
+        width={38}
+        height={38}
+        style={{ height: '36px', width: '36px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+        priority
+      />
+    );
+  }
+  return (
+    <Image
+      src="/logo.png"
+      alt="Evegah"
+      width={160}
+      height={42}
+      style={{ height: height, width: 'auto', objectFit: 'contain', display: 'block' }}
+      priority
+    />
+  );
+};
 
 /* ── Icons ── */
 const strokeBase = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -112,7 +126,6 @@ const NAV: NavGroup[] = [
     key: 'battery', icon: 'battery', label: 'Battery', children: [
       { label: 'Battery Inventory', href: '/battery/inventory' },
       { label: 'Battery Inward', href: '/battery/inward' },
-      { label: 'Battery Monitoring', href: '/battery/monitoring' },
       { label: 'Battery Swap', href: '/battery-swap' },
       { label: 'Battery List', href: '/battery/list' },
       { label: 'Swap History', href: '/battery/swap-history' },
@@ -278,32 +291,176 @@ const CSS = `
   top: 0 !important;
   left: 0 !important;
   bottom: 0 !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  max-height: 100vh !important;
-  max-height: 100dvh !important;
+
   width: 240px !important;
   min-width: 240px !important;
   max-width: 240px !important;
+
+  height: 100vh !important;
+  max-height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+
   background: var(--sb-bg, #fff);
   border-right: 1px solid var(--sb-border, #E5E7EB);
-  display: flex;
-  flex-direction: column;
+
+  display: flex !important;
+  flex-direction: column !important;
+
   z-index: 1000;
-  overflow: hidden !important;
   box-sizing: border-box;
+
+  /* Strict 100vh screen lock */
+  overflow: hidden !important;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* Sibling main content containers: margin-left so body content is beside fixed sidebar and scrolls independently */
-.ev-sb + div,
-.ev-sb + main,
-.ev-sb ~ div[class*="-main"],
-.ev-sb ~ main[class*="-main"],
-.ev-sb ~ div {
+/* Collapsed Sidebar Mode (Icon-Only, 72px) */
+.ev-sb.collapsed {
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+}
+
+/* Sibling main content containers: 240px when expanded */
+.ev-sb:not(.collapsed) + div,
+.ev-sb:not(.collapsed) + main,
+.ev-sb:not(.collapsed) ~ div[class*="-main"],
+.ev-sb:not(.collapsed) ~ main[class*="-main"],
+.ev-sb:not(.collapsed) ~ div {
   margin-left: 240px !important;
   width: calc(100% - 240px) !important;
   flex: 1 1 0% !important;
   min-width: 0 !important;
+  transition: margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Sibling main content containers: 72px when collapsed */
+.ev-sb.collapsed + div,
+.ev-sb.collapsed + main,
+.ev-sb.collapsed ~ div[class*="-main"],
+.ev-sb.collapsed ~ main[class*="-main"],
+.ev-sb.collapsed ~ div {
+  margin-left: 72px !important;
+  width: calc(100% - 72px) !important;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  transition: margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Collapsed overrides */
+.ev-sb.collapsed .ev-sb-logo {
+  padding: 14px 10px 12px;
+  justify-content: center;
+}
+
+.ev-sb.collapsed .ev-sb-group-hdr {
+  height: 1px;
+  padding: 0;
+  margin: 10px 16px;
+  background: var(--sb-border, #E5E7EB);
+  font-size: 0;
+  color: transparent;
+  overflow: hidden;
+}
+
+.ev-sb.collapsed .ev-sb-ni {
+  padding: 11px 0;
+  justify-content: center;
+}
+
+.ev-sb.collapsed .ev-sb-ni-l {
+  gap: 0;
+  justify-content: center;
+  width: 100%;
+}
+
+.ev-sb.collapsed .ev-sb-ni-lbl,
+.ev-sb.collapsed .ev-sb-chev {
+  display: none !important;
+}
+
+.ev-sb.collapsed .ev-sb-ni-ic {
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+}
+
+.ev-sb.collapsed .ev-sb-sub {
+  display: none !important;
+}
+
+.ev-sb.collapsed .ev-sb-help {
+  display: none !important;
+}
+
+.ev-sb.collapsed .ev-sb-user {
+  padding: 12px 0;
+  justify-content: center;
+}
+
+.ev-sb.collapsed .ev-sb-user-text,
+.ev-sb.collapsed .ev-sb-logout-btn {
+  display: none !important;
+}
+
+/* Hover Flyout Popover for Collapsed Sidebar */
+.ev-sb-item-wrap {
+  position: relative;
+}
+
+.ev-sb.collapsed .ev-sb-item-wrap:hover .ev-sb-flyout {
+  display: flex !important;
+}
+
+.ev-sb-flyout {
+  display: none;
+  position: absolute;
+  left: 68px;
+  top: 0;
+  min-width: 200px;
+  background: var(--sb-bg, #ffffff);
+  border: 1px solid var(--sb-border, #E2E8F0);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  z-index: 1050;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ev-sb-flyout-hdr {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px 6px;
+  border-bottom: 1px solid var(--sb-border, #F1F5F9);
+  margin-bottom: 3px;
+}
+
+.ev-sb-flyout-item {
+  display: block;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sb-text, #334155);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.ev-sb-flyout-item:hover {
+  background: var(--sb-act-bg, #EEF2FF);
+  color: var(--sb-act-text, #2A195C);
+  font-weight: 600;
+}
+
+.ev-sb-flyout-item.act {
+  background: var(--sb-act-bg, #EEF2FF);
+  color: var(--sb-act-text, #2A195C);
+  font-weight: 700;
 }
 
 .ev-sb-group-hdr {
@@ -319,14 +476,14 @@ const CSS = `
   align-items: center;
   padding: 14px 18px 12px;
   border-bottom: 1px solid var(--sb-border, #E5E7EB);
-  flex-shrink: 0;
+  flex:0 0 auto;
 }
 .ev-sb-nav {
-  flex: 1 1 0%;
+  flex: 1 1 auto;
   min-height: 0;
   padding: 6px 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto  !important;
+  overflow-x: hidden !important;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE / Edge */
 }
@@ -393,7 +550,7 @@ const CSS = `
 .ev-sb-help {
   padding: 8px 12px;
   border-top: 1px solid var(--sb-border, #E5E7EB);
-  flex-shrink: 0;
+  flex: 0 0 auto;
   margin-top: auto;
 }
 .ev-sb-help-box {
@@ -535,6 +692,7 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   const [userRoleCode, setUserRoleCode] = useState('super_admin');
   const [permissions, setPermissions] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     const loadSession = () => {
@@ -579,14 +737,22 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
       setTheme(savedTheme as 'light' | 'dark');
     };
 
+    const loadCollapsed = () => {
+      const c = localStorage.getItem("evegah_sidebar_collapsed") === "true";
+      setIsCollapsed(c);
+    };
+
     if (typeof window !== 'undefined') {
       loadSession();
       loadTheme();
+      loadCollapsed();
       window.addEventListener("evegah_role_changed", loadSession);
       window.addEventListener("sidebar_theme_changed", loadTheme);
+      window.addEventListener("evegah_sidebar_toggle", loadCollapsed);
       return () => {
         window.removeEventListener("evegah_role_changed", loadSession);
         window.removeEventListener("sidebar_theme_changed", loadTheme);
+        window.removeEventListener("evegah_sidebar_toggle", loadCollapsed);
       };
     }
   }, []);
@@ -765,7 +931,7 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <aside className="ev-sb" style={{ display: isOpen ? undefined : 'none', ...themeStyles }}>
+      <aside className={`ev-sb ${isCollapsed ? 'collapsed' : ''}`} style={{ display: isOpen ? undefined : 'none', ...themeStyles }}>
         {/* Logo */}
         <div
           className="ev-sb-logo"
@@ -775,7 +941,7 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
             router.push(isEmp ? '/employee-dashboard' : (isSuperAdmin ? '/super-admin' : '/'));
           }}
         >
-          <EvegahLogo height={46} />
+          <EvegahLogo height={46} collapsed={isCollapsed} />
         </div>
 
         {/* Nav */}
@@ -795,31 +961,33 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
             const isEmp = userRoleCode.toLowerCase().includes('employee') || rawRole.toLowerCase().includes('employee') || userRole.toLowerCase().includes('employee');
 
             return (
-              <div key={g.key}>
+              <div key={g.key} className="ev-sb-item-wrap">
                 {g.href ? (
                   <Link
                     href={g.key === 'dashboard' ? (isEmp ? '/employee-dashboard' : (isSuperAdmin ? '/super-admin' : '/')) : g.href}
                     className={`ev-sb-ni ${isGroupActive ? 'act' : ''}`}
+                    title={isCollapsed ? g.label : undefined}
                   >
                     <div className="ev-sb-ni-l">
                       <span className="ev-sb-ni-ic">{g.icon && icons[g.icon]}</span>
-                      {g.label}
+                      <span className="ev-sb-ni-lbl">{g.label}</span>
                     </div>
                   </Link>
                 ) : (
                   <div
                     className={`ev-sb-ni ${isGroupActive && !isOpen ? 'act' : ''}`}
                     onClick={() => toggle(g.key)}
+                    title={isCollapsed ? g.label : undefined}
                   >
                     <div className="ev-sb-ni-l">
                       <span className="ev-sb-ni-ic">{g.icon && icons[g.icon]}</span>
-                      {g.label}
+                      <span className="ev-sb-ni-lbl">{g.label}</span>
                     </div>
-                    <span style={{ color: '#9CA3AF' }}>{isOpen ? icons.chevup : icons.chevdown}</span>
+                    <span className="ev-sb-chev" style={{ color: '#9CA3AF' }}>{isOpen ? icons.chevup : icons.chevdown}</span>
                   </div>
                 )}
 
-                {/* Sub items */}
+                {/* Sub items for expanded mode */}
                 {g.children && isOpen && (
                   <div className="ev-sb-sub">
                     {g.children.filter(c => {
@@ -843,6 +1011,37 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
                     ))}
                   </div>
                 )}
+
+                {/* Hover Flyout for Collapsed Mode */}
+                <div className="ev-sb-flyout">
+                  <div className="ev-sb-flyout-hdr">{g.label}</div>
+                  {g.href ? (
+                    <Link
+                      href={g.key === 'dashboard' ? (isEmp ? '/employee-dashboard' : (isSuperAdmin ? '/super-admin' : '/')) : g.href}
+                      className={`ev-sb-flyout-item ${isGroupActive ? 'act' : ''}`}
+                    >
+                      Open {g.label}
+                    </Link>
+                  ) : (
+                    g.children?.filter(c => {
+                      if (isSuperAdmin) return true;
+                      if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0 && currentPermKey) {
+                        const subPermKey = `${currentPermKey}:${c.label}`;
+                        const subPermObj = permissions[subPermKey];
+                        if (subPermObj && subPermObj.access === false) return false;
+                      }
+                      return true;
+                    }).map(c => (
+                      <Link
+                        key={c.href}
+                        href={c.href}
+                        className={`ev-sb-flyout-item ${checkSubActive(c.href, active) ? 'act' : ''}`}
+                      >
+                        {c.label}
+                      </Link>
+                    ))
+                  )}
+                </div>
               </div>
             );
           })}
@@ -870,8 +1069,6 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
           </button>
         </div>
 
-
-
         {/* User profile */}
         <div className="ev-sb-user">
           {userAvatar ? (
@@ -886,13 +1083,14 @@ export default function Sidebar({ activePath, isOpen = true }: SidebarProps) {
               {userName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
             </div>
           )}
-          <div style={{ flex: 1, minWidth: 0 }} onClick={() => router.push('/settings')}>
+          <div className="ev-sb-user-text" style={{ flex: 1, minWidth: 0 }} onClick={() => router.push('/settings')}>
             <div className="ev-sb-user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</div>
             <div className="ev-sb-user-role">{userRole}</div>
           </div>
           <button
             onClick={handleLogout}
             title="Logout"
+            className="ev-sb-logout-btn"
             style={{
               background: 'none',
               border: 'none',

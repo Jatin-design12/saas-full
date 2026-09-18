@@ -13,7 +13,7 @@ const CSS = `
 /* ── shell & layout ── */
 .nr-shell { display: flex; min-height: 100vh; background: #F3F4F9; }
 .nr-main  { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
-.nr-page  { flex: 1; padding: 0 28px 80px; background-color: #FFF;}
+.nr-page  { flex: 1; padding: 0 28px 80px;}
 
 /* ── breadcrumb ── */
 .nr-bc { display: flex; align-items: center; gap: 7px; padding: 14px 0 0; font-size: 12px; color: #9CA3AF; }

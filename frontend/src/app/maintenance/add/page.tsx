@@ -399,55 +399,89 @@ export default function AddMaintenancePage() {
   }, []);
 
   // Form Fields State
-  const [vehicleId, setVehicleId] = useState("EV-12KA-5678");
-  const [vehicleNumber, setVehicleNumber] = useState("KA01AB5678");
-  const [vehicleModel, setVehicleModel] = useState("Eve S1 Pro");
-  const [kmReading, setKmReading] = useState("12,560 km");
-  const [batteryId, setBatteryId] = useState("BAT-EVE-5678");
-  const [iotId, setIotId] = useState("IOT-EVE-5678");
-  const [mechanic, setMechanic] = useState("Ravi Kumar");
+  const [vehiclesList, setVehiclesList] = useState<any[]>([]);
+  const [zonesList, setZonesList] = useState<any[]>([]);
+  const [techniciansList, setTechniciansList] = useState<any[]>([]);
+
+  const [vehicleId, setVehicleId] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [kmReading, setKmReading] = useState("1,200 km");
+  const [batteryId, setBatteryId] = useState("");
+  const [iotId, setIotId] = useState("");
+  const [mechanic, setMechanic] = useState("");
 
   const [serviceType, setServiceType] = useState("Tyre Replacement");
   const [serviceCategory, setServiceCategory] = useState("General Service");
   const [priority, setPriority] = useState("Medium");
-  const [serviceDate, setServiceDate] = useState("2026-06-19");
+  const [serviceDate, setServiceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [estimatedTime, setEstimatedTime] = useState("2 - 3 Hours");
-  const [description, setDescription] = useState("Rear tyre tread is worn out. Replacement required for better safety and performance.");
+  const [description, setDescription] = useState("Tyre tread inspection & maintenance required.");
   const [checklistTemplate, setChecklistTemplate] = useState("Tyre Replacement Checklist");
-
-  // Parts list state
   const [parts, setParts] = useState<PartRow[]>([
-    { partName: "Rear Tyre - 90/90 R12", partNo: "TYR-90-90-R12", qty: 1, cost: 850.00 },
-    { partName: "Valve Tube", partNo: "VLV-TUBE-12", qty: 1, cost: 60.00 },
-    { partName: "Tyre Sealant", partNo: "SEAL-250ML", qty: 1, cost: 120.00 }
+    { partName: 'MRF Front Tubeless Tyre 90/90-12', partNo: 'PRT-TY-0089', qty: 1, cost: 1250 },
+    { partName: 'Tyre Valve Stem TR412', partNo: 'PRT-VL-0012', qty: 1, cost: 150 }
   ]);
-
-  // Labor costs
-  const [laborCharge, setLaborCharge] = useState(450.00);
-  const [diagnosticCharge, setDiagnosticCharge] = useState(100.00);
-  const [otherCharge, setOtherCharge] = useState(50.00);
-  const [discount, setDiscount] = useState(0.00);
-
-  // Next Service info
-  const [nextDate, setNextDate] = useState("2026-07-19");
-  const [nextKm, setNextKm] = useState("14,000 km");
-  const [reminderDays, setReminderDays] = useState("Before 5 Days");
-  const [notes, setNotes] = useState("Ensure proper tyre pressure after replacement. Test ride completed.");
-
-  // Uploaded photos state - connected with zone images and file upload (no mock unsplash)
+  const [laborCharge, setLaborCharge] = useState(350);
+  const [diagnosticCharge, setDiagnosticCharge] = useState(100);
+  const [otherCharge, setOtherCharge] = useState(50);
+  const [discount, setDiscount] = useState(0);
+  const [nextDate, setNextDate] = useState("2026-09-20");
+  const [nextKm, setNextKm] = useState("3,000 km");
+  const [reminderDays, setReminderDays] = useState("7 Days Before");
+  const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
 
+  // Fetch live vehicles, zones, and technicians from Backend DB
   useEffect(() => {
-    api.get('/zones').then((res: any) => {
-      const zList = res.data?.zones || res.zones || res.data || [];
-      if (Array.isArray(zList)) {
-        const found = zList.find((z: any) => z.name?.toLowerCase().includes(activeZone.toLowerCase()) || activeZone.toLowerCase().includes(z.name?.toLowerCase())) || zList[0];
-        if (found?.image_url) {
-          setPhotos([found.image_url]);
-        }
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    Promise.all([
+      fetch(`${apiUrl}/vehicles`).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`${apiUrl}/zones`).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`${apiUrl}/users`).then(r => r.json()).catch(() => ({ data: [] }))
+    ]).then(([vRes, zRes, uRes]) => {
+      const vList = Array.isArray(vRes) ? vRes : (vRes.data || []);
+      const zList = Array.isArray(zRes) ? zRes : (zRes.data || []);
+      const uList = Array.isArray(uRes) ? uRes : (uRes.data || []);
+
+      setVehiclesList(vList);
+      setZonesList(zList);
+
+      const techList = uList.filter((u: any) => {
+        const role = (u.role || '').toLowerCase();
+        return role.includes('tech') || role.includes('mechanic') || role.includes('operat') || role.includes('admin') || role.includes('staff');
+      });
+      setTechniciansList(techList.length > 0 ? techList : uList);
+
+      if (vList.length > 0) {
+        const firstV = vList[0];
+        const vCode = firstV.code || firstV.registration_number || 'EVM1024001';
+        setVehicleId(vCode);
+        setVehicleNumber(firstV.registration_number || vCode);
+        setVehicleModel(firstV.model || 'Evegah Pro');
+        setKmReading(firstV.km_reading ? `${firstV.km_reading} km` : '1,200 km');
+        setBatteryId(firstV.battery_id || 'BAT-0098');
+        setIotId(firstV.iot_id || firstV.imei || 'IOT-EVG-101');
+        if (firstV.zone) setActiveZone(firstV.zone);
       }
-    }).catch(err => console.error('Failed to load zone image:', err));
-  }, [activeZone]);
+      if (techList.length > 0) {
+        setMechanic(techList[0].full_name || techList[0].name || 'Technician Lead');
+      }
+    });
+  }, []);
+
+  const handleVehicleSelect = (selectedCode: string) => {
+    setVehicleId(selectedCode);
+    const found = vehiclesList.find(v => (v.code || v.registration_number) === selectedCode);
+    if (found) {
+      setVehicleNumber(found.registration_number || found.code);
+      setVehicleModel(found.model || 'Evegah Pro');
+      setKmReading(found.km_reading ? `${found.km_reading} km` : '1,200 km');
+      setBatteryId(found.battery_id || 'BAT-0098');
+      setIotId(found.iot_id || found.imei || 'IOT-EVG-101');
+      if (found.zone) setActiveZone(found.zone);
+    }
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -594,11 +628,24 @@ export default function AddMaintenancePage() {
                 <h2 className="ma-section-title">1. Vehicle Information</h2>
                 <div className="ma-fields-grid">
                   <div className="ma-field">
-                    <span className="ma-field-label">Vehicle</span>
-                    <select className="ma-select-field" value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
-                      <option value="EV-12KA-5678">EV-12KA-5678 - Eve S1 Pro</option>
-                      <option value="EV-12KA-1234">EV-12KA-1234 - Eve S1</option>
-                      <option value="EV-12KA-3456">EV-12KA-3456 - Eve X</option>
+                    <span className="ma-field-label">Vehicle ({vehiclesList.length} Available)</span>
+                    <select
+                      className="ma-select-field"
+                      value={vehicleId}
+                      onChange={(e) => handleVehicleSelect(e.target.value)}
+                    >
+                      {vehiclesList.length > 0 ? (
+                        vehiclesList.map((v: any) => {
+                          const code = v.code || v.registration_number;
+                          return (
+                            <option key={v.id || code} value={code}>
+                              {code} — {v.model || 'Evegah EV'} ({v.vehicle_status || 'Ready'})
+                            </option>
+                          );
+                        })
+                      ) : (
+                        <option value="">No vehicles available</option>
+                      )}
                     </select>
                   </div>
                   <div className="ma-field">
@@ -622,21 +669,37 @@ export default function AddMaintenancePage() {
                     <input type="text" className="ma-input" value={iotId} onChange={(e) => setIotId(e.target.value)} />
                   </div>
                   <div className="ma-field">
-                    <span className="ma-field-label">Assigned Station</span>
+                    <span className="ma-field-label">Assigned Station / Zone</span>
                     <select className="ma-select-field" value={activeZone} onChange={(e) => setActiveZone(e.target.value)}>
-                      <option value="Gotri Hub">Gotri Hub</option>
-                      <option value="Manjalpur Hub">Manjalpur Hub</option>
-                      <option value="KPGU Hub">KPGU Hub</option>
-                      <option value="Aatapi Hub">Aatapi Hub</option>
-                      <option value="Moti Daman Hub">Moti Daman Hub</option>
+                      {zonesList.length > 0 ? (
+                        zonesList.map((z: any) => (
+                          <option key={z.id || z.name} value={z.name}>{z.name}</option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="Gotri Hub">Gotri Hub</option>
+                          <option value="Manjalpur Hub">Manjalpur Hub</option>
+                          <option value="KPGU Hub">KPGU Hub</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div className="ma-field">
-                    <span className="ma-field-label">Assigned Mechanic</span>
+                    <span className="ma-field-label">Assigned Mechanic / Technician</span>
                     <select className="ma-select-field" value={mechanic} onChange={(e) => setMechanic(e.target.value)}>
-                      <option>Ravi Kumar</option>
-                      <option>Vikram Singh</option>
-                      <option>Neelesh Rao</option>
+                      {techniciansList.length > 0 ? (
+                        techniciansList.map((t: any) => (
+                          <option key={t.id || t.email} value={t.full_name || t.name}>
+                            {t.full_name || t.name} ({t.role || 'Staff'})
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="Ravi Kumar">Ravi Kumar (Technician)</option>
+                          <option value="Vikram Singh">Vikram Singh (Mechanic)</option>
+                          <option value="Neelesh Rao">Neelesh Rao (Operator)</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -917,19 +980,27 @@ export default function AddMaintenancePage() {
                 <h3 className="ma-sidebar-title" style={{ marginBottom: '16px' }}>Quick Actions</h3>
                 <div className="ma-qa-grid">
                   <div className="ma-qa-btn">
-                    <span className="ma-qa-btn-icon">🖨️</span>
+                    <span className="ma-qa-btn-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2A195C' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                    </span>
                     <span className="ma-qa-btn-text">Print Job Card</span>
                   </div>
                   <div className="ma-qa-btn">
-                    <span className="ma-qa-btn-icon">🛵</span>
+                    <span className="ma-qa-btn-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2A195C' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>
+                    </span>
                     <span className="ma-qa-btn-text">View Vehicle</span>
                   </div>
                   <div className="ma-qa-btn">
-                    <span className="ma-qa-btn-icon">📜</span>
+                    <span className="ma-qa-btn-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2A195C' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </span>
                     <span className="ma-qa-btn-text">Service History</span>
                   </div>
                   <div className="ma-qa-btn">
-                    <span className="ma-qa-btn-icon">🔔</span>
+                    <span className="ma-qa-btn-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2A195C' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    </span>
                     <span className="ma-qa-btn-text">Create Reminder</span>
                   </div>
                 </div>

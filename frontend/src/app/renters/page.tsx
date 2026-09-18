@@ -71,14 +71,16 @@ const CSS = `
 /* Monospace text elements */
 .re-code { font-family: 'Outfit', sans-serif; font-size: 12px; color: #0F172A; font-weight: 800; }
 
-/* Colored Status pills */
-.re-sbadge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
-.s-active { background: #DCFCE7; color: #15803D; }
-.s-retain { background: #FFEDD5; color: #C2410C; }
-.s-return { background: #DBEAFE; color: #1D4ED8; }
-.s-extend { background: #F3E8FF; color: #7E22CE; }
-.s-upcoming { background: #FEF3C7; color: #B45309; }
-.s-noactive { background: #F1F5F9; color: #64748B; }
+/* Colored Status pills with highlighted badges */
+.re-sbadge { display: inline-flex; align-items: center; gap: 5.5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; border: 1px solid transparent; letter-spacing: 0.01em; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.s-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.s-active { background: #ECFDF5; color: #059669; border-color: #A7F3D0; }
+.s-active .s-dot { box-shadow: 0 0 0 2px rgba(16,185,129,0.25); }
+.s-retain { background: #FFF7ED; color: #EA580C; border-color: #FFEDD5; }
+.s-return { background: #EFF6FF; color: #2563EB; border-color: #BFDBFE; }
+.s-extend { background: #FAF5FF; color: #7C3AED; border-color: #DDD6FE; }
+.s-upcoming { background: #FEF3C7; color: #B45309; border-color: #FDE68A; }
+.s-noactive { background: #F8FAFC; color: #64748B; border-color: #E2E8F0; }
 
 /* Action Buttons Container */
 .re-action-cell { display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -611,7 +613,7 @@ export default function RentersPage() {
     }).format(num);
   };
 
-  // Format Date Helper
+  // Format Date Helper - accurately renders actual booking date and time without fixed 12:00 AM
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return { date: '—', time: '' };
     try {
@@ -630,8 +632,13 @@ export default function RentersPage() {
         month: 'short',
         year: 'numeric'
       });
-      const hasTime = typeof dateStr === 'string' && (dateStr.includes('T') || dateStr.includes(':') || dateStr.length > 10);
-      const time = hasTime ? d.toLocaleTimeString('en-US', {
+      // Detect if this was a date-only (midnight 00:00:00 or 18:30:00 UTC) placeholder
+      const hours = d.getHours();
+      const minutes = d.getMinutes();
+      const isUtcMidnight = String(dateStr).includes('18:30:00') || String(dateStr).includes('00:00:00');
+      const isMidnightLocal = hours === 0 && minutes === 0;
+
+      const time = (!isUtcMidnight && !isMidnightLocal) ? d.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
@@ -642,29 +649,32 @@ export default function RentersPage() {
     }
   };
 
-  // Status Badge Class Helper
+  // Status Badge Class Helper - properly highlights all statuses with vivid badges
   const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'Active Ride': return 's-active';
-      case 'Retain Ride': return 's-retain';
-      case 'Return': return 's-return';
-      case 'Extend': return 's-extend';
-      default: return '';
-    }
+    const s = (status || '').toLowerCase();
+    if (s === 'active ride' || (s.includes('active') && !s.includes('no'))) return 's-active';
+    if (s.includes('upcoming') || s.includes('reserved')) return 's-upcoming';
+    if (s.includes('retain')) return 's-retain';
+    if (s.includes('return') || s.includes('complete')) return 's-return';
+    if (s.includes('extend')) return 's-extend';
+    if (s.includes('no active') || s.includes('inactive')) return 's-noactive';
+    return 's-noactive';
   };
 
   const getStatusLabel = (status: string) => {
-    if (status === 'Return') return 'Returned';
-    if (status === 'Extend') return 'Extended';
+    if (status === 'Return' || status === 'Returned') return 'Returned';
+    if (status === 'Extend' || status === 'Extended') return 'Extended';
+    if (status === 'Upcoming' || status === 'Reserved') return 'Upcoming';
+    if (!status || status === 'No Active Ride') return 'No Active Ride';
     return status;
   };
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="re-shell page-transition">
+      <div className="re-shell">
         <Sidebar activePath="/renters" />
-        <div className="re-main">
+        <div className="re-main page-transition">
           <TopBar title="Renter" subtitle="Dashboard > Renter" />
 
           <div className="re-page">
@@ -955,7 +965,7 @@ export default function RentersPage() {
                                   alt="" 
                                   className="re-avatar" 
                                 />
-                                <span style={{ fontWeight: 750, color: '#0F172A', fontSize: '13px' }}>{displayName}</span>
+                                <span style={{ fontWeight: 600, color: '#1E293B', fontSize: '13px', letterSpacing: '-0.01em' }}>{displayName}</span>
                               </div>
                             </td>
                             <td style={{ color: '#64748B', fontWeight: 500 }}>{displayMobile}</td>
@@ -1006,14 +1016,19 @@ export default function RentersPage() {
                                 display: 'inline-flex',
                                 flexDirection: 'column',
                                 padding: '4px 10px',
-                                background: '#F0FDF4',
-                                border: '1px solid #BBF7D0',
+                                background: '#F8FAFC',
+                                border: '1px solid #E2E8F0',
                                 borderRadius: '8px'
                               }}>
-                                <span style={{ fontWeight: 750, color: '#166534', fontSize: '12px' }}>{start.date}</span>
-                                {start.time && (
-                                  <span style={{ fontSize: '10.5px', color: '#15803D', fontWeight: 600, marginTop: '1px' }}>
+                                <span style={{ fontWeight: 600, color: '#0F172A', fontSize: '12px' }}>{start.date}</span>
+                                {start.time ? (
+                                  <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3.5px' }}>
+                                    <span style={{ width: '4.5px', height: '4.5px', borderRadius: '50%', background: '#059669' }} />
                                     {start.time}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 500, marginTop: '1px' }}>
+                                    Booking Date
                                   </span>
                                 )}
                               </div>
@@ -1028,19 +1043,25 @@ export default function RentersPage() {
                                   border: '1px solid #E2E8F0',
                                   borderRadius: '8px'
                                 }}>
-                                  <span style={{ fontWeight: 650, color: '#334155', fontSize: '12px' }}>{end.date}</span>
-                                  {end.time && (
-                                    <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '1px' }}>
+                                  <span style={{ fontWeight: 600, color: '#334155', fontSize: '12px' }}>{end.date}</span>
+                                  {end.time ? (
+                                    <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3.5px' }}>
+                                      <span style={{ width: '4.5px', height: '4.5px', borderRadius: '50%', background: '#64748B' }} />
                                       {end.time}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 500, marginTop: '1px' }}>
+                                      Scheduled Return
                                     </span>
                                   )}
                                 </div>
                               ) : (
-                                <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
+                                <span style={{ color: '#94A3B8', fontWeight: 500, fontSize: '12.5px' }}>—</span>
                               )}
                             </td>
                             <td>
                               <span className={`re-sbadge ${getStatusClass(r.status)}`}>
+                                <span className="s-dot" />
                                 {getStatusLabel(r.status)}
                               </span>
                             </td>

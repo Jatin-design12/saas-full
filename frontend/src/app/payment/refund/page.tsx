@@ -202,7 +202,7 @@ export default function DepositRefundPage() {
   // Modal State
   const [selectedPending, setSelectedPending] = useState<PendingRefund | null>(null);
   const [damageDeductions, setDamageDeductions] = useState<number>(0);
-  const [refundMethod, setRefundMethod] = useState('PayU India Gateway Refund');
+  const [refundMethod, setRefundMethod] = useState('PayU');
   const [upiId, setUpiId] = useState('');
   const [refundNotes, setRefundNotes] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -241,8 +241,71 @@ export default function DepositRefundPage() {
     setSelectedPending(null);
   };
 
-  // Process live refund via backend API
-  const handleProcessRefund = async () => {
+  // Security Verification Modal State
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('otp');
+  const [authOtp, setAuthOtp] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [authVerifying, setAuthVerifying] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [maskedAuthMobile, setMaskedAuthMobile] = useState('81******72');
+
+  // Trigger OTP dispatch to configured authorized phone number
+  const handleSendAuthOtp = async () => {
+    setOtpSending(true);
+    setAuthError(null);
+    try {
+      const res: any = await api.post('/settings/refund-auth/send-otp', {});
+      if (res && res.status === 'success') {
+        setOtpSent(true);
+        if (res.mobile) setMaskedAuthMobile(res.mobile);
+      } else {
+        setAuthError(res?.message || 'Failed to send OTP.');
+      }
+    } catch (e: any) {
+      setAuthError(e.response?.data?.message || e.message || 'Error sending OTP.');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  // Open auth modal when clicking Confirm & Process Refund
+  const handleInitiateRefund = () => {
+    setAuthError(null);
+    setAuthOtp('');
+    setAuthPassword('');
+    setOtpSent(false);
+    setShowAuthModal(true);
+  };
+
+  // Verify OTP or Master Password then proceed with refund
+  const handleVerifyAuthAndProceed = async () => {
+    setAuthError(null);
+    setAuthVerifying(true);
+    try {
+      const res: any = await api.post('/settings/refund-auth/verify', {
+        method: authMethod,
+        otp: authOtp,
+        password: authPassword
+      });
+
+      if (res && res.status === 'success' && res.verified) {
+        setShowAuthModal(false);
+        await executeActualRefund(res.token);
+      } else {
+        setAuthError(res?.message || 'Verification failed. Please check credentials.');
+      }
+    } catch (e: any) {
+      setAuthError(e.response?.data?.message || e.message || 'Authorization failed.');
+    } finally {
+      setAuthVerifying(false);
+    }
+  };
+
+  // Process live refund via backend API after security authorization
+  const executeActualRefund = async (authToken?: string) => {
     if (!selectedPending) return;
     setProcessing(true);
 
@@ -254,11 +317,12 @@ export default function DepositRefundPage() {
         deductions: damageDeductions,
         refund_mode: refundMethod,
         upi_id: upiId,
-        notes: refundNotes
+        notes: refundNotes,
+        auth_token: authToken
       });
 
       if (res && res.status === 'success') {
-        setActionSuccess(`✓ Security Deposit of ₹${netRefundAmount} refunded directly to original source account via PayU India Gateway! Request ID: ${res.data?.tx_id}`);
+        setActionSuccess(`✓ Security Deposit of ₹${netRefundAmount} successfully authorized and refunded! Request ID: ${res.data?.tx_id || 'REF-DONE'}`);
         closeRefundModal();
         await fetchDeposits();
         setTimeout(() => setActionSuccess(null), 6000);
@@ -268,7 +332,7 @@ export default function DepositRefundPage() {
     } catch (err: any) {
       console.error('Refund processing error:', err);
       const serverMsg = err.response?.data?.message || err.message || 'PayU Gateway rejected the refund request.';
-      alert(`⚠️ PayU Gateway Refund Error:\n\n${serverMsg}`);
+      alert(`⚠️ Refund Processing Error:\n\n${serverMsg}`);
     } finally {
       setProcessing(false);
     }
@@ -896,7 +960,7 @@ export default function DepositRefundPage() {
                     fontSize: '11px',
                     fontWeight: 800
                   }}>PayU</span>
-                  <span>PayU India Gateway (Live Refund Flow)</span>
+                  <span>PayU(Live Refund Flow)</span>
                 </div>
               </div>
 
@@ -934,10 +998,143 @@ export default function DepositRefundPage() {
               <button className="rh-btn" onClick={closeRefundModal} disabled={processing}>Cancel</button>
               <button 
                 className="rh-btn rh-btn-primary" 
-                onClick={handleProcessRefund}
+                onClick={handleInitiateRefund}
                 disabled={processing || damageDeductions > selectedPending.deposit || damageDeductions < 0}
               >
                 {processing ? 'Processing Gateway Refund...' : 'Confirm & Process Refund'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security Verification Popup (OTP or Master Password) */}
+      {showAuthModal && (
+        <div className="rh-modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="rh-modal-card" style={{ width: 440, border: '2px solid #2A195C' }}>
+            <div className="rh-modal-hdr" style={{ background: '#2A195C', color: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🔐</span>
+                <span className="rh-modal-title" style={{ color: '#fff', fontSize: '15px' }}>
+                  Refund Security Authorization
+                </span>
+              </div>
+              <button className="rh-modal-close" onClick={() => setShowAuthModal(false)} style={{ color: '#E0E7FF' }}>✕</button>
+            </div>
+
+            <div className="rh-modal-body" style={{ gap: '16px' }}>
+              <div style={{ fontSize: '12.5px', color: '#64748B', lineHeight: '1.4' }}>
+                Super Admin security authorization is required to disburse the deposit refund of <strong>₹{selectedPending ? Math.max(0, selectedPending.deposit - damageDeductions).toLocaleString('en-IN') : 0}</strong>. Choose a verification method to proceed:
+              </div>
+
+              {/* Method Selector Tabs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#F1F5F9', padding: '4px', borderRadius: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMethod('otp'); setAuthError(null); }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: authMethod === 'otp' ? '#2A195C' : 'transparent',
+                    color: authMethod === 'otp' ? '#fff' : '#64748B',
+                    transition: 'all .15s'
+                  }}
+                >
+                  📱 WhatsApp OTP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMethod('password'); setAuthError(null); }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: authMethod === 'password' ? '#2A195C' : 'transparent',
+                    color: authMethod === 'password' ? '#fff' : '#64748B',
+                    transition: 'all .15s'
+                  }}
+                >
+                  🔑 Master Password
+                </button>
+              </div>
+
+              {authError && (
+                <div style={{ padding: '10px 12px', borderRadius: '8px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '12px', fontWeight: 600 }}>
+                  ⚠️ {authError}
+                </div>
+              )}
+
+              {/* Method 1: Send OTP */}
+              {authMethod === 'otp' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '12px', color: '#334155' }}>
+                    <div style={{ fontWeight: 700, marginBottom: '2px', color: '#0F172A' }}>Authorized Verification Mobile:</div>
+                    <div>WhatsApp OTP will be sent to <strong>+91 {maskedAuthMobile || '81******72'}</strong></div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="rh-btn"
+                      onClick={handleSendAuthOtp}
+                      disabled={otpSending}
+                      style={{ flex: 1, justifyContent: 'center', background: '#EEF2FF', borderColor: '#C7D2FE', color: '#2A195C', fontWeight: 700 }}
+                    >
+                      {otpSending ? 'Sending OTP...' : (otpSent ? 'Resend OTP' : 'Send WhatsApp OTP')}
+                    </button>
+                  </div>
+
+                  {otpSent && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label className="modal-lbl">Enter 6-Digit OTP</label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        className="modal-input"
+                        placeholder="e.g. 123456"
+                        value={authOtp}
+                        onChange={(e) => setAuthOtp(e.target.value.replace(/\D/g, ''))}
+                        style={{ textAlign: 'center', fontSize: '18px', letterSpacing: '4px', fontWeight: 800 }}
+                        autoFocus
+                      />
+                      <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 600 }}>✓ OTP sent via WhatsApp. Valid for 5 mins.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Method 2: Enter Master Password */}
+              {authMethod === 'password' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <label className="modal-lbl">Enter Super Admin Master Password</label>
+                  <input
+                    type="password"
+                    className="modal-input"
+                    placeholder="Enter Master Password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    autoFocus
+                  />
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>Configured in Super Admin Settings &gt; Security</span>
+                </div>
+              )}
+            </div>
+
+            <div className="rh-modal-ft">
+              <button className="rh-btn" onClick={() => setShowAuthModal(false)} disabled={authVerifying}>Cancel</button>
+              <button
+                className="rh-btn rh-btn-primary"
+                onClick={handleVerifyAuthAndProceed}
+                disabled={authVerifying || (authMethod === 'otp' && (!otpSent || authOtp.length < 4)) || (authMethod === 'password' && !authPassword)}
+              >
+                {authVerifying ? 'Verifying...' : 'Authorize & Process Refund'}
               </button>
             </div>
           </div>

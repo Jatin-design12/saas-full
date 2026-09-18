@@ -76,9 +76,9 @@ const DEFAULT_SETTINGS = {
         name: 'ICICI Bank UPI',
         provider: 'icici',
         active: true,
-        key_id: '9496988',
-        key_secret: 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ',
-        vpa: 'EVEGAHRIDE@icici',
+        key_id: '613268',
+        key_secret: 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp',
+        vpa: 'EVEGAHUAT@icici',
         payee_name: 'Evegah',
         environment: 'production',
         notes: 'Direct Merchant UPI QR & Intent Launch'
@@ -148,7 +148,9 @@ const DEFAULT_SETTINGS = {
     strong_password_policy: true,
     max_login_attempts: 5,
     session_timeout_seconds: 1800,
-    allow_concurrent_logins: false
+    allow_concurrent_logins: false,
+    refund_auth_mobile: '8128251172',
+    refund_auth_password: 'Qatar@2022'
   },
   system: {
     system_time_zone: '(UTC +05:30) Asia/Kolkata',
@@ -203,14 +205,93 @@ router.get('/', async (req, res) => {
     // Populate with defaults first
     Object.assign(settingsObj, DEFAULT_SETTINGS);
 
-    // Group settings by category from database
+    // Group settings by category from database, merging with defaults
     result.rows.forEach(row => {
-      settingsObj[row.category] = row.values;
+      settingsObj[row.category] = { ...(DEFAULT_SETTINGS[row.category] || {}), ...row.values };
     });
 
     res.json({ status: 'success', data: settingsObj });
   } catch (err) {
     console.error('Error fetching settings:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// In-memory refund OTP store with 5-minute TTL
+const refundOtpStore = new Map(); // key: mobile -> { otp, expiresAt }
+
+// POST /api/settings/refund-auth/send-otp - Dispatch OTP to configured mobile
+router.post('/refund-auth/send-otp', async (req, res) => {
+  try {
+    const sRes = await db.query("SELECT values FROM settings WHERE category = 'security' LIMIT 1").catch(() => ({ rows: [] }));
+    const sec = sRes.rows[0]?.values || DEFAULT_SETTINGS.security;
+    const mobile = (sec.refund_auth_mobile || '8128251172').trim();
+
+    // 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    refundOtpStore.set(mobile, { otp, expiresAt });
+
+    // Send WhatsApp Direct Message
+    const { sendWhatsAppDirectMessage } = require('../utils/whatsapp');
+    const maskedMobile = mobile.length >= 10 ? mobile.slice(0, 2) + '******' + mobile.slice(-2) : mobile;
+    
+    await sendWhatsAppDirectMessage({
+      mobile,
+      message: `🔐 *Evegah Security Authorization*\n\nYour OTP for Security Deposit Refund approval is: *${otp}*.\n\nValid for 5 minutes. Do not share this OTP with anyone.`
+    }).catch(err => console.warn('Could not dispatch WhatsApp OTP:', err.message));
+
+    console.log(`[RefundAuth] OTP generated for ${mobile}: ${otp}`);
+
+    res.json({
+      status: 'success',
+      message: `OTP sent successfully to authorized mobile (+91 ${maskedMobile})`,
+      mobile: maskedMobile,
+      debug_otp: otp
+    });
+  } catch (err) {
+    console.error('Error sending refund OTP:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/settings/refund-auth/verify - Verify OTP or Master Password
+router.post('/refund-auth/verify', async (req, res) => {
+  try {
+    const { method, otp, password } = req.body;
+    const sRes = await db.query("SELECT values FROM settings WHERE category = 'security' LIMIT 1").catch(() => ({ rows: [] }));
+    const sec = sRes.rows[0]?.values || DEFAULT_SETTINGS.security;
+    const configuredMobile = (sec.refund_auth_mobile || '8128251172').trim();
+    const configuredPassword = (sec.refund_auth_password || 'Qatar@2022').trim();
+
+    if (method === 'otp') {
+      if (!otp) return res.status(400).json({ status: 'error', message: 'Please enter the 6-digit OTP.' });
+      const record = refundOtpStore.get(configuredMobile);
+      if (!record) {
+        return res.status(400).json({ status: 'error', message: 'No OTP requested or OTP has expired. Please click Send OTP.' });
+      }
+      if (Date.now() > record.expiresAt) {
+        refundOtpStore.delete(configuredMobile);
+        return res.status(400).json({ status: 'error', message: 'OTP has expired. Please request a new one.' });
+      }
+      if (String(otp).trim() !== record.otp) {
+        return res.status(400).json({ status: 'error', message: 'Invalid OTP. Please check and try again.' });
+      }
+      refundOtpStore.delete(configuredMobile);
+      const token = `REF-AUTH-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return res.json({ status: 'success', verified: true, token, message: 'OTP verified successfully!' });
+    } else if (method === 'password') {
+      if (!password) return res.status(400).json({ status: 'error', message: 'Please enter the refund master password.' });
+      if (String(password).trim() !== configuredPassword) {
+        return res.status(400).json({ status: 'error', message: 'Incorrect Master Password. Access denied.' });
+      }
+      const token = `REF-AUTH-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return res.json({ status: 'success', verified: true, token, message: 'Master Password verified successfully!' });
+    } else {
+      return res.status(400).json({ status: 'error', message: 'Invalid verification method specified.' });
+    }
+  } catch (err) {
+    console.error('Error verifying refund authorization:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });

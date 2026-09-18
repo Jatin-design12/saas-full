@@ -30,43 +30,109 @@ const { getCache, setCache, delByPattern } = require('../redis');
   }
 })();
 
-// GET /api/maintenance/stats - Fetch stats and breakdown summary
+// GET /api/maintenance/stats - Fetch stats and breakdown summary directly from DB
 router.get('/stats', async (req, res) => {
   try {
-    const cacheKey = 'maintenance:stats';
-    const cached = await getCache(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
+    const [totalRes, upcomingRes, completedRes, overdueRes, underMaintRes, dueSoonRes, typeBreakdown] = await Promise.all([
+      db.query(`SELECT COUNT(*) FROM maintenance_orders`),
+      db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status IN ('Scheduled', 'Due Soon', 'In Progress', 'Under Maintenance')`),
+      db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status = 'Completed'`),
+      db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status = 'Overdue'`),
+      db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status IN ('Under Maintenance', 'In Progress')`),
+      db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status IN ('Due Soon', 'Scheduled')`),
+      db.query(`
+        SELECT issue_category as name, COUNT(*)::int as count 
+        FROM maintenance_orders 
+        GROUP BY issue_category 
+        ORDER BY count DESC
+      `)
+    ]);
 
-    const totalRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders`);
-    const upcomingRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status IN ('Scheduled', 'Due Soon', 'In Progress')`);
-    const completedRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status = 'Completed'`);
-    const overdueRes = await db.query(`SELECT COUNT(*) FROM maintenance_orders WHERE status = 'Overdue'`);
-    
-    // Service Type Breakdown
-    const typeBreakdown = await db.query(`
-      SELECT issue_category as name, COUNT(*)::int as count 
-      FROM maintenance_orders 
-      GROUP BY issue_category 
-      ORDER BY count DESC
-    `);
+    const total = parseInt(totalRes.rows[0]?.count || 0);
+    const upcoming = parseInt(upcomingRes.rows[0]?.count || 0);
+    const completed = parseInt(completedRes.rows[0]?.count || 0);
+    const overdue = parseInt(overdueRes.rows[0]?.count || 0);
+    const underMaint = parseInt(underMaintRes.rows[0]?.count || 0);
+    const dueSoon = parseInt(dueSoonRes.rows[0]?.count || 0);
 
     const payload = {
       status: 'success',
       data: {
-        total: parseInt(totalRes.rows[0].count) || 24,
-        upcoming: parseInt(upcomingRes.rows[0].count) || 14,
-        completed: parseInt(completedRes.rows[0].count) || 8,
-        overdue: parseInt(overdueRes.rows[0].count) || 2,
+        total,
+        upcoming,
+        completed,
+        overdue,
+        under_maintenance: underMaint,
+        due_soon: dueSoon,
         breakdown: typeBreakdown.rows
       }
     };
 
     res.json(payload);
-    setCache(cacheKey, payload, 60);
   } catch (err) {
     console.error('Error fetching maintenance stats:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// GET /api/maintenance/overview-metrics - Detailed KPIs, Upcoming, Top Costs & Recent History
+router.get('/overview-metrics', async (req, res) => {
+  try {
+    const [upcomingRes, topCostsRes, historyRes, costSumRes] = await Promise.all([
+      // 1. Upcoming Services
+      db.query(`
+        SELECT id, ticket_id, vehicle_code, vehicle_model, issue_category, scheduled_date, status, estimated_cost, zone, description
+        FROM maintenance_orders
+        WHERE status IN ('Scheduled', 'Due Soon', 'In Progress', 'Under Maintenance')
+        ORDER BY COALESCE(scheduled_date, created_at) ASC
+        LIMIT 6
+      `).catch(() => ({ rows: [] })),
+
+      // 2. Top Maintenance Costs by category
+      db.query(`
+        SELECT 
+          issue_category,
+          COUNT(*)::int as count,
+          COALESCE(SUM(estimated_cost), 0)::numeric as total_cost
+        FROM maintenance_orders
+        GROUP BY issue_category
+        ORDER BY total_cost DESC
+        LIMIT 5
+      `).catch(() => ({ rows: [] })),
+
+      // 3. Recent Service History
+      db.query(`
+        SELECT id, ticket_id, vehicle_code, vehicle_model, issue_category, assigned_technician, created_at, status, estimated_cost, zone
+        FROM maintenance_orders
+        WHERE status = 'Completed' OR status = 'Resolved'
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 6
+      `).catch(() => ({ rows: [] })),
+
+      // 4. Financial Cost Aggregates
+      db.query(`
+        SELECT 
+          COALESCE(SUM(estimated_cost), 0)::numeric as total_cost,
+          COALESCE(AVG(estimated_cost), 0)::numeric as avg_cost
+        FROM maintenance_orders
+      `).catch(() => ({ rows: [{ total_cost: 0, avg_cost: 0 }] }))
+    ]);
+
+    const totalCost = parseFloat(costSumRes.rows[0]?.total_cost || 0);
+    const avgCost = parseFloat(costSumRes.rows[0]?.avg_cost || 0);
+
+    res.json({
+      status: 'success',
+      data: {
+        upcoming_services: upcomingRes.rows,
+        top_costs: topCostsRes.rows,
+        recent_history: historyRes.rows,
+        total_cost: totalCost,
+        avg_cost: Math.round(avgCost)
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching maintenance overview metrics:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });

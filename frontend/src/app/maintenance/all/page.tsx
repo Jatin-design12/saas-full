@@ -154,17 +154,7 @@ export default function AllMaintenancePage() {
       }
     } catch (_) {}
 
-    // Fallback seed
-    setRecordsList([
-      { id: 'MAIN-2026-00030', dateTimeStr: '19 Jun 2026, 10:30 AM', vehicleReg: 'GJ06EV1234', vehicleCategory: 'E-Scooter', vehicleModel: 'Ather 450X', serviceType: 'Battery Check', mechanicName: 'Ramesh Patel', status: 'Completed', dueDate: '19 Jun 2026', dueSub: 'On Time', lastServiceDate: '12 Jun 2026', lastServiceSub: '7 days ago', cost: '₹850' },
-      { id: 'MAIN-2026-00029', dateTimeStr: '18 Jun 2026, 04:15 PM', vehicleReg: 'GJ06EV5678', vehicleCategory: 'E-Bike', vehicleModel: 'Hero Lectro', serviceType: 'General Service', mechanicName: 'Suresh Yadav', status: 'Under Maintenance', dueDate: '20 Jun 2026', dueSub: '1 day left', lastServiceDate: '10 Jun 2026', lastServiceSub: '8 days ago', cost: '₹600' },
-      { id: 'MAIN-2026-00028', dateTimeStr: '17 Jun 2026, 11:20 AM', vehicleReg: 'GJ06EV9012', vehicleCategory: 'E-Scooter', vehicleModel: 'Ola S1 Pro', serviceType: 'Tyre Replacement', mechanicName: 'Ramesh Patel', status: 'Due Soon', dueDate: '21 Jun 2026', dueSub: '2 days left', lastServiceDate: '05 Jun 2026', lastServiceSub: '13 days ago', cost: '₹1,200' },
-      { id: 'MAIN-2026-00027', dateTimeStr: '16 Jun 2026, 09:45 AM', vehicleReg: 'GJ06EV3456', vehicleCategory: 'E-Cycle', vehicleModel: 'EMotorad', serviceType: 'Brake Check', mechanicName: 'Mahesh Singh', status: 'Overdue', dueDate: '15 Jun 2026', dueSub: '1 day overdue', isOverdueRed: true, lastServiceDate: '01 Jun 2026', lastServiceSub: '17 days ago', cost: '₹500' },
-      { id: 'MAIN-2026-00026', dateTimeStr: '15 Jun 2026, 02:30 PM', vehicleReg: 'GJ06EV7890', vehicleCategory: 'E-Scooter', vehicleModel: 'Ather 450X', serviceType: 'Battery Check', mechanicName: 'Suresh Yadav', status: 'Completed', dueDate: '15 Jun 2026', dueSub: 'On Time', lastServiceDate: '08 Jun 2026', lastServiceSub: '7 days ago', cost: '₹850' },
-      { id: 'MAIN-2026-00025', dateTimeStr: '14 Jun 2026, 10:00 AM', vehicleReg: 'GJ06EV1122', vehicleCategory: 'E-Bike', vehicleModel: 'Hero Lectro', serviceType: 'Chain Lube', mechanicName: 'Ramesh Patel', status: 'Completed', dueDate: '14 Jun 2026', dueSub: 'On Time', lastServiceDate: '07 Jun 2026', lastServiceSub: '7 days ago', cost: '₹300' },
-      { id: 'MAIN-2026-00024', dateTimeStr: '13 Jun 2026, 05:20 PM', vehicleReg: 'GJ06EV3344', vehicleCategory: 'E-Scooter', vehicleModel: 'Ola S1 Pro', serviceType: 'General Service', mechanicName: 'Mahesh Singh', status: 'Under Maintenance', dueDate: '16 Jun 2026', dueSub: '3 days left', lastServiceDate: '09 Jun 2026', lastServiceSub: '4 days ago', cost: '₹600' },
-      { id: 'MAIN-2026-00023', dateTimeStr: '12 Jun 2026, 01:10 PM', vehicleReg: 'GJ06EV5566', vehicleCategory: 'E-Cycle', vehicleModel: 'EMotorad', serviceType: 'Tyre Replacement', mechanicName: 'Suresh Yadav', status: 'Overdue', dueDate: '11 Jun 2026', dueSub: '1 day overdue', isOverdueRed: true, lastServiceDate: '28 May 2026', lastServiceSub: '15 days ago', cost: '₹1,200' }
-    ]);
+    setRecordsList([]);
   };
 
   useEffect(() => {

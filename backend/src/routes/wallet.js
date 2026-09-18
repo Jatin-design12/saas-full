@@ -555,7 +555,7 @@ router.post('/create-payment-link', async (req, res) => {
     const cleanName = name || 'Evegah Rider';
 
     if (primaryGw === 'icici' && activeIcici) {
-      const vpa = activeIcici.vpa || 'EVEGAHRIDE@icici';
+      const vpa = activeIcici.vpa || 'EVEGAHUAT@icici';
       const payee = activeIcici.payee_name || 'Evegah';
       const upiUrl = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payee)}&tr=${txId}&am=${numAmount.toFixed(2)}&cu=INR&mc=5411&tn=${encodeURIComponent('Wallet Top-Up')}`;
       return res.json({

@@ -363,7 +363,8 @@ router.get('/', async (req, res) => {
       db.query(`
         SELECT id, reservation_id, customer_name, mobile, package_type,
                vehicle_number, battery_id, fare, deposit, status,
-               pickup_zone, drop_zone, created_at
+               pickup_zone, drop_zone, created_at,
+               reservation_date, reservation_time, pickup_datetime, drop_datetime, returned_at
         FROM reservations
         WHERE status != 'Cancelled'
         ORDER BY created_at DESC
@@ -379,25 +380,30 @@ router.get('/', async (req, res) => {
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
-        const tStr = resv.reservation_time ? resv.reservation_time.slice(0, 5) : '09:00';
-        return `${yyyy}-${mm}-${dd}T${tStr}:00`;
+        let tStr = resv.reservation_time ? String(resv.reservation_time).slice(0, 8) : '';
+        if (!tStr || tStr === '00:00:00') {
+          if (resv.created_at) {
+            const cDate = new Date(resv.created_at);
+            const hh = String(cDate.getHours()).padStart(2, '0');
+            const min = String(cDate.getMinutes()).padStart(2, '0');
+            const sec = String(cDate.getSeconds()).padStart(2, '0');
+            tStr = `${hh}:${min}:${sec}`;
+          } else {
+            tStr = '10:00:00';
+          }
+        }
+        return `${yyyy}-${mm}-${dd}T${tStr}`;
       }
       return resv.created_at;
     };
 
     // Helper to compute drop / return datetime
     const computeEndDateTime = (resv, startIso) => {
+      if (resv.returned_at) return resv.returned_at;
       if (resv.drop_datetime) return resv.drop_datetime;
-      try {
-        const d = new Date(startIso || resv.created_at);
-        if (!isNaN(d.getTime())) {
-          const pkg = (resv.package_type || '').toLowerCase();
-          if (pkg.includes('month')) d.setDate(d.getDate() + 30);
-          else if (pkg.includes('week')) d.setDate(d.getDate() + 7);
-          else d.setDate(d.getDate() + 1);
-          return d.toISOString();
-        }
-      } catch (_) {}
+      if (resv.status === 'Completed' && resv.created_at) {
+        return resv.returned_at || resv.created_at;
+      }
       return null;
     };
 
@@ -424,8 +430,8 @@ router.get('/', async (req, res) => {
           vehicle_id: null,
           battery_id: null,
           package_name: r.package_name || 'Standard Plan',
-          rental_start_date: (r.rental_start_date && String(r.rental_start_date).length > 10 && !String(r.rental_start_date).endsWith('00:00:00.000Z')) ? r.rental_start_date : (r.created_at || r.rental_start_date),
-          return_date: r.return_date || null,
+          rental_start_date: (r.rental_start_date && String(r.rental_start_date).length > 10 && !String(r.rental_start_date).endsWith('00:00:00.000Z') && !String(r.rental_start_date).endsWith('18:30:00.000Z')) ? r.rental_start_date : (r.created_at || r.rental_start_date),
+          return_date: (r.return_date && !String(r.return_date).endsWith('00:00:00.000Z') && !String(r.return_date).endsWith('18:30:00.000Z')) ? r.return_date : null,
           created_at: r.created_at,
           status: 'No Active Ride', // Default, will only become Active Ride if currently ongoing reservation exists
           rent: r.rent || '0.00',
@@ -455,6 +461,11 @@ router.get('/', async (req, res) => {
       const isConfirmed = resv.status === 'Confirmed';
       const isRetain = resv.status === 'Retain Ride';
       const isExtend = resv.status === 'Extend';
+      const isUpcoming = resv.status === 'Upcoming' || isConfirmed;
+      const isCompleted = resv.status === 'Completed';
+
+      const resvStart = computeStartDateTime(resv);
+      const resvEnd = computeEndDateTime(resv, resvStart);
 
       if (!ridersMap.has(key)) {
         // New rider from reservation
@@ -465,9 +476,9 @@ router.get('/', async (req, res) => {
           vehicle_id: isOngoing ? (resv.vehicle_number || 'EV-ALLOCATED') : null,
           battery_id: isOngoing ? (resv.battery_id || 'BAT-ALLOCATED') : null,
           package_name: resv.package_type || 'Day',
-          rental_start_date: resv.created_at,
-          return_date: null,
-          status: isOngoing ? 'Active Ride' : (isConfirmed ? 'Reserved' : (isRetain ? 'Retain Ride' : (isExtend ? 'Extend' : 'No Active Ride'))),
+          rental_start_date: resvStart,
+          return_date: resvEnd,
+          status: isOngoing ? 'Active Ride' : (isUpcoming ? 'Upcoming' : (isRetain ? 'Retain Ride' : (isExtend ? 'Extend' : (isCompleted ? 'Return' : 'No Active Ride')))),
           rent: (parseFloat(resv.fare) || 0).toFixed(2),
           deposit: (parseFloat(resv.deposit) || 0).toFixed(2),
           total: ((parseFloat(resv.fare) || 0) + (parseFloat(resv.deposit) || 0)).toFixed(2),
@@ -495,18 +506,33 @@ router.get('/', async (req, res) => {
           rider.vehicle_id = resv.vehicle_number || rider.vehicle_id || 'EV-ALLOCATED';
           rider.battery_id = resv.battery_id || rider.battery_id || 'BAT-ALLOCATED';
           rider.package_name = resv.package_type || rider.package_name;
+          rider.rental_start_date = resvStart;
+          rider.return_date = resvEnd;
           rider.rent = (parseFloat(resv.fare) || parseFloat(rider.rent) || 0).toFixed(2);
           rider.deposit = (parseFloat(resv.deposit) || parseFloat(rider.deposit) || 0).toFixed(2);
           rider.total = (parseFloat(rider.rent) + parseFloat(rider.deposit)).toFixed(2);
           if (pZone) rider.latest_zone = pZone;
-        } else if (!rider.has_active_ride && (isConfirmed || resv.status === 'Upcoming')) {
+        } else if (!rider.has_active_ride && isUpcoming) {
           rider.status = 'Upcoming';
           rider.vehicle_id = resv.vehicle_number || 'Reserved (Pending)';
           rider.package_name = resv.package_type || rider.package_name;
+          rider.rental_start_date = resvStart;
+          rider.return_date = resvEnd;
           rider.rent = (parseFloat(resv.fare) || parseFloat(rider.rent) || 0).toFixed(2);
           rider.deposit = (parseFloat(resv.deposit) || parseFloat(rider.deposit) || 0).toFixed(2);
           rider.total = (parseFloat(rider.rent) + parseFloat(rider.deposit)).toFixed(2);
           if (pZone) rider.latest_zone = pZone;
+        } else if (!rider.has_active_ride && rider.status !== 'Upcoming') {
+          if (!rider.has_updated_from_resv) {
+            rider.has_updated_from_resv = true;
+            rider.rental_start_date = resvStart;
+            rider.return_date = resvEnd;
+            if (isCompleted) rider.status = 'Return';
+            rider.package_name = resv.package_type || rider.package_name;
+            rider.rent = (parseFloat(resv.fare) || parseFloat(rider.rent) || 0).toFixed(2);
+            rider.deposit = (parseFloat(resv.deposit) || parseFloat(rider.deposit) || 0).toFixed(2);
+            rider.total = (parseFloat(rider.rent) + parseFloat(rider.deposit)).toFixed(2);
+          }
         }
       }
     }

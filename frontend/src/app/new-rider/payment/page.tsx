@@ -15,7 +15,7 @@ const CSS = `
 /* ── shell & layout ── */
 .nr-shell { display: flex; min-height: 100vh; background: #F3F4F9; }
 .nr-main  { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
-.nr-page  { flex: 1; padding: 0 28px 80px; background-color: #FFF;}
+.nr-page  { flex: 1; padding: 0 28px 80px; }
 
 /* ── breadcrumb ── */
 .nr-bc { display: flex; align-items: center; gap: 7px; padding: 14px 0 0; font-size: 12px; color: #9CA3AF; }
@@ -520,7 +520,7 @@ function MethodDetail({
             </div>
           )}
         </div>
-        <div className="icici-vpa-txt">UPI VPA: EVEGAHRIDE@icici</div>
+        <div className="icici-vpa-txt">UPI VPA: EVEGAHUAT@icici</div>
         <div style={{ fontSize: 14.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
           Scan to Pay: ₹{totalPayable.toFixed(2)}
         </div>
@@ -629,7 +629,7 @@ function MethodDetail({
               </div>
             )}
           </div>
-          <div className="icici-vpa-txt">UPI VPA: EVEGAHRIDE@icici</div>
+          <div className="icici-vpa-txt">UPI VPA: EVEGAHUAT@icici</div>
           <div style={{ fontSize: 13.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
             Scan to pay Online Portion: ₹{onlineAmount.toFixed(2)}
           </div>
@@ -1055,7 +1055,7 @@ export default function PaymentPage() {
       cash_receipt: cashReceipt,
       icici_tx_id: payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId,
       icici_ref_id: payMethod === 'split' ? splitRefId : iciciRefId,
-      icici_vpa: 'EVEGAHRIDE@icici',
+      icici_vpa: 'EVEGAHUAT@icici',
       upi_verified: upiVerified,
     };
     localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));

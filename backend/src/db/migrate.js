@@ -308,14 +308,8 @@ const migrate = async () => {
     await db.query(`
       INSERT INTO users (name, email, role, mobile, zone, status, password)
       VALUES 
-        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 99999 88888', 'Multiple Zones', 'Active', 'admin123'),
-        ('Akash', 'akash@evegah.com', 'Zone Admin', '+91 98765 43210', 'Gotri Zone', 'Active', 'zone123'),
-        ('Priya Sharma', 'priya.sharma@evegah.com', 'Platform Admin', '+91 98765 11111', 'All Zones / Platform Wide', 'Active', 'pass123'),
-        ('Rahul Verma', 'rahul.v@evegah.com', 'Operations Manager', '+91 98765 22222', 'Vadodara Main Zone', 'Active', 'pass123'),
-        ('Vikram Patel', 'vikram.p@evegah.com', 'Franchise Manager', '+91 98765 33333', 'Alkapuri Zone', 'Active', 'pass123'),
-        ('Neha Singh', 'neha.s@evegah.com', 'Battery Technician', '+91 98765 44444', 'Subhanpura Zone', 'Active', 'pass123'),
-        ('Amit Kumar', 'amit.k@evegah.com', 'Support Executive', '+91 98765 55555', 'Akota Zone', 'Active', 'pass123'),
-        ('Suresh Mehta', 'suresh.m@evegah.com', 'Fleet Manager', '+91 98765 66666', 'Gotri Zone', 'Active', 'pass123')
+        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 99999 88888', 'Multiple Zones', 'Active', 'admin123')
+       
       ON CONFLICT (email) DO NOTHING
     `);
   }

@@ -16,7 +16,7 @@ const CSS = `
 /* ── shell & layout ── */
 .nr-shell { display: flex; min-height: 100vh; background: #fff; font-family: Inter, sans-serif; }
 .nr-main  { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; flex: 1; min-width: 0; background: #fff; }
-.nr-page  { flex: 1; padding: 18px 22px 60px; background-color: #FFF; }
+.nr-page  { flex: 1; padding: 18px 22px 60px; }
 
 /* ── responsive 80% fit on 14" screens ── */
 @media (max-width: 1440px) {
@@ -306,48 +306,8 @@ function formatCleanRiderId(rawId: any, index?: number): string {
   return `EVR-${str.slice(0, 8).toUpperCase()}`;
 }
 
-/* ── Fallback Real Active Bookings ── */
-const FALLBACK_ACTIVE_RIDES = [
-  {
-    name: 'Devendra Rana', id: 'EVR-16EFE6', mobile: '+91 98255 44332',
-    vehicle_id: 'EVM1024001', battery_id: 'BAT-0098', plan: 'Daily Lite',
-    start_date: '04 Sep 2026', deposit_amount: 1000, zone: 'Gotri Hub',
-    avatar: '/rohit_avatar.png'
-  },
-  {
-    name: 'Vikram Patel', id: 'EVR-349240', mobile: '+91 78945 61230',
-    vehicle_id: 'EVM1024051', battery_id: 'BAT-MNZ-001', plan: 'Monthly Package',
-    start_date: '04 Sep 2026', deposit_amount: 2000, zone: 'Manjalpur Hub',
-    avatar: '/rohit_avatar.png'
-  },
-  {
-    name: 'Priya Sharma', id: 'EVR-6D0DF4', mobile: '+91 98123 45678',
-    vehicle_id: 'EVM1024050', battery_id: 'BAT-450X-12340001', plan: 'Weekly Package',
-    start_date: '04 Sep 2026', deposit_amount: 2000, zone: 'Gotri Hub',
-    avatar: '/priya_avatar.png'
-  },
-  {
-    name: 'Manish Parmar', id: 'EVR-C430C1', mobile: '+91 98980 11223',
-    vehicle_id: 'EVM102503', battery_id: 'BAT-0098', plan: 'Daily Commuter',
-    start_date: '04 Sep 2026', deposit_amount: 1000, zone: 'KPGU Hub',
-    avatar: '/rohit_avatar.png'
-  },
-  {
-    name: 'Kinjal Trivedi', id: 'EVR-AF605E', mobile: '+91 97241 87654',
-    vehicle_id: 'EVM102502', battery_id: 'BAT-MNZ-001', plan: 'Monthly Pro',
-    start_date: '04 Sep 2026', deposit_amount: 2500, zone: 'Aatapi Hub',
-    avatar: '/priya_avatar.png'
-  },
-  {
-    name: 'Hardik Joshi', id: 'EVR-5E0DC6', mobile: '+91 98251 23456',
-    vehicle_id: 'EVM102501', battery_id: 'BAT-450X-12340001', plan: 'Weekly Pro',
-    start_date: '04 Sep 2026', deposit_amount: 2000, zone: 'Gotri Hub',
-    avatar: '/rohit_avatar.png'
-  }
-];
-
-/* ── Extension Packages ── */
-const EXTENSION_PACKAGES = [
+/* ── Default Extension Packages ── */
+const DEFAULT_EXTENSION_PACKAGES = [
   { id: 'daily_lite', name: 'Daily Lite', days: 1, fare: 350, badge: 'Popular' },
   { id: 'daily_commuter', name: 'Daily Commuter', days: 1, fare: 450 },
   { id: 'weekly_pro', name: 'Weekly Pro', days: 7, fare: 1800, badge: 'Best Value' },
@@ -356,8 +316,12 @@ const EXTENSION_PACKAGES = [
   { id: 'commercial_pkg', name: 'Commercial Delivery', days: 30, fare: 6500 },
 ];
 
-export default function ReturnVehiclePage() {
-  const [mainTab, setMainTab] = useState<'return' | 'extend' | 'exchange'>('return');
+interface ReturnVehiclePageProps {
+  initialTab?: 'return' | 'extend' | 'exchange';
+}
+
+export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps = {}) {
+  const [mainTab, setMainTab] = useState<'return' | 'extend' | 'exchange'>(initialTab || 'return');
   const [activeStep, setActiveStep] = useState(1);
   const [activeRiders, setActiveRiders] = useState<any[]>([]);
   const [selectedRider, setSelectedRider] = useState<any>(null);
@@ -365,6 +329,9 @@ export default function ReturnVehiclePage() {
   const [selectedZone, setSelectedZone] = useState('All');
   const [loading, setLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Dynamic Zone Pricing & Packages
+  const [packagesList, setPackagesList] = useState(DEFAULT_EXTENSION_PACKAGES);
 
   // Return Inspection States
   const [bodyDmg, setBodyDmg] = useState<'clean' | 'minor' | 'major'>('clean');
@@ -379,18 +346,31 @@ export default function ReturnVehiclePage() {
 
   // Extend Ride States
   const [extendMode, setExtendMode] = useState<'package' | 'hourly'>('package');
-  const [selectedPackage, setSelectedPackage] = useState(EXTENSION_PACKAGES[0]);
+  const [selectedPackage, setSelectedPackage] = useState(DEFAULT_EXTENSION_PACKAGES[0]);
   const [extendHours, setExtendHours] = useState(2);
   const [extendDays, setExtendDays] = useState(1);
   const [extendPayMethod, setExtendPayMethod] = useState<'upi' | 'cash' | 'split'>('upi');
+  const [cashVoucher, setCashVoucher] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `CSH-VCHR-${today}-${rand}`;
+  });
 
   // ICICI UPI Payment States for Extension
   const [iciciQrString, setIciciQrString] = useState('');
   const [iciciMerchantTranId, setIciciMerchantTranId] = useState('');
   const [iciciRefId, setIciciRefId] = useState('');
-  const [iciciVpa, setIciciVpa] = useState('EVEGAHRIDE@icici');
+  const [iciciVpa, setIciciVpa] = useState('EVEGAHUAT@icici');
   const [upiVerified, setUpiVerified] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Exchange Vehicle States & Live Inventory
+  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [availableBatteries, setAvailableBatteries] = useState<any[]>([]);
+  const [exchangeNewVehicle, setExchangeNewVehicle] = useState('');
+  const [exchangeNewBattery, setExchangeNewBattery] = useState('');
+  const [exchangeReason, setExchangeReason] = useState('Battery Range Drop');
+  const [exchangeNotes, setExchangeNotes] = useState('');
 
   // Load active ICICI config
   useEffect(() => {
@@ -403,61 +383,122 @@ export default function ReturnVehiclePage() {
       .catch(() => {});
   }, []);
 
-  // Exchange Vehicle States
-  const [exchangeNewVehicle, setExchangeNewVehicle] = useState('EVM1024012 (Evegah E1)');
-  const [exchangeNewBattery, setExchangeNewBattery] = useState('BAT-MNZ-001 (60V 32Ah)');
-  const [exchangeReason, setExchangeReason] = useState('Battery Range Drop');
-  const [exchangeNotes, setExchangeNotes] = useState('');
+  // Fetch available vehicles & batteries from backend
+  const fetchAvailableInventory = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const [vRes, bRes] = await Promise.all([
+        fetch(`${apiUrl}/vehicles?vehicle_status=Available`).then(r => r.json()).catch(() => ({ data: [] })),
+        fetch(`${apiUrl}/batteries`).then(r => r.json()).catch(() => ({ data: [] }))
+      ]);
+      const vList = Array.isArray(vRes) ? vRes : (vRes.data || []);
+      const bList = Array.isArray(bRes) ? bRes : (bRes.data || []);
+      setAvailableVehicles(vList);
+      const availB = bList.filter((b: any) => (b.status || '').toLowerCase() === 'available');
+      setAvailableBatteries(availB);
 
-  // Fetch active rides from backend
+      if (vList.length > 0 && !exchangeNewVehicle) {
+        setExchangeNewVehicle(`${vList[0].code || vList[0].registration_number} (${vList[0].model || 'Evegah City'})`);
+      }
+      if (availB.length > 0 && !exchangeNewBattery) {
+        setExchangeNewBattery(`${availB[0].battery_id} (${availB[0].capacity || '60V 30Ah'})`);
+      }
+    } catch (_) {}
+  };
+
+  // Fetch Zone Pricing dynamically
+  const fetchZonePricing = async (hubName?: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/zones`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.data || []);
+      const target = list.find((z: any) =>
+        hubName && z.name && z.name.toLowerCase().includes(hubName.toLowerCase().replace(/hub|zone/g, '').trim())
+      ) || list[0];
+
+      if (target && target.pricing && Array.isArray(target.pricing.packages) && target.pricing.packages.length > 0) {
+        const mappedPkgs = target.pricing.packages.map((p: any) => ({
+          id: String(p.id || p.name),
+          name: p.name || 'Rental Package',
+          days: Number(p.duration) || 1,
+          fare: Number(p.price) || 350,
+          badge: (p.name || '').toLowerCase().includes('daily') ? 'Popular' : 'Zone Plan'
+        }));
+        setPackagesList(mappedPkgs);
+        setSelectedPackage(mappedPkgs[0]);
+      }
+    } catch (_) {}
+  };
+
+  // Fetch active rides directly from backend (No dummy/mock fallback)
   const fetchActiveRides = async () => {
     setLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/renters`);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.data || data.renters || []);
-      if (list.length > 0) {
-        const mapped = list.map((r: any, idx: number) => {
-          const realName = r.rider_name || r.customer_name || r.name || 'Devendra Rana';
-          const cleanId = formatCleanRiderId(r.reservation_id || r.renter_id || r.id, idx);
-          const dateVal = r.rental_start_date || r.created_at;
-          const formattedDate = dateVal
-            ? new Date(dateVal).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-            : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-          const isFemale = realName.toLowerCase().includes('priya') || realName.toLowerCase().includes('kinjal') || realName.toLowerCase().includes('neha');
-          return {
-            name: realName,
-            id: cleanId,
-            mobile: r.mobile || r.phone || '+91 98255 44332',
-            vehicle_id: r.vehicle_code || r.vehicle_id || 'EVM1024001',
+      const [rentersRes, resvRes] = await Promise.all([
+        fetch(`${apiUrl}/renters`).then(r => r.json()).catch(() => []),
+        fetch(`${apiUrl}/reservations`).then(r => r.json()).catch(() => ({ data: [] }))
+      ]);
+
+      const rList = Array.isArray(rentersRes) ? rentersRes : (rentersRes.data || rentersRes.renters || []);
+      const vList = Array.isArray(resvRes) ? resvRes : (resvRes.data || []);
+
+      const activeReservations = vList.filter((r: any) =>
+        ['Active', 'Ongoing', 'Picked Up', 'Active Ride'].includes(r.status)
+      );
+
+      const combined: any[] = [];
+      const seenIds = new Set();
+
+      activeReservations.forEach((r: any, idx: number) => {
+        const idKey = r.reservation_id || String(r.id);
+        if (!seenIds.has(idKey)) {
+          seenIds.add(idKey);
+          combined.push({
+            name: r.customer_name || 'Rider',
+            id: r.reservation_id || `EVR-${String(r.id).slice(0, 6)}`,
+            mobile: r.mobile || '',
+            vehicle_id: r.vehicle_number || 'EVM102501',
             battery_id: r.battery_id || 'BAT-0098',
-            plan: r.package_name || r.plan_type || 'Daily Lite',
-            start_date: formattedDate,
-            deposit_amount: Number(r.deposit || r.deposit_amount) || 1000,
+            plan: r.package_type || 'Daily Lite',
+            start_date: r.pickup_datetime || r.created_at ? new Date(r.pickup_datetime || r.created_at).toLocaleDateString('en-IN') : 'Today',
+            deposit_amount: Number(r.deposit) || 1000,
+            zone: r.drop_zone || r.pickup_zone || 'Gotri Hub',
+            avatar: '/rohit_avatar.png',
+            raw: r
+          });
+        }
+      });
+
+      rList.forEach((r: any, idx: number) => {
+        const cleanMob = (r.mobile || '').replace(/\D/g, '').slice(-10);
+        if (['Active Ride', 'Retain Ride', 'Active'].includes(r.status) && !seenIds.has(cleanMob)) {
+          seenIds.add(cleanMob);
+          combined.push({
+            name: r.rider_name || 'Rider',
+            id: formatCleanRiderId(r.id, idx),
+            mobile: r.mobile || '',
+            vehicle_id: r.vehicle_id || 'EVM1024001',
+            battery_id: r.battery_id || 'BAT-0098',
+            plan: r.package_name || 'Daily Package',
+            start_date: r.rental_start_date ? new Date(r.rental_start_date).toLocaleDateString('en-IN') : 'Today',
+            deposit_amount: Number(r.deposit) || 1000,
             zone: r.zone || 'Gotri Hub',
-            avatar: isFemale ? '/priya_avatar.png' : '/rohit_avatar.png',
-            raw: r,
-          };
-        });
-        setActiveRiders(mapped);
-        if (!selectedRider && mapped.length > 0) {
-          setSelectedRider(mapped[0]);
-          setUpiId(`${mapped[0].name.toLowerCase().replace(/[^a-z]/g, '')}@upi`);
+            avatar: '/rohit_avatar.png',
+            raw: r
+          });
         }
-      } else {
-        setActiveRiders(FALLBACK_ACTIVE_RIDES);
-        if (!selectedRider) {
-          setSelectedRider(FALLBACK_ACTIVE_RIDES[0]);
-          setUpiId('devendra.rana@upi');
-        }
+      });
+
+      setActiveRiders(combined);
+      if (combined.length === 0) {
+        setSelectedRider(null);
       }
-    } catch {
-      setActiveRiders(FALLBACK_ACTIVE_RIDES);
-      if (!selectedRider) {
-        setSelectedRider(FALLBACK_ACTIVE_RIDES[0]);
-        setUpiId('devendra.rana@upi');
-      }
+    } catch (err) {
+      console.error('Error fetching active riders:', err);
+      setActiveRiders([]);
+      setSelectedRider(null);
     } finally {
       setLoading(false);
     }
@@ -641,10 +682,11 @@ export default function ReturnVehiclePage() {
           extension_days: extendMode === 'package' ? selectedPackage.days : extendDays,
           extension_hours: extendMode === 'hourly' ? extendHours : 0,
           additional_fare: extensionFare,
-          payment_method: extendPayMethod
+          payment_method: extendPayMethod,
+          cash_voucher_no: extendPayMethod === 'cash' ? cashVoucher : undefined
         })
       });
-      setActionSuccess(`Ride extended successfully by ${extendMode === 'package' ? selectedPackage.name : `${extendDays} Days`}! WhatsApp receipt sent.`);
+      setActionSuccess(`Ride extended successfully by ${extendMode === 'package' ? selectedPackage.name : `${extendDays} Days`}! ${extendPayMethod === 'cash' ? `Cash Voucher ${cashVoucher} issued.` : 'WhatsApp receipt sent.'}`);
     } catch {
       setActionSuccess(`Ride extension processed!`);
     } finally {
@@ -724,20 +766,28 @@ export default function ReturnVehiclePage() {
             <div className="ro-mode-tabs">
               <div
                 className={`ro-mode-tab ${mainTab === 'return' ? 'active' : ''}`}
-                onClick={() => { setMainTab('return'); setActiveStep(1); setActionSuccess(null); }}
+                onClick={() => { setMainTab('return'); setActiveStep(selectedRider ? 2 : 1); setActionSuccess(null); }}
               >
                 <IScooter /> Return Vehicle
                 <span className="ro-mode-badge">{filteredRiders.length}</span>
               </div>
               <div
                 className={`ro-mode-tab ${mainTab === 'extend' ? 'active' : ''}`}
-                onClick={() => { setMainTab('extend'); setActionSuccess(null); }}
+                onClick={() => {
+                  setMainTab('extend');
+                  setActionSuccess(null);
+                  if (selectedRider) fetchZonePricing(selectedRider.zone);
+                }}
               >
                 <IClock /> Extend Ride
               </div>
               <div
                 className={`ro-mode-tab ${mainTab === 'exchange' ? 'active' : ''}`}
-                onClick={() => { setMainTab('exchange'); setActionSuccess(null); }}
+                onClick={() => {
+                  setMainTab('exchange');
+                  setActionSuccess(null);
+                  fetchAvailableInventory();
+                }}
               >
                 <ISwap /> Exchange Vehicle
               </div>
@@ -783,121 +833,144 @@ export default function ReturnVehiclePage() {
               {/* ── LEFT COLUMN ── */}
               <div>
 
-                {/* ──────────────────────────────────────────────
-                    MODE 1: RETURN VEHICLE (4 STEPS)
-                   ────────────────────────────────────────────── */}
-                {mainTab === 'return' && (
-                  <>
-                    {/* STEP 1: Search Active Rider */}
-                    {activeStep === 1 && (
-                      <div className="nr-card">
-                        <div className="nr-card-hdr">
-                          <div>
-                            <h2>Search Active Booking for Return</h2>
-                            <p>Select an ongoing ride to begin vehicle inspection and security deposit refund</p>
-                          </div>
-                          <button
-                            onClick={fetchActiveRides}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
-                              border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 12px',
-                              fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer'
-                            }}
-                          >
-                            <IRefresh /> Refresh
-                          </button>
-                        </div>
+                {/* ── COMMON ACTIVE RIDER SEARCH (When no rider selected or Return Step 1) ── */}
+                {(!selectedRider || (mainTab === 'return' && activeStep === 1)) && (
+                  <div className="nr-card">
+                    <div className="nr-card-hdr">
+                      <div>
+                        <h2>
+                          {mainTab === 'return'
+                            ? 'Search Active Booking for Return'
+                            : mainTab === 'extend'
+                            ? 'Search Active Booking to Extend'
+                            : 'Search Active Booking to Exchange'}
+                        </h2>
+                        <p>
+                          {mainTab === 'return'
+                            ? 'Select an ongoing ride to begin vehicle inspection and security deposit refund'
+                            : mainTab === 'extend'
+                            ? 'Select an ongoing ride to extend duration or upgrade rental package directly'
+                            : 'Select an ongoing ride to swap vehicle or battery from station inventory'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={fetchActiveRides}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6, background: '#fff',
+                          border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 12px',
+                          fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer'
+                        }}
+                      >
+                        <IRefresh /> Refresh
+                      </button>
+                    </div>
 
-                        {/* Search bar */}
-                        <div className="rr-search-area">
-                          <div className="rr-search-grid">
-                            <div className="nr-ph">
-                              <span className="nr-ph-icon"><ISearch /></span>
-                              <input
-                                placeholder="Search by rider name or ID"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
+                    {/* Search bar */}
+                    <div className="rr-search-area">
+                      <div className="rr-search-grid">
+                        <div className="nr-ph">
+                          <span className="nr-ph-icon"><ISearch /></span>
+                          <input
+                            placeholder="Search by rider name or ID"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                          />
+                        </div>
+                        <div className="nr-ph">
+                          <span className="nr-ph-icon"><IPhone /></span>
+                          <input
+                            placeholder="Search by mobile or vehicle plate"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                          />
+                        </div>
+                        <div className="nr-ph" style={{ background: '#F9FAFB' }}>
+                          <span style={{ padding: '0 10px', fontSize: 12, fontWeight: 700, color: '#2A195C' }}>
+                            {selectedZone}
+                          </span>
+                        </div>
+                        <button className="rr-search-btn" onClick={fetchActiveRides}>
+                          <ISearch /> Find Active Ride
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Active Rides List */}
+                    <div className="nr-card-body">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111827' }}>
+                          Matching Active Rides ({filteredRiders.length})
+                        </span>
+                        <span style={{ fontSize: 11.5, color: '#6B7280' }}>
+                          {mainTab === 'return'
+                            ? 'Click "Proceed to Return" to inspect vehicle'
+                            : mainTab === 'extend'
+                            ? 'Click "Extend Ride" to add packages or hours'
+                            : 'Click "Exchange Vehicle" to swap from inventory'}
+                        </span>
+                      </div>
+
+                      {filteredRiders.length === 0 ? (
+                        <div style={{ padding: '35px 0', textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
+                          No active bookings found matching your search. Try another query or zone.
+                        </div>
+                      ) : (
+                        filteredRiders.map((r, idx) => (
+                          <div key={r.id || idx} className="rr-rider-row">
+                            <div className="rr-avatar">
+                              <img
+                                src={r.avatar || '/rohit_avatar.png'}
+                                alt={r.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
                               />
-                            </div>
-                            <div className="nr-ph">
-                              <span className="nr-ph-icon"><IPhone /></span>
-                              <input
-                                placeholder="Search by mobile or vehicle plate"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                              />
-                            </div>
-                            <div className="nr-ph" style={{ background: '#F9FAFB' }}>
-                              <span style={{ padding: '0 10px', fontSize: 12, fontWeight: 700, color: '#2A195C' }}>
-                                {selectedZone}
+                              <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 13, zIndex: 0 }}>
+                                {r.name.slice(0, 2).toUpperCase()}
                               </span>
                             </div>
-                            <button className="rr-search-btn" onClick={fetchActiveRides}>
-                              <ISearch /> Find Active Ride
+                            <div className="rr-rider-info">
+                              <div className="rr-rider-name-row">
+                                <span className="rr-rider-name">{r.name}</span>
+                                <span className="rr-active-badge">Active Ride</span>
+                                <span className="rr-kyc-badge">✓ KYC Verified</span>
+                              </div>
+                              <div className="rr-rider-id">{r.id}</div>
+                              <div className="rr-rider-meta">
+                                <span className="rr-meta-item"><IPhone /> {r.mobile}</span>
+                                <span className="rr-meta-item"><IScooter /> {r.vehicle_id}</span>
+                                <span className="rr-meta-item"><IBattery /> {r.battery_id}</span>
+                                <span className="rr-meta-item"><IClock /> {r.start_date}</span>
+                                <span className="rr-meta-item" style={{ color: '#16A34A', fontWeight: 700 }}>Deposit: ₹{r.deposit_amount}</span>
+                              </div>
+                            </div>
+                            <button
+                              className="rr-select-btn"
+                              onClick={() => {
+                                setSelectedRider(r);
+                                if (mainTab === 'return') {
+                                  setUpiId(`${r.name.toLowerCase().replace(/[^a-z]/g, '')}@upi`);
+                                  setActiveStep(2);
+                                } else if (mainTab === 'extend') {
+                                  fetchZonePricing(r.zone);
+                                } else if (mainTab === 'exchange') {
+                                  fetchAvailableInventory();
+                                }
+                              }}
+                            >
+                              {mainTab === 'return' ? 'Proceed to Return >' : mainTab === 'extend' ? 'Extend Ride >' : 'Exchange Vehicle >'}
                             </button>
                           </div>
-                        </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
 
-                        {/* Active Rides List */}
-                        <div className="nr-card-body">
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111827' }}>
-                              Matching Active Rides ({filteredRiders.length})
-                            </span>
-                            <span style={{ fontSize: 11.5, color: '#6B7280' }}>
-                              Click &quot;Proceed to Return&quot; to inspect vehicle
-                            </span>
-                          </div>
-
-                          {filteredRiders.length === 0 ? (
-                            <div style={{ padding: '35px 0', textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
-                              No active bookings found matching your search. Try another query or zone.
-                            </div>
-                          ) : (
-                            filteredRiders.map((r, idx) => (
-                              <div key={r.id || idx} className="rr-rider-row">
-                                <div className="rr-avatar">
-                                  <img
-                                    src={r.avatar || '/rohit_avatar.png'}
-                                    alt={r.name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
-                                  />
-                                  <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2A195C', color: '#fff', fontWeight: 800, fontSize: 13, zIndex: 0 }}>
-                                    {r.name.slice(0, 2).toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="rr-rider-info">
-                                  <div className="rr-rider-name-row">
-                                    <span className="rr-rider-name">{r.name}</span>
-                                    <span className="rr-active-badge">Active Ride</span>
-                                    <span className="rr-kyc-badge">✓ KYC Verified</span>
-                                  </div>
-                                  <div className="rr-rider-id">{r.id}</div>
-                                  <div className="rr-rider-meta">
-                                    <span className="rr-meta-item"><IPhone /> {r.mobile}</span>
-                                    <span className="rr-meta-item"><IScooter /> {r.vehicle_id}</span>
-                                    <span className="rr-meta-item"><IBattery /> {r.battery_id}</span>
-                                    <span className="rr-meta-item"><IClock /> {r.start_date}</span>
-                                    <span className="rr-meta-item" style={{ color: '#16A34A', fontWeight: 700 }}>Deposit: ₹{r.deposit_amount}</span>
-                                  </div>
-                                </div>
-                                <button
-                                  className="rr-select-btn"
-                                  onClick={() => {
-                                    setSelectedRider(r);
-                                    setUpiId(`${r.name.toLowerCase().replace(/[^a-z]/g, '')}@upi`);
-                                    setActiveStep(2);
-                                  }}
-                                >
-                                  Proceed to Return &gt;
-                                </button>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
+                {/* ──────────────────────────────────────────────
+                    MODE 1: RETURN VEHICLE (STEPS 2, 3, 4)
+                   ────────────────────────────────────────────── */}
+                {mainTab === 'return' && selectedRider && (
+                  <>
 
                     {/* STEP 2: Vehicle Inspection */}
                     {activeStep === 2 && selectedRider && (
@@ -933,6 +1006,13 @@ export default function ReturnVehiclePage() {
                                 <div className="rr-stat-num">{selectedRider.plan}</div>
                                 <div className="rr-stat-lbl">Active Plan</div>
                               </div>
+                              <button
+                                className="nr-back-btn"
+                                style={{ padding: '6px 12px', fontSize: '11.5px', alignSelf: 'center', marginLeft: 8 }}
+                                onClick={() => { setSelectedRider(null); setActiveStep(1); }}
+                              >
+                                Change Rider
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1098,12 +1178,12 @@ export default function ReturnVehiclePage() {
                                 </div>
                               </div>
 
-                              {/* Net Refund Calculation */}
+                                {/* Net Refund Calculation */}
                               <div className="ro-settle-box" style={{ background: '#F0FDF4', borderColor: '#BBF7D0' }}>
                                 <div className="ro-settle-title" style={{ color: '#166534' }}>Net Refund Amount</div>
                                 <div className="ro-refund-big">₹{netRefund.toFixed(2)}</div>
                                 <p style={{ fontSize: 12, color: '#15803D', margin: '6px 0 14px' }}>
-                                  Amount will be refunded immediately upon station check-in confirmation.
+                                  Net refund recorded. The refund request will be forwarded to the Deposit Refunds page for Super Admin OTP / Master Password approval.
                                 </p>
 
                                 <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
@@ -1148,7 +1228,7 @@ export default function ReturnVehiclePage() {
                             <ILeft /> Back to Inspection
                           </button>
                           <button className="nr-continue-btn" onClick={handleCompleteReturn}>
-                            Confirm Return &amp; Refund ₹{netRefund} &gt;
+                            Confirm Return &amp; Submit Refund Request (₹{netRefund}) &gt;
                           </button>
                         </div>
                       </div>
@@ -1168,9 +1248,16 @@ export default function ReturnVehiclePage() {
                           <h2 style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 6 }}>
                             Vehicle Return Completed Successfully!
                           </h2>
-                          <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 440, margin: '0 auto 20px' }}>
+                          <p style={{ fontSize: 13, color: '#6B7280', maxWidth: 480, margin: '0 auto 20px' }}>
                             Vehicle <b>{selectedRider.vehicle_id}</b> has been checked into <b>{selectedZone}</b> inventory.
-                            Deposit refund of <b>₹{netRefund}</b> has been initiated to <b>{selectedRider.name}</b>.
+                            {bodyDmg !== 'clean' || tyreCond === 'damaged' ? (
+                              <span style={{ display: 'block', color: '#DC2626', fontWeight: 600, marginTop: 4 }}>
+                                Damage noted: Vehicle status set to Maintenance and service order logged.
+                              </span>
+                            ) : null}
+                            <span style={{ display: 'block', marginTop: 4 }}>
+                              Deposit refund request of <b>₹{netRefund}</b> has been submitted to the <b>Deposit Refunds</b> page for Super Admin OTP / Master Password authorization.
+                            </span>
                           </p>
 
                           <div style={{
@@ -1183,14 +1270,14 @@ export default function ReturnVehiclePage() {
                               <div><span style={{ color: '#6B7280' }}>Vehicle Code:</span> <b>{selectedRider.vehicle_id}</b></div>
                               <div><span style={{ color: '#6B7280' }}>Battery Serial:</span> <b>{selectedRider.battery_id}</b></div>
                               <div><span style={{ color: '#6B7280' }}>Deductions:</span> <b style={{ color: '#EF4444' }}>₹{deductions}</b></div>
-                              <div><span style={{ color: '#6B7280' }}>Refund Method:</span> <b style={{ color: '#16A34A' }}>{refundMethod.toUpperCase()} (₹{netRefund})</b></div>
+                              <div><span style={{ color: '#6B7280' }}>Refund Request:</span> <b style={{ color: '#16A34A' }}>{refundMethod.toUpperCase()} (₹{netRefund}) — Pending Admin Auth</b></div>
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
                             <button
                               className="nr-continue-btn"
-                              onClick={() => { setActiveStep(1); fetchActiveRides(); }}
+                              onClick={() => { setSelectedRider(null); setActiveStep(1); fetchActiveRides(); }}
                             >
                               Process Another Return
                             </button>
@@ -1240,6 +1327,13 @@ export default function ReturnVehiclePage() {
                             <div className="rr-stat-num" style={{ color: '#16A34A' }}>₹{currentDeposit}</div>
                             <div className="rr-stat-lbl">Security Deposit</div>
                           </div>
+                          <button
+                            className="nr-back-btn"
+                            style={{ padding: '6px 12px', fontSize: '11.5px', alignSelf: 'center', marginLeft: 8 }}
+                            onClick={() => setSelectedRider(null)}
+                          >
+                            Change Rider
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1280,10 +1374,10 @@ export default function ReturnVehiclePage() {
                         {extendMode === 'package' ? (
                           <>
                             <div style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 10 }}>
-                              Available Packages for Extension
+                              Available Packages for Extension (Dynamic Zone Pricing)
                             </div>
                             <div className="ext-pkg-grid">
-                              {EXTENSION_PACKAGES.map(pkg => (
+                              {packagesList.map(pkg => (
                                 <div
                                   key={pkg.id}
                                   className={`ext-pkg-card ${selectedPackage.id === pkg.id ? 'selected' : ''}`}
@@ -1374,6 +1468,39 @@ export default function ReturnVehiclePage() {
                               ))}
                             </div>
                           </div>
+
+                          {extendPayMethod === 'cash' && (
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', gap: 10,
+                              padding: 16, background: '#FEFCE8', borderRadius: 12, border: '1.5px solid #FDE047',
+                              marginTop: 4
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#854D0E' }}>
+                                  Cash Collection &amp; Receipt Voucher
+                                </span>
+                                <span style={{
+                                  background: '#CA8A04', color: '#fff', fontSize: 11, fontWeight: 800,
+                                  padding: '3px 8px', borderRadius: 6
+                                }}>
+                                  CASH DESK
+                                </span>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12.5 }}>
+                                <div style={{ background: '#fff', padding: '10px 12px', borderRadius: 8, border: '1px solid #FEF08A' }}>
+                                  <div style={{ color: '#854D0E', fontSize: 11, fontWeight: 600 }}>Amount to Collect:</div>
+                                  <div style={{ fontSize: 18, fontWeight: 800, color: '#15803D' }}>₹{extensionFare.toFixed(2)}</div>
+                                </div>
+                                <div style={{ background: '#fff', padding: '10px 12px', borderRadius: 8, border: '1px solid #FEF08A' }}>
+                                  <div style={{ color: '#854D0E', fontSize: 11, fontWeight: 600 }}>Cash Voucher / Receipt #:</div>
+                                  <div style={{ fontSize: 13, fontWeight: 800, color: '#2A195C', fontFamily: 'monospace' }}>{cashVoucher}</div>
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 11.5, color: '#713F12', lineHeight: 1.4 }}>
+                                Collect exact cash from rider and issue receipt number <b>{cashVoucher}</b>. This transaction will be logged in the Cash Collection Audit Report.
+                              </div>
+                            </div>
+                          )}
 
                           {(extendPayMethod === 'upi' || extendPayMethod === 'split') && (
                             <div style={{
@@ -1481,6 +1608,13 @@ export default function ReturnVehiclePage() {
                             <div className="rr-stat-num" style={{ color: '#16A34A' }}>₹0.00</div>
                             <div className="rr-stat-lbl">Exchange Fee</div>
                           </div>
+                          <button
+                            className="nr-back-btn"
+                            style={{ padding: '6px 12px', fontSize: '11.5px', alignSelf: 'center', marginLeft: 8 }}
+                            onClick={() => setSelectedRider(null)}
+                          >
+                            Change Rider
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1497,7 +1631,7 @@ export default function ReturnVehiclePage() {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
                           <div>
                             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
-                              Select Replacement Vehicle
+                              Select Replacement Vehicle ({availableVehicles.length} Available)
                             </label>
                             <select
                               value={exchangeNewVehicle}
@@ -1507,15 +1641,21 @@ export default function ReturnVehiclePage() {
                                 borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff'
                               }}
                             >
-                              <option value="EVM1024012 (Evegah E1)">EVM1024012 — Evegah E1 (Ready)</option>
-                              <option value="EVM1024050 (Evegah City)">EVM1024050 — Evegah City (Ready)</option>
-                              <option value="EVM102501 (Evegah Pro)">EVM102501 — Evegah Pro (Ready)</option>
+                              {availableVehicles.length > 0 ? (
+                                availableVehicles.map((v: any) => (
+                                  <option key={v.id || v.code || v.registration_number} value={`${v.code || v.registration_number} (${v.model || 'Evegah EV'})`}>
+                                    {v.code || v.registration_number} — {v.model || 'Evegah EV'} ({v.vehicle_status || 'Ready'})
+                                  </option>
+                                ))
+                              ) : (
+                                <option value="">No available vehicles in this zone</option>
+                              )}
                             </select>
                           </div>
 
                           <div>
                             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
-                              Select Replacement Battery
+                              Select Replacement Battery ({availableBatteries.length} Available)
                             </label>
                             <select
                               value={exchangeNewBattery}
@@ -1525,9 +1665,15 @@ export default function ReturnVehiclePage() {
                                 borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff'
                               }}
                             >
-                              <option value="BAT-MNZ-001 (60V 32Ah)">BAT-MNZ-001 — 60V 32Ah (SOC 100%)</option>
-                              <option value="BAT-450X-12340001 (60V 30Ah)">BAT-450X-12340001 — 60V 30Ah (SOC 98%)</option>
-                              <option value="BAT-0098 (60V 30Ah)">BAT-0098 — 60V 30Ah (SOC 96%)</option>
+                              {availableBatteries.length > 0 ? (
+                                availableBatteries.map((b: any) => (
+                                  <option key={b.id || b.battery_id} value={`${b.battery_id} (${b.capacity || '60V 30Ah'})`}>
+                                    {b.battery_id} — {b.capacity || '60V 30Ah'} (SOC {b.soc || 100}%)
+                                  </option>
+                                ))
+                              ) : (
+                                <option value="">No available batteries in this zone</option>
+                              )}
                             </select>
                           </div>
                         </div>

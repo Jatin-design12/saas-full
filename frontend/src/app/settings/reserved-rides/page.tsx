@@ -212,16 +212,9 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
         const body = await res.json();
         // Sync generic "Evegah Rider" & "Guest Rider" entries with actual registered rider profile details
         const realRiderProfiles = [
-          { name: 'jatin rohit', phone: '+91 8128251172' },
-          { name: 'Himanshu', phone: '+91 98765 43210' },
-          { name: 'Akash Verma', phone: '+91 91234 56789' },
-          { name: 'Priya Sharma', phone: '+91 99877 66554' },
-          { name: 'Rohit Sharma', phone: '+91 88776 54321' },
-          { name: 'Ananya Verma', phone: '+91 77665 44332' },
-          { name: 'Priyansh Shah', phone: '+91 66654 33221' },
-          { name: 'Dev Patel', phone: '+91 55443 22110' },
-          { name: 'Vikram Mehta', phone: '+91 98123 45678' },
-          { name: 'Neha Gupta', phone: '+91 99123 45678' }
+          
+          { name: 'Himanshu', phone: '+91 81282 51172' }
+          
         ];
 
         const sampleTimes = ['10:48 AM', '10:24 AM', '10:22 AM', '02:35 PM', '08:53 PM', '01:41 AM', '01:32 PM', '11:25 PM', '10:59 PM'];
@@ -315,15 +308,15 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
     // Seed realistic zone-based available inventory fallbacks
     const zoneVehiclesMap: Record<string, any[]> = {
       'Gotri Zone': [
-        { code: 'EVM1024002', evegah_model_name: 'Evegah City 2.0', vehicle_category: 'E-Scooter', zone: 'Gotri Zone' },
-        { code: 'EVM1024003', evegah_model_name: 'Evegah Mink 1.0', vehicle_category: 'E-Scooter', zone: 'Gotri Zone' }
+        { code: 'EVM1024002', evegah_model_name: 'Evegah City', vehicle_category: 'E-Vehicle', zone: 'Gotri Zone' },
+        { code: 'EVM1024003', evegah_model_name: 'Evegah Mink', vehicle_category: 'E-Vehicle', zone: 'Gotri Zone' }
       ],
       'Aatapi Zone': [
-        { code: 'EVM1024001', evegah_model_name: 'Evegah City 1.0', vehicle_category: 'E-Scooter', zone: 'Aatapi Zone' },
-        { code: 'EVM1024005', evegah_model_name: 'Evegah Pro 2.0', vehicle_category: 'E-Scooter', zone: 'Aatapi Zone' }
+        { code: 'EVM1024001', evegah_model_name: 'Evegah City', vehicle_category: 'E-Vehicle', zone: 'Aatapi Zone' },
+        { code: 'EVM1024005', evegah_model_name: 'Evegah Pro', vehicle_category: 'E-Vehicle', zone: 'Aatapi Zone' }
       ],
       'Alkapuri Zone': [
-        { code: 'EVM1024007', evegah_model_name: 'Evegah Fly 3.0', vehicle_category: 'E-Scooter', zone: 'Alkapuri Zone' }
+        { code: 'EVM1024007', evegah_model_name: 'Evegah Fly', vehicle_category: 'E-Vehicle', zone: 'Alkapuri Zone' }
       ]
     };
 
@@ -490,9 +483,9 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="rr-shell page-transition">
+      <div className="rr-shell">
         <Sidebar activePath={activePath} />
-        <div className="rr-main">
+        <div className="rr-main page-transition">
           <TopBar title={activePath.includes('renters') || activePath.includes('riders') ? 'Riders' : 'Settings'} subtitle="View and manage reserved rides" showHand={false} />
           <div className="rr-page">
 
@@ -1120,7 +1113,7 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                   <span className="sim-detail-val" style={{ fontFamily: 'monospace' }}>{selectedRes.gov_id}</span>
                 </div>
                 <div className="sim-detail-row">
-                  <span className="sim-detail-key">Scheduled Ride DateTime</span>
+                  <span className="sim-detail-key">Scheduled Ride Date & Time</span>
                   <span className="sim-detail-val">{formatDate(selectedRes.reservation_date)} @ {selectedRes.reservation_time.substring(0, 5)}</span>
                 </div>
                 <div className="sim-detail-row">
@@ -1168,10 +1161,8 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                 <div style={{ background: '#EEF2FF', border: '1.5px solid #C7D2FE', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '11px', fontWeight: '850', color: '#2A195C', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                      </svg>
-                      Operator Action: Vehicle Allocation & Pre-Ride Verification
+                      
+                      Vehicle Allocation & Pre-Ride Verification
                     </span>
                     <span style={{ fontSize: '11px', fontWeight: '750', color: '#4338CA', background: '#E0E7FF', padding: '2px 8px', borderRadius: '6px' }}>
                       Target Model: {selectedRes.vehicle_model || selectedRes.evegah_model_name || 'Evegah City'}

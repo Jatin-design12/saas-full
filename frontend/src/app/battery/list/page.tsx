@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import * as XLSX from 'xlsx';
@@ -36,7 +37,8 @@ const DEFAULT_BATTERIES: BatteryAsset[] = [
 ];
 
 export default function BatteryListPage() {
-  const [batteries, setBatteries] = useState<BatteryAsset[]>(DEFAULT_BATTERIES);
+  const router = useRouter();
+  const [batteries, setBatteries] = useState<BatteryAsset[]>([]);
   const [selectedZone, setSelectedZone] = useState('All Zones');
   const [statusTab, setStatusTab] = useState<'all' | 'available' | 'in_use' | 'charging' | 'maintenance'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +46,42 @@ export default function BatteryListPage() {
   const [selectedBattery, setSelectedBattery] = useState<BatteryAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Selection state for delete
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Real Database Metrics State
+  const [dbStats, setDbStats] = useState({
+    total: 0,
+    available: 0,
+    in_use: 0,
+    charging: 0,
+    maintenance: 0,
+    avg_soh: 100,
+    avg_soc: 85,
+    low_soc: 0
+  });
+
+  // Add Battery Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  const [addForm, setAddForm] = useState({
+    battery_id: '',
+    battery_type: 'Li-ion NMC',
+    capacity: '60V / 30Ah',
+    voltage: '67.2',
+    soc: '100',
+    soh: '100',
+    status: 'available',
+    zone: 'Gotri Zone',
+    location: 'Gotri Station Dock #01',
+    make: 'Trontek',
+    model: 'TR-6030N',
+    serial_number: '',
+    supplier: 'Trontek Power Ltd',
+    cost: '24000',
+    notes: 'Inward battery pack'
+  });
 
   // Sync active zone from session
   useEffect(() => {
@@ -76,31 +114,48 @@ export default function BatteryListPage() {
       if (res.ok) {
         const result = await res.json();
         const list = Array.isArray(result) ? result : (result?.data || []);
-        if (list.length > 0) {
-          const mapped: BatteryAsset[] = list.map((b: any, index: number) => ({
-            id: b.battery_id || b.id || `BAT-00${index + 1}`,
-            type: b.battery_type || 'Li-ion NMC',
-            capacity: b.capacity || '60V / 30Ah',
-            soc: typeof b.soc === 'number' ? b.soc : parseInt(b.soc) || 90,
-            voltage: b.voltage || 67.2,
-            current: b.current || 0.0,
-            temp: b.temp || 28,
-            cycles: b.cycles || 40,
-            soh: b.soh ? parseInt(b.soh) : (b.health ? parseInt(b.health) : 98),
-            status: (b.status || 'available').toLowerCase(),
-            zone: b.zone || (selectedZone !== 'All Zones' ? selectedZone : 'Manjalpur Zone'),
-            location: b.location || (b.status === 'in_use' ? 'Vehicle Fleet' : `${b.zone || 'Depot'} Swap Dock`),
-            lastSwap: b.last_swap || 'Today'
-          }));
-          setBatteries(mapped);
-        }
+        const mapped: BatteryAsset[] = list.map((b: any, index: number) => ({
+          id: b.battery_id || b.id || `BAT-00${index + 1}`,
+          type: b.battery_type || 'Li-ion NMC',
+          capacity: b.capacity || '60V / 30Ah',
+          soc: typeof b.soc === 'number' ? b.soc : parseInt(b.soc) || 90,
+          voltage: b.voltage || 67.2,
+          current: b.current || 0.0,
+          temp: b.temp || 28,
+          cycles: b.cycles || 40,
+          soh: b.soh ? parseInt(b.soh) : (b.health ? parseInt(b.health) : 98),
+          status: (b.status || 'available').toLowerCase(),
+          zone: b.zone || (selectedZone !== 'All Zones' ? selectedZone : 'Manjalpur Zone'),
+          location: b.location || (b.status === 'in_use' ? 'Vehicle Fleet' : `${b.zone || 'Depot'} Swap Dock`),
+          lastSwap: b.last_swap || 'Today'
+        }));
+        setBatteries(mapped);
       }
     } catch (err) {
-      // Fallback to DEFAULT_BATTERIES
+      setBatteries([]);
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchStats = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const zParam = selectedZone && selectedZone !== 'All Zones' && selectedZone !== 'Multiple Zones'
+        ? `?zone=${encodeURIComponent(selectedZone)}`
+        : '';
+      const res = await fetch(`${apiUrl}/batteries/stats${zParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDbStats(data);
+      }
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    fetchBatteries();
+    fetchStats();
+  }, [selectedZone]);
 
   // Bulk Battery Import State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -146,6 +201,7 @@ export default function BatteryListPage() {
       if (res.ok && data.status === 'success') {
         setImportResult({ success: `Successfully imported: ${data.inserted} added, ${data.updated} updated!` });
         fetchBatteries();
+        fetchStats();
         setTimeout(() => {
           setShowImportModal(false);
           setImportFile(null);
@@ -167,26 +223,103 @@ export default function BatteryListPage() {
     window.open(`${apiUrl}/batteries/sample-excel`, '_blank');
   };
 
-  // Fetch from backend /api/batteries
-  useEffect(() => {
-    fetchBatteries();
-  }, [selectedZone]);
-
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // KPIs
-  const stats = useMemo(() => {
-    const total = batteries.length;
-    const available = batteries.filter(b => b.status === 'available').length;
-    const inUse = batteries.filter(b => b.status === 'in_use').length;
-    const charging = batteries.filter(b => b.status === 'charging').length;
-    const avgSoc = total > 0 ? Math.round(batteries.reduce((acc, b) => acc + b.soc, 0) / total) : 0;
-    const avgSoh = total > 0 ? Math.round(batteries.reduce((acc, b) => acc + b.soh, 0) / total) : 0;
-    return { total, available, inUse, charging, avgSoc, avgSoh };
-  }, [batteries]);
+  // Add Battery Submit
+  const handleAddBatterySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.battery_id.trim()) {
+      alert('Please enter a Battery ID');
+      return;
+    }
+    setIsSubmittingAdd(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/batteries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addForm)
+      });
+      if (res.ok) {
+        showToast(`Battery ${addForm.battery_id} registered successfully!`);
+        setShowAddModal(false);
+        setAddForm({
+          battery_id: '',
+          battery_type: 'Li-ion NMC',
+          capacity: '60V / 30Ah',
+          voltage: '67.2',
+          soc: '100',
+          soh: '100',
+          status: 'available',
+          zone: selectedZone !== 'All Zones' ? selectedZone : 'Gotri Zone',
+          location: 'Gotri Station Dock #01',
+          make: 'Trontek',
+          model: 'TR-6030N',
+          serial_number: '',
+          supplier: 'Trontek Power Ltd',
+          cost: '24000',
+          notes: 'New battery inward'
+        });
+        fetchBatteries();
+        fetchStats();
+      } else {
+        const d = await res.json();
+        alert('Failed to add battery: ' + (d.error || 'Unknown error'));
+      }
+    } catch (err: any) {
+      alert('Error adding battery: ' + err.message);
+    } finally {
+      setIsSubmittingAdd(false);
+    }
+  };
+
+  // Delete Single Battery
+  const handleDeleteSingle = async (batteryId: string) => {
+    if (!window.confirm(`Are you sure you want to delete battery "${batteryId}"? This will permanently remove it from the system.`)) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/batteries/${encodeURIComponent(batteryId)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showToast(`Battery ${batteryId} deleted successfully`);
+        setSelectedIds(prev => prev.filter(x => x !== batteryId));
+        fetchBatteries();
+        fetchStats();
+      } else {
+        alert('Failed to delete battery');
+      }
+    } catch (err: any) {
+      alert('Error deleting battery: ' + err.message);
+    }
+  };
+
+  // Delete Multiple Selected Batteries
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected batteries? This action cannot be undone.`)) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/batteries/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ battery_ids: selectedIds })
+      });
+      if (res.ok) {
+        showToast(`Deleted ${selectedIds.length} batteries successfully`);
+        setSelectedIds([]);
+        fetchBatteries();
+        fetchStats();
+      } else {
+        alert('Failed to delete selected batteries');
+      }
+    } catch (err: any) {
+      alert('Error deleting batteries: ' + err.message);
+    }
+  };
 
   // Filtered batteries
   const filteredBatteries = useMemo(() => {
@@ -212,6 +345,22 @@ export default function BatteryListPage() {
       return true;
     });
   }, [batteries, selectedZone, statusTab, capacityFilter, searchQuery]);
+
+  const isAllSelected = filteredBatteries.length > 0 && selectedIds.length === filteredBatteries.length;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredBatteries.map(b => b.id));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
 
   return (
     <>
@@ -658,7 +807,12 @@ export default function BatteryListPage() {
                   style={{ borderColor: '#10B981', color: '#059669', background: '#ECFDF5', fontWeight: 700 }}
                   onClick={() => { setShowImportModal(true); setImportResult(null); }}
                 >
-                  📥 Bulk Import
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Bulk Import
                 </button>
                 <button
                   className="nr-btn"
@@ -666,19 +820,34 @@ export default function BatteryListPage() {
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                   Export CSV
                 </button>
+                {selectedIds.length > 0 && (
+                  <button
+                    className="nr-btn"
+                    style={{ background: '#FEF2F2', borderColor: '#F87171', color: '#DC2626', fontWeight: 700 }}
+                    onClick={handleDeleteSelected}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                    Delete Selected ({selectedIds.length})
+                  </button>
+                )}
                 <button
                   className="nr-btn nr-btn-primary"
-                  onClick={() => showToast('Opening Add Battery Inward modal...')}
+                  onClick={() => setShowAddModal(true)}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M12 5v14M5 12h14" />
                   </svg>
-                  Register Battery
+                  Add Battery
                 </button>
               </div>
             </div>
@@ -694,7 +863,7 @@ export default function BatteryListPage() {
                 </div>
                 <div className="kpi-content">
                   <div className="kpi-label">Total Inventory</div>
-                  <div className="kpi-value">{stats.total}</div>
+                  <div className="kpi-value">{dbStats.total}</div>
                   <div className="kpi-hint">Monitored BMS Packs</div>
                 </div>
               </div>
@@ -707,7 +876,7 @@ export default function BatteryListPage() {
                 </div>
                 <div className="kpi-content">
                   <div className="kpi-label">Available for Swap</div>
-                  <div className="kpi-value">{stats.available}</div>
+                  <div className="kpi-value">{dbStats.available}</div>
                   <div className="kpi-hint">&gt; 90% SoC Ready</div>
                 </div>
               </div>
@@ -721,7 +890,7 @@ export default function BatteryListPage() {
                 </div>
                 <div className="kpi-content">
                   <div className="kpi-label">In Active Use</div>
-                  <div className="kpi-value">{stats.inUse}</div>
+                  <div className="kpi-value">{dbStats.in_use}</div>
                   <div className="kpi-hint">In Fleet Scooters</div>
                 </div>
               </div>
@@ -734,7 +903,7 @@ export default function BatteryListPage() {
                 </div>
                 <div className="kpi-content">
                   <div className="kpi-label">Dock Charging</div>
-                  <div className="kpi-value">{stats.charging}</div>
+                  <div className="kpi-value">{dbStats.charging}</div>
                   <div className="kpi-hint">Fast Charging Bays</div>
                 </div>
               </div>
@@ -747,7 +916,7 @@ export default function BatteryListPage() {
                 </div>
                 <div className="kpi-content">
                   <div className="kpi-label">Average Health (SOH)</div>
-                  <div className="kpi-value">{stats.avgSoh}%</div>
+                  <div className="kpi-value">{dbStats.avg_soh}%</div>
                   <div className="kpi-hint">Fleet SOH Score</div>
                 </div>
               </div>
@@ -758,10 +927,10 @@ export default function BatteryListPage() {
               <div className="filter-tabs-row">
                 {[
                   { key: 'all', label: `All Batteries (${batteries.length})` },
-                  { key: 'available', label: `Ready for Swap (${stats.available})` },
-                  { key: 'in_use', label: `In Use (${stats.inUse})` },
-                  { key: 'charging', label: `Charging (${stats.charging})` },
-                  { key: 'maintenance', label: 'Maintenance (0)' }
+                  { key: 'available', label: `Ready for Swap (${dbStats.available})` },
+                  { key: 'in_use', label: `In Use (${dbStats.in_use})` },
+                  { key: 'charging', label: `Charging (${dbStats.charging})` },
+                  { key: 'maintenance', label: `Maintenance (${dbStats.maintenance})` }
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -821,6 +990,15 @@ export default function BatteryListPage() {
               <table className="dt-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 36, textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={handleSelectAll}
+                        style={{ cursor: 'pointer', width: 15, height: 15 }}
+                        title="Select All"
+                      />
+                    </th>
                     <th>Battery ID &amp; Chemistry</th>
                     <th>Charge Status (SoC)</th>
                     <th>Pack Voltage &amp; Temp</th>
@@ -828,19 +1006,19 @@ export default function BatteryListPage() {
                     <th>Charge Cycles</th>
                     <th>Current Location / Vehicle</th>
                     <th>Status</th>
-                    <th>Diagnostics</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>
                         Loading real-time BMS battery telemetry...
                       </td>
                     </tr>
                   ) : filteredBatteries.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: '#64748B' }}>
                         No batteries found matching filters for {selectedZone}.
                       </td>
                     </tr>
@@ -851,8 +1029,19 @@ export default function BatteryListPage() {
                         bat.soc >= 40 ? '#2563EB' :
                         bat.soc >= 20 ? '#F59E0B' : '#EF4444';
 
+                      const isSelected = selectedIds.includes(bat.id);
+
                       return (
-                        <tr key={bat.id}>
+                        <tr key={bat.id} style={{ background: isSelected ? '#F0FDF4' : undefined }}>
+                          <td style={{ width: 36, textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelect(bat.id)}
+                              style={{ cursor: 'pointer', width: 15, height: 15 }}
+                            />
+                          </td>
+
                           <td>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <strong style={{ color: '#2A195C', fontSize: '13px' }}>{bat.id}</strong>
@@ -901,17 +1090,46 @@ export default function BatteryListPage() {
                             </span>
                           </td>
 
-                          <td>
-                            <button
-                              className="nr-btn"
-                              style={{ padding: '4px 10px', fontSize: '11px' }}
-                              onClick={() => {
-                                setSelectedBattery(bat);
-                                showToast(`Loaded telemetry telemetry for ${bat.id}`);
-                              }}
-                            >
-                              Inspect
-                            </button>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                className="nr-btn"
+                                style={{ padding: '5px 8px', fontSize: '11px', color: '#0284C7', borderColor: '#BAE6FD', background: '#F0F9FF' }}
+                                title="View Inward Specs"
+                                onClick={() => router.push(`/battery/inward?id=${encodeURIComponent(bat.id)}`)}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                  <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                View
+                              </button>
+                              <button
+                                className="nr-btn"
+                                style={{ padding: '5px 8px', fontSize: '11px' }}
+                                title="Inspect BMS Telemetry"
+                                onClick={() => {
+                                  setSelectedBattery(bat);
+                                  showToast(`Loaded telemetry for ${bat.id}`);
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                </svg>
+                                Inspect
+                              </button>
+                              <button
+                                className="nr-btn"
+                                style={{ padding: '5px 8px', fontSize: '11px', color: '#DC2626', borderColor: '#FECACA', background: '#FEF2F2' }}
+                                title="Delete Battery"
+                                onClick={() => handleDeleteSingle(bat.id)}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1068,7 +1286,13 @@ export default function BatteryListPage() {
                   onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                   style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}
                 />
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>⚡</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="1.8">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
                   {importFile ? importFile.name : 'Click or Drag & Drop Battery Excel file here'}
                 </div>
@@ -1125,13 +1349,22 @@ export default function BatteryListPage() {
 
             {/* Result alerts */}
             {importResult?.error && (
-              <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#DC2626', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px' }}>
-                ❌ {importResult.error}
+              <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#DC2626', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                {importResult.error}
               </div>
             )}
             {importResult?.success && (
-              <div style={{ padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', color: '#16A34A', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px' }}>
-                ✅ {importResult.success}
+              <div style={{ padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', color: '#16A34A', fontSize: '12.5px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                {importResult.success}
               </div>
             )}
 
@@ -1166,6 +1399,278 @@ export default function BatteryListPage() {
                 {importLoading ? 'Importing...' : `Import ${parsedBatteries.length} Battery(s)`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Battery Inward Modal */}
+      {showAddModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '28px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            border: '1px solid #E2E8F0'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: 38, height: 38, borderRadius: '10px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2A195C' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <rect x="2" y="7" width="16" height="10" rx="2" />
+                    <line x1="22" y1="11" x2="22" y2="13" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>Add New Battery Asset</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>Register a new BMS battery pack into inventory</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94A3B8', padding: '4px' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleAddBatterySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Battery ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. BAT-GT-60V-10"
+                    value={addForm.battery_id}
+                    onChange={(e) => setAddForm({ ...addForm, battery_id: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Chemistry / Type *
+                  </label>
+                  <select
+                    value={addForm.battery_type}
+                    onChange={(e) => setAddForm({ ...addForm, battery_type: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  >
+                    <option value="Li-ion NMC">Li-ion NMC</option>
+                    <option value="LiFePO4">LiFePO4 (LFP)</option>
+                    <option value="Sodium-Ion">Sodium-Ion</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Capacity *
+                  </label>
+                  <select
+                    value={addForm.capacity}
+                    onChange={(e) => setAddForm({ ...addForm, capacity: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  >
+                    <option value="60V / 30Ah">60V / 30Ah (1.8 kWh)</option>
+                    <option value="72V / 40Ah">72V / 40Ah (2.88 kWh)</option>
+                    <option value="51.2V / 30Ah">51.2V / 30Ah (1.5 kWh)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Nominal Voltage (V)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={addForm.voltage}
+                    onChange={(e) => setAddForm({ ...addForm, voltage: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Current SoC (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={addForm.soc}
+                    onChange={(e) => setAddForm({ ...addForm, soc: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Health (SOH %)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={addForm.soh}
+                    onChange={(e) => setAddForm({ ...addForm, soh: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Status
+                  </label>
+                  <select
+                    value={addForm.status}
+                    onChange={(e) => setAddForm({ ...addForm, status: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  >
+                    <option value="available">Available</option>
+                    <option value="charging">Charging</option>
+                    <option value="in_use">In Use</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Assigned Zone *
+                  </label>
+                  <select
+                    value={addForm.zone}
+                    onChange={(e) => setAddForm({ ...addForm, zone: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  >
+                    <option value="Gotri Zone">Gotri Zone</option>
+                    <option value="Manjalpur Zone">Manjalpur Zone</option>
+                    <option value="KPGU Zone">KPGU Zone</option>
+                    <option value="Aatapi Zone">Aatapi Zone</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Location / Dock
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.location}
+                    onChange={(e) => setAddForm({ ...addForm, location: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Make / Manufacturer
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.make}
+                    onChange={(e) => setAddForm({ ...addForm, make: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Model
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.model}
+                    onChange={(e) => setAddForm({ ...addForm, model: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Serial Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SN-TR-998812"
+                    value={addForm.serial_number}
+                    onChange={(e) => setAddForm({ ...addForm, serial_number: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                    Cost (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={addForm.cost}
+                    onChange={(e) => setAddForm({ ...addForm, cost: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#fff', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAdd}
+                  style={{
+                    padding: '9px 24px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#2A195C',
+                    color: '#fff',
+                    fontWeight: 700,
+                    cursor: isSubmittingAdd ? 'not-allowed' : 'pointer',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {isSubmittingAdd ? 'Registering...' : 'Save & Register Battery'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -10,10 +10,10 @@ const {
   getIciciPublicCertificateInfo,
 } = require('../utils/iciciCrypto');
 
-const ICICI_MID = process.env.ICICI_MID || '9496988';
+const ICICI_MID = process.env.ICICI_MID || '613268';
 const ICICI_TERMINAL_ID = process.env.ICICI_TERMINAL_ID || '5411';
-const ICICI_VPA = process.env.ICICI_VPA || 'EVEGAHRIDE@icici';
-const ICICI_API_KEY = process.env.ICICI_API_KEY || 'azLgqWskbTHg6gdGTSif2DNIA7b15MlJ';
+const ICICI_VPA = process.env.ICICI_VPA || 'EVEGAHUAT@icici';
+const ICICI_API_KEY = process.env.ICICI_API_KEY || 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp';
 const ICICI_PAYEE_NAME = process.env.ICICI_PAYEE_NAME || 'Evegah';
 const ICICI_BASE_URL = process.env.ICICI_BASE_URL || 'https://apibankingone.icici.bank.in/api/MerchantAPI/UPI/v0';
 const ICICI_QR_ENDPOINT = process.env.ICICI_QR_ENDPOINT || `/QR3/${ICICI_MID}`;
@@ -75,7 +75,7 @@ function decodeIciciResponse(rawText) {
 async function getActiveIciciConfig(requestedVpa) {
   let vpa = String(requestedVpa || '').trim();
   let payee = process.env.ICICI_PAYEE_NAME || 'Evegah';
-  let mid = process.env.ICICI_MID || '9496988';
+  let mid = process.env.ICICI_MID || '613268';
   let terminalId = process.env.ICICI_TERMINAL_ID || '5411';
 
   try {
@@ -93,7 +93,7 @@ async function getActiveIciciConfig(requestedVpa) {
   }
 
   if (!vpa) {
-    vpa = process.env.ICICI_VPA || 'evegahride@icici';
+    vpa = process.env.ICICI_VPA || 'EVEGAHUAT@icici';
   }
 
   return { vpa, payee, mid, terminalId };
@@ -320,7 +320,7 @@ router.post('/config', async (req, res) => {
         name: 'ICICI Bank UPI',
         provider: 'icici',
         active: true,
-        key_id: process.env.ICICI_MID || '9496988',
+        key_id: process.env.ICICI_MID || '613268',
         vpa: cleanVpa,
         payee_name: payee_name || 'Evegah',
         environment: 'production',

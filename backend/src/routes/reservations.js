@@ -15,6 +15,8 @@ const { sendWhatsAppReceipt } = require('../utils/whatsapp');
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS drop_datetime VARCHAR(100)`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS total_payable NUMERIC(10,2)`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(150)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cash_voucher_number VARCHAR(100)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cash_collected_by VARCHAR(100)`);
   } catch (e) {
     console.warn('Reservations DB column init notice:', e.message);
   }
@@ -763,22 +765,36 @@ router.post('/', async (req, res) => {
   const year = dateObj.getFullYear();
   const reservation_id = `RID-${year}-${randomSuffix}${String(mockList.length).padStart(3, '0')}`;
 
+  const isCash = String(payment_mode || '').trim().toLowerCase() === 'cash' || Boolean(req.body.is_cash);
+  let cashVoucherNumber = req.body.cash_voucher_number || req.body.voucher_number || null;
+  if (isCash && !cashVoucherNumber) {
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randCode = Math.floor(1000 + Math.random() * 9000);
+    cashVoucherNumber = `CSH-VCHR-${todayStr}-${randCode}`;
+  }
+
+  const txnIdToSave = req.body.transaction_id || cashVoucherNumber || null;
   const isPaymentSuccess = (payment_status && String(payment_status).toLowerCase() === 'paid') ||
-                           Boolean(req.body.transaction_id && String(req.body.transaction_id).trim() !== '');
+                           Boolean(req.body.transaction_id && String(req.body.transaction_id).trim() !== '') ||
+                           isCash;
 
   const finalPaymentStatus = isPaymentSuccess ? 'Paid' : 'Pending';
   const finalStatus = isPaymentSuccess ? 'Upcoming' : 'Pending';
+  const finalPaymentMode = isCash ? 'Cash' : (payment_mode || 'UPI');
 
   const modelToSave = vehicle_model || evegah_model_name || vehicle_category || 'Evegah City';
+  const totalPayableNum = parseFloat(total_payable) || (parseFloat(fare) || 0) + (parseFloat(deposit) || 0);
 
   try {
     const result = await db.query(`
       INSERT INTO reservations (
         reservation_id, customer_name, mobile, gov_id, reservation_date,
         reservation_time, package_type, vehicle_category, vehicle_model, fare, deposit,
-        payment_mode, status, payment_status, pickup_zone, drop_zone, created_at
+        payment_mode, status, payment_status, pickup_zone, drop_zone,
+        transaction_id, cash_voucher_number, pickup_datetime, drop_datetime,
+        coupon_code, discount, total_payable, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
       RETURNING *
     `, [
       reservation_id,
@@ -792,11 +808,18 @@ router.post('/', async (req, res) => {
       modelToSave,
       parseFloat(fare) || 0,
       parseFloat(deposit) || 0,
-      payment_mode || 'UPI',
+      finalPaymentMode,
       finalStatus,
       finalPaymentStatus,
       pickup_zone || '',
-      drop_zone || ''
+      drop_zone || '',
+      txnIdToSave,
+      cashVoucherNumber,
+      reqStartRaw || null,
+      reqEndRaw || null,
+      coupon_code || null,
+      parseFloat(discount) || 0,
+      totalPayableNum
     ]);
 
     // Keep mock list in sync
@@ -808,14 +831,18 @@ router.post('/', async (req, res) => {
 
     // Trigger real system notification & WhatsApp receipt ONLY when payment is successfully confirmed
     if (isPaymentSuccess) {
-      createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+      if (isCash) {
+        createNotification('💵 Cash Payment Collected', `Cash voucher ${cashVoucherNumber} generated for ${customer_name || 'Customer'} (₹${totalPayableNum.toFixed(2)}) for reservation ${reservation_id} in ${pickup_zone || 'Station'}.`, 'payment');
+      } else {
+        createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
+      }
 
       const savedRes = result.rows[0];
       if (savedRes?.mobile) {
         sendWhatsAppReceipt({
           mobile: savedRes.mobile,
           name: savedRes.customer_name || 'Rider',
-          invoice_no: savedRes.transaction_id || savedRes.reservation_id,
+          invoice_no: savedRes.cash_voucher_number || savedRes.transaction_id || savedRes.reservation_id,
           plan: `${savedRes.package_type || 'Day'} Plan (${savedRes.vehicle_model || 'Evegah City'})`,
           amount: (Number(savedRes.fare || 0) + Number(savedRes.deposit || 0)).toFixed(2)
         }).catch(err => console.error('[WhatsApp] Booking receipt send notice:', err.message));
@@ -825,7 +852,12 @@ router.post('/', async (req, res) => {
     res.json({
       status: 'success',
       message: isPaymentSuccess ? 'Reservation confirmed successfully' : 'Reservation created (Pending Payment)',
-      data: result.rows[0]
+      data: {
+        ...result.rows[0],
+        cash_voucher_number: cashVoucherNumber,
+        voucher_number: cashVoucherNumber,
+        transaction_id: txnIdToSave
+      }
     });
   } catch (err) {
     console.error('Failed to create reservation in DB, saving in-memory:', err.message);
@@ -843,11 +875,14 @@ router.post('/', async (req, res) => {
       battery_id: null,
       fare: parseFloat(fare || 0).toFixed(2),
       deposit: parseFloat(deposit || 0).toFixed(2),
-      payment_mode: payment_mode || 'UPI',
+      payment_mode: finalPaymentMode,
       payment_status: finalPaymentStatus,
       status: finalStatus,
       pickup_zone: pickup_zone || '',
       drop_zone: drop_zone || '',
+      transaction_id: txnIdToSave,
+      cash_voucher_number: cashVoucherNumber,
+      total_payable: totalPayableNum,
       created_at: new Date().toISOString()
     };
     mockList.unshift(newRecord);
@@ -863,7 +898,12 @@ router.post('/', async (req, res) => {
     res.json({
       status: 'success',
       message: isPaymentSuccess ? 'Reservation confirmed (offline)' : 'Reservation created pending payment (offline)',
-      data: newRecord
+      data: {
+        ...newRecord,
+        cash_voucher_number: cashVoucherNumber,
+        voucher_number: cashVoucherNumber,
+        transaction_id: txnIdToSave
+      }
     });
   }
 });
@@ -1293,7 +1333,7 @@ router.post('/:id/refund-deposit', async (req, res) => {
   const {
     refund_amount,
     deductions = 0,
-    refund_mode = 'PayU India Gateway Refund',
+    refund_mode = 'PayU',
     notes = '',
     upi_id = '',
     bank_account = ''
@@ -1370,7 +1410,7 @@ router.post('/:id/refund-deposit', async (req, res) => {
         SET deposit_status = 'Refunded',
             refund_amount = $1,
             refund_deductions = $2,
-            refund_mode = 'PayU India Gateway Refund',
+            refund_mode = 'PayU',
             refund_tx_id = $3,
             refund_date = NOW(),
             return_notes = COALESCE($4, return_notes)
@@ -1416,7 +1456,7 @@ router.post('/:id/refund-deposit', async (req, res) => {
         tx_id: finalRefundTxId,
         refund_amount: refundAmt,
         deductions: dedAmt,
-        refund_mode: 'PayU India Gateway Refund',
+        refund_mode: 'PayU',
         refund_date: new Date().toISOString(),
         payu_response: payuResult
       }
