@@ -30,6 +30,8 @@ class _RentEvScreenState extends State<RentEvScreen> {
   String dropDateTime = "Select date & time";
   String? pickupRaw;
   String? dropRaw;
+  bool isCustomBooking = false;
+  String selectedPackageName = 'Custom';
   bool isDifferentDropZone = false;
   double flexiDropFee = 49.0;
   static final List<Map<String, dynamic>> _defaultOperationalZones = [
@@ -537,6 +539,8 @@ class _RentEvScreenState extends State<RentEvScreen> {
                         dropDateTime = result['drop'] ?? "Select date & time";
                         pickupRaw = result['pickupRaw'];
                         dropRaw = result['dropRaw'];
+                        isCustomBooking = result['isCustom'] == true;
+                        selectedPackageName = result['packageName'] ?? (isCustomBooking ? 'Custom' : 'Day');
                       });
                     }
                   },
@@ -610,6 +614,8 @@ class _RentEvScreenState extends State<RentEvScreen> {
                         dropDateTime = result['drop'] ?? "Select date & time";
                         pickupRaw = result['pickupRaw'];
                         dropRaw = result['dropRaw'];
+                        isCustomBooking = result['isCustom'] == true;
+                        selectedPackageName = result['packageName'] ?? (isCustomBooking ? 'Custom' : 'Day');
                       });
                     }
                   },
@@ -858,6 +864,8 @@ class _RentEvScreenState extends State<RentEvScreen> {
                               'pickupRaw': pickupRaw,
                               'dropRaw': dropRaw,
                               'selectedDropLocation': selectedDropLocation,
+                              'isCustom': isCustomBooking,
+                              'packageName': isCustomBooking ? 'Custom' : selectedPackageName,
                             },
                           ),
                         ),

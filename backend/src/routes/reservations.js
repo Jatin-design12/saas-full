@@ -1105,28 +1105,31 @@ router.post('/:id/allocate', async (req, res) => {
 
     // 3. Auto-create a renters record so rider appears in the Riders table
     const res_data = updatedReservation || reservation;
+    const rawPkg = res_data.package_type || 'Day';
+    const normalizedPkg = (rawPkg === 'Rider Plan' || rawPkg === 'Standard Plan' || rawPkg.toLowerCase().includes('custom')) ? 'Custom' : rawPkg;
     const renterPayload = {
       rider_name: res_data.customer_name,
       mobile: res_data.mobile,
       vehicle_id: vehicle_number,
       battery_id: battery_id || '',
-      package_name: res_data.package_type || 'Day',
+      package_name: normalizedPkg,
       rental_start_date: res_data.reservation_date || new Date().toISOString().split('T')[0],
       return_date: null,
       status: 'Active Ride',
       rent: parseFloat(res_data.fare || 0).toFixed(2),
       deposit: parseFloat(res_data.deposit || 0).toFixed(2),
       total: (parseFloat(res_data.fare || 0) + parseFloat(res_data.deposit || 0)).toFixed(2),
-      avatar_url: null
+      avatar_url: null,
+      booking_source: res_data.booking_source || 'App'
     };
 
     try {
       await db.query(`
         INSERT INTO renters (
           rider_name, mobile, vehicle_id, battery_id, package_name,
-          rental_start_date, return_date, status, rent, deposit, total, avatar_url, created_at
+          rental_start_date, return_date, status, rent, deposit, total, avatar_url, booking_source, created_at
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
         ON CONFLICT DO NOTHING
       `, [
         renterPayload.rider_name,
@@ -1140,7 +1143,8 @@ router.post('/:id/allocate', async (req, res) => {
         renterPayload.rent,
         renterPayload.deposit,
         renterPayload.total,
-        renterPayload.avatar_url
+        renterPayload.avatar_url,
+        renterPayload.booking_source
       ]);
     } catch (renterErr) {
       console.warn('Could not auto-create renters record (non-fatal):', renterErr.message);

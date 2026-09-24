@@ -24,6 +24,8 @@ class PaymentOffersScreen extends StatefulWidget {
   final String? dropRaw;
   final Map<String, dynamic> selectedVehicle;
   final Map<String, dynamic>? zonePricing;
+  final String? packageName;
+  final bool? isCustom;
 
   const PaymentOffersScreen({
     super.key,
@@ -37,6 +39,8 @@ class PaymentOffersScreen extends StatefulWidget {
     this.dropRaw,
     required this.selectedVehicle,
     this.zonePricing,
+    this.packageName,
+    this.isCustom,
   });
 
   @override
@@ -477,23 +481,27 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
           : '10:00:00';
 
       // Determine dynamic package_type
-      String packageType = 'Day';
-      try {
-        final pDate = DateTime.tryParse(pickupDate);
-        final dDate = DateTime.tryParse(dropDate);
-        if (pDate != null && dDate != null) {
-          final days = dDate.difference(pDate).inDays;
-          if (days >= 28) {
-            packageType = 'Month';
-          } else if (days >= 6) {
-            packageType = 'Week';
-          } else if (days >= 1) {
-            packageType = 'Day';
-          } else {
-            packageType = 'Hourly';
+      String packageType = widget.packageName ?? 'Day';
+      if (widget.isCustom == true || (widget.packageName != null && widget.packageName!.toLowerCase().contains('custom'))) {
+        packageType = 'Custom';
+      } else if (widget.packageName == null || widget.packageName!.isEmpty || widget.packageName == 'Rider Plan' || widget.packageName == 'Standard Plan') {
+        try {
+          final pDate = DateTime.tryParse(pickupDate);
+          final dDate = DateTime.tryParse(dropDate);
+          if (pDate != null && dDate != null) {
+            final days = dDate.difference(pDate).inDays;
+            if (days >= 28) {
+              packageType = 'Month';
+            } else if (days >= 6) {
+              packageType = 'Week';
+            } else if (days >= 1) {
+              packageType = 'Day';
+            } else {
+              packageType = 'Hourly';
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
 
       // Fetch real rider info
       final userMobile = await SessionService().getUserMobile() ?? '+91 8128251172';
@@ -518,6 +526,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
         'reservation_date': reservationDate,
         'reservation_time': reservationTime,
         'package_type': packageType,
+        'booking_source': 'App',
         'vehicle_category': widget.selectedVehicle['vehicle_category'] ?? 'E-Scooter',
         'vehicle_model': widget.selectedVehicle['evegah_model_name'] ?? widget.selectedVehicle['name'] ?? 'Evegah City',
         'fare': rentVal,

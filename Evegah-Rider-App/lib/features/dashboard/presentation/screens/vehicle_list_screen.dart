@@ -1534,6 +1534,8 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                         "totalPayable": totalPayable,
                       },
                       zonePricing: _zonePricing,
+                      packageName: widget.selectedZoneData != null ? widget.selectedZoneData!['packageName'] : null,
+                      isCustom: widget.selectedZoneData != null ? (widget.selectedZoneData!['isCustom'] == true) : false,
                     ),
                   ),
                 );

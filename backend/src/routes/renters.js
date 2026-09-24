@@ -634,15 +634,43 @@ router.get('/', async (req, res) => {
     }
 
     // 3. Convert Map to Array of unique riders
-    let allRiders = Array.from(ridersMap.values()).map(r => ({
-      ...r,
-      zone: r.latest_zone || Array.from(r.booked_zones)[0] || 'Gotri Zone',
-      zones: Array.from(r.booked_zones),
-      vehicle_id: r.has_active_ride ? (r.vehicle_id || 'EV-ALLOCATED') : (r.vehicle_id || '—'),
-      battery_id: r.has_active_ride ? (r.battery_id || 'BAT-ALLOCATED') : (r.battery_id || '—'),
-      // STRICT SAFETY: Ensure status is NEVER "Active Ride" if has_active_ride is false!
-      status: r.has_active_ride ? 'Active Ride' : (r.status === 'Active Ride' ? 'No Active Ride' : r.status)
-    }));
+    let allRiders = Array.from(ridersMap.values()).map(r => {
+      let pkg = r.package_name || 'Custom';
+      if (pkg === 'Rider Plan' || pkg === 'Standard Plan' || !pkg) {
+        pkg = 'Custom';
+      }
+
+      let modeStr = (r.booking_source || '').toLowerCase();
+      const finalMode = (modeStr.includes('app') || r.has_updated_from_resv) ? 'App' : 'Form';
+
+      return {
+        ...r,
+        package_name: pkg,
+        booking_source: finalMode,
+        mode: finalMode,
+        zone: r.latest_zone || Array.from(r.booked_zones)[0] || 'Gotri Zone',
+        zones: Array.from(r.booked_zones),
+        vehicle_id: r.has_active_ride ? (r.vehicle_id || 'EV-ALLOCATED') : (r.vehicle_id && r.vehicle_id !== 'EV-DEFAULT' ? r.vehicle_id : '—'),
+        battery_id: r.has_active_ride ? (r.battery_id || 'BAT-ALLOCATED') : (r.battery_id && r.battery_id !== 'BAT-DEFAULT' ? r.battery_id : '—'),
+        // STRICT SAFETY: Ensure status is NEVER "Active Ride" if has_active_ride is false!
+        status: r.has_active_ride ? 'Active Ride' : (r.status === 'Active Ride' ? 'No Active Ride' : r.status)
+      };
+    });
+
+    // STRICT: Only include riders who have an actual booking/reservation, assigned vehicle, or payment done!
+    allRiders = allRiders.filter(r => {
+      const hasReservation = Boolean(r.has_active_ride || r.has_updated_from_resv || r.status === 'Upcoming' || r.status === 'Active Ride' || r.status === 'Retain Ride' || r.status === 'Extend' || r.status === 'Return');
+      const hasVehicle = Boolean(r.vehicle_id && r.vehicle_id !== '—' && r.vehicle_id !== 'EV-DEFAULT');
+      const hasPayment = (parseFloat(r.total || '0') > 0) || (parseFloat(r.rent || '0') > 0);
+      return hasReservation || hasVehicle || hasPayment;
+    });
+
+    // 4. Filter by Booking Mode / Source
+    const modeFilter = req.query.mode || req.query.booking_source;
+    if (modeFilter) {
+      const mTarget = modeFilter.toLowerCase();
+      allRiders = allRiders.filter(r => r.booking_source.toLowerCase() === mTarget);
+    }
 
     // 4. Filter by Zone (rider must have booked in this zone)
     if (zoneFilter) {
@@ -769,7 +797,26 @@ router.post('/', async (req, res) => {
     }
     const finalSource = req.body.booking_source || 'Form';
 
-    // Otherwise insert new renter
+    // STRICT GUARD: Only create a renter in renters table once payment/booking is confirmed or a real vehicle is allocated!
+    const rentNum = parseFloat(rent) || 0.00;
+    const depNum = parseFloat(deposit) || 0.00;
+    const totNum = parseFloat(total) || (rentNum + depNum);
+    const hasRealVehicle = vehicle_id && vehicle_id !== 'EV-DEFAULT' && vehicle_id !== '—';
+    const isRealBooking = hasRealVehicle || totNum > 0 || (status && status !== 'No Active Ride');
+
+    if (!isRealBooking) {
+      return res.json({
+        status: 'success',
+        message: 'Rider profile registered. Renter table entry will be created once booking and payment are confirmed.',
+        data: {
+          rider_name: fullName || 'Rider',
+          mobile,
+          email: finalEmail || '',
+        }
+      });
+    }
+
+    // Otherwise insert new confirmed renter
     const result = await db.query(`
       INSERT INTO renters (rider_name, mobile, email, address, date_of_birth, gender, vehicle_id, battery_id, package_name, rental_start_date, return_date, status, rent, deposit, total, booking_source)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)

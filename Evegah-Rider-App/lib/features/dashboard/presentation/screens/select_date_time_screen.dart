@@ -1859,12 +1859,16 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
             final endMonthName = _getMonthName(_endDate).split(' ')[0].substring(0, 3);
             final pickupStr = "${_startDate.day} $monthName ${_startDate.year} $pickupHour:$pickupMinute $pickupPeriod";
             final dropStr = "${_endDate.day} $endMonthName ${_endDate.year} $dropHour:$dropMinute $dropPeriod";
-            if (!context.mounted) return;
+            final bool isCustomSelection = !isPackageBased || selectedDurationChip == "Custom";
+            final String pkgName = isCustomSelection ? "Custom" : selectedDurationChip;
+            if (!mounted) return;
             Navigator.pop(context, {
               "pickup": pickupStr,
               "drop": dropStr,
               "pickupRaw": _startDate.toIso8601String(),
               "dropRaw": _endDate.toIso8601String(),
+              "isCustom": isCustomSelection,
+              "packageName": pkgName,
             });
           },
           borderRadius: BorderRadius.circular(16),

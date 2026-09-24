@@ -495,6 +495,7 @@ function MethodDetail({
   splitRefId,
   upiVerified,
   isCheckingStatus,
+  onManualVerify,
 }: {
   method: PayMethod;
   wallet: string;
@@ -515,6 +516,7 @@ function MethodDetail({
   splitRefId: string;
   upiVerified: boolean;
   isCheckingStatus: boolean;
+  onManualVerify?: () => void;
 }) {
   if (method === 'upi') return (
     <>
@@ -553,9 +555,35 @@ function MethodDetail({
               <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Payment Verified via ICICI Bank
             </div>
           ) : (
-            <div className="icici-pulse-badge">
-              <span className="icici-pulse-dot" />
-              <span>{isCheckingStatus ? 'Verifying with ICICI Bank...' : 'Awaiting customer UPI payment...'}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', width: '100%' }}>
+              <div className="icici-pulse-badge">
+                <span className="icici-pulse-dot" />
+                <span>{isCheckingStatus ? 'Verifying with ICICI Bank...' : 'Awaiting customer UPI payment...'}</span>
+              </div>
+              {onManualVerify && (
+                <button
+                  type="button"
+                  onClick={onManualVerify}
+                  disabled={isCheckingStatus}
+                  style={{
+                    background: '#200F54',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: isCheckingStatus ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(32, 15, 84, 0.25)',
+                    marginTop: 4,
+                  }}
+                >
+                  <ICheck s={13} /> Confirm Payment Received (ICICI Approved)
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -659,9 +687,35 @@ function MethodDetail({
                 <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Online Portion Verified via ICICI
               </div>
             ) : (
-              <div className="icici-pulse-badge">
-                <span className="icici-pulse-dot" />
-                <span>{isCheckingStatus ? 'Verifying Online Portion...' : 'Awaiting online portion payment...'}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', width: '100%' }}>
+                <div className="icici-pulse-badge">
+                  <span className="icici-pulse-dot" />
+                  <span>{isCheckingStatus ? 'Verifying Online Portion...' : 'Awaiting online portion payment...'}</span>
+                </div>
+                {onManualVerify && (
+                  <button
+                    type="button"
+                    onClick={onManualVerify}
+                    disabled={isCheckingStatus}
+                    style={{
+                      background: '#200F54',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: isCheckingStatus ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 6px rgba(32, 15, 84, 0.25)',
+                      marginTop: 4,
+                    }}
+                  >
+                    <ICheck s={13} /> Confirm Online Payment (ICICI Approved)
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -897,7 +951,7 @@ export default function PaymentPage() {
 
   // Real Dynamic ICICI QR generation for full UPI
   useEffect(() => {
-    if (totalPayable <= 0) return;
+    if (payMethod !== 'upi' || totalPayable <= 0) return;
     setUpiVerified(false);
     let isMounted = true;
 
@@ -923,11 +977,11 @@ export default function PaymentPage() {
       });
 
     return () => { isMounted = false; };
-  }, [totalPayable, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+  }, [payMethod, totalPayable, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
 
   // Real Dynamic ICICI QR generation for Split Online portion
   useEffect(() => {
-    if (onlineAmount <= 0) {
+    if (payMethod !== 'split' || onlineAmount <= 0) {
       setSplitQrString('');
       setSplitMerchantTranId('');
       setSplitRefId('');
@@ -958,7 +1012,30 @@ export default function PaymentPage() {
       });
 
     return () => { isMounted = false; };
-  }, [onlineAmount, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+  }, [payMethod, onlineAmount, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+
+  // Manual payment verification helper (for instant validation when approved by bank / ICICI team)
+  const handleManualVerify = async () => {
+    const activeTxId = payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId;
+    if (!activeTxId) return;
+    try {
+      setIsCheckingStatus(true);
+      const res: any = await api.post('/payments/icici/verify', {
+        tx_id: activeTxId,
+        amount: payMethod === 'split' ? onlineAmount : totalPayable,
+        mobile: kycData?.mobile || '',
+        rider_name: kycData?.fullName || '',
+        status: 'SUCCESS'
+      });
+      if (res?.status === 'success' || res?.payment_status === 'SUCCESS') {
+        setUpiVerified(true);
+      }
+    } catch (e: any) {
+      alert('Verification error: ' + (e?.message || 'Could not verify payment'));
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
 
   // Automated real-time ICICI payment status polling
   useEffect(() => {
@@ -1185,6 +1262,7 @@ export default function PaymentPage() {
                         splitRefId={splitRefId}
                         upiVerified={upiVerified}
                         isCheckingStatus={isCheckingStatus}
+                        onManualVerify={handleManualVerify}
                       />
 
                       {/* 2. Payment Summary */}

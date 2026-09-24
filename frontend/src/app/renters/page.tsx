@@ -156,6 +156,7 @@ export default function RentersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [packageFilter, setPackageFilter] = useState('');
+  const [modeFilter, setModeFilter] = useState('');
   const [zoneFilter, setZoneFilter] = useState('All Zones');
   const [selectedZone, setSelectedZone] = useState('All Zones');
   const [page, setPage] = useState(1);
@@ -429,16 +430,19 @@ export default function RentersPage() {
       alert('No renters data to export');
       return;
     }
-    const headers = ['Rider Name', 'Mobile', 'Vehicle ID', 'Battery ID', 'Package', 'Rental Start Date', 'Return Date', 'Status', 'Rent', 'Deposit', 'Total'];
+    const headers = ['Rider Name', 'Mobile', 'Vehicle ID', 'Battery ID', 'Package', 'Mode', 'Rental Start Date', 'Return Date', 'Status', 'Rent', 'Deposit', 'Total'];
     const csvRows = [headers.join(',')];
     renters.forEach((r, idx) => {
       const dName = getDisplayName(r, idx);
+      const pkgName = r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || !r.package_name ? 'Custom' : r.package_name;
+      const modeName = r.booking_source && r.booking_source.toLowerCase().includes('app') ? 'App' : 'Form';
       const row = [
         `"${dName}"`,
         `"${r.mobile || ''}"`,
         `"${r.vehicle_id || ''}"`,
         `"${r.battery_id || ''}"`,
-        `"${r.package_name || ''}"`,
+        `"${pkgName}"`,
+        `"${modeName}"`,
         `"${r.rental_start_date || ''}"`,
         `"${r.return_date || ''}"`,
         `"${r.status || ''}"`,
@@ -466,7 +470,8 @@ export default function RentersPage() {
       limit: '10',
       search: search,
       status: statusFilter,
-      ...(selectedZone && selectedZone !== 'All Zones' ? { zone: selectedZone } : {})
+      ...(selectedZone && selectedZone !== 'All Zones' ? { zone: selectedZone } : {}),
+      ...(modeFilter ? { mode: modeFilter } : {})
     });
 
     api.get(`/renters?${queryParams.toString()}`)
@@ -474,7 +479,16 @@ export default function RentersPage() {
         if (res.status === 'success' && res.data) {
           let dataList: Renter[] = res.data;
           if (packageFilter) {
-            dataList = dataList.filter(r => r.package_name === packageFilter);
+            dataList = dataList.filter(r => {
+              const p = (!r.package_name || r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || r.package_name.toLowerCase().includes('custom')) ? 'Custom' : r.package_name;
+              return p.toLowerCase() === packageFilter.toLowerCase();
+            });
+          }
+          if (modeFilter) {
+            dataList = dataList.filter(r => {
+              const isApp = (r.booking_source || '').toLowerCase().includes('app');
+              return modeFilter === 'App' ? isApp : !isApp;
+            });
           }
           if (selectedZone && selectedZone !== 'All Zones') {
             const zNorm = selectedZone.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
@@ -500,7 +514,7 @@ export default function RentersPage() {
 
   useEffect(() => {
     fetchRenters();
-  }, [search, statusFilter, packageFilter, page, selectedZone]);
+  }, [search, statusFilter, packageFilter, modeFilter, page, selectedZone]);
 
   // Handle Multi-Select Checkboxes
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -811,6 +825,20 @@ export default function RentersPage() {
                     <option value="Extend">Extended</option>
                   </select>
 
+                  <select
+                    className="re-select"
+                    style={{ minWidth: '110px', padding: '8px 12px', border: '1.5px solid #E2E8F0', borderRadius: '10px', fontSize: '12.5px', outline: 'none', background: '#fff', fontWeight: '600', cursor: 'pointer' }}
+                    value={modeFilter}
+                    onChange={(e) => {
+                      setModeFilter(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">All Modes</option>
+                    <option value="App">📱 App</option>
+                    <option value="Form">📝 Form</option>
+                  </select>
+
                   {selectedMobiles.length > 0 && (
                     <button className="re-btn re-btn-danger" onClick={openDeleteModalForSelection}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -846,7 +874,21 @@ export default function RentersPage() {
                       <option value="Daily Package">Daily Package</option>
                       <option value="Weekly Package">Weekly Package</option>
                       <option value="Monthly Package">Monthly Package</option>
-                      <option value="Rider Plan">Rider Plan</option>
+                      <option value="Custom">Custom</option>
+                    </select>
+                  </div>
+
+                  <div className="re-filter-group">
+                    <span className="re-filter-lbl">Mode (Form / App)</span>
+                    <select
+                      className="re-select"
+                      style={{ padding: '6px 10px', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '12px' }}
+                      value={modeFilter}
+                      onChange={(e) => setModeFilter(e.target.value)}
+                    >
+                      <option value="">All Modes</option>
+                      <option value="App">App</option>
+                      <option value="Form">Form</option>
                     </select>
                   </div>
 
@@ -873,6 +915,7 @@ export default function RentersPage() {
                       setSearch('');
                       setStatusFilter('');
                       setPackageFilter('');
+                      setModeFilter('');
                       setZoneFilter('All Zones');
                     }}
                   >
@@ -900,6 +943,7 @@ export default function RentersPage() {
                       <th>Vehicle ID</th>
                       <th>Battery ID</th>
                       <th>Package</th>
+                      <th>Mode</th>
                       <th>Rental Start Date</th>
                       <th>Return Date</th>
                       <th>Status</th>
@@ -924,6 +968,7 @@ export default function RentersPage() {
                           <td><span className="skeleton-box" style={{ width: '90px', height: '14px' }} /></td>
                           <td><span className="skeleton-box" style={{ width: '100px', height: '14px' }} /></td>
                           <td><span className="skeleton-box" style={{ width: '80px', height: '14px' }} /></td>
+                          <td><span className="skeleton-box" style={{ width: '55px', height: '22px', borderRadius: '6px' }} /></td>
                           <td><span className="skeleton-box" style={{ width: '85px', height: '14px' }} /></td>
                           <td><span className="skeleton-box" style={{ width: '85px', height: '14px' }} /></td>
                           <td><span className="skeleton-box" style={{ width: '70px', height: '20px', borderRadius: '12px' }} /></td>
@@ -935,7 +980,7 @@ export default function RentersPage() {
                       ))
                     ) : renters.length === 0 ? (
                       <tr>
-                        <td colSpan={13} style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
+                        <td colSpan={14} style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
                           No renters matching filter parameters found.
                         </td>
                       </tr>
@@ -1019,20 +1064,44 @@ export default function RentersPage() {
                               )}
                             </td>
                             <td style={{ fontWeight: 600, color: '#334155' }}>
-                              <div>{r.package_name || 'Rider Plan'}</div>
-                              <div style={{ marginTop: '3px' }}>
-                                {r.booking_source === 'App' || r.booking_source === 'Mobile App' || r.booking_source === 'Rider App' ? (
-                                  <span style={{ fontSize: '10px', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
-                                    Rider App
-                                  </span>
-                                ) : (
-                                  <span style={{ fontSize: '10px', background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                    Booked via Form
-                                  </span>
-                                )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>{(!r.package_name || r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || r.package_name.toLowerCase().includes('custom')) ? 'Custom' : r.package_name}</span>
                               </div>
+                            </td>
+                            <td>
+                              {(r.booking_source === 'App' || (r.booking_source || '').toLowerCase().includes('app')) ? (
+                                <span style={{
+                                  fontSize: '11px',
+                                  background: '#F0FDF4',
+                                  color: '#15803D',
+                                  border: '1px solid #BBF7D0',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                                  App
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: '11px',
+                                  background: '#EFF6FF',
+                                  color: '#1D4ED8',
+                                  border: '1px solid #BFDBFE',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                  Form
+                                </span>
+                              )}
                             </td>
                             <td>
                               <div style={{
