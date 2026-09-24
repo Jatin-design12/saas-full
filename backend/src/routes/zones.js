@@ -205,6 +205,24 @@ router.get('/', async (req, res) => {
       finalData = rows.filter(z => !isServiceCenter(z));
     }
 
+    let bikeCountsMap = {};
+    try {
+      const bikeCountsRes = await db.query("SELECT zone, COUNT(*)::int as count FROM vehicles WHERE LOWER(vehicle_status) = 'available' GROUP BY zone");
+      bikeCountsRes.rows.forEach(r => {
+        if (r.zone) bikeCountsMap[r.zone.trim().toLowerCase()] = r.count;
+      });
+    } catch (_) {}
+
+    finalData = finalData.map(z => {
+      const zNameKey = (z.name || '').trim().toLowerCase();
+      const bikeCount = bikeCountsMap[zNameKey] || 0;
+      return {
+        ...z,
+        bike_count: bikeCount,
+        available_vehicles: bikeCount
+      };
+    });
+
     const payload = {
       status: 'success',
       data: finalData
@@ -233,7 +251,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/zones (Save newly drawn zone)
 router.post('/', async (req, res) => {
-  await delByPattern('zones:*');
+  await Promise.all([delByPattern('zones:*'), delByPattern('vehicles:*')]);
   const {
     name,
     code,
@@ -288,7 +306,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/zones/:id (Edit zone)
 router.put('/:id', async (req, res) => {
-  await delByPattern('zones:*');
+  await Promise.all([delByPattern('zones:*'), delByPattern('vehicles:*')]);
   const { id } = req.params;
   const {
     name,
@@ -352,7 +370,7 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/zones/:id (Delete zone)
 router.delete('/:id', async (req, res) => {
-  await delByPattern('zones:*');
+  await Promise.all([delByPattern('zones:*'), delByPattern('vehicles:*')]);
   const { id } = req.params;
   try {
     const result = await db.query('DELETE FROM zones WHERE id = $1 RETURNING *', [id]);

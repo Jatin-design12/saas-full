@@ -71,6 +71,7 @@ const CSS = `
 .zp-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 .zp-badge-hourly { background: #DEF7EC; color: #03543F; }
 .zp-badge-package { background: #E1EFFE; color: #1E429F; }
+.zp-badge-minute { background: #FAF5FF; color: #6D28D9; border: 1px solid #DDD6FE; }
 
 .zp-status { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 .zp-status-active { background: #DEF7EC; color: #03543F; }
@@ -223,6 +224,10 @@ export default function ZonePricingPage() {
         pricingModel: z.pricing.pricingModel,
         basePrice: z.pricing.basePrice,
         extraPrice: z.pricing.extraPrice,
+        ratePerMinute: z.pricing.ratePerMinute || z.pricing.basePrice,
+        unlockFee: z.pricing.unlockFee || z.pricing.extraPrice,
+        minMinutes: z.pricing.minMinutes,
+        gracePeriod: z.pricing.gracePeriod,
         packageDetails: z.pricing.packageDetails || [],
         status: z.status === 'active' ? 'Active' : 'Inactive',
         lastUpdated: z.updated_at ? new Date(z.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A',
@@ -305,6 +310,7 @@ export default function ZonePricingPage() {
               >
                 <option value="All">All Pricing Models</option>
                 <option value="Hourly Based">Hourly Based</option>
+                <option value="Minute Based">Minute Based</option>
                 <option value="Package Based">Package Based</option>
               </select>
 
@@ -385,7 +391,7 @@ export default function ZonePricingPage() {
                           <div className="zp-cell-sub">{config.city}</div>
                         </td>
                         <td>
-                          <span className={`zp-badge ${config.pricingModel === 'Hourly Based' ? 'zp-badge-hourly' : 'zp-badge-package'}`}>
+                          <span className={`zp-badge ${config.pricingModel === 'Hourly Based' ? 'zp-badge-hourly' : config.pricingModel === 'Minute Based' ? 'zp-badge-minute' : 'zp-badge-package'}`}>
                             {config.pricingModel}
                           </span>
                         </td>
@@ -394,6 +400,11 @@ export default function ZonePricingPage() {
                             <div>
                               <span style={{ fontWeight: 700 }}>₹{config.basePrice}</span>
                               <div className="zp-cell-sub">Per Hour</div>
+                            </div>
+                          ) : config.pricingModel === 'Minute Based' ? (
+                            <div>
+                              <span style={{ fontWeight: 700 }}>₹{config.ratePerMinute || config.basePrice || '1.50'}</span>
+                              <div className="zp-cell-sub">Per Minute</div>
                             </div>
                           ) : (
                             <span style={{ color: '#9CA3AF', fontWeight: 500 }}>-</span>
@@ -404,6 +415,11 @@ export default function ZonePricingPage() {
                             <div>
                               <span style={{ fontWeight: 700 }}>₹{config.extraPrice}</span>
                               <div className="zp-cell-sub">Per Extra 15 min</div>
+                            </div>
+                          ) : config.pricingModel === 'Minute Based' ? (
+                            <div>
+                              <span style={{ fontWeight: 700 }}>₹{config.unlockFee || '10'}</span>
+                              <div className="zp-cell-sub">Unlock Base Fee</div>
                             </div>
                           ) : (
                             <span style={{ color: '#9CA3AF', fontWeight: 500 }}>-</span>

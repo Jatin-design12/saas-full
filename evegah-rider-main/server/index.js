@@ -3761,11 +3761,24 @@ app.post("/api/payments/icici/qr", async (req, res) => {
     }
 
     const mcc = String(terminalId || process.env.ICICI_TERMINAL_ID || "5411").trim();
-    const subMid = String(subMerchantId || process.env.ICICI_SUB_MERCHANT_ID || iciciMid).trim();
-    const txnId =
-      String(merchantTranId || "").trim() ||
-      String(billNumber || "").trim() ||
-      crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+    const isUat = Boolean(
+      process.env.ICICI_ENV === "UAT" ||
+      String(iciciVpa || "").toUpperCase().includes("UAT") ||
+      String(iciciBaseUrl || "").includes("apibankingone") ||
+      !process.env.NODE_ENV ||
+      process.env.NODE_ENV === "development" ||
+      process.env.NODE_ENV === "uat"
+    );
+    const refPrefix = process.env.ICICI_REF_PREFIX || (isUat ? "GTZ" : "EVG");
+
+    let txnId = String(merchantTranId || "").trim() || String(billNumber || "").trim();
+    if (!txnId) {
+      txnId = `${refPrefix}${Date.now()}${Math.random().toString(16).slice(2, 6)}`;
+    } else if (isUat && !txnId.toUpperCase().startsWith("GTZ")) {
+      txnId = txnId.toUpperCase().startsWith("EVG")
+        ? `GTZ${txnId.slice(3)}`
+        : `GTZ${txnId}`;
+    }
 
     const payload = {
       amount: Number(amount).toFixed(2),
@@ -3774,6 +3787,7 @@ app.post("/api/payments/icici/qr", async (req, res) => {
       terminalId: mcc,
       merchantTranId: txnId,
       billNumber: String(billNumber || txnId).slice(0, 50),
+      refId: txnId,
     };
 
     if (validatePayerAccFlag) {
@@ -3903,9 +3917,18 @@ app.post("/api/payments/icici/qr", async (req, res) => {
       });
     }
 
-    const refId = qrCall.encryptedFallback
+    let refId = qrCall.encryptedFallback
       ? txnId
       : (decoded && (decoded.refId || decoded.refid || decoded.RefId || decoded.refID)) || null;
+
+    if (!refId) {
+      refId = txnId;
+    } else if (isUat && !String(refId).toUpperCase().startsWith("GTZ")) {
+      refId = String(refId).toUpperCase().startsWith("EVG")
+        ? `GTZ${String(refId).slice(3)}`
+        : `GTZ${refId}`;
+    }
+
     const respMerchantTranId =
       (decoded && (decoded.merchantTranId || decoded.merchantTranID)) || txnId;
 

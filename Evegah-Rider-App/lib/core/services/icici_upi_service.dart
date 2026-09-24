@@ -58,7 +58,9 @@ class IciciUpiService {
         ? userProfile['name']!
         : (profile.userName.isNotEmpty ? profile.userName : 'Himanshu chavda');
 
-    final txId = 'EVGICICI${DateTime.now().millisecondsSinceEpoch}';
+    final isUat = AppConstants.iciciVpa.toUpperCase().contains('UAT');
+    final prefix = isUat ? 'GTZ' : 'EVG';
+    final txId = '$prefix${DateTime.now().millisecondsSinceEpoch}';
     final noteText = notes ?? (purpose == 'ride' ? 'Evegah EV Ride Booking' : 'Evegah Wallet Top-Up');
 
     // Official NPCI UPI URI string format as specified in ICICI Bank QR API spec (Page 9)

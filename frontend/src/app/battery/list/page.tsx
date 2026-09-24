@@ -114,21 +114,27 @@ export default function BatteryListPage() {
       if (res.ok) {
         const result = await res.json();
         const list = Array.isArray(result) ? result : (result?.data || []);
-        const mapped: BatteryAsset[] = list.map((b: any, index: number) => ({
-          id: b.battery_id || b.id || `BAT-00${index + 1}`,
-          type: b.battery_type || 'Li-ion NMC',
-          capacity: b.capacity || '60V / 30Ah',
-          soc: typeof b.soc === 'number' ? b.soc : parseInt(b.soc) || 90,
-          voltage: b.voltage || 67.2,
-          current: b.current || 0.0,
-          temp: b.temp || 28,
-          cycles: b.cycles || 40,
-          soh: b.soh ? parseInt(b.soh) : (b.health ? parseInt(b.health) : 98),
-          status: (b.status || 'available').toLowerCase(),
-          zone: b.zone || (selectedZone !== 'All Zones' ? selectedZone : 'Manjalpur Zone'),
-          location: b.location || (b.status === 'in_use' ? 'Vehicle Fleet' : `${b.zone || 'Depot'} Swap Dock`),
-          lastSwap: b.last_swap || 'Today'
-        }));
+          const rawStatus = (b.status || 'available').toString().toLowerCase().trim();
+          const normalizedStatus: 'available' | 'in_use' | 'charging' | 'maintenance' = 
+            rawStatus.includes('use') ? 'in_use' : 
+            (rawStatus.includes('charg') ? 'charging' : 
+            (rawStatus.includes('maint') ? 'maintenance' : 'available'));
+          return {
+            id: b.battery_id || b.id || `BAT-00${index + 1}`,
+            type: b.battery_type || 'Li-ion NMC',
+            capacity: b.capacity || '60V / 30Ah',
+            soc: typeof b.soc === 'number' ? b.soc : parseInt(b.soc) || 90,
+            voltage: b.voltage || 67.2,
+            current: b.current || 0.0,
+            temp: b.temp || 28,
+            cycles: b.cycles || 40,
+            soh: b.soh ? parseInt(b.soh) : (b.health ? parseInt(b.health) : 98),
+            status: normalizedStatus,
+            zone: b.zone || 'Unassigned',
+            location: b.location || (normalizedStatus === 'in_use' ? (b.vehicle_number ? `Vehicle ${b.vehicle_number}` : 'Vehicle Fleet') : `${b.zone || 'Depot'} Swap Dock`),
+            lastSwap: b.last_swap || 'Today'
+          };
+        
         setBatteries(mapped);
       }
     } catch (err) {

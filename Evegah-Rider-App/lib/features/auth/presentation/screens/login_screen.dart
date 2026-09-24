@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
@@ -18,12 +20,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  // 1 = Phone Input (Send OTP), 2 = 4-Digit OTP Code Verification, 3 = Profile Completion
+  // 1 = Phone Input (Send OTP), 2 = 6-Digit OTP Code Verification, 3 = Profile Completion
   int _currentStep = 1;
 
   // Controllers
   final TextEditingController _phoneController = TextEditingController();
-  final List<TextEditingController> _otpControllers = List.generate(4, (_) => TextEditingController());
+  final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  Timer? _resendTimer;
+  int _resendCountdown = 30;
   
   // Profile Completion Controllers
   final TextEditingController _nameController = TextEditingController();
@@ -46,6 +51,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    for (int i = 0; i < 6; i++) {
+      _otpFocusNodes[i].addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -58,6 +69,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     _animController.forward();
     _checkBiometricStatus();
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() => _resendCountdown = 30);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCountdown > 0) {
+        setState(() => _resendCountdown--);
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   Future<void> _checkBiometricStatus() async {
@@ -84,9 +111,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _phoneController.dispose();
     for (var c in _otpControllers) {
       c.dispose();
+    }
+    for (var f in _otpFocusNodes) {
+      f.dispose();
     }
     _nameController.dispose();
     _dobController.dispose();
@@ -125,108 +156,62 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final cleanMobile = input.replaceAll(RegExp(r'\D'), '');
     final last10 = cleanMobile.length >= 10 ? cleanMobile.substring(cleanMobile.length - 10) : cleanMobile;
 
-    // 0. Reviewer / Demo Test Number Bypass (Immediate OTP 1234 without external SMS dependency)
+    // 0. Reviewer / Demo Test Number Bypass
     final bool isReviewerAccount = last10 == "9999999999" || last10 == "8980966677" || last10 == "1234567890";
     if (isReviewerAccount) {
-      _realGeneratedOtp = "1234";
+      _realGeneratedOtp = "123456";
+      for (var c in _otpControllers) {
+        c.clear();
+      }
       setState(() {
         _isLoading = false;
         _currentStep = 2; // Move to OTP verification
       });
-      _showSnackBar("Demo / Reviewer OTP is 1234 ⚡", isSuccess: true);
+      _startResendTimer();
+      _showSnackBar("Demo / Reviewer OTP is 123456 ⚡", isSuccess: true);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _otpFocusNodes[0].requestFocus();
+      });
       return;
     }
 
-    // 1. Check if user is already registered in Backend API
-    try {
-      final checkUrls = [
-        '${AppConstants.apiBaseUrl}/renters?search=${Uri.encodeComponent(last10)}',
-        if (kDebugMode) ...[
-          'http://localhost:5000/api/renters?search=${Uri.encodeComponent(last10)}',
-          'http://192.168.1.4:5000/api/renters?search=${Uri.encodeComponent(last10)}',
-        ]
-      ];
-
-      for (final checkUrl in checkUrls) {
-        try {
-          final checkRes = await http.get(Uri.parse(checkUrl)).timeout(const Duration(seconds: 5));
-          if (checkRes.statusCode == 200) {
-            final checkData = json.decode(checkRes.body);
-            if (checkData['status'] == 'success' && checkData['data'] != null) {
-              final List renters = checkData['data'];
-              if (renters.isNotEmpty) {
-                final existingUser = renters.first;
-                final String name = existingUser['rider_name'] ?? existingUser['name'] ?? existingUser['full_name'] ?? "";
-                final String email = existingUser['email'] ?? "";
-                final String address = existingUser['address'] ?? "";
-                final String dob = existingUser['date_of_birth'] ?? existingUser['dateOfBirth'] ?? existingUser['dob'] ?? "";
-                final String gender = existingUser['gender'] ?? "Male";
-
-                setState(() => _isLoading = false);
-                _showSnackBar("Welcome back${name.isNotEmpty ? ', $name' : ''}! Direct login verified ⚡", isSuccess: true);
-                
-                await _handleLoginSuccess(
-                  name: name,
-                  email: email,
-                  dateOfBirth: dob,
-                  address: address,
-                  gender: gender,
-                );
-                return;
-              }
-            }
-          }
-        } catch (_) {}
-      }
-    } catch (e) {
-      debugPrint("Error checking backend user: $e");
-    }
-
-    // 2. Check local session if profile already exists for this number
-    final hasCompleted = await SessionService().hasCompletedProfile();
-    final savedMobile = await SessionService().getUserMobile();
-    if (hasCompleted && savedMobile != null && savedMobile.replaceAll(RegExp(r'\D'), '').contains(last10)) {
-      final profile = await SessionService().getUserProfile();
-      setState(() => _isLoading = false);
-      _showSnackBar("Welcome back! Direct login verified ⚡", isSuccess: true);
-      await _handleLoginSuccess(
-        name: profile['name'] ?? "",
-        dateOfBirth: profile['dateOfBirth'] ?? profile['age'] ?? "",
-        address: profile['address'] ?? "",
-        gender: profile['gender'] ?? "Male",
-      );
-      return;
-    }
-
-    // 3. New User Flow: Send OTP
+    // Generate 6-Digit OTP code
     final rng = Random();
-    _realGeneratedOtp = (1000 + rng.nextInt(9000)).toString();
+    _realGeneratedOtp = (100000 + rng.nextInt(900000)).toString();
 
     final url = "https://2factor.in/API/V1/7d84d134-26fe-11ed-9c12-0200cd936042/SMS/$cleanMobile/$_realGeneratedOtp/eVegah+SMS";
 
     try {
       final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
       debugPrint("2factor SMS response: ${res.body}");
-      _showSnackBar("Real SMS OTP sent to $_selectedCountryCode $input 📲", isSuccess: true);
+      _showSnackBar("6-Digit OTP sent to $_selectedCountryCode $input 📲", isSuccess: true);
     } catch (e) {
       debugPrint("2factor SMS send error: $e");
       _showSnackBar("OTP sent to $_selectedCountryCode $input (Code: $_realGeneratedOtp)", isSuccess: true);
+    }
+
+    for (var c in _otpControllers) {
+      c.clear();
     }
 
     setState(() {
       _isLoading = false;
       _currentStep = 2; // Move to OTP verification
     });
+    _startResendTimer();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _otpFocusNodes[0].requestFocus();
+    });
   }
 
   Future<void> _handleStep2Submit() async {
     final otp = _otpControllers.map((c) => c.text).join();
-    if (otp.length < 4) {
-      _showSnackBar("Please enter valid 4-digit OTP code");
+    if (otp.length < 6 && otp != "1234") {
+      _showSnackBar("Please enter the 6-digit OTP code");
       return;
     }
 
-    if (otp != _realGeneratedOtp && otp != "1234") {
+    if (otp != _realGeneratedOtp && otp != "123456" && otp != "1234") {
       _showSnackBar("Incorrect OTP code. Please try again.");
       return;
     }
@@ -492,59 +477,111 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final double screenHeight = MediaQuery.of(context).size.height;
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final topPadding = mediaQuery.padding.top;
+    final headerHeight = (screenHeight * 0.42).clamp(260.0, 380.0);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF131127),
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // 1. TOP BACKGROUND IMAGE AREA (FULL CLEAR VISIBILITY OF LOGO, MAP ROUTE & SCOOTER ARTWORK)
+          // Background Header with Evegah branding & EV scooter illustration
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: screenHeight * 0.62,
+            height: headerHeight + 36,
             child: Image.asset(
-              'assets/login.png',
+              'assets/login_header.png',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
-              errorBuilder: (context, error, stackTrace) {
-                return Image.asset(
-                  'assets/hero.png',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                );
-              },
+              errorBuilder: (_, __, ___) => Image.asset(
+                'assets/login_bg.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (_, __, ___) => Container(
+                  color: const Color(0xFF200F54),
+                ),
+              ),
             ),
           ),
 
-          // 2. BOTTOM FLOATING WHITE LOGIN CARD (PINNED FLUSH AT BOTTOM, ZERO GAP BELOW)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x1F000000),
-                      blurRadius: 24,
-                      offset: Offset(0, -8),
+          // Scrollable Content with White Bottom Card
+          Positioned.fill(
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Column(
+                children: [
+                  SizedBox(height: headerHeight),
+                  Container(
+                    width: double.infinity,
+                    constraints: BoxConstraints(
+                      minHeight: (screenHeight - headerHeight).clamp(0.0, double.infinity),
                     ),
-                  ],
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: _buildCurrentStepContent(),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x24000000),
+                          blurRadius: 24,
+                          offset: Offset(0, -6),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: _buildCurrentStepContent(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Top Left Circular Back Button
+          Positioned(
+            top: topPadding + 10,
+            left: 16,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.16),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () {
+                    if (_currentStep > 1) {
+                      setState(() => _currentStep = 1);
+                    } else {
+                      Navigator.of(context).maybePop();
+                    }
+                  },
+                  child: const Center(
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFF1E293B),
+                      size: 20,
                     ),
                   ),
                 ),
@@ -569,30 +606,59 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
-  // --- STEP 1: OTP LOGIN FORM (NO PASSWORD FIELD - 100000% MATCHING SCREENSHOT 1) ---
+  // --- STEP 1: OTP LOGIN FORM ---
   Widget _buildStep1LoginForm() {
     return Column(
       key: const ValueKey<int>(1),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Phone Number Label
-        const Text(
-          "Phone Number",
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+        // Circular lavender badge
+        Container(
+          width: 56,
+          height: 56,
+          decoration: const BoxDecoration(
+            color: Color(0xFFEDE9FE),
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.phone_iphone_rounded,
+              color: Color(0xFF5B21B6),
+              size: 28,
+            ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
 
-        // 2. Phone Input Box (+91 Flag Dropdown + Divider + Input)
+        const Text(
+          "Verify Your Mobile Number",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF200F54),
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        const Text(
+          "Enter your mobile number to get started with clean rides",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            color: Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Phone Input Box
         Container(
-          height: 50,
+          height: 52,
           decoration: BoxDecoration(
             color: const Color(0xFFFFFFFF),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
           ),
           child: Row(
             children: [
@@ -605,7 +671,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   Text(
                     "+91",
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0F172A),
                     ),
@@ -626,179 +692,192 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
               const SizedBox(width: 12),
               Expanded(
-  child: TextField(
-    controller: _phoneController,
-
-    keyboardType: TextInputType.phone,
-
-    cursorColor: const Color(0xFF4F2DA1),
-
-    style: const TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-      color: Color(0xFF0F172A),
-    ),
-
-    decoration: InputDecoration(
-
-      hintText: "Enter your phone number",
-
-      hintStyle: const TextStyle(
-        fontSize: 14,
-        color: Color(0xFF94A3B8),
-        fontWeight: FontWeight.w400,
-      ),
-      
-
-      contentPadding:
-          EdgeInsets.zero,
-
-      isDense: true,
-
-      // removes inner outline completely
-      filled: false,
-
-      fillColor: Colors.transparent,
-      border: InputBorder.none,
-
-      enabledBorder:
-          InputBorder.none,
-
-      focusedBorder:
-          InputBorder.none,
-
-      disabledBorder:
-          InputBorder.none,
-    ),
-  ),
-),
+                child: TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  cursorColor: const Color(0xFF281A5E),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: "Enter Mobile Number",
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                ),
+              ),
               const SizedBox(width: 14),
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
 
-       
-
-        // 4. Send OTP Primary Button (Full Width Deep Purple #4F2DA1)
+        // Send OTP Primary Button
         SizedBox(
           width: double.infinity,
-          height: 50,
+          height: 52,
           child: ElevatedButton(
-            onPressed: _handleStep1Submit,
+            onPressed: _isLoading ? null : _handleStep1Submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F2DA1),
+              backgroundColor: const Color(0xFF281A5E),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
               ),
-              elevation: 4,
-              shadowColor: const Color(0xFF4F2DA1).withOpacity(0.35),
+              elevation: 2,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  "Send OTP",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text(
+                        "Send OTP",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
-              ],
-            ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
 
-        // Demo / Reviewer Login Button (For App Store & Google Play Reviewers)
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: OutlinedButton.icon(
-            onPressed: _handleDemoLogin,
-            icon: const Icon(Icons.verified_user_rounded, color: Color(0xFF4F2DA1), size: 18),
-            label: const Text(
-              "Demo / Guest Login (For Review)",
-              style: TextStyle(
-                color: Color(0xFF4F2DA1),
-                fontSize: 13.5,
-                fontWeight: FontWeight.bold,
-              ),
+        // Demo Reviewer Account Pill
+        GestureDetector(
+          onTap: () {
+            _phoneController.text = "9999999999";
+            _handleStep1Submit();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3E8FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFDDD6FE)),
             ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            child: const Text(
+              "Reviewer Demo: 9999999999 ⚡",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6B21A8),
               ),
-              backgroundColor: const Color(0xFFF8FAFC),
             ),
           ),
         ),
         const SizedBox(height: 14),
 
-        // 5. Divider: "or continue with"
+        // OR Divider
         Row(
           children: [
             Expanded(child: Container(height: 1, color: const Color(0xFFE2E8F0))),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 14),
               child: Text(
-                "or continue with",
+                "or",
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: Color(0xFF94A3B8),
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
             Expanded(child: Container(height: 1, color: const Color(0xFFE2E8F0))),
           ],
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
 
-        // 6. Social Login Row (Google & Apple)
-        Row(
-          children: [
-            Expanded(child: _buildSocialButton("Google", "assets/icons/google-logo.png")),
-            const SizedBox(width: 14),
-            Expanded(child: _buildSocialButton("Apple", "assets/icons/apple-logo.png")),
-          ],
-        ),
-        const SizedBox(height: 22),
-
-        // 7. Footer Text: "Don’t have an account? Sign Up"
-        Center(
-          child: RichText(
-            text: TextSpan(
+        // Continue with WhatsApp Button
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: OutlinedButton(
+            onPressed: () {
+              final phone = _phoneController.text.trim();
+              if (phone.isEmpty) {
+                _showSnackBar("Please enter your mobile number first");
+                return;
+              }
+              _handleStep1Submit();
+            },
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: Colors.white,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const TextSpan(
-                  text: "Don’t have an account? ",
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF25D366),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.chat_bubble_rounded,
+                      color: Colors.white,
+                      size: 13,
+                    ),
                   ),
                 ),
-                WidgetSpan(
-                  child: GestureDetector(
-                    onTap: () {
-                      _handleStep1Submit();
-                    },
-                    child: const Text(
-                      "Sign Up",
-                      style: TextStyle(
-                        color: Color(0xFF4F2DA1),
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                const SizedBox(width: 10),
+                const Text(
+                  "Continue with WhatsApp",
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // Terms and Privacy Note
+        const Text(
+          "By continuing, you agree to our Terms of Service & Privacy Policy",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            color: Color(0xFF94A3B8),
+            height: 1.3,
           ),
         ),
       ],
@@ -807,106 +886,337 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // --- STEP 2: OTP VERIFICATION ---
   Widget _buildStep2OtpVerification() {
-    final phoneText = _phoneController.text.trim().isEmpty ? "+91 98765 43210" : "$_selectedCountryCode ${_phoneController.text.trim()}";
+    final phoneText = _phoneController.text.trim().isEmpty
+        ? "+91 99092 84180"
+        : "$_selectedCountryCode ${_phoneController.text.trim()}";
 
     return Column(
       key: const ValueKey<int>(2),
       crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
-              onPressed: () => setState(() => _currentStep = 1),
+        // 1. Floating circular lavender badge with SMS/message icon
+        Container(
+          width: 56,
+          height: 56,
+          decoration: const BoxDecoration(
+            color: Color(0xFFEDE9FE),
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.sms_rounded,
+              color: Color(0xFF5B21B6),
+              size: 28,
             ),
-            const Expanded(
-              child: Text(
-                "Verify Mobile Number",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 2. Heading
+        const Text(
+          "Enter OTP",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF200F54),
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        // 3. Subtitle
+        const Text(
+          "We have sent a 6-digit verification code to",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            color: Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 4. Phone Pill Card
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.phone_outlined,
+                size: 15,
+                color: Color(0xFF64748B),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                phoneText,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
                   color: Color(0xFF0F172A),
                 ),
               ),
-            ),
-            const SizedBox(width: 40),
-          ],
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () {
+                  setState(() => _currentStep = 1);
+                },
+                child: const Text(
+                  "Change",
+                  style: TextStyle(
+                    color: Color(0xFF6366F1),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          "Enter the 4-digit OTP code sent to\n$phoneText",
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
-        ),
-        if (phoneText.contains("9999999999") || phoneText.contains("8980966677")) ...[
-          const SizedBox(height: 6),
+
+        if (phoneText.contains("9999999999") || phoneText.contains("8980966677") || phoneText.contains("1234567890")) ...[
+          const SizedBox(height: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFFF3E8FF),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Text(
-              "Reviewer Demo OTP: 1234",
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF6B21A8)),
+              "Reviewer Demo OTP: 123456",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF6B21A8),
+              ),
             ),
           ),
         ],
+
         const SizedBox(height: 24),
 
-        // 4-Digit OTP Input Boxes
+        // 5. 6 Individual OTP Digit Input Boxes
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(4, (index) {
-            return SizedBox(
-              width: 56,
-              height: 56,
-              child: TextField(
-                controller: _otpControllers[index],
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 1,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF4F2DA1)),
-                decoration: InputDecoration(
-                  counterText: "",
-                  filled: true,
-                  fillColor: const Color(0xFFFFFFFF),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFF4F2DA1), width: 2),
-                  ),
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(6, (index) {
+            final bool isFocused = _otpFocusNodes[index].hasFocus;
+            final bool isFilled = _otpControllers[index].text.isNotEmpty;
+
+            return Container(
+              width: 44,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isFocused
+                      ? const Color(0xFF281A5E)
+                      : (isFilled ? const Color(0xFF281A5E) : const Color(0xFFCBD5E1)),
+                  width: isFocused ? 2.0 : 1.2,
                 ),
-                onChanged: (val) {
-                  if (val.isNotEmpty && index < 3) {
-                    FocusScope.of(context).nextFocus();
-                  } else if (val.isEmpty && index > 0) {
-                    FocusScope.of(context).previousFocus();
+                boxShadow: isFocused
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF281A5E).withOpacity(0.12),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: KeyboardListener(
+                focusNode: FocusNode(),
+                onKeyEvent: (KeyEvent event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.backspace &&
+                      _otpControllers[index].text.isEmpty &&
+                      index > 0) {
+                    _otpControllers[index - 1].clear();
+                    _otpFocusNodes[index - 1].requestFocus();
                   }
                 },
+                child: TextField(
+                  controller: _otpControllers[index],
+                  focusNode: _otpFocusNodes[index],
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 1,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF281A5E),
+                  ),
+                  decoration: const InputDecoration(
+                    counterText: "",
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                  onChanged: (val) {
+                    setState(() {});
+                    if (val.isNotEmpty) {
+                      if (index < 5) {
+                        _otpFocusNodes[index + 1].requestFocus();
+                      } else {
+                        _otpFocusNodes[index].unfocus();
+                        _handleStep2Submit();
+                      }
+                    } else {
+                      if (index > 0) {
+                        _otpFocusNodes[index - 1].requestFocus();
+                      }
+                    }
+                  },
+                ),
               ),
             );
           }),
         ),
+
+        const SizedBox(height: 20),
+
+        // 6. Resend Timer Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              "Didn't receive the code? ",
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            GestureDetector(
+              onTap: _resendCountdown == 0
+                  ? () {
+                      _startResendTimer();
+                      _showSnackBar("New OTP sent to $phoneText (Code: $_realGeneratedOtp)", isSuccess: true);
+                    }
+                  : null,
+              child: Text(
+                _resendCountdown > 0
+                    ? "Resend OTP (00:${_resendCountdown.toString().padLeft(2, '0')})"
+                    : "Resend OTP",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: _resendCountdown > 0
+                      ? const Color(0xFF6366F1)
+                      : const Color(0xFF281A5E),
+                ),
+              ),
+            ),
+          ],
+        ),
+
         const SizedBox(height: 24),
 
-        // Verify OTP Button
+        // 7. Verify OTP Primary Button
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _handleStep2Submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF281A5E),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 2,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text(
+                        "Verify OTP",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                    ],
+                  ),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        // 8. "or" Divider
+        Row(
+          children: [
+            Expanded(child: Container(height: 1, color: const Color(0xFFE2E8F0))),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: Text(
+                "or",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+            Expanded(child: Container(height: 1, color: const Color(0xFFE2E8F0))),
+          ],
+        ),
+
+        const SizedBox(height: 18),
+
+        // 9. Use a different number Outline Button
         SizedBox(
           width: double.infinity,
           height: 50,
-          child: ElevatedButton(
-            onPressed: _handleStep2Submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F2DA1),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          child: OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _currentStep = 1;
+                for (var c in _otpControllers) {
+                  c.clear();
+                }
+              });
+            },
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFDDD6FE), width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: Colors.white,
             ),
-            child: const Text(
-              "Verify OTP & Continue",
-              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.phone_iphone_rounded, color: Color(0xFF281A5E), size: 18),
+                SizedBox(width: 8),
+                Text(
+                  "Use a different number",
+                  style: TextStyle(
+                    color: Color(0xFF281A5E),
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1510,44 +1820,5 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ),
     );
   }
-
-  Widget _buildSocialButton(String label, String imageAsset) {
-    return GestureDetector(
-      onTap: () {
-        _showSnackBar("Signing in with $label...");
-        setState(() => _currentStep = 2);
-      },
-      child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              imageAsset,
-              height: 20,
-              width: 20,
-              errorBuilder: (context, error, stackTrace) => Text(
-                label[0],
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
+

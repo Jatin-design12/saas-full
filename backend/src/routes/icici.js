@@ -131,10 +131,34 @@ async function handleGenerateQr(req, res) {
     const cleanRider = rider_name || 'Rider';
     const noteText = notes || (purpose === 'ride' ? 'EV Ride Booking' : 'Evegah Wallet Top-Up');
 
-    // Dynamic unique transaction ID matching standard ICICI pattern: EVG<timestamp><hex>
-    const txnId = String(merchantTranId || '').trim() ||
-      String(billNumber || '').trim() ||
-      `EVG${Date.now()}${crypto.randomBytes(2).toString('hex')}`;
+    // In ICICI UAT environment, ICICI Bank's UPI switch strictly mandates that the ref ID / tr parameter
+    // must have the prefix 'GTZ' (as configured by ICICI Bank for the UAT merchant account).
+    const isUat = Boolean(
+      process.env.ICICI_ENV === 'UAT' ||
+      String(resolvedVpa || '').toUpperCase().includes('UAT') ||
+      String(ICICI_VPA || '').toUpperCase().includes('UAT') ||
+      String(ICICI_BASE_URL || '').includes('apibankingone') ||
+      !process.env.NODE_ENV ||
+      process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'uat'
+    );
+
+    const refPrefix = process.env.ICICI_REF_PREFIX || (isUat ? 'GTZ' : 'EVG');
+
+    const rawTxn = String(merchantTranId || '').trim() || String(billNumber || '').trim();
+    let txnId;
+    if (!rawTxn) {
+      txnId = `${refPrefix}${Date.now()}${crypto.randomBytes(2).toString('hex')}`;
+    } else {
+      // If client sent an existing ID, ensure that in UAT it carries the mandatory GTZ prefix
+      if (isUat && !rawTxn.toUpperCase().startsWith('GTZ')) {
+        txnId = rawTxn.toUpperCase().startsWith('EVG')
+          ? `GTZ${rawTxn.slice(3)}`
+          : `GTZ${rawTxn}`;
+      } else {
+        txnId = rawTxn;
+      }
+    }
 
     // Helper to format dates as DD/MM/YYYY HH:MM:SS per ICICI doc
     const formatIciciDate = (d) => {
@@ -159,7 +183,7 @@ async function handleGenerateQr(req, res) {
       merchantTranId: txnId,
       billNumber: txnId.slice(0, 50),
       validatePayerAccFlag: 'N',
-      refId: '',
+      refId: txnId,
       validityStartDateTime: formatIciciDate(now),
       validityEndDateTime: formatIciciDate(expiryDate),
       update: 'N',
@@ -218,6 +242,11 @@ async function handleGenerateQr(req, res) {
 
     if (!refId) {
       refId = txnId;
+    } else if (isUat && !String(refId).toUpperCase().startsWith('GTZ')) {
+      // In UAT, enforce GTZ prefix on refId as required by ICICI UAT switch
+      refId = String(refId).toUpperCase().startsWith('EVG')
+        ? `GTZ${String(refId).slice(3)}`
+        : `GTZ${refId}`;
     }
 
     // Official NPCI / ICICI QR String format per ICICI API Documentation (Page 9):
@@ -372,11 +401,20 @@ async function handleCheckStatus(req, res) {
     }
 
     const txId = String(merchantTranId).trim();
+    const searchTerms = [
+      txId,
+      txId.toUpperCase().startsWith('GTZ') ? txId.slice(3) : `GTZ${txId}`,
+      txId.toUpperCase().startsWith('EVG') ? `GTZ${txId.slice(3)}` : txId,
+      txId.toUpperCase().startsWith('GTZ') ? `EVG${txId.slice(3)}` : txId,
+    ];
 
     // 1. Check local DB first
     let dbPayment = null;
     try {
-      const q = await db.query('SELECT * FROM icici_payments WHERE tx_id = $1 OR ref_id = $1 LIMIT 1', [txId]);
+      const q = await db.query(
+        'SELECT * FROM icici_payments WHERE tx_id = ANY($1) OR ref_id = ANY($1) LIMIT 1',
+        [searchTerms]
+      );
       if (q.rows.length > 0) {
         dbPayment = q.rows[0];
         if (dbPayment.status === 'SUCCESS' || dbPayment.status === 'Success') {
@@ -400,11 +438,12 @@ async function handleCheckStatus(req, res) {
 
     // 2. Query upstream ICICI TransactionStatus3 API
     try {
+      const upstreamTxnId = dbPayment?.tx_id || txId;
       const payload = {
         merchantId: String(ICICI_MID),
         subMerchantId: String(ICICI_MID),
         terminalId: String(ICICI_TERMINAL_ID),
-        merchantTranId: txId,
+        merchantTranId: upstreamTxnId,
       };
 
       const encryptedBody = encryptIciciAsymmetricPayload(payload);
@@ -435,8 +474,8 @@ async function handleCheckStatus(req, res) {
               SET status = 'SUCCESS',
                   upi_ref_no = COALESCE($1, upi_ref_no),
                   updated_at = NOW()
-              WHERE tx_id = $2 OR ref_id = $2
-            `, [decoded.OriginalBankRRN || decoded.originalBankRRN || `ICICI${Date.now()}`, txId]);
+              WHERE tx_id = ANY($2) OR ref_id = ANY($2)
+            `, [decoded.OriginalBankRRN || decoded.originalBankRRN || `ICICI${Date.now()}`, searchTerms]);
           } catch (e) {}
 
           return res.json({
@@ -449,8 +488,8 @@ async function handleCheckStatus(req, res) {
             await db.query(`
               UPDATE icici_payments
               SET status = 'FAILURE', updated_at = NOW()
-              WHERE tx_id = $1 OR ref_id = $1
-            `, [txId]);
+              WHERE tx_id = ANY($1) OR ref_id = ANY($1)
+            `, [searchTerms]);
           } catch (e) {}
 
           return res.json({
@@ -491,11 +530,21 @@ router.post('/verify', async (req, res) => {
     const finalStatus = (status || 'SUCCESS').toUpperCase();
     const numAmount = parseFloat(amount || 0);
 
+    const searchTerms = [
+      tx_id,
+      String(tx_id).toUpperCase().startsWith('GTZ') ? String(tx_id).slice(3) : `GTZ${tx_id}`,
+      String(tx_id).toUpperCase().startsWith('EVG') ? `GTZ${String(tx_id).slice(3)}` : tx_id,
+      String(tx_id).toUpperCase().startsWith('GTZ') ? `EVG${String(tx_id).slice(3)}` : tx_id,
+    ];
+
     // Update icici_payments table
     let resolvedPurpose = purpose || 'ride';
     let resolvedResId = reservation_id;
     try {
-      const existing = await db.query('SELECT purpose, reservation_id, amount, mobile FROM icici_payments WHERE tx_id = $1 OR ref_id = $1', [tx_id]);
+      const existing = await db.query(
+        'SELECT purpose, reservation_id, amount, mobile FROM icici_payments WHERE tx_id = ANY($1) OR ref_id = ANY($1) LIMIT 1',
+        [searchTerms]
+      );
       if (existing.rows.length > 0) {
         if (!resolvedPurpose && existing.rows[0].purpose) resolvedPurpose = existing.rows[0].purpose;
         if (!resolvedResId && existing.rows[0].reservation_id) resolvedResId = existing.rows[0].reservation_id;
@@ -503,8 +552,8 @@ router.post('/verify', async (req, res) => {
       await db.query(`
         UPDATE icici_payments 
         SET status = $1, upi_ref_no = $2, updated_at = NOW()
-        WHERE tx_id = $3 OR ref_id = $3
-      `, [finalStatus === 'SUCCESS' ? 'SUCCESS' : 'FAILURE', upi_ref_no || `UPI${Date.now()}`, tx_id]);
+        WHERE tx_id = ANY($3) OR ref_id = ANY($3)
+      `, [finalStatus === 'SUCCESS' ? 'SUCCESS' : 'FAILURE', upi_ref_no || `UPI${Date.now()}`, searchTerms]);
     } catch (e) {
       console.warn('DB update error in icici verify:', e.message);
     }
@@ -591,11 +640,18 @@ router.post('/callback', async (req, res) => {
     const isSuccess = rawStatus === 'SUCCESS' || rawStatus === '0';
 
     if (txnId) {
+      const cleanId = String(txnId).trim();
+      const searchTerms = [
+        cleanId,
+        cleanId.toUpperCase().startsWith('GTZ') ? cleanId.slice(3) : `GTZ${cleanId}`,
+        cleanId.toUpperCase().startsWith('EVG') ? `GTZ${cleanId.slice(3)}` : cleanId,
+        cleanId.toUpperCase().startsWith('GTZ') ? `EVG${cleanId.slice(3)}` : cleanId,
+      ];
       await db.query(`
         UPDATE icici_payments
         SET status = $1, upi_ref_no = $2, updated_at = NOW()
-        WHERE tx_id = $3 OR ref_id = $3
-      `, [isSuccess ? 'SUCCESS' : 'FAILED', BankRRN || originalBankRRN || '', txnId]);
+        WHERE tx_id = ANY($3) OR ref_id = ANY($3)
+      `, [isSuccess ? 'SUCCESS' : 'FAILED', BankRRN || originalBankRRN || '', searchTerms]);
     }
 
     res.json({ status: 'SUCCESS', responseCode: '00', message: 'Callback processed' });

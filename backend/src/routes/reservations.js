@@ -17,6 +17,7 @@ const { sendWhatsAppReceipt } = require('../utils/whatsapp');
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(150)`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cash_voucher_number VARCHAR(100)`);
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cash_collected_by VARCHAR(100)`);
+    await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booking_source VARCHAR(50) DEFAULT 'Rider App'`);
   } catch (e) {
     console.warn('Reservations DB column init notice:', e.message);
   }
@@ -792,9 +793,9 @@ router.post('/', async (req, res) => {
         reservation_time, package_type, vehicle_category, vehicle_model, fare, deposit,
         payment_mode, status, payment_status, pickup_zone, drop_zone,
         transaction_id, cash_voucher_number, pickup_datetime, drop_datetime,
-        coupon_code, discount, total_payable, created_at
+        coupon_code, discount, total_payable, booking_source, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW())
       RETURNING *
     `, [
       reservation_id,
@@ -819,7 +820,8 @@ router.post('/', async (req, res) => {
       reqEndRaw || null,
       coupon_code || null,
       parseFloat(discount) || 0,
-      totalPayableNum
+      totalPayableNum,
+      req.body.booking_source || 'Rider App'
     ]);
 
     // Keep mock list in sync

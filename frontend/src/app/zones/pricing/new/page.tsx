@@ -29,6 +29,12 @@ function PricingForm() {
                 setNotes(zone.pricing.notes || '');
                 if (zone.pricing.pricingModel === 'Hourly Based') {
                   setHourlyRows(zone.pricing.hourlyPricing || []);
+                } else if (zone.pricing.pricingModel === 'Minute Based') {
+                  setMinuteRate(String(zone.pricing.ratePerMinute || zone.pricing.basePrice || '1.50'));
+                  setMinuteMinTime(String(zone.pricing.minMinutes || '10'));
+                  setMinuteUnlockFee(String(zone.pricing.unlockFee || '10.00'));
+                  setMinuteGracePeriod(String(zone.pricing.gracePeriod || '3'));
+                  setMinuteDeposit(String(zone.pricing.deposit || '200'));
                 } else {
                   setPackages(zone.pricing.packages || []);
                 }
@@ -60,8 +66,25 @@ function PricingForm() {
   // Core Page States
   const [selectedZoneName, setSelectedZoneName] = useState('');
   const [status, setStatus] = useState('Active');
-  const [pricingModel, setPricingModel] = useState<'Hourly Based' | 'Package Based'>('Hourly Based');
+  const [pricingModel, setPricingModel] = useState<'Hourly Based' | 'Package Based' | 'Minute Based'>('Hourly Based');
   const [notes, setNotes] = useState('');
+
+  // Minute-Based Pricing States
+  const [minuteRate, setMinuteRate] = useState('1.50');
+  const [minuteMinTime, setMinuteMinTime] = useState('10');
+  const [minuteUnlockFee, setMinuteUnlockFee] = useState('10.00');
+  const [minuteGracePeriod, setMinuteGracePeriod] = useState('3');
+  const [minuteDeposit, setMinuteDeposit] = useState('200');
+
+  // Minute-based model rows state
+  const [minuteRows, setMinuteRows] = useState<any[]>([
+    { id: 1, model: 'Evegah CITY', ratePerMinute: '1.50', unlockFee: '10.00', minMinutes: '10', gracePeriod: '3', deposit: '200', status: true, imgSrc: '/assets/city.png' },
+    { id: 2, model: 'Evegah MINK', ratePerMinute: '1.20', unlockFee: '8.00', minMinutes: '10', gracePeriod: '3', deposit: '150', status: true, imgSrc: '/assets/mink.png' },
+    { id: 3, model: 'Evegah Fly', ratePerMinute: '1.00', unlockFee: '5.00', minMinutes: '5', gracePeriod: '2', deposit: '100', status: true, imgSrc: '/Fly.png' },
+    { id: 4, model: 'Evegah Pro', ratePerMinute: '2.00', unlockFee: '15.00', minMinutes: '15', gracePeriod: '5', deposit: '300', status: true, imgSrc: '/Evegah Pro.png' }
+  ]);
+  const [isAddingMinute, setIsAddingMinute] = useState(false);
+  const [newMinuteModel, setNewMinuteModel] = useState('Evegah CITY');
 
   // Hourly Pricing Rows State
   const [hourlyRows, setHourlyRows] = useState<any[]>([]);
@@ -138,6 +161,17 @@ function PricingForm() {
       pricingObj.extraPrice = parseFloat(hourlyRows[0]?.extraPrice) || 0;
       pricingObj.packageDetails = [];
       pricingObj.hourlyPricing = hourlyRows;
+      pricingObj.packages = [];
+    } else if (pricingModel === 'Minute Based') {
+      pricingObj.basePrice = parseFloat(minuteRate) || 1.5;
+      pricingObj.extraPrice = parseFloat(minuteUnlockFee) || 10;
+      pricingObj.ratePerMinute = parseFloat(minuteRate) || 1.5;
+      pricingObj.unlockFee = parseFloat(minuteUnlockFee) || 10;
+      pricingObj.minMinutes = parseInt(minuteMinTime) || 10;
+      pricingObj.gracePeriod = parseInt(minuteGracePeriod) || 3;
+      pricingObj.deposit = parseFloat(minuteDeposit) || 200;
+      pricingObj.packageDetails = [`₹${minuteRate}/min (Min ${minuteMinTime}m, Unlock: ₹${minuteUnlockFee})`];
+      pricingObj.hourlyPricing = [];
       pricingObj.packages = [];
     } else {
       pricingObj.basePrice = null;
@@ -241,6 +275,31 @@ function PricingForm() {
       }
       return pkg;
     }));
+  };
+
+  const handleAddMinuteRow = () => {
+    if (!minuteRate) {
+      alert('Please enter a Rate Per Minute.');
+      return;
+    }
+    const modelObj = VEHICLE_MODELS.find(m => m.name === newMinuteModel) || VEHICLE_MODELS[0];
+    const newRow = {
+      id: Date.now(),
+      model: newMinuteModel,
+      ratePerMinute: minuteRate || '1.50',
+      unlockFee: minuteUnlockFee || '10.00',
+      minMinutes: minuteMinTime || '10',
+      gracePeriod: minuteGracePeriod || '3',
+      deposit: minuteDeposit || '200',
+      status: true,
+      imgSrc: modelObj.image
+    };
+    setMinuteRows(prev => [...prev.filter(r => r.model !== newMinuteModel), newRow]);
+    setIsAddingMinute(false);
+  };
+
+  const handleMinuteDelete = (id: number) => {
+    setMinuteRows(prev => prev.filter(r => r.id !== id));
   };
 
   return (
@@ -357,7 +416,25 @@ function PricingForm() {
                   <p className="zp-radio-desc">Customers will be charged based on hourly usage with extra time charges.</p>
                 </div>
 
-                {/* Radio Card 2: Package Based */}
+                {/* Radio Card 2: Minute Based */}
+                <div 
+                  className={`zp-radio-card ${pricingModel === 'Minute Based' ? 'active' : ''}`}
+                  onClick={() => setPricingModel('Minute Based')}
+                >
+                  <div className="zp-radio-header">
+                    <span className="zp-radio-circle"></span>
+                    <span className="zp-radio-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 15 15" />
+                      </svg>
+                    </span>
+                  </div>
+                  <h3 className="zp-radio-title">Minute Based</h3>
+                  <p className="zp-radio-desc">Customers pay per minute with optional base unlock fare and minimum time.</p>
+                </div>
+
+                {/* Radio Card 3: Package Based */}
                 <div 
                   className={`zp-radio-card ${pricingModel === 'Package Based' ? 'active' : ''}`}
                   onClick={() => setPricingModel('Package Based')}
@@ -373,7 +450,7 @@ function PricingForm() {
                     </span>
                   </div>
                   <h3 className="zp-radio-title">Package Based</h3>
-                  <p className="zp-radio-desc">Customers will be charged based on selected packages.</p>
+                  <p className="zp-radio-desc">Customers will be charged based on selected rental packages.</p>
                 </div>
               </div>
             </div>
@@ -602,6 +679,215 @@ function PricingForm() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        ) : pricingModel === 'Minute Based' ? (
+          /* Card 3B: Model-Based Minute Pricing Card */
+          <div className="zp-card" style={{ marginTop: '24px' }}>
+            <div className="zp-card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 className="zp-card-title" style={{ margin: 0, borderBottom: 'none', paddingBottom: 0 }}>Minute-Based Price Configuration (Per EV Model)</h2>
+                <span className="zp-badge zp-badge-minute" style={{ background: '#FAF5FF', color: '#6D28D9', border: '1px solid #DDD6FE' }}>Selected</span>
+              </div>
+              <button 
+                type="button"
+                className="zp-btn-add-pkg"
+                onClick={() => setIsAddingMinute(!isAddingMinute)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                {isAddingMinute ? 'Cancel' : 'Add Model Rate'}
+              </button>
+            </div>
+
+            <div className="zp-card-body" style={{ marginTop: '16px' }}>
+              <p className="zp-card-subtitle" style={{ marginTop: 0, marginBottom: '20px' }}>
+                Configure per-minute rental rates, base unlock fee, grace cancellation period, and security deposits for each electric scooter model.
+              </p>
+
+              {/* Inline Form to Add / Edit Model Minute Pricing */}
+              {isAddingMinute && (
+                <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '14px', padding: '20px', marginBottom: '24px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', marginBottom: '16px' }}>
+                    Configure Minute Rate for EV Model
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    <div className="zp-form-group">
+                      <label className="zp-form-label">Vehicle Model *</label>
+                      <select
+                        className="zp-form-select"
+                        value={newMinuteModel}
+                        onChange={(e) => setNewMinuteModel(e.target.value)}
+                      >
+                        {VEHICLE_MODELS.map(m => (
+                          <option key={m.name} value={m.name}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="zp-form-group">
+                      <label className="zp-form-label">Rate Per Minute (₹ / min) *</label>
+                      <input
+                        type="number"
+                        step="0.10"
+                        className="zp-form-input"
+                        placeholder="e.g. 1.50"
+                        value={minuteRate}
+                        onChange={(e) => setMinuteRate(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="zp-form-group">
+                      <label className="zp-form-label">Base Unlock Fee (₹)</label>
+                      <input
+                        type="number"
+                        className="zp-form-input"
+                        placeholder="e.g. 10.00"
+                        value={minuteUnlockFee}
+                        onChange={(e) => setMinuteUnlockFee(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="zp-form-group">
+                      <label className="zp-form-label">Minimum Minutes Charged</label>
+                      <input
+                        type="number"
+                        className="zp-form-input"
+                        placeholder="e.g. 10"
+                        value={minuteMinTime}
+                        onChange={(e) => setMinuteMinTime(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="zp-form-group">
+                      <label className="zp-form-label">Grace Period (Minutes)</label>
+                      <input
+                        type="number"
+                        className="zp-form-input"
+                        placeholder="e.g. 3"
+                        value={minuteGracePeriod}
+                        onChange={(e) => setMinuteGracePeriod(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="zp-form-group">
+                      <label className="zp-form-label">Security Deposit (₹)</label>
+                      <input
+                        type="number"
+                        className="zp-form-input"
+                        placeholder="e.g. 200"
+                        value={minuteDeposit}
+                        onChange={(e) => setMinuteDeposit(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+                    <button
+                      type="button"
+                      className="zp-btn-cancel"
+                      onClick={() => setIsAddingMinute(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="zp-btn-save-inline"
+                      onClick={handleAddMinuteRow}
+                    >
+                      Save Model Rate
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Models Minute Pricing Rates Table */}
+              <div className="zp-table-wrap">
+                <table className="zp-table">
+                  <thead>
+                    <tr>
+                      <th>Vehicle Model</th>
+                      <th>Rate / Min</th>
+                      <th>Unlock Fee</th>
+                      <th>Min Duration</th>
+                      <th>Grace Period</th>
+                      <th>Deposit</th>
+                      <th>Status</th>
+                      <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {minuteRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: '#94A3B8' }}>
+                          No minute pricing rates configured. Click &quot;Add Model Rate&quot; above to configure rates.
+                        </td>
+                      </tr>
+                    ) : (
+                      minuteRows.map(row => (
+                        <tr key={row.id}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img
+                                src={row.imgSrc || '/assets/city.png'}
+                                alt={row.model}
+                                style={{ width: '36px', height: '28px', objectFit: 'contain' }}
+                                onError={(e: any) => { e.target.src = '/assets/city.png'; }}
+                              />
+                              <span style={{ fontWeight: 700, color: '#0F172A' }}>{row.model}</span>
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹{row.ratePerMinute} / min</td>
+                          <td style={{ fontWeight: 600, color: '#334155' }}>₹{row.unlockFee || '0'}</td>
+                          <td>{row.minMinutes || '10'} mins</td>
+                          <td>{row.gracePeriod || '3'} mins</td>
+                          <td style={{ fontWeight: 600, color: '#0F172A' }}>₹{row.deposit || '0'}</td>
+                          <td>
+                            <span className="zp-badge zp-badge-active" style={{ background: '#DCFCE7', color: '#16A34A', fontSize: '11px', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                              Active
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleMinuteDelete(row.id)}
+                              style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '4px' }}
+                              title="Delete Model Rate"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Live Fare Calculator Preview Box */}
+              <div style={{ marginTop: '24px', background: '#F8FAFC', border: '1.5px dashed #CBD5E1', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
+                    Live Fare Calculator (Sample 30-Minute Trip)
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                    Calculated for {minuteRows[0]?.model || 'Standard EV'}: Unlock (₹{parseFloat(minuteRows[0]?.unlockFee || minuteUnlockFee) || 0}) + 30 mins × ₹{parseFloat(minuteRows[0]?.ratePerMinute || minuteRate) || 0}/min
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 900, color: '#6D28D9', fontFamily: 'monospace' }}>
+                    ₹{((parseFloat(minuteRows[0]?.unlockFee || minuteUnlockFee) || 0) + 30 * (parseFloat(minuteRows[0]?.ratePerMinute || minuteRate) || 0)).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#16A34A', fontWeight: 700 }}>
+                    + ₹{minuteRows[0]?.deposit || minuteDeposit || 0} Refundable Deposit
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -924,8 +1210,9 @@ export default function NewZonePricingPage() {
         .zp-form-input:disabled { background: #F8FAFC; color: #64748B; cursor: not-allowed; }
 
         /* Radio Cards */
-        .zp-radio-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .zp-radio-card { border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 16px; cursor: pointer; transition: all .15s; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+        .zp-radio-cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        @media (max-width: 1100px) { .zp-radio-cards-grid { grid-template-columns: 1fr; } }
+        .zp-radio-card { border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 14px; cursor: pointer; transition: all .15s; background: #fff; display: flex; flex-direction: column; gap: 8px; }
         .zp-radio-card:hover { border-color: #C7D2FE; }
         .zp-radio-card.active { border-color: #6366F1; background: #F5F7FF; }
         

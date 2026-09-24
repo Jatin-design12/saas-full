@@ -133,6 +133,7 @@ const CSS = `
 
 interface Renter {
   id?: string;
+  _id?: string;
   rider_name: string;
   mobile: string;
   vehicle_id: string;
@@ -145,6 +146,8 @@ interface Renter {
   deposit: string;
   total: string;
   avatar_url: string | null;
+  kyc_status?: string;
+  booking_source?: string;
 }
 
 export default function RentersPage() {
@@ -550,8 +553,13 @@ export default function RentersPage() {
     }
   };
 
-  // Open Vehicle & Battery Allocation Modal
+  // Open Vehicle & Battery Allocation Modal with KYC Gatekeeper enforcement
   const openAllocationModal = (r: Renter, displayName: string, displayMobile: string) => {
+    const kyc = (r.kyc_status || '').toLowerCase();
+    if (kyc !== 'verified' && kyc !== 'approved') {
+      showToast(`⚠️ KYC Verification Required: Rider KYC is currently "${r.kyc_status || 'Under Review'}". Please review and approve KYC in the rider's profile before assigning a vehicle or battery.`);
+      return;
+    }
     setAllocRenter({ renter: r, displayName, displayMobile });
     setAllocVehicle(r.vehicle_id || 'EVM1024001');
     setAllocBattery(r.battery_id || 'BAT-GOTRI-01');
@@ -1010,7 +1018,22 @@ export default function RentersPage() {
                                 <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
                               )}
                             </td>
-                            <td style={{ fontWeight: 600, color: '#334155' }}>{r.package_name}</td>
+                            <td style={{ fontWeight: 600, color: '#334155' }}>
+                              <div>{r.package_name || 'Rider Plan'}</div>
+                              <div style={{ marginTop: '3px' }}>
+                                {r.booking_source === 'App' || r.booking_source === 'Mobile App' || r.booking_source === 'Rider App' ? (
+                                  <span style={{ fontSize: '10px', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                                    Rider App
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '10px', background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '1px 6px', borderRadius: '4px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    Booked via Form
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td>
                               <div style={{
                                 display: 'inline-flex',
@@ -1086,7 +1109,7 @@ export default function RentersPage() {
                               <div className="re-action-cell">
                                 {/* View button opens Vehicle & Battery Allocation modal */}
                                 <Link 
-                                  href={`/renters/profile?id=${encodeURIComponent(r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Gotri%20Zone`} 
+                                  href={`/renters/profile?id=${encodeURIComponent(r.id || r._id || r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Gotri%20Zone`} 
                                   className="re-action-btn" 
                                   title="View Full Rider Profile"
                                 >
@@ -1217,7 +1240,7 @@ export default function RentersPage() {
 
             <div className="re-modal-ft">
               <Link
-                href={`/renters/profile?id=${encodeURIComponent(allocRenter.renter.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(allocRenter.displayName)}&mobile=${encodeURIComponent(allocRenter.displayMobile)}&vehicle=${encodeURIComponent(allocVehicle)}&battery=${encodeURIComponent(allocBattery)}&status=${encodeURIComponent(allocRenter.renter.status)}&zone=Gotri%20Zone`}
+                href={`/renters/profile?id=${encodeURIComponent(allocRenter.renter.id || allocRenter.renter._id || allocRenter.renter.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(allocRenter.displayName)}&mobile=${encodeURIComponent(allocRenter.displayMobile)}&vehicle=${encodeURIComponent(allocVehicle)}&battery=${encodeURIComponent(allocBattery)}&status=${encodeURIComponent(allocRenter.renter.status)}&zone=Gotri%20Zone`}
                 className="re-btn"
                 style={{ textDecoration: 'none' }}
               >

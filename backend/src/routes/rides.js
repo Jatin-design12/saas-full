@@ -34,9 +34,9 @@ router.post('/new', async (req, res) => {
       const result = await db.query(`
         INSERT INTO renters (
           rider_name, mobile, vehicle_id, battery_id, package_name, 
-          rental_start_date, status, rent, deposit, total
+          rental_start_date, status, rent, deposit, total, booking_source
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'Active Ride', $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, 'Active Ride', $7, $8, $9, 'Form')
         RETURNING id, rider_name, mobile, vehicle_id, status, created_at
       `, [
         rider_name,
@@ -200,9 +200,9 @@ const handleRetainRide = async (req, res) => {
         const ins = await db.query(`
           INSERT INTO renters (
             rider_name, mobile, vehicle_id, battery_id, package_name, 
-            rental_start_date, status, rent, deposit, total
+            rental_start_date, status, rent, deposit, total, booking_source
           )
-          VALUES ($1, $2, $3, $4, $5, NOW(), 'Retain Ride', $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, NOW(), 'Retain Ride', $6, $7, $8, 'Form')
           RETURNING id
         `, [rName, mobile || cleanMob, vehicleCode, batteryCode, packageName, rentAmt, depAmt, totalAmt]);
         if (ins.rows[0]) insertedId = ins.rows[0].id;

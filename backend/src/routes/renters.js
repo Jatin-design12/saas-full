@@ -11,6 +11,10 @@ const { getCache, setCache, delByPattern } = require('../redis');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS address TEXT');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS gender VARCHAR(20)');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS aadhaar_number VARCHAR(50)');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS present_address TEXT');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS emergency_contact_name VARCHAR(150)');
+    await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS emergency_contact_phone VARCHAR(50)');
+    await db.query("ALTER TABLE renters ADD COLUMN IF NOT EXISTS booking_source VARCHAR(50) DEFAULT 'App'");
   } catch (e) {
     console.error('Renters DB column init error:', e);
   }
@@ -18,6 +22,71 @@ const { getCache, setCache, delByPattern } = require('../redis');
 
 // Fallback mock data empty so no fake active rides are ever generated
 let MOCK_RENTERS = [];
+
+// Helper: Auto-generate unique rider email: firstname.lastname@evegah.com or firstname.lastname1@evegah.com
+async function generateUniqueRiderEmail(fullName, mobile) {
+  const parts = (fullName || 'Rider')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  let prefix = 'rider';
+  if (parts.length === 1) {
+    prefix = parts[0];
+  } else if (parts.length >= 2) {
+    prefix = `${parts[0]}.${parts[parts.length - 1]}`;
+  }
+
+  const baseEmail = `${prefix}@evegah.com`;
+  const cleanMob = (mobile || '').replace(/\D/g, '').slice(-10);
+
+  try {
+    // Check if this rider already has a valid name-based email stored
+    if (cleanMob.length >= 5) {
+      const existing = await db.query(
+        "SELECT email FROM renters WHERE (REPLACE(mobile, ' ', '') LIKE $1) AND email IS NOT NULL AND email != '' AND email NOT LIKE '%@evegah.com' OR (email LIKE '%@evegah.com' AND email NOT LIKE $2) LIMIT 1",
+        [`%${cleanMob}%`, `%${cleanMob}%`]
+      );
+      if (existing.rows.length > 0 && existing.rows[0].email && !existing.rows[0].email.includes(cleanMob)) {
+        return existing.rows[0].email.toLowerCase();
+      }
+    }
+
+    // Check for collisions with other riders having the same name
+    const conflicts = await db.query(
+      "SELECT email, mobile FROM renters WHERE email ILIKE $1",
+      [`${prefix}%@evegah.com`]
+    );
+
+    const otherEmails = new Set();
+    for (const row of conflicts.rows) {
+      const rowMob = (row.mobile || '').replace(/\D/g, '').slice(-10);
+      if (rowMob && rowMob === cleanMob) {
+        // Same rider
+        if (row.email && !row.email.includes(cleanMob)) {
+          return row.email.toLowerCase();
+        }
+      } else if (row.email) {
+        otherEmails.add(row.email.toLowerCase());
+      }
+    }
+
+    if (!otherEmails.has(baseEmail.toLowerCase())) {
+      return baseEmail;
+    }
+
+    let seq = 1;
+    while (otherEmails.has(`${prefix}${seq}@evegah.com`.toLowerCase())) {
+      seq++;
+    }
+    return `${prefix}${seq}@evegah.com`;
+  } catch (err) {
+    return baseEmail;
+  }
+}
+
 
 // GET /api/renters/check-mobile/:mobile
 router.get('/check-mobile/:mobile', async (req, res) => {
@@ -125,17 +194,20 @@ router.get('/profile', async (req, res) => {
     // 4. KYC Status & Details (Strictly verified only if actually completed/approved)
     const memoryKyc = effectiveLast10 ? RIDER_KYC_STORE[effectiveLast10] : null;
     const isKycDone = Boolean(
-      (renter?.kyc_status && renter.kyc_status.toLowerCase() === 'verified') ||
-      (memoryKyc && memoryKyc.kyc_status && memoryKyc.kyc_status.toLowerCase() === 'verified')
+      (renter?.kyc_status && ['verified', 'approved'].includes(renter.kyc_status.toLowerCase())) ||
+      (memoryKyc && memoryKyc.kyc_status && ['verified', 'approved'].includes(memoryKyc.kyc_status.toLowerCase()))
     );
     const kycStatus = isKycDone ? 'Verified' : (renter?.kyc_status || memoryKyc?.kyc_status || 'Under Review');
 
-    const ocrDetails = memoryKyc?.ocr_details || {
-      name: renter?.rider_name || 'Rider',
-      aadhaar_number: effectiveLast10 ? 'XXXX XXXX ' + effectiveLast10.slice(-4) : 'XXXX XXXX 4492',
-      dob: renter?.date_of_birth || '12 Mar 1998',
-      gender: renter?.gender || 'Male',
-      address: renter?.address || `${renter?.zone || 'Gotri Zone'}, Vadodara, Gujarat`
+    const ocrDetails = {
+      name: renter?.rider_name || memoryKyc?.ocr_details?.name || riderNameQuery || 'Rider',
+      aadhaar_number: renter?.aadhaar_number || memoryKyc?.ocr_details?.aadhaar_number || (effectiveLast10 ? 'XXXX XXXX ' + effectiveLast10.slice(-4) : 'XXXX XXXX 4492'),
+      dob: renter?.date_of_birth || memoryKyc?.ocr_details?.dob || '12 Mar 1998',
+      gender: renter?.gender || memoryKyc?.ocr_details?.gender || 'Male',
+      address: renter?.address || memoryKyc?.ocr_details?.address || `${renter?.zone || 'Gotri Zone'}, Vadodara, Gujarat`,
+      present_address: renter?.present_address || memoryKyc?.ocr_details?.present_address || renter?.address || `${renter?.zone || 'Gotri Zone'}, Vadodara`,
+      emergency_contact_name: renter?.emergency_contact_name || memoryKyc?.ocr_details?.emergency_contact_name || '',
+      emergency_contact_phone: renter?.emergency_contact_phone || memoryKyc?.ocr_details?.emergency_contact_phone || ''
     };
 
     // 5. Current Assignment & Ride Status
@@ -208,12 +280,16 @@ router.get('/profile', async (req, res) => {
       const dStr = new Date(r.created_at || r.reservation_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
       const fare = parseFloat(r.fare) || 0;
       if (!dailyMap.has(dStr)) {
-        dailyMap.set(dStr, { date: dStr, rides: 0, earnings: 0, distance: 0 });
+        dailyMap.set(dStr, { date: dStr, rides: 0, earnings: 0, distance: 0, co2: 0, completed: 0, cancelled: 0, rating: '4.9 ★' });
       }
       const item = dailyMap.get(dStr);
       item.rides += 1;
       item.earnings += fare;
       item.distance += 28;
+      item.co2 = parseFloat((item.distance * 0.08).toFixed(1));
+      item.completed = item.rides;
+      item.cancelled = 0;
+      item.rating = '4.9 ★';
     });
 
     const chartDailyData = Array.from(dailyMap.values()).reverse();
@@ -259,7 +335,7 @@ router.get('/profile', async (req, res) => {
     // 9. Badges & Achievements (Dynamically computed)
     const badges = [
       {
-        icon: '🚀',
+        icon: 'rocket',
         title: 'First Ride Pioneer',
         desc: 'Completed first EV ride',
         earned: totalRidesCount >= 1,
@@ -267,7 +343,7 @@ router.get('/profile', async (req, res) => {
         color: 'purple'
       },
       {
-        icon: '🏆',
+        icon: 'trophy',
         title: 'Active Commuter',
         desc: 'Booked 3+ EV rides',
         earned: totalRidesCount >= 3,
@@ -275,7 +351,7 @@ router.get('/profile', async (req, res) => {
         color: 'green'
       },
       {
-        icon: '🌿',
+        icon: 'leaf',
         title: 'Eco Hero',
         desc: 'Saved 25+ kg CO2 emissions',
         earned: totalRidesCount >= 2,
@@ -283,7 +359,7 @@ router.get('/profile', async (req, res) => {
         color: 'blue'
       },
       {
-        icon: '⭐',
+        icon: 'star',
         title: '5 Star Rated',
         desc: 'Maintained 4.8+ rating',
         earned: true,
@@ -292,13 +368,22 @@ router.get('/profile', async (req, res) => {
       }
     ];
 
+    const riderFinalName = renter?.rider_name || riderNameQuery || 'Rider';
+    let finalRiderEmail = renter?.email;
+    if (!finalRiderEmail || finalRiderEmail.includes(effectiveCleanMobile) || !finalRiderEmail.includes('@')) {
+      finalRiderEmail = await generateUniqueRiderEmail(riderFinalName, effectiveMobile);
+      if (renter?.id) {
+        db.query('UPDATE renters SET email = $1 WHERE id = $2', [finalRiderEmail, renter.id]).catch(() => {});
+      }
+    }
+
     res.json({
       status: 'success',
       data: {
         rider_id: renter?.id || riderId || 'RID-2026-001',
-        rider_name: renter?.rider_name || riderNameQuery || 'Rider',
+        rider_name: riderFinalName,
         mobile: effectiveMobile,
-        email: renter?.email || `${(effectiveCleanMobile || 'rider')}@evegah.com`,
+        email: finalRiderEmail,
         joined_on: joinedOnStr,
         kyc_status: kycStatus,
         is_kyc_verified: isKycDone,
@@ -308,10 +393,19 @@ router.get('/profile', async (req, res) => {
         performance_summary: {
           total_rides: totalRidesCount,
           distance_km: totalDistanceKm,
+          total_distance: `${totalDistanceKm} km`,
           avg_rating: '4.8 / 5',
+          rating: '4.8',
           total_earnings: `₹${totalEarningsAmount.toFixed(2)}`,
           total_deposit_held: `₹${(totalDepositAmount - totalRefundedDeposit).toFixed(2)}`,
-          co2_saved_kg: `${(totalDistanceKm * 0.08).toFixed(1)} kg`
+          co2_saved_kg: `${(totalDistanceKm * 0.08).toFixed(1)} kg`,
+          avg_earnings_per_ride: totalRidesCount > 0 ? (totalEarningsAmount / totalRidesCount).toFixed(2) : '0.00',
+          avg_distance_per_ride: totalRidesCount > 0 ? (totalDistanceKm / totalRidesCount).toFixed(1) + ' km' : '0 km',
+          avg_ride_time: totalRidesCount > 0 ? '35m' : '0m',
+          peak_ride_time: totalRidesCount > 0 ? '6 PM - 9 PM' : 'None',
+          weekly_active_days: `${Math.min(dailyMap.size, 7)} Days`,
+          return_rider_rate: totalRidesCount > 1 ? '100%' : (totalRidesCount === 1 ? '1st Ride' : '0%'),
+          ontime_rate: '98%'
         },
         earnings_breakdown: {
           total: `₹${totalEarningsAmount.toFixed(2)}`,
@@ -439,7 +533,8 @@ router.get('/', async (req, res) => {
           total: r.total || '0.00',
           avatar_url: r.avatar_url,
           wallet_balance: r.wallet_balance || 0,
-          kyc_status: r.kyc_status || 'Approved',
+          kyc_status: r.kyc_status || 'Under Review',
+          booking_source: r.booking_source || 'Form',
           booked_zones: new Set(r.zone ? [r.zone] : []),
           latest_zone: r.zone || null,
           has_active_ride: false
@@ -484,7 +579,8 @@ router.get('/', async (req, res) => {
           total: ((parseFloat(resv.fare) || 0) + (parseFloat(resv.deposit) || 0)).toFixed(2),
           avatar_url: null,
           wallet_balance: 0,
-          kyc_status: 'Approved',
+          kyc_status: 'Under Review',
+          booking_source: 'App',
           booked_zones: new Set(pZone ? [pZone] : []),
           latest_zone: pZone || null,
           has_active_ride: isOngoing
@@ -666,15 +762,22 @@ router.post('/', async (req, res) => {
       return res.json({ status: 'success', message: 'Renter profile updated successfully', data: updated.rows[0] });
     }
 
+    // Auto-generate email if missing or just numbers
+    let finalEmail = email;
+    if (!finalEmail || finalEmail.replace(/\D/g, '') === finalEmail.replace(/[@.a-z]/gi, '')) {
+      finalEmail = await generateUniqueRiderEmail(fullName, mobile);
+    }
+    const finalSource = req.body.booking_source || 'Form';
+
     // Otherwise insert new renter
     const result = await db.query(`
-      INSERT INTO renters (rider_name, mobile, email, address, date_of_birth, gender, vehicle_id, battery_id, package_name, rental_start_date, return_date, status, rent, deposit, total)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      INSERT INTO renters (rider_name, mobile, email, address, date_of_birth, gender, vehicle_id, battery_id, package_name, rental_start_date, return_date, status, rent, deposit, total, booking_source)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `, [
       fullName || 'Rider',
       mobile,
-      email || '',
+      finalEmail || '',
       address || '',
       dobVal,
       gender || 'Male',
@@ -686,7 +789,8 @@ router.post('/', async (req, res) => {
       status || 'No Active Ride',
       parseFloat(rent) || 0.00,
       parseFloat(deposit) || 0.00,
-      parseFloat(total) || 0.00
+      parseFloat(total) || 0.00,
+      finalSource
     ]);
 
     // Keep mock list in sync
@@ -842,15 +946,24 @@ router.post('/kyc', async (req, res) => {
           kyc_status = COALESCE($2, kyc_status),
           date_of_birth = COALESCE($3, date_of_birth),
           gender = COALESCE($4, gender),
-          address = COALESCE($5, address)
-      WHERE mobile LIKE $6
+          address = COALESCE($5, address),
+          aadhaar_number = COALESCE($6, aadhaar_number),
+          present_address = COALESCE($7, present_address),
+          emergency_contact_name = COALESCE($8, emergency_contact_name),
+          emergency_contact_phone = COALESCE($9, emergency_contact_phone)
+      WHERE mobile LIKE $10 OR id::text = $11
     `, [
       rider_name || null, 
       kyc_status || 'Under Review', 
       ocr_details?.dob || null, 
       ocr_details?.gender || null,
       ocr_details?.address || null,
-      `%${last10}`
+      ocr_details?.aadhaar_number || null,
+      ocr_details?.present_address || req.body.present_address || null,
+      ocr_details?.emergency_contact_name || req.body.emergency_contact_name || null,
+      ocr_details?.emergency_contact_phone || req.body.emergency_contact_phone || null,
+      `%${last10}`,
+      req.body.id || req.body.rider_id || ''
     ]);
 
     if (rider_name && rider_name.trim().length > 0) {
@@ -978,28 +1091,68 @@ router.get('/kyc', async (req, res) => {
   });
 });
 
-// POST /api/renters/documents - Save folder-wise documents for rider
+// POST /api/renters/send-whatsapp - Send direct WhatsApp notification to rider
+router.post('/send-whatsapp', async (req, res) => {
+  try {
+    const { mobile, message } = req.body;
+    if (!mobile || !message) {
+      return res.status(400).json({ status: 'error', message: 'Mobile number and message body are required' });
+    }
+
+    const { sendWhatsAppDirectMessage } = require('../utils/whatsapp');
+    const result = await sendWhatsAppDirectMessage({ mobile, message });
+
+    res.json({
+      status: 'success',
+      message: `WhatsApp message dispatched successfully to ${mobile}`,
+      result
+    });
+  } catch (err) {
+    console.error('Error sending WhatsApp message:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/renters/documents - Save or append folder-wise documents for rider
 router.post('/documents', (req, res) => {
-  const { mobile, rider_name, folders } = req.body;
+  const { mobile, rider_name, folders, folder_name, document } = req.body;
   const cleanMobile = (mobile || '').replace(/\D/g, '');
   const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : '';
   const key = last10 || 'default';
 
-  RIDER_DOCUMENTS_STORE[key] = {
-    mobile,
-    rider_name: rider_name || 'Rider',
-    folders: folders || [],
-    updated_at: new Date()
-  };
+  if (!RIDER_DOCUMENTS_STORE[key]) {
+    RIDER_DOCUMENTS_STORE[key] = {
+      mobile,
+      rider_name: rider_name || 'Rider',
+      folders: [],
+      updated_at: new Date()
+    };
+  }
+
+  if (Array.isArray(folders) && folders.length > 0) {
+    RIDER_DOCUMENTS_STORE[key].folders = folders;
+  } else if (folder_name && document) {
+    // Single document append
+    const existingFolder = RIDER_DOCUMENTS_STORE[key].folders.find(f => f.folder_name === folder_name);
+    if (existingFolder) {
+      existingFolder.documents.unshift(document);
+    } else {
+      RIDER_DOCUMENTS_STORE[key].folders.unshift({
+        folder_name,
+        date: document.date || new Date().toISOString().split('T')[0],
+        documents: [document]
+      });
+    }
+  }
 
   res.json({
     status: 'success',
-    message: 'Folder-wise rider documents uploaded successfully',
+    message: 'Rider document uploaded & saved successfully',
     data: RIDER_DOCUMENTS_STORE[key]
   });
 });
 
-// GET /api/renters/documents - Fetch folder-wise documents for rider profile page
+// GET /api/renters/documents - Fetch date-wise folder documents for rider profile page
 router.get('/documents', async (req, res) => {
   const mobile = req.query.mobile || req.query.search || '';
   const cleanMobile = (mobile || '').replace(/\D/g, '');
@@ -1010,49 +1163,83 @@ router.get('/documents', async (req, res) => {
     docData = RIDER_DOCUMENTS_STORE[last10];
   }
 
+  // Pull live selfie / KYC if present in RIDER_KYC_STORE
+  const kycStoreData = last10 ? RIDER_KYC_STORE[last10] : null;
+
   if (!docData) {
-    // Return standard folder structure
+    const today = new Date().toISOString().split('T')[0];
     docData = {
       mobile: mobile || '',
-      rider_name: 'Rider',
+      rider_name: kycStoreData?.rider_name || 'Rider',
       folders: [
         {
-          folder_name: "Identity Documents (Aadhaar Card)",
+          folder_name: "KYC Identity Documents",
+          date: today,
           documents: [
-            { doc_name: "Aadhaar Front Image", status: "Verified", date: new Date().toISOString().split('T')[0] },
-            { doc_name: "Aadhaar Back Image", status: "Verified", date: new Date().toISOString().split('T')[0] }
+            {
+              doc_name: "Aadhaar Card (Front)",
+              status: "Verified",
+              date: today,
+              type: "Identity Proof",
+              file_path: "/aadhaar_sample_front.png",
+              ocr_number: kycStoreData?.ocr_details?.aadhaar_number || ("XXXX XXXX " + (last10 ? last10.slice(-4) : "4492"))
+            },
+            {
+              doc_name: "Aadhaar Card (Back)",
+              status: "Verified",
+              date: today,
+              type: "Address Proof",
+              file_path: "/aadhaar_sample_back.png",
+              ocr_number: kycStoreData?.ocr_details?.aadhaar_number || ("XXXX XXXX " + (last10 ? last10.slice(-4) : "4492"))
+            }
           ]
         },
         {
-          folder_name: "Live Verification",
+          folder_name: "Live Selfie & Biometric Verification",
+          date: today,
           documents: [
-            { doc_name: "Live Selfie Photo", status: "Verified", date: new Date().toISOString().split('T')[0] }
+            {
+              doc_name: "Rider Live Selfie Photo",
+              status: "Verified",
+              date: today,
+              type: "Live Photo",
+              file_path: kycStoreData?.live_photo || "/rohit_avatar.png"
+            }
           ]
         },
         {
           folder_name: "Driving License & Agreements",
+          date: today,
           documents: [
-            { doc_name: "Driving License Photo", status: "Verified", date: new Date().toISOString().split('T')[0] }
-          ]
-        },
-        {
-          folder_name: "Pre-Ride Vehicle Inspection (Booking #BK-2026-01)",
-          documents: [
-            { doc_name: "Vehicle Front View", status: "Verified", date: new Date().toISOString().split('T')[0] },
-            { doc_name: "Vehicle Left & Right Side", status: "Verified", date: new Date().toISOString().split('T')[0] },
-            { doc_name: "Odometer / BMS Screen Reading", status: "Verified", date: new Date().toISOString().split('T')[0] },
-            { doc_name: "Helmet & Security Lock", status: "Verified", date: new Date().toISOString().split('T')[0] }
-          ]
-        },
-        {
-          folder_name: "Post-Ride Return Inspection",
-          documents: [
-            { doc_name: "Vehicle Return Inspection Photo", status: "Verified", date: new Date().toISOString().split('T')[0] },
-            { doc_name: "Final Odometer & Battery %", status: "Verified", date: new Date().toISOString().split('T')[0] }
+            {
+              doc_name: "Driving License (Smart Card)",
+              status: "Verified",
+              date: today,
+              type: "Driving License",
+              file_path: "/sample_dl.png",
+              ocr_number: "GJ-06-2022-0049281"
+            },
+            {
+              doc_name: "Evegah Rental Terms & Agreement",
+              status: "Verified",
+              date: today,
+              type: "Contract",
+              file_path: ""
+            }
           ]
         }
       ]
     };
+  }
+
+  // Filter out any folders that only contain empty dummy documents without a valid file_path
+  if (docData && Array.isArray(docData.folders)) {
+    docData.folders = docData.folders.filter(f => {
+      if (f.folder_name === "Pre-Ride Inspection Photos" || f.folder_name === "Post-Ride Return Inspection") {
+        return Array.isArray(f.documents) && f.documents.some(d => d.file_path && d.file_path.trim() !== '');
+      }
+      return true;
+    });
   }
 
   res.json({ status: 'success', data: docData });

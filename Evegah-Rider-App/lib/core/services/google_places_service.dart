@@ -30,97 +30,64 @@ class GooglePlacesService {
   static const String apiKey = 'AIzaSyC_Pn12n9hRH5jQdxU7hQUOPDy820ehjwo';
 
   // Local database of known Vadodara & Indian societies/localities for instant autocomplete
-  final List<PlacePrediction> _knownSocieties = [
+  static final List<PlacePrediction> _knownSocieties = [
     PlacePrediction(
-      description: "Sayaji Path, Subhanpura, Vadodara, Gujarat",
-      mainText: "39, Sayaji Path, Subhanpura",
-      secondaryText: "Subhanpura, Vadodara",
-      placeId: "loc_sayaji_subhanpura",
-      lat: 22.3150,
-      lng: 73.1740,
+      description: "Gotri Main Road, Vadodara, Gujarat",
+      mainText: "Gotri",
+      secondaryText: "Vadodara, Gujarat",
+      placeId: "loc_gotri",
+      lat: 22.3168,
+      lng: 73.1415,
     ),
     PlacePrediction(
-      description: "Alkapuri Hub, RC Dutt Road, Vadodara, Gujarat",
-      mainText: "Alkapuri Hub",
-      secondaryText: "RC Dutt Road, Alkapuri, Vadodara",
-      placeId: "loc_alkapuri_hub",
-      lat: 22.3072,
-      lng: 73.1812,
+      description: "Alkapuri, Vadodara, Gujarat",
+      mainText: "Alkapuri",
+      secondaryText: "Vadodara, Gujarat",
+      placeId: "loc_alkapuri",
+      lat: 22.3100,
+      lng: 73.1700,
     ),
     PlacePrediction(
-      description: "Gotri Station, Gotri Main Road, Vadodara, Gujarat",
-      mainText: "Gotri Station",
-      secondaryText: "Gotri Road, Vadodara",
-      placeId: "loc_gotri_station",
-      lat: 22.3129,
-      lng: 73.1674,
+      description: "Manjalpur, Vadodara, Gujarat",
+      mainText: "Manjalpur",
+      secondaryText: "Vadodara, Gujarat",
+      placeId: "loc_manjalpur",
+      lat: 22.2684,
+      lng: 73.1952,
     ),
     PlacePrediction(
-      description: "Gokul Society, Gotri Sevasi Road, Vadodara, Gujarat",
-      mainText: "Gokul Society",
-      secondaryText: "Gotri - Sevasi Main Road, Vadodara",
-      placeId: "loc_gokul_society",
-      lat: 22.3142,
-      lng: 73.1580,
-    ),
-    PlacePrediction(
-      description: "Shreeji Residency, Vasna Road, Vadodara, Gujarat",
-      mainText: "Shreeji Residency",
-      secondaryText: "Vasna Road, Vadodara",
-      placeId: "loc_shreeji_residency",
-      lat: 22.2890,
-      lng: 73.1620,
-    ),
-    PlacePrediction(
-      description: "Manjalpur EV Zone, Manjalpur Main Road, Vadodara, Gujarat",
-      mainText: "Manjalpur Zone",
-      secondaryText: "GIDC Industrial Estate, Manjalpur, Vadodara",
-      placeId: "loc_manjalpur_zone",
-      lat: 22.2680,
-      lng: 73.1950,
-    ),
-    PlacePrediction(
-      description: "KPGU University Campus, Varnama, Vadodara, Gujarat",
-      mainText: "KPGU Zone",
-      secondaryText: "NH 8, Varnama, Vadodara",
-      placeId: "loc_kpgu_zone",
-      lat: 22.1890,
-      lng: 73.2340,
-    ),
-    PlacePrediction(
-      description: "Akota Gardens, Old Padra Road, Vadodara, Gujarat",
-      mainText: "Akota Gardens",
-      secondaryText: "OP Road, Akota, Vadodara",
-      placeId: "loc_akota_gardens",
-      lat: 22.2965,
+      description: "Akota, Vadodara, Gujarat",
+      mainText: "Akota",
+      secondaryText: "Vadodara, Gujarat",
+      placeId: "loc_akota",
+      lat: 22.2900,
       lng: 73.1750,
     ),
     PlacePrediction(
-      description: "Fatehgunj Circle, Near Seven Seas Mall, Vadodara, Gujarat",
-      mainText: "Fatehgunj Circle",
-      secondaryText: "Convent School Road, Fatehgunj, Vadodara",
-      placeId: "loc_fatehgunj_circle",
-      lat: 22.3210,
-      lng: 73.1890,
+      description: "Vasna Road, Vadodara, Gujarat",
+      mainText: "Vasna Road",
+      secondaryText: "Vadodara, Gujarat",
+      placeId: "loc_vasna",
+      lat: 22.2910,
+      lng: 73.1610,
     ),
     PlacePrediction(
-      description: "Karelibaug EV Station, VIP Road, Vadodara, Gujarat",
-      mainText: "Karelibaug Station",
-      secondaryText: "VIP Road, Karelibaug, Vadodara",
-      placeId: "loc_karelibaug_station",
-      lat: 22.3280,
-      lng: 73.2050,
+      description: "Aatapi Wonderland, Ajwa Nimeta Road, Vadodara",
+      mainText: "Aatapi Wonderland",
+      secondaryText: "Ajwa Road, Vadodara",
+      placeId: "loc_aatapi",
+      lat: 22.3615,
+      lng: 73.3524,
     ),
     PlacePrediction(
-      description: "Centre Square Mall, Sayajiganj, Vadodara, Gujarat",
-      mainText: "Centre Square Mall",
-      secondaryText: "Near Genda Circle, Sayajiganj, Vadodara",
-      placeId: "loc_centre_square",
-      lat: 22.3115,
-      lng: 73.1785,
+      description: "KPGU Campus, Vadodara, Gujarat",
+      mainText: "KPGU Campus",
+      secondaryText: "Vadodara, Gujarat",
+      placeId: "loc_kpgu",
+      lat: 22.2510,
+      lng: 73.2140,
     ),
   ];
-
   /// Fetch Autocomplete place predictions given query text (Society Name, Area, Landmark)
   Future<List<PlacePrediction>> searchPlaces(String query) async {
     final cleanQuery = query.trim().toLowerCase();
@@ -215,9 +182,11 @@ class GooglePlacesService {
 
     try {
       if (prediction.placeId.startsWith('loc_')) {
-        // Find in local array
-        final found = _knownSocieties.firstWhere((p) => p.placeId == prediction.placeId);
-        return LatLng(found.lat!, found.lng!);
+        final found = _knownSocieties.firstWhere(
+          (p) => p.placeId == prediction.placeId,
+          orElse: () => _knownSocieties.first,
+        );
+        return LatLng(found.lat ?? 22.3072, found.lng ?? 73.1812);
       }
 
       // Call Place Details API

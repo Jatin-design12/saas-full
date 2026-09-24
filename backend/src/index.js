@@ -68,7 +68,7 @@ app.get('/api/v1/getzoneDetailWithBikeCountList', async (req, res) => {
   try {
     const [zonesRes, bikeCountsRes] = await Promise.all([
       require('./db').query('SELECT * FROM zones ORDER BY created_at DESC'),
-      require('./db').query("SELECT zone, COUNT(*)::int as count FROM vehicles WHERE vehicle_status = 'Available' GROUP BY zone").catch(() => ({ rows: [] }))
+      require('./db').query("SELECT zone, COUNT(*)::int as count FROM vehicles WHERE LOWER(vehicle_status) = 'available' GROUP BY zone").catch(() => ({ rows: [] }))
     ]);
 
     const bikeCountsMap = {};
@@ -172,8 +172,17 @@ app.post('/api/banners', (req, res) => {
   });
 });
 
-// Health check
+// Health check & Configured Alerts endpoints
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+app.get('/api/alerts/configured', (req, res) => {
+  try {
+    const { getConfiguredAlerts } = require('./cron/rideAlertCron');
+    res.json({ status: 'success', data: getConfiguredAlerts() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

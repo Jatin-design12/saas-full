@@ -97,11 +97,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     },
   ];
 
-  List<Map<String, dynamic>> _nearestZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
+  List<Map<String, dynamic>> _nearestZones = [];
   Position? _currentPosition;
   String _currentAddress = "Locating your position...";
   bool _isLoadingLocation = true;
-  bool _isLoadingZones = false;
+  bool _isLoadingZones = true;
 
   @override
   void initState() {
@@ -112,82 +112,173 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       setState(() {});
     });
     
-    _nearestZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
-    _isLoadingZones = false;
+    _nearestZones = [];
+    _isLoadingZones = true;
+    _isLoadingLocation = true;
 
-    _getCurrentLocation();
-    _fetchZones();
+    _loadLocationAndZones();
   }
 
-  Future<void> _getCurrentLocation() async {
+  Future<void> _loadLocationAndZones() async {
+    setState(() {
+      _isLoadingZones = true;
+      _isLoadingLocation = true;
+    });
+
+    // 1. Try to get cached position first for instantaneous coordinate resolution
+    Position? initialPos;
+    try {
+      initialPos = await Geolocator.getLastKnownPosition();
+    } catch (_) {}
+
+    // 2. Fetch fresh GPS position and backend raw zones concurrently
+    final locationFuture = _fetchCurrentPosition(fallback: initialPos);
+    final zonesFuture = _fetchRawZones();
+
+    final results = await Future.wait([locationFuture, zonesFuture]);
+    final Position? position = (results[0] as Position?) ?? initialPos;
+    final List<Map<String, dynamic>> rawZones = results[1] as List<Map<String, dynamic>>;
+
+    final Position refPosition = position ?? Position(
+      latitude: 22.3072,
+      longitude: 73.1812,
+      timestamp: DateTime.now(),
+      accuracy: 10,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+
+    // Calculate accurate road distances for all zones from the rider's position
+    final calculatedZones = _computeZoneDistances(rawZones, refPosition);
+
+    // Sort zones by distance (nearest zone first)
+    calculatedZones.sort((a, b) => (a['distanceVal'] as double).compareTo(b['distanceVal'] as double));
+
+    if (mounted) {
+      setState(() {
+        _currentPosition = position;
+        _nearestZones = calculatedZones;
+        _isLoadingZones = false;
+        _isLoadingLocation = false;
+        _selectedZoneIndex = 0;
+      });
+    }
+  }
+
+  Future<Position?> _fetchCurrentPosition({Position? fallback}) async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() {
-          _currentAddress = "Location services disabled";
-          _isLoadingLocation = false;
-        });
-        return;
+        _currentAddress = "${FranchiseService().activeFranchise.city}, India";
+        return fallback;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          setState(() {
-            _currentAddress = "Location permissions denied";
-            _isLoadingLocation = false;
-          });
-          return;
+          _currentAddress = "${FranchiseService().activeFranchise.city}, India";
+          return fallback;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          _currentAddress = "Permissions permanently denied";
-          _isLoadingLocation = false;
-        });
-        return;
+        _currentAddress = "${FranchiseService().activeFranchise.city}, India";
+        return fallback;
       }
 
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 3),
       );
-      
+
       String finalAddress = "${FranchiseService().activeFranchise.city}, India";
       try {
         final geocodeUrl = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=${position.latitude},${position.longitude}&key=AIzaSyC_Pn12n9hRH5jQdxU7hQUOPDy820ehjwo';
-        final geoRes = await http.get(Uri.parse(geocodeUrl)).timeout(const Duration(seconds: 3));
+        final geoRes = await http.get(Uri.parse(geocodeUrl)).timeout(const Duration(seconds: 2));
         if (geoRes.statusCode == 200) {
           final geoData = json.decode(geoRes.body);
           if (geoData['status'] == 'OK' && geoData['results'] != null && geoData['results'].isNotEmpty) {
             finalAddress = geoData['results'][0]['formatted_address'] ?? finalAddress;
           }
         }
-      } catch (ge) {
-        debugPrint("Failed to reverse geocode: $ge");
-      }
+      } catch (_) {}
 
-      setState(() {
-        _currentPosition = position;
-        _currentAddress = finalAddress;
-        _isLoadingLocation = false;
-      });
-
-      _updateZoneDistances(position);
+      _currentAddress = finalAddress;
+      return position;
     } catch (e) {
-      debugPrint("Error getting current location: $e");
-      String fallbackCity = "${FranchiseService().activeFranchise.city}, India";
-      setState(() {
-        _currentAddress = fallbackCity;
-        _isLoadingLocation = false;
-      });
+      debugPrint("Error fetching current position: $e");
+      _currentAddress = "${FranchiseService().activeFranchise.city}, India";
+      return fallback;
     }
   }
 
-  Future<void> _updateZoneDistances(Position position) async {
-    if (_nearestZones.isEmpty) return;
+  Future<List<Map<String, dynamic>>> _fetchRawZones() async {
+    final urls = [
+      AppConstants.getLiveZones,
+      '${AppConstants.apiBaseUrl}/zones',
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/v1/getzoneDetailWithBikeCountList',
+        'http://localhost:5000/api/v1/getzoneDetailWithBikeCountList',
+        'http://10.0.2.2:5000/api/v1/getzoneDetailWithBikeCountList',
+      ]
+    ];
 
+    for (final url in urls) {
+      try {
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['status'] == 'success' && data['data'] != null) {
+            final List rawList = data['data'];
+            final List dbList = rawList.where((z) {
+              final t = (z['type'] ?? '').toString().toLowerCase();
+              final n = (z['name'] ?? '').toString().toLowerCase();
+              return !t.contains('service') && !t.contains('maintenance') && !n.contains('service center');
+            }).toList();
+
+            if (dbList.isNotEmpty) {
+              return dbList.map((z) => {
+                ...Map<String, dynamic>.from(z as Map),
+                "id": z['id'],
+                "name": z['name'] ?? '',
+                "address": z['address'] ?? z['locality'] ?? '',
+                "phone": z['phone'] ?? z['contact_number'] ?? z['contact'] ?? "+91 98765 43210",
+                "image_url": z['image_url'] ?? z['image'] ?? "",
+                "map_link": z['map_link'] ?? "",
+                "open_time": z['open_time'] ?? "",
+                "close_time": z['close_time'] ?? "",
+                "is_24_hours": z['is_24_hours'] ?? false,
+                "bike_count": z['bike_count'] ?? z['available_vehicles'] ?? 0,
+                "available_vehicles": z['available_vehicles'] ?? z['bike_count'] ?? 0,
+                "hours": (z['is_24_hours'] == true)
+                    ? "Open 24x7"
+                    : (z['open_time'] != null && z['close_time'] != null && z['open_time'].toString().isNotEmpty && z['close_time'].toString().isNotEmpty
+                        ? "${z['open_time']} - ${z['close_time']}"
+                        : "Open 24x7"),
+                "isPopular": true,
+                "color": const Color(0xFFF5F3FF),
+                "iconColor": const Color(0xFF4313B8),
+                "center": z['center'],
+                "points": z['points'],
+                "pricing": z['pricing'],
+              }).toList();
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching raw zones from $url: $e");
+      }
+    }
+
+    return List<Map<String, dynamic>>.from(_defaultOperationalZones);
+  }
+
+  List<Map<String, dynamic>> _computeZoneDistances(List<Map<String, dynamic>> zoneList, Position position) {
     final knownCoordinates = {
       'gotri': const [22.3168, 73.1415],
       'manjalpur': const [22.2684, 73.1952],
@@ -203,10 +294,9 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     };
 
     List<Map<String, dynamic>> updated = [];
-    List<LatLng> destCoords = [];
 
-    for (int i = 0; i < _nearestZones.length; i++) {
-      var zone = _nearestZones[i];
+    for (int i = 0; i < zoneList.length; i++) {
+      var zone = zoneList[i];
       double? zoneLat;
       double? zoneLng;
 
@@ -266,9 +356,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       zoneLat ??= 22.3072 + (i * 0.015);
       zoneLng ??= 73.1812 + (i * 0.018);
 
-      destCoords.add(LatLng(zoneLat, zoneLng));
-
-      // Calculate geodesic straight line meters from rider's current position to zone
+      // Geodesic distance
       double straightLineMeters = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
@@ -277,7 +365,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       );
 
       double straightLineKm = straightLineMeters / 1000.0;
-      // Road driving distance multiplier: highway ~1.15x for long distance, city ~1.25x
       double estimatedRoadKm = straightLineKm > 50.0 ? (straightLineKm * 1.15) : (straightLineKm * 1.25);
 
       String formattedDist = estimatedRoadKm < 1.0
@@ -293,154 +380,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       });
     }
 
-    // Sort initial list by estimated road distance from rider's position
-    updated.sort((a, b) => (a['distanceVal'] as double).compareTo(b['distanceVal'] as double));
-
-    if (mounted) {
-      setState(() {
-        _nearestZones = updated;
-        _selectedZoneIndex = 0;
-      });
-    }
-
-    // Fetch exact Google Maps driving road distances via Distance Matrix API
-    try {
-      final roadMatrix = await GooglePlacesService().getBatchRoadDistances(
-        originLat: position.latitude,
-        originLng: position.longitude,
-        destinations: destCoords,
-      );
-
-      if (roadMatrix != null && roadMatrix.length == updated.length) {
-        List<Map<String, dynamic>> googleUpdated = [];
-        for (int i = 0; i < updated.length; i++) {
-          final zone = updated[i];
-          final LatLng zCoord = LatLng(zone['lat'] as double, zone['lng'] as double);
-
-          // Match matrix result corresponding to this zone coordinate
-          int matchIdx = destCoords.indexWhere((c) => (c.latitude - zCoord.latitude).abs() < 0.0001 && (c.longitude - zCoord.longitude).abs() < 0.0001);
-          if (matchIdx != -1 && matchIdx < roadMatrix.length) {
-            final gData = roadMatrix[matchIdx];
-            if (gData.isNotEmpty && gData['distanceText'] != null && gData['distanceKm'] != null) {
-              googleUpdated.add({
-                ...zone,
-                "distance": gData['distanceText'],
-                "distanceVal": gData['distanceKm'],
-                "drivingDuration": gData['durationText'] ?? '',
-              });
-              continue;
-            }
-          }
-          googleUpdated.add(zone);
-        }
-
-        // Sort by exact Google Maps driving distance from rider's position
-        googleUpdated.sort((a, b) => (a['distanceVal'] as double).compareTo(b['distanceVal'] as double));
-
-        if (mounted) {
-          setState(() {
-            _nearestZones = googleUpdated;
-            _selectedZoneIndex = 0;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Google Distance Matrix error: $e");
-    }
-  }
-
-  Future<void> _fetchZones() async {
-    setState(() => _isLoadingZones = true);
-
-    // Primary: Production HTTPS live endpoint
-    final urls = [
-      AppConstants.getLiveZones,
-      '${AppConstants.apiBaseUrl}/zones',
-      if (kDebugMode) ...[
-        'http://192.168.1.4:5000/api/v1/getzoneDetailWithBikeCountList',
-        'http://localhost:5000/api/v1/getzoneDetailWithBikeCountList',
-        'http://10.0.2.2:5000/api/v1/getzoneDetailWithBikeCountList',
-      ]
-    ];
-
-    bool found = false;
-    for (final url in urls) {
-      try {
-        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['status'] == 'success' && data['data'] != null) {
-            final List rawList = data['data'];
-            final List dbList = rawList.where((z) {
-              final t = (z['type'] ?? '').toString().toLowerCase();
-              final n = (z['name'] ?? '').toString().toLowerCase();
-              return !t.contains('service') && !t.contains('maintenance') && !n.contains('service center');
-            }).toList();
-            if (dbList.isNotEmpty) {
-              final mapped = dbList.map((z) => {
-                ...Map<String, dynamic>.from(z as Map),
-                "id": z['id'],
-                "name": z['name'] ?? '',
-                "distance": z['distance'] != null ? z['distance'].toString() : "-- km",
-                "address": z['address'] ?? z['locality'] ?? '',
-                "phone": z['phone'] ?? z['contact_number'] ?? z['contact'] ?? "+91 98765 43210",
-                "image_url": z['image_url'] ?? z['image'] ?? "",
-                "map_link": z['map_link'] ?? "",
-                "open_time": z['open_time'] ?? "",
-                "close_time": z['close_time'] ?? "",
-                "is_24_hours": z['is_24_hours'] ?? false,
-                "hours": (z['is_24_hours'] == true)
-                    ? "Open 24x7"
-                    : (z['open_time'] != null && z['close_time'] != null && z['open_time'].toString().isNotEmpty && z['close_time'].toString().isNotEmpty
-                        ? "${z['open_time']} - ${z['close_time']}"
-                        : "Open 24x7"),
-                "isPopular": true,
-                "color": const Color(0xFFF5F3FF),
-                "iconColor": const Color(0xFF4313B8),
-                "center": z['center'],
-                "points": z['points'],
-                "pricing": z['pricing'],
-              }).toList();
-
-              if (mounted) {
-                setState(() {
-                  _nearestZones = mapped;
-                  _isLoadingZones = false;
-                });
-
-                Position refPosition = _currentPosition ?? Position(
-                  latitude: 22.3072,
-                  longitude: 73.1812,
-                  timestamp: DateTime.now(),
-                  accuracy: 10,
-                  altitude: 0,
-                  altitudeAccuracy: 0,
-                  heading: 0,
-                  headingAccuracy: 0,
-                  speed: 0,
-                  speedAccuracy: 0,
-                );
-                _updateZoneDistances(refPosition);
-              }
-              found = true;
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint("Zone fetch error from $url: $e");
-      }
-    }
-
-    // Reliable fallback if offline or backend unreachable
-    if (mounted) {
-      setState(() {
-        if (_nearestZones.isEmpty) {
-          _nearestZones = List<Map<String, dynamic>>.from(_defaultOperationalZones);
-        }
-        _isLoadingZones = false;
-      });
-    }
+    return updated;
   }
 
 
@@ -474,8 +414,30 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                     const SizedBox(height: 12),
 
                     // --- 4. ZONES LIST CARDS ---
-                    if (_isLoadingZones && _nearestZones.isEmpty) ...[
-                      for (int i = 0; i < 3; i++)
+                    if (_isLoadingZones) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4313B8)),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Finding nearest EV zones from your location...",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      for (int i = 0; i < 4; i++)
                         Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.all(16),
@@ -493,13 +455,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                                   color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4313B8)),
-                                  ),
-                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -508,10 +463,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                                   children: [
                                     Container(width: 140, height: 14, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4))),
                                     const SizedBox(height: 6),
-                                    Container(width: 90, height: 10, decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(4))),
+                                    Container(width: 180, height: 10, decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(4))),
                                   ],
                                 ),
                               ),
+                              Container(width: 50, height: 14, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4))),
                             ],
                           ),
                         ),
@@ -526,7 +482,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                               const Text("No active zones found", style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                               const SizedBox(height: 8),
                               TextButton.icon(
-                                onPressed: _fetchZones,
+                                onPressed: _loadLocationAndZones,
                                 icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF4313B8)),
                                 label: const Text("Retry", style: TextStyle(color: Color(0xFF4313B8), fontWeight: FontWeight.bold)),
                               ),
@@ -618,7 +574,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
-                        hintText: "Search for a zone or location",
+                        hintText: "Search Nearest EVegah Zone",
                         hintStyle: TextStyle(fontSize: 14, color: Color(0xFF94A3B8), fontWeight: FontWeight.normal),
                       ),
                     ),
@@ -641,7 +597,31 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       ),
     );
   }
-
+ // Zone Banner Widget
+  Widget _buildZoneBanner() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Image.asset(
+          'assets/zone_banner.png',
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        ),
+      ),
+    );
+  }
   // Current Location Card
   Widget _buildCurrentLocationCard() {
     return Container(
@@ -715,50 +695,17 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     );
   }
 
-  // Zone Banner Widget
-  Widget _buildZoneBanner() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Image.asset(
-          'assets/zone_banner.png',
-          width: double.infinity,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        ),
-      ),
-    );
-  }
+ 
 
   // Nearest Zones Section Header
   Widget _buildNearestZonesHeader() {
     return Row(
       children: [
-        const Icon(Icons.navigation_outlined, size: 14, color: Color(0xFF4313B8)),
+        
         const SizedBox(width: 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Nearest Zones",
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-            ),
-            Text(
-              "Based on your current location",
-              style: TextStyle(fontSize: 9, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-            ),
-          ],
+          
         ),
       ],
     );
@@ -801,6 +748,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     final String phone = (zone["phone"] ?? "+91 98765 43210").toString();
     final String mapLink = (zone["map_link"] ?? "").toString();
     final String imageUrl = (zone["image_url"] ?? "").toString();
+    final int availableCount = int.tryParse(zone["available_vehicles"]?.toString() ?? zone["bike_count"]?.toString() ?? '0') ?? 0;
+    final bool hasVehicles = availableCount > 0;
 
     return GestureDetector(
       onTap: () {
@@ -858,20 +807,31 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                         ),
                       ),
-                      if (zone["isPopular"] == true) ...[
-                        const SizedBox(width: 6),
+                      const SizedBox(width: 6),
+                      if (hasVehicles)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDCFCE7),
                             borderRadius: BorderRadius.circular(6),
                           ),
+                          child: Text(
+                            "$availableCount Available",
+                            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                           child: const Text(
-                            "Operational",
-                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                            "No Available Vehicle",
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
                           ),
                         ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -910,6 +870,13 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                       ],
                     ),
                   ),
+                  if (!hasVehicles) ...[
+                    const SizedBox(height: 3),
+                    const Text(
+                      "No available vehicle in this zone",
+                      style: TextStyle(fontSize: 8.5, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1052,7 +1019,7 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
           ),
           SizedBox(
             width: 60,
-            height: 45,
+            height: 80,
             child: Image.asset("assets/city.png", fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.electric_scooter, color: Color(0xFF4313B8), size: 30)),
           ),
         ],
@@ -1090,6 +1057,17 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                   return;
                 }
                 final selectedZoneMap = _nearestZones[_selectedZoneIndex];
+                final int avail = int.tryParse(selectedZoneMap["available_vehicles"]?.toString() ?? selectedZoneMap["bike_count"]?.toString() ?? '0') ?? 0;
+                if (avail <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Currently, no vehicles are available at ${selectedZoneMap['name']}. Please select an active zone."),
+                      backgroundColor: const Color(0xFFDC2626),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  return;
+                }
                 widget.onLocationSelected(selectedZoneMap);
                 Navigator.pop(context, selectedZoneMap);
               },

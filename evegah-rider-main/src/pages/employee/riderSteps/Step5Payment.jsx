@@ -125,9 +125,9 @@ export default function Step5Payment() {
           method: "POST",
           body: {
             amount: qrAmount,
-            // ICICI expects merchantTranId + billNumber in the encrypted payload.
-            merchantTranId: `EVG${Date.now()}${Math.random().toString(16).slice(2, 6)}`.slice(0, 35),
-            billNumber: `EVG-${Date.now()}`.slice(0, 50),
+            // ICICI expects merchantTranId + billNumber in the encrypted payload (GTZ prefix required for UAT).
+            merchantTranId: `GTZ${Date.now()}${Math.random().toString(16).slice(2, 6)}`.slice(0, 35),
+            billNumber: `GTZ-${Date.now()}`.slice(0, 50),
           },
         });
         if (!cancelled) {

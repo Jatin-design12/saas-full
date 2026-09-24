@@ -1744,14 +1744,19 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> with SingleTicker
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
+            Image.asset(
+              'assets/no booking found.png',
+              height: 180,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.electric_scooter_rounded, size: 36, color: Color(0xFF94A3B8)),
               ),
-              child: const Icon(Icons.electric_scooter_rounded, size: 36, color: Color(0xFF94A3B8)),
             ),
             const SizedBox(height: 16),
             const Text(

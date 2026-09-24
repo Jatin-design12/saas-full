@@ -4,6 +4,15 @@ const db = require('../db');
 const { getCache, setCache, delByPattern } = require('../redis');
 const XLSX = require('xlsx');
 
+const invalidateFleetCache = async () => {
+  try {
+    await Promise.all([
+      delByPattern('vehicles:*'),
+      delByPattern('zones:*')
+    ]);
+  } catch (_) {}
+};
+
 // ============================================================
 // VEHICLE MODELS TABLE
 // ============================================================
@@ -335,97 +344,114 @@ router.get('/sample-excel', (req, res) => {
         'Vehicle Type': 'Rental',
         'Registration Number': 'GJ06-EV-2001',
         'Chassis Number': 'CHS90192841',
+        'Manufacturer': 'Evegah Motors',
+        'Battery Type': 'Lithium-Ion (NMC)',
+        'Motor Capacity': '2500W',
         'Motor Number': 'MTR440192',
+        'Motor Manufacturer': 'Bosch Drive',
         'Controller Number': 'CTL102938',
+        'Controller Manufacturer': 'Kelly Controls',
         'Color': 'Pearl White',
+        'Inventory City': 'Vadodara',
         'Zone': 'Gotri Zone',
+        'Franchise Name': 'Evegah Central Hub',
+        'Deployment Date': '2026-01-15',
+        'IOT Installed': 'Yes',
+        'IOT Number': 'IOT-8899201',
         'Vehicle Status': 'Available',
         'Battery Pct': 100,
-        'Current KM': 0,
-        'Total KM': 0,
-        'Manufacturer': 'Evegah Motors',
+        'Voltage (V)': 60.0,
+        'Current (A)': 30.0,
+        'KM Range': 85,
         'Purchase Date (YYYY-MM-DD)': '2026-01-10',
-        'Warranty Expiry (YYYY-MM-DD)': '2027-01-10',
+        'Warranty in Months': 24,
+        'Warranty Expiry (YYYY-MM-DD)': '2028-01-10',
         'Insurance Policy Number': 'POL-8819201',
         'Insurance Provider': 'HDFC ERGO',
         'Insurance Expiry (YYYY-MM-DD)': '2027-01-10',
+        'P.O.Number': 'PO-2026-0041'
       },
       {
-        'Vehicle Code *': 'EVG-CT-002',
-        'Model Name *': 'Evegah City 2.0',
+        'Vehicle Code *': 'EVG-PR-002',
+        'Model Name *': 'Evegah Pro Max',
         'Category': 'E-Scooter',
         'Vehicle Type': 'Rental',
         'Registration Number': 'GJ06-EV-2002',
         'Chassis Number': 'CHS90192842',
+        'Manufacturer': 'Evegah Motors',
+        'Battery Type': 'Lithium Iron Phosphate (LFP)',
+        'Motor Capacity': '3000W',
         'Motor Number': 'MTR440193',
+        'Motor Manufacturer': 'Bosch Drive',
         'Controller Number': 'CTL102939',
+        'Controller Manufacturer': 'Kelly Controls',
         'Color': 'Jet Black',
+        'Inventory City': 'Vadodara',
         'Zone': 'Manjalpur Zone',
+        'Franchise Name': 'Evegah South Hub',
+        'Deployment Date': '2026-02-01',
+        'IOT Installed': 'Yes',
+        'IOT Number': 'IOT-8899202',
         'Vehicle Status': 'Available',
         'Battery Pct': 95,
-        'Current KM': 15,
-        'Total KM': 15,
-        'Manufacturer': 'Evegah Motors',
-        'Purchase Date (YYYY-MM-DD)': '2026-01-10',
-        'Warranty Expiry (YYYY-MM-DD)': '2027-01-10',
+        'Voltage (V)': 72.0,
+        'Current (A)': 35.0,
+        'KM Range': 105,
+        'Purchase Date (YYYY-MM-DD)': '2026-01-20',
+        'Warranty in Months': 36,
+        'Warranty Expiry (YYYY-MM-DD)': '2029-01-20',
         'Insurance Policy Number': 'POL-8819202',
         'Insurance Provider': 'ICICI Lombard',
-        'Insurance Expiry (YYYY-MM-DD)': '2027-01-10',
-      },
-      {
-        'Vehicle Code *': 'EVG-PR-001',
-        'Model Name *': 'Evegah Pro Max',
-        'Category': 'E-Bike',
-        'Vehicle Type': 'Commercial',
-        'Registration Number': 'GJ06-EV-3001',
-        'Chassis Number': 'CHS90192843',
-        'Motor Number': 'MTR440194',
-        'Controller Number': 'CTL102940',
-        'Color': 'Flame Red',
-        'Zone': 'KPGU Zone',
-        'Vehicle Status': 'Available',
-        'Battery Pct': 98,
-        'Current KM': 5,
-        'Total KM': 5,
-        'Manufacturer': 'Evegah Motors',
-        'Purchase Date (YYYY-MM-DD)': '2026-02-01',
-        'Warranty Expiry (YYYY-MM-DD)': '2027-02-01',
-        'Insurance Policy Number': 'POL-8819203',
-        'Insurance Provider': 'Bajaj Allianz',
-        'Insurance Expiry (YYYY-MM-DD)': '2027-02-01',
-      },
+        'Insurance Expiry (YYYY-MM-DD)': '2027-01-20',
+        'P.O.Number': 'PO-2026-0042'
+      }
     ];
 
     const guideRows = [
       { 'Field Name': 'Vehicle Code *', 'Required': 'YES', 'Description': 'Unique identifier for the vehicle (e.g. EVG-CT-001)', 'Sample / Allowed Values': 'EVG-CT-001' },
-      { 'Field Name': 'Model Name *', 'Required': 'YES', 'Description': 'Model name of the vehicle', 'Sample / Allowed Values': 'Evegah City 2.0, Evegah Pro, Evegah Fly' },
+      { 'Field Name': 'Model Name *', 'Required': 'YES', 'Description': 'Model name of the vehicle', 'Sample / Allowed Values': 'Evegah City 2.0, Evegah Pro Max, Evegah Fly' },
       { 'Field Name': 'Category', 'Required': 'NO', 'Description': 'Category of EV', 'Sample / Allowed Values': 'E-Scooter, E-Bike, E-Loader' },
       { 'Field Name': 'Vehicle Type', 'Required': 'NO', 'Description': 'Usage classification', 'Sample / Allowed Values': 'Rental, Commercial, Delivery' },
       { 'Field Name': 'Registration Number', 'Required': 'NO', 'Description': 'RTO vehicle registration plate number', 'Sample / Allowed Values': 'GJ06-EV-2001' },
       { 'Field Name': 'Chassis Number', 'Required': 'NO', 'Description': 'Chassis / VIN number', 'Sample / Allowed Values': 'CHS90192841' },
+      { 'Field Name': 'Manufacturer', 'Required': 'NO', 'Description': 'Vehicle manufacturing company', 'Sample / Allowed Values': 'Evegah Motors' },
+      { 'Field Name': 'Battery Type', 'Required': 'NO', 'Description': 'Battery chemistry / pack type', 'Sample / Allowed Values': 'Lithium-Ion (NMC), LFP' },
+      { 'Field Name': 'Motor Capacity', 'Required': 'NO', 'Description': 'Motor wattage/rating', 'Sample / Allowed Values': '2500W, 3000W' },
       { 'Field Name': 'Motor Number', 'Required': 'NO', 'Description': 'Motor serial number', 'Sample / Allowed Values': 'MTR440192' },
+      { 'Field Name': 'Motor Manufacturer', 'Required': 'NO', 'Description': 'Motor manufacturer', 'Sample / Allowed Values': 'Bosch Drive' },
       { 'Field Name': 'Controller Number', 'Required': 'NO', 'Description': 'Controller serial number', 'Sample / Allowed Values': 'CTL102938' },
+      { 'Field Name': 'Controller Manufacturer', 'Required': 'NO', 'Description': 'Controller manufacturer', 'Sample / Allowed Values': 'Kelly Controls' },
       { 'Field Name': 'Color', 'Required': 'NO', 'Description': 'Vehicle color', 'Sample / Allowed Values': 'Pearl White, Jet Black, Ocean Blue' },
-      { 'Field Name': 'Zone', 'Required': 'NO', 'Description': 'Operating station / zone', 'Sample / Allowed Values': 'Gotri Zone, Manjalpur Zone, KPGU Zone, Aatapi Zone, Moti Daman Zone' },
+      { 'Field Name': 'Inventory City', 'Required': 'NO', 'Description': 'City location of inventory', 'Sample / Allowed Values': 'Vadodara, Surat, Ahmedabad' },
+      { 'Field Name': 'Zone', 'Required': 'NO', 'Description': 'Operating station / zone', 'Sample / Allowed Values': 'Gotri Zone, Manjalpur Zone, Aatapi Zone' },
+      { 'Field Name': 'Franchise Name', 'Required': 'NO', 'Description': 'Associated franchise', 'Sample / Allowed Values': 'Evegah Central Hub' },
+      { 'Field Name': 'Deployment Date', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2026-01-15' },
+      { 'Field Name': 'IOT Installed', 'Required': 'NO', 'Description': 'Whether GPS/IOT unit is fitted', 'Sample / Allowed Values': 'Yes / No' },
+      { 'Field Name': 'IOT Number', 'Required': 'NO', 'Description': 'IMEI or hardware tracking ID', 'Sample / Allowed Values': 'IOT-8899201' },
       { 'Field Name': 'Vehicle Status', 'Required': 'NO', 'Description': 'Initial operational status', 'Sample / Allowed Values': 'Available, In Ride, Maintenance, Offline' },
       { 'Field Name': 'Battery Pct', 'Required': 'NO', 'Description': 'Initial battery percentage (0-100)', 'Sample / Allowed Values': '100' },
-      { 'Field Name': 'Current KM', 'Required': 'NO', 'Description': 'Odometer current reading', 'Sample / Allowed Values': '0' },
-      { 'Field Name': 'Total KM', 'Required': 'NO', 'Description': 'Total accumulated km', 'Sample / Allowed Values': '0' },
-      { 'Field Name': 'Manufacturer', 'Required': 'NO', 'Description': 'Vehicle manufacturing company', 'Sample / Allowed Values': 'Evegah Motors' },
-      { 'Field Name': 'Purchase Date', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2026-01-10' },
-      { 'Field Name': 'Warranty Expiry', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2027-01-10' },
-      { 'Field Name': 'Insurance Policy Number', 'Required': 'NO', 'Description': 'Insurance policy document id', 'Sample / Allowed Values': 'POL-8819201' },
+      { 'Field Name': 'Voltage (V)', 'Required': 'NO', 'Description': 'Nominal system voltage', 'Sample / Allowed Values': '60.0' },
+      { 'Field Name': 'Current (A)', 'Required': 'NO', 'Description': 'Discharge current capacity', 'Sample / Allowed Values': '30.0' },
+      { 'Field Name': 'KM Range', 'Required': 'NO', 'Description': 'Certified full-charge range (km)', 'Sample / Allowed Values': '85' },
+      { 'Field Name': 'Purchase Date (YYYY-MM-DD)', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2026-01-10' },
+      { 'Field Name': 'Warranty in Months', 'Required': 'NO', 'Description': 'Warranty duration', 'Sample / Allowed Values': '24' },
+      { 'Field Name': 'Warranty Expiry (YYYY-MM-DD)', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2028-01-10' },
+      { 'Field Name': 'Insurance Policy Number', 'Required': 'NO', 'Description': 'Policy number', 'Sample / Allowed Values': 'POL-8819201' },
       { 'Field Name': 'Insurance Provider', 'Required': 'NO', 'Description': 'Insurance company name', 'Sample / Allowed Values': 'HDFC ERGO, ICICI Lombard' },
-      { 'Field Name': 'Insurance Expiry', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2027-01-10' },
+      { 'Field Name': 'Insurance Expiry (YYYY-MM-DD)', 'Required': 'NO', 'Description': 'Format: YYYY-MM-DD', 'Sample / Allowed Values': '2027-01-10' },
+      { 'Field Name': 'P.O.Number', 'Required': 'NO', 'Description': 'Purchase Order number', 'Sample / Allowed Values': 'PO-2026-0041' }
     ];
 
     const wb = XLSX.utils.book_new();
     const wsTemplate = XLSX.utils.json_to_sheet(sampleVehicles);
     wsTemplate['!cols'] = [
       { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 22 },
-      { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 },
-      { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
-      { wch: 25 }, { wch: 25 }, { wch: 24 }, { wch: 18 }, { wch: 25 },
+      { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 18 },
+      { wch: 20 }, { wch: 18 }, { wch: 22 }, { wch: 14 }, { wch: 16 },
+      { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 18 },
+      { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 24 }, { wch: 18 },
+      { wch: 25 }, { wch: 18 }
     ];
 
     const wsGuide = XLSX.utils.json_to_sheet(guideRows);
@@ -554,9 +580,7 @@ router.post('/bulk-import', async (req, res) => {
       }
     }
 
-    try {
-      await delByPattern('vehicles:*');
-    } catch (e) {}
+    await invalidateFleetCache();
 
     return res.json({
       status: 'success',
@@ -1540,6 +1564,8 @@ router.post('/', async (req, res) => {
       ]
     );
 
+    await invalidateFleetCache();
+
     return res.json({
       status: 'success',
       message: 'Vehicle saved successfully',
@@ -1716,6 +1742,8 @@ router.put('/:code', async (req, res) => {
       });
     }
 
+    await invalidateFleetCache();
+
     return res.json({
       status: 'success',
       message: 'Vehicle updated successfully',
@@ -1762,6 +1790,8 @@ router.delete('/:code', async (req, res) => {
         message: 'Vehicle not found'
       });
     }
+
+    await invalidateFleetCache();
 
     return res.json({
       status: 'success',
@@ -1820,6 +1850,8 @@ router.patch('/:id/zone', async (req, res) => {
         message: 'Vehicle not found'
       });
     }
+
+    await invalidateFleetCache();
 
     return res.json({
       status: 'success',

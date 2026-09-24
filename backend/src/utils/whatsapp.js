@@ -144,17 +144,20 @@ async function sendWhatsAppReceipt(firstArg, secondArg = {}) {
 /**
  * Send Direct Text Message via WhatsApp Cloud API
  */
-async function sendWhatsAppDirectMessage(mobile, textBody) {
-  if (!mobile) return { status: 'skipped', message: 'No mobile provided' };
+async function sendWhatsAppDirectMessage(firstArg, secondArg) {
+  let targetMobile = typeof firstArg === 'object' && firstArg !== null ? (firstArg.mobile || firstArg.to || firstArg.phone) : firstArg;
+  let targetText = typeof firstArg === 'object' && firstArg !== null ? (firstArg.message || firstArg.text || firstArg.textBody || firstArg.body) : secondArg;
+
+  if (!targetMobile) return { status: 'skipped', message: 'No mobile provided' };
   const token = getEnv('WHATSAPP_CLOUD_ACCESS_TOKEN');
   const phoneId = getEnv('WHATSAPP_PHONE_NUMBER_ID', '919221374614519');
   const version = getEnv('WHATSAPP_GRAPH_VERSION', 'v21.0').replace(/^v?/, 'v');
 
-  let cleanMobile = String(mobile).replace(/\D/g, '');
+  let cleanMobile = String(targetMobile).replace(/\D/g, '');
   if (cleanMobile.length === 10) cleanMobile = '91' + cleanMobile;
 
   if (!token) {
-    console.log(`[WhatsApp Mock] To: ${cleanMobile} | Message: ${textBody}`);
+    console.log(`[WhatsApp Mock] To: ${cleanMobile} | Message: ${targetText}`);
     return { status: 'mock_sent', message: 'Mock WhatsApp message logged (Token not set)' };
   }
 
@@ -163,7 +166,7 @@ async function sendWhatsAppDirectMessage(mobile, textBody) {
     messaging_product: 'whatsapp',
     to: cleanMobile,
     type: 'text',
-    text: { preview_url: false, body: textBody }
+    text: { preview_url: false, body: String(targetText || '') }
   };
 
   try {

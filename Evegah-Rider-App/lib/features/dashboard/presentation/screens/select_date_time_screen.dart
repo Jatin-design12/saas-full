@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
+import 'select_location_screen.dart';
 
 class SelectDateTimeScreen extends StatefulWidget {
   final bool initialIsPackageBased;
@@ -25,6 +26,10 @@ class SelectDateTimeScreen extends StatefulWidget {
 class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
   late bool isPackageBased;
   bool _isSelectingEnd = false;
+
+  late String _currentZoneName;
+  Map<String, dynamic>? _currentZoneData;
+  late DateTime _focusedMonth;
 
   // Real Date Selections
   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
@@ -108,6 +113,10 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
   @override
   void initState() {
     super.initState();
+    _currentZoneName = widget.zoneName ?? "Gotri Zone";
+    _currentZoneData = widget.zoneData;
+    _focusedMonth = DateTime(_startDate.year, _startDate.month, 1);
+
     isPackageBased = widget.initialIsPackageBased;
     if (widget.pricing != null && widget.pricing!['pricingModel'] != null) {
       isPackageBased = widget.pricing!['pricingModel'] == 'Package Based';
@@ -115,76 +124,20 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
     _initializeDynamicPackages();
   }
 
-  void _initializeDynamicPackages() async {
-    dynamic pricingObj = widget.pricing;
+  void _initializeDynamicPackagesForZone(Map<String, dynamic> zone) {
+    _currentZoneData = zone;
+    _currentZoneName = zone['name']?.toString() ?? _currentZoneName;
+    dynamic pricingObj = zone['pricing'];
     if (pricingObj is String) {
       try { pricingObj = json.decode(pricingObj); } catch (_) {}
     }
-
-    if (pricingObj == null && widget.zoneData != null) {
-      if (widget.zoneData!['pricing'] != null) {
-        pricingObj = widget.zoneData!['pricing'];
-        if (pricingObj is String) {
-          try { pricingObj = json.decode(pricingObj); } catch (_) {}
-        }
-      } else if (widget.zoneData!['packages'] != null) {
-        pricingObj = {'packages': widget.zoneData!['packages']};
-      }
+    if (pricingObj is Map && pricingObj['pricingModel'] != null) {
+      isPackageBased = pricingObj['pricingModel'] == 'Package Based';
     }
 
     List rawPkgs = [];
     if (pricingObj is Map && pricingObj['packages'] is List && (pricingObj['packages'] as List).isNotEmpty) {
       rawPkgs = pricingObj['packages'];
-      if (pricingObj['pricingModel'] != null) {
-        isPackageBased = pricingObj['pricingModel'] == 'Package Based';
-      }
-    }
-
-    // If still empty, try to fetch zone pricing dynamically from backend API for widget.zoneName
-    if (rawPkgs.isEmpty && widget.zoneName != null && widget.zoneName!.isNotEmpty) {
-      try {
-        final urls = [
-          AppConstants.getLiveZones,
-          '${AppConstants.apiBaseUrl}/zones',
-          if (kDebugMode) ...[
-            'http://192.168.1.4:5000/api/zones',
-            'http://localhost:5000/api/zones',
-          ]
-        ];
-        for (final url in urls) {
-          try {
-            final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
-            if (response.statusCode == 200) {
-              final data = json.decode(response.body);
-              if (data['status'] == 'success' && data['data'] is List) {
-                final List zones = data['data'];
-                final matched = zones.firstWhere(
-                  (z) => z['name'] != null && z['name'].toString().toLowerCase().trim() == widget.zoneName!.toLowerCase().trim(),
-                  orElse: () => zones.firstWhere(
-                    (z) => z['name'] != null && z['name'].toString().toLowerCase().contains(widget.zoneName!.toLowerCase()),
-                    orElse: () => null,
-                  ),
-                );
-                if (matched != null && matched['pricing'] != null) {
-                  dynamic p = matched['pricing'];
-                  if (p is String) {
-                    try { p = json.decode(p); } catch (_) {}
-                  }
-                  if (p is Map && p['packages'] is List && (p['packages'] as List).isNotEmpty) {
-                    rawPkgs = p['packages'];
-                    if (p['pricingModel'] != null) {
-                      isPackageBased = p['pricingModel'] == 'Package Based';
-                    }
-                    break;
-                  }
-                }
-              }
-            }
-          } catch (_) {}
-        }
-      } catch (e) {
-        debugPrint("Failed to fetch zone dynamic packages: $e");
-      }
     }
 
     if (rawPkgs.isNotEmpty) {
@@ -194,9 +147,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
         var pkg = rawPkgs[i];
         final name = pkg['name'] ?? '${pkg['duration'] ?? 3} Days';
         final titleKey = name.toString().toLowerCase().trim();
-        if (seenNames.contains(titleKey)) {
-          continue;
-        }
+        if (seenNames.contains(titleKey)) continue;
         seenNames.add(titleKey);
 
         final durationDays = pkg['duration'] != null ? pkg['duration'].toString() : '3';
@@ -220,14 +171,97 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
       }
 
       if (dynamicList.isNotEmpty) {
-        setState(() {
-          packageList = dynamicList;
-          selectedDurationChip = packageList[0]['title'];
-          selectedPackageIndex = 0;
-          final int duration = packageList[0]['duration'] ?? 3;
-          _endDate = _startDate.add(Duration(days: duration));
-        });
+        packageList = dynamicList;
+        selectedDurationChip = packageList[0]['title'];
+        selectedPackageIndex = 0;
+        final int duration = packageList[0]['duration'] ?? 3;
+        _endDate = _startDate.add(Duration(days: duration));
       }
+    }
+
+    final validPickupHours = _getOperatingHoursList(pickupPeriod);
+    if (!validPickupHours.contains(pickupHour)) {
+      pickupHour = validPickupHours.first;
+    }
+    if (isPackageBased) {
+      dropHour = pickupHour;
+      dropMinute = pickupMinute;
+      dropPeriod = pickupPeriod;
+    }
+  }
+
+  void _initializeDynamicPackages() async {
+    dynamic pricingObj = widget.pricing;
+    if (pricingObj is String) {
+      try { pricingObj = json.decode(pricingObj); } catch (_) {}
+    }
+
+    if (pricingObj == null && _currentZoneData != null) {
+      if (_currentZoneData!['pricing'] != null) {
+        pricingObj = _currentZoneData!['pricing'];
+        if (pricingObj is String) {
+          try { pricingObj = json.decode(pricingObj); } catch (_) {}
+        }
+      } else if (_currentZoneData!['packages'] != null) {
+        pricingObj = {'packages': _currentZoneData!['packages']};
+      }
+    }
+
+    List rawPkgs = [];
+    if (pricingObj is Map && pricingObj['packages'] is List && (pricingObj['packages'] as List).isNotEmpty) {
+      rawPkgs = pricingObj['packages'];
+      if (pricingObj['pricingModel'] != null) {
+        isPackageBased = pricingObj['pricingModel'] == 'Package Based';
+      }
+    }
+
+    try {
+      final urls = [
+        AppConstants.getLiveZones,
+        '${AppConstants.apiBaseUrl}/zones',
+        if (kDebugMode) ...[
+          'http://192.168.1.4:5000/api/zones',
+          'http://localhost:5000/api/zones',
+        ]
+      ];
+      for (final url in urls) {
+        try {
+          final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['status'] == 'success' && data['data'] is List) {
+              final List zones = data['data'];
+              final targetName = _currentZoneName.toLowerCase().trim();
+              final matched = zones.firstWhere(
+                (z) => z['name'] != null && z['name'].toString().toLowerCase().trim() == targetName,
+                orElse: () => zones.firstWhere(
+                  (z) => z['name'] != null && z['name'].toString().toLowerCase().contains(targetName),
+                  orElse: () => zones.isNotEmpty ? zones.first : null,
+                ),
+              );
+              if (matched != null) {
+                if (mounted) {
+                  setState(() {
+                    _currentZoneData = Map<String, dynamic>.from(matched);
+                    _currentZoneName = matched['name']?.toString() ?? _currentZoneName;
+                    _initializeDynamicPackagesForZone(_currentZoneData!);
+                  });
+                }
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch zone dynamic packages: $e");
+    }
+
+    if (rawPkgs.isNotEmpty) {
+      _initializeDynamicPackagesForZone({
+        'name': _currentZoneName,
+        'pricing': pricingObj,
+      });
     }
   }
 
@@ -436,7 +470,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  widget.zoneName ?? "Nani Daman, Daman",
+                  _currentZoneName,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -468,7 +502,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                     ],
                     Expanded(
                       child: Text(
-                        "Nearest to you: Gotri, Vadodara",
+                        "Operating: $zoneOperatingHoursText",
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -486,7 +520,24 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
           const SizedBox(width: 8),
           // Change Button
           InkWell(
-            onTap: () {},
+            onTap: () async {
+              final selectedZone = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SelectLocationScreen(
+                    currentCity: "Vadodara",
+                    onLocationSelected: (zone) {},
+                  ),
+                ),
+              );
+              if (selectedZone != null && mounted) {
+                setState(() {
+                  _currentZoneData = Map<String, dynamic>.from(selectedZone);
+                  _currentZoneName = selectedZone['name']?.toString() ?? _currentZoneName;
+                  _initializeDynamicPackagesForZone(_currentZoneData!);
+                });
+              }
+            },
             borderRadius: BorderRadius.circular(10),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -714,22 +765,19 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                   color: (() {
                     final today = DateTime.now();
                     final firstDayOfCurrentMonth = DateTime(today.year, today.month, 1);
-                    final firstDayOfPrevMonth = DateTime(_startDate.year, _startDate.month - 1, 1);
+                    final firstDayOfPrevMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
                     return firstDayOfPrevMonth.isBefore(firstDayOfCurrentMonth) ? const Color(0xFFCBD5E1) : const Color(0xFF64748B);
                   })(),
                 ),
                 onPressed: () {
                   final today = DateTime.now();
                   final firstDayOfCurrentMonth = DateTime(today.year, today.month, 1);
-                  final firstDayOfPrevMonth = DateTime(_startDate.year, _startDate.month - 1, 1);
+                  final firstDayOfPrevMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
                   if (firstDayOfPrevMonth.isBefore(firstDayOfCurrentMonth)) {
                     return;
                   }
                   setState(() {
-                    _startDate = DateTime(_startDate.year, _startDate.month - 1, _startDate.day);
-                    if (isPackageBased) {
-                      _endDate = _startDate.add(const Duration(days: 3));
-                    }
+                    _focusedMonth = firstDayOfPrevMonth;
                   });
                 },
                 padding: EdgeInsets.zero,
@@ -739,7 +787,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _getMonthName(_startDate),
+                    _getMonthName(_focusedMonth),
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -752,10 +800,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                 icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B)),
                 onPressed: () {
                   setState(() {
-                    _startDate = DateTime(_startDate.year, _startDate.month + 1, _startDate.day);
-                    if (isPackageBased) {
-                      _endDate = _startDate.add(const Duration(days: 3));
-                    }
+                    _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
                   });
                 },
                 padding: EdgeInsets.zero,
@@ -860,7 +905,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                     border: Border.all(color: const Color(0xFFDDD6FE)),
                   ),
                   child: Text(
-                    "${_endDate.difference(_startDate).inDays} Days",
+                    "${_endDate.difference(_startDate).inDays.clamp(1, 999)} Days",
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -877,19 +922,19 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
   }
 
   Widget _buildCalendarGrid() {
-    final firstDayOfMonth = DateTime(_startDate.year, _startDate.month, 1);
-    final lastDayOfMonth = DateTime(_startDate.year, _startDate.month + 1, 0);
+    final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final lastDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
     
     int firstWeekday = firstDayOfMonth.weekday % 7;
     final List<DateTime> calendarDays = [];
     
-    final prevMonthLastDay = DateTime(_startDate.year, _startDate.month, 0);
+    final prevMonthLastDay = DateTime(_focusedMonth.year, _focusedMonth.month, 0);
     for (int i = firstWeekday - 1; i >= 0; i--) {
       calendarDays.add(DateTime(prevMonthLastDay.year, prevMonthLastDay.month, prevMonthLastDay.day - i));
     }
     
     for (int i = 1; i <= lastDayOfMonth.day; i++) {
-      calendarDays.add(DateTime(_startDate.year, _startDate.month, i));
+      calendarDays.add(DateTime(_focusedMonth.year, _focusedMonth.month, i));
     }
     
     int remainingCells = 35 - calendarDays.length;
@@ -897,7 +942,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
       remainingCells = 42 - calendarDays.length;
     }
     for (int i = 1; i <= remainingCells; i++) {
-      calendarDays.add(DateTime(_startDate.year, _startDate.month + 1, i));
+      calendarDays.add(DateTime(_focusedMonth.year, _focusedMonth.month + 1, i));
     }
     
     final List<List<DateTime>> weeks = [];
@@ -912,7 +957,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: week.map((date) {
-              final bool isCurrentMonth = date.month == _startDate.month;
+              final bool isCurrentMonth = date.month == _focusedMonth.month && date.year == _focusedMonth.year;
               final bool isStart = DateUtils.isSameDay(date, _startDate);
               final bool isEnd = DateUtils.isSameDay(date, _endDate);
               final bool inRange = date.isAfter(_startDate) && date.isBefore(_endDate);
@@ -950,43 +995,40 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                 child: GestureDetector(
                   onTap: () {
                     if (isPast) return; // Block past dates
-                    if (isCurrentMonth) {
-                      setState(() {
-                        if (isPackageBased && selectedDurationChip != "Custom") {
+                    setState(() {
+                      if (isPackageBased && selectedDurationChip != "Custom") {
+                        _startDate = date;
+                        int duration = 3;
+                        final index = packageList.indexWhere((p) => p['title'] == selectedDurationChip);
+                        if (index != -1) {
+                          duration = packageList[index]['duration'] ?? 3;
+                        }
+                        _endDate = _startDate.add(Duration(days: duration));
+                        // In package mode, drop time matches pickup time exactly
+                        dropHour = pickupHour;
+                        dropMinute = pickupMinute;
+                        dropPeriod = pickupPeriod;
+                      } else {
+                        // Custom package or Hourly mode
+                        if (!_isSelectingEnd) {
                           _startDate = date;
-                          int duration = 3;
-                          final index = packageList.indexWhere((p) => p['title'] == selectedDurationChip);
-                          if (index != -1) {
-                            duration = packageList[index]['duration'] ?? 3;
-                          }
-                          _endDate = _startDate.add(Duration(days: duration));
+                          _endDate = date.add(const Duration(days: 1));
+                          _isSelectingEnd = true;
                         } else {
-                          // Hourly based allocation OR Custom duration: support custom start/end selection
-                          if (!_isSelectingEnd) {
-                            // Start of a brand new selection: set start date, clear/set end date to start
+                          if (date.isBefore(_startDate)) {
                             _startDate = date;
-                            _endDate = date;
+                            _endDate = date.add(const Duration(days: 1));
                             _isSelectingEnd = true;
                           } else {
-                            // We already have a start date and are selecting the end date
-                            if (date.isBefore(_startDate)) {
-                              // Clicked date is before start date: make it the new start date
-                              _startDate = date;
-                              _endDate = date;
-                              _isSelectingEnd = true;
-                            } else if (DateUtils.isSameDay(date, _startDate)) {
-                              // Clicked the same date again: set end date to start date (1-day selection)
-                              _endDate = _startDate;
-                              _isSelectingEnd = false;
-                            } else {
-                              // Clicked date is after start date: set it as the end date
-                              _endDate = date;
-                              _isSelectingEnd = false;
-                            }
+                            _endDate = date;
+                            _isSelectingEnd = false;
                           }
                         }
-                      });
-                    }
+                      }
+                      if (date.month != _focusedMonth.month || date.year != _focusedMonth.year) {
+                        _focusedMonth = DateTime(date.year, date.month, 1);
+                      }
+                    });
                   },
                   child: Column(
                     children: [
@@ -1021,65 +1063,46 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
     );
   }
 
-  // Package Cards Horizontal View
-
-
-  // Inclusions Bar
-  Widget _buildInclusionsBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.shield_outlined, color: Color(0xFF4313B8), size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "All packages include",
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4313B8),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    _InclusionItem(Icons.bolt_rounded, "Unlimited KM"),
-                    _InclusionItem(Icons.security_rounded, "Insurance"),
-                    _InclusionItem(Icons.access_time_rounded, "24/7 Support"),
-                    _InclusionItem(Icons.car_repair_rounded, "Roadside Assistance"),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatOperationalTime(String raw) {
+    final clean = raw.trim();
+    if (clean.isEmpty) return "06:00 AM";
+    if (clean.toUpperCase().contains("AM") || clean.toUpperCase().contains("PM")) {
+      return clean.toUpperCase();
+    }
+    String timeStr = clean;
+    if (!timeStr.contains(":") && timeStr.length == 4) {
+      timeStr = "${timeStr.substring(0, 2)}:${timeStr.substring(2)}";
+    }
+    final parts = timeStr.split(":");
+    int h = int.tryParse(parts[0]) ?? 6;
+    int m = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    final period = h >= 12 ? "PM" : "AM";
+    int h12 = h % 12;
+    if (h12 == 0) h12 = 12;
+    return "${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period";
   }
 
   int _parseTimeToMinutes(String tStr, {bool isClose = false}) {
-    if (tStr.trim().isEmpty) return isClose ? (23 * 60 + 59) : (6 * 60);
+    if (tStr.trim().isEmpty) return isClose ? (22 * 60) : (10 * 60);
     final clean = tStr.trim().toUpperCase();
-    bool isPm = clean.contains("PM");
-    bool isAm = clean.contains("AM");
-
-    String timePart = clean.replaceAll("AM", "").replaceAll("PM", "").trim();
-    List<String> parts = timePart.split(":");
-    int hour = int.tryParse(parts[0]) ?? (isClose ? 23 : 6);
+    if (clean.contains("AM") || clean.contains("PM")) {
+      bool isPm = clean.contains("PM");
+      bool isAm = clean.contains("AM");
+      String timePart = clean.replaceAll("AM", "").replaceAll("PM", "").trim();
+      List<String> parts = timePart.split(":");
+      int hour = int.tryParse(parts[0]) ?? (isClose ? 22 : 10);
+      int minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+      if (isPm && hour < 12) hour += 12;
+      if (isAm && hour == 12) hour = 0;
+      return hour * 60 + minute;
+    }
+    String timeStr = clean;
+    if (!timeStr.contains(":") && timeStr.length == 4) {
+      timeStr = "${timeStr.substring(0, 2)}:${timeStr.substring(2)}";
+    }
+    final parts = timeStr.split(":");
+    int hour = int.tryParse(parts[0]) ?? (isClose ? 22 : 10);
     int minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-
-    if (isPm && hour < 12) hour += 12;
-    if (isAm && hour == 12) hour = 0;
-
     return hour * 60 + minute;
   }
 
@@ -1092,24 +1115,24 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
   }
 
   String get zoneOperatingHoursText {
-    final zd = widget.zoneData ?? {};
-    if (zd['is_24_hours'] == true) return "06:00 AM - 11:00 PM (Open 24x7)";
+    final zd = _currentZoneData ?? widget.zoneData ?? {};
+    if (zd['is_24_hours'] == true) return "Open 24x7";
     if (zd['hours'] != null && zd['hours'].toString().isNotEmpty && !zd['hours'].toString().contains('Open 24x7')) {
       return zd['hours'].toString();
     }
-    final op = zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM';
-    final cl = zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM';
+    final op = _formatOperationalTime(zd['open_time']?.toString() ?? widget.pricing?['open_time']?.toString() ?? '10:00 AM');
+    final cl = _formatOperationalTime(zd['close_time']?.toString() ?? widget.pricing?['close_time']?.toString() ?? '10:00 PM');
     return "$op - $cl";
   }
 
   List<String> _getOperatingHoursList(String period) {
-    final zd = widget.zoneData ?? {};
+    final zd = _currentZoneData ?? widget.zoneData ?? {};
     if (zd['is_24_hours'] == true) {
       return List.generate(12, (i) => (i + 1).toString().padLeft(2, '0'));
     }
 
-    final opStr = (zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM').toString();
-    final clStr = (zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM').toString();
+    final opStr = (zd['open_time'] ?? widget.pricing?['open_time'] ?? '10:00 AM').toString();
+    final clStr = (zd['close_time'] ?? widget.pricing?['close_time'] ?? '10:00 PM').toString();
 
     int openMin = _parseTimeToMinutes(opStr, isClose: false);
     int closeMin = _parseTimeToMinutes(clStr, isClose: true);
@@ -1142,10 +1165,10 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
   }
 
   bool _isTimeWithinZoneHours(int timeInMinutes) {
-    final zd = widget.zoneData ?? {};
+    final zd = _currentZoneData ?? widget.zoneData ?? {};
     if (zd['is_24_hours'] == true) return true;
-    final opStr = (zd['open_time'] ?? widget.pricing?['open_time'] ?? '06:00 AM').toString();
-    final clStr = (zd['close_time'] ?? widget.pricing?['close_time'] ?? '11:00 PM').toString();
+    final opStr = (zd['open_time'] ?? widget.pricing?['open_time'] ?? '10:00 AM').toString();
+    final clStr = (zd['close_time'] ?? widget.pricing?['close_time'] ?? '10:00 PM').toString();
     
     int openMin = _parseTimeToMinutes(opStr, isClose: false);
     int closeMin = _parseTimeToMinutes(clStr, isClose: true);
@@ -1373,44 +1396,6 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
         _buildPickupDropTimePickers(),
         const SizedBox(height: 8),
 
-        // Quick Select Row
-        Row(
-          children: [
-            // Pickup Quick Select
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const Icon(Icons.access_time, size: 10, color: Color(0xFF4313B8)),
-                    const SizedBox(width: 2),
-                    const Text("Quick Select ", style: TextStyle(fontSize: 8, color: Color(0xFF64748B))),
-                    _buildQuickChip("9:00 AM", quickPickupTime == "9:00 AM", () => setState(() => quickPickupTime = "9:00 AM")),
-                    _buildQuickChip("10:00 AM", quickPickupTime == "10:00 AM", () => setState(() => quickPickupTime = "10:00 AM")),
-                    _buildQuickChip("11:00 AM", quickPickupTime == "11:00 AM", () => setState(() => quickPickupTime = "11:00 AM")),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Drop Quick Select
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const Icon(Icons.access_time, size: 10, color: Color(0xFF4313B8)),
-                    const SizedBox(width: 2),
-                    const Text("Quick Select ", style: TextStyle(fontSize: 8, color: Color(0xFF64748B))),
-                    _buildQuickChip("5:00 PM", quickDropTime == "5:00 PM", () => setState(() => quickDropTime = "5:00 PM")),
-                    _buildQuickChip("6:00 PM", quickDropTime == "6:00 PM", () => setState(() => quickDropTime = "6:00 PM")),
-                    _buildQuickChip("7:00 PM", quickDropTime == "7:00 PM", () => setState(() => quickDropTime = "7:00 PM")),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -1803,6 +1788,48 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
       debugPrint("Date overlap check error: $e");
     }
     return true;
+  }
+
+  // Inclusions Bar
+  Widget _buildInclusionsBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F3FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.shield_outlined, color: Color(0xFF4313B8), size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "All packages include",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4313B8),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    _InclusionItem(Icons.bolt_rounded, "Unlimited KM"),
+                   
+                    _InclusionItem(Icons.access_time_rounded, "Support"),
+                    _InclusionItem(Icons.car_repair_rounded, "Roadside Assistance"),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Bottom Continue Button

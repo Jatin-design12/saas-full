@@ -56,8 +56,8 @@ const CSS = `
 .rr-table td .vehicle-plate { font-size: 11px; color: #64748B; font-weight: 600; font-family: monospace; display: block; margin-top: 2px; }
 
 .rr-table td .pickup-drop { font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
-.rr-table td .zone-item-pickup { display: inline-flex; align-items: center; background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700; font-size: 11px; padding: 2.5px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.01em; }
-.rr-table td .zone-item-drop { display: inline-flex; align-items: center; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; font-weight: 700; font-size: 11px; padding: 2.5px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.01em; }
+.rr-table td .zone-item-pickup { display: inline-flex; align-items: center; color: #065F46; font-weight: 700; font-size: 11px; padding: 2.5px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.01em; }
+.rr-table td .zone-item-drop { display: inline-flex; align-items: center;  color: #991B1B;  font-weight: 700; font-size: 11px; padding: 2.5px 8px; border-radius: 6px; width: fit-content; letter-spacing: 0.01em; }
 
 .rr-table td .date-time { display: flex; flex-direction: column; gap: 2px; }
 .rr-table td .dt-item { display: flex; align-items: center; gap: 4px; color: #475569; font-weight: 600; }

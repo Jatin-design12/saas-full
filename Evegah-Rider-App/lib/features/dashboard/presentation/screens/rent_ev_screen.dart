@@ -940,7 +940,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      "Prices & packages may vary based on vehicle and zone.",
+                      "Prices & packages may vary based on models and zone.",
                       style: TextStyle(
                         fontSize: 8.5,
                         color: Color(0xFF166534),
@@ -949,24 +949,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                     ),
                   ],
                 ),
-                Row(
-                  children: const [
-                    Text(
-                      "Learn More",
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF16A34A),
-                      ),
-                    ),
-                    SizedBox(width: 2),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 10,
-                      color: Color(0xFF16A34A),
-                    ),
-                  ],
-                ),
+                
               ],
             ),
           ),
@@ -1009,11 +992,7 @@ class _RentEvScreenState extends State<RentEvScreen> {
                           size: 16,
                         ),
                       ),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 14,
-                        color: Color(0xFF4313B8),
-                      ),
+                     
                     ],
                   ),
                   Column(

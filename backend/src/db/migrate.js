@@ -308,7 +308,7 @@ const migrate = async () => {
     await db.query(`
       INSERT INTO users (name, email, role, mobile, zone, status, password)
       VALUES 
-        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 99999 88888', 'Multiple Zones', 'Active', 'admin123')
+        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 81282 51172', 'Multiple Zones', 'Active', 'admin123')
        
       ON CONFLICT (email) DO NOTHING
     `);

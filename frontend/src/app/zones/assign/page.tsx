@@ -1185,9 +1185,12 @@ export default function AssignZonePage() {
       'Moti Daman Zone': '1.05 km²'
     };
     return rawZones.map((z: any) => {
-      const zoneVehicles = rawVehicles.filter((v: any) => v.zone === z.name).length;
-      const zoneBatteries = rawBatteries.filter((b: any) => b.zone === z.name).length;
-      const zoneUsers = rawUsers.filter((u: any) => u.zone === z.name).length;
+      const zNameLower = (z.name || '').trim().toLowerCase();
+      const zoneVehicles = rawVehicles.filter((v: any) => (v.zone || '').trim().toLowerCase() === zNameLower).length;
+      const zoneBatteries = rawBatteries.filter((b: any) => (b.zone || '').trim().toLowerCase() === zNameLower).length;
+      const zoneUsers = rawUsers.filter((u: any) => 
+        (u.zone || '').split(',').map((zn: string) => zn.trim().toLowerCase()).includes(zNameLower)
+      ).length;
       return {
         id: z.name, // compares with selectedZoneId
         code: z.code || 'ZONE-CODE',
@@ -1344,17 +1347,16 @@ export default function AssignZonePage() {
         if (res && Array.isArray(res)) {
           const mappedBatteries = res.map((b: any) => ({
             id: b.battery_id,
-            serial: b.serial_no || b.battery_id,
-            capacity: '3.2 kWh',
-            health: `${b.health || 100}%`,
-            status: b.status === 'charging' ? 'Charging' : (b.status === 'low' ? 'Low' : 'Healthy'),
-            lastActive: b.updated_at ? new Date(b.updated_at).toLocaleString() : 'Never',
+            serial: b.serial_number || b.serial_no || b.battery_id,
+            capacity: b.capacity || '60V / 30Ah',
+            health: `${b.health || b.soh || 100}%`,
+            status: b.status === 'charging' ? 'Charging' : ((b.status || '').toLowerCase().includes('use') ? 'In Use' : 'Available'),
+            lastActive: b.updated_at ? new Date(b.updated_at).toLocaleString() : 'Active',
             zone: b.zone || 'Unassigned',
             checked: false
           }));
           setRawBatteries(mappedBatteries);
-          // Set unassigned batteries for Step 2 checkable selection list
-          setBatteries(mappedBatteries.filter((b: any) => !b.zone || b.zone === 'Unassigned' || b.zone === ''));
+          setBatteries(mappedBatteries.filter((b: any) => !b.zone || b.zone.toLowerCase() === 'unassigned' || b.zone === ''));
         }
       })
       .catch(err => console.error('Error fetching batteries:', err));
@@ -1393,27 +1395,35 @@ export default function AssignZonePage() {
       return;
     }
 
+    const selZoneLower = selectedZoneId.trim().toLowerCase();
+
     setVehicles(rawVehicles
-      .filter(v => !v.zone || v.zone === 'Unassigned' || v.zone === '' || v.zone === selectedZoneId)
+      .filter(v => {
+        const vz = (v.zone || '').trim().toLowerCase();
+        return !vz || vz === 'unassigned' || vz === '' || vz === selZoneLower;
+      })
       .map(v => ({
         ...v,
-        checked: v.zone === selectedZoneId
+        checked: (v.zone || '').trim().toLowerCase() === selZoneLower
       }))
     );
 
-    setUsers(rawUsers
-      .filter(u => !u.zone || u.zone === 'Unassigned' || u.zone === '' || u.zone === selectedZoneId)
-      .map(u => ({
+    setUsers(rawUsers.map(u => {
+      const userZones = (u.zone || '').split(',').map((z: string) => z.trim().toLowerCase());
+      return {
         ...u,
-        checked: u.zone === selectedZoneId
-      }))
-    );
+        checked: userZones.includes(selZoneLower)
+      };
+    }));
 
     setBatteries(rawBatteries
-      .filter(b => !b.zone || b.zone === 'Unassigned' || b.zone === '' || b.zone === selectedZoneId)
+      .filter(b => {
+        const bz = (b.zone || '').trim().toLowerCase();
+        return !bz || bz === 'unassigned' || bz === '' || bz === selZoneLower;
+      })
       .map(b => ({
         ...b,
-        checked: b.zone === selectedZoneId
+        checked: (b.zone || '').trim().toLowerCase() === selZoneLower
       }))
     );
   }, [selectedZoneId, rawVehicles, rawUsers, rawBatteries]);
@@ -1624,9 +1634,15 @@ export default function AssignZonePage() {
         ));
       }
       if (selectedUsers.length > 0) {
-        await Promise.all(selectedUsers.map(u => 
-          api.patch(`/users/${u.id}/zone`, { zone: selectedZoneId })
-        ));
+        await Promise.all(selectedUsers.map(u => {
+          const rawUser = rawUsers.find(ru => ru.id === u.id);
+          const currentZones = (rawUser?.zone || '').split(',').map((z: string) => z.trim()).filter(Boolean);
+          if (!currentZones.includes(selectedZoneId)) {
+            currentZones.push(selectedZoneId);
+          }
+          const updatedZoneStr = currentZones.filter((z: string) => z !== 'Unassigned').join(', ') || selectedZoneId;
+          return api.patch(`/users/${u.id}/zone`, { zone: updatedZoneStr });
+        }));
       }
       if (selectedBatteries.length > 0) {
         await Promise.all(selectedBatteries.map(b => 
@@ -1640,9 +1656,13 @@ export default function AssignZonePage() {
         ));
       }
       if (unassignedUsers.length > 0) {
-        await Promise.all(unassignedUsers.map(u => 
-          api.patch(`/users/${u.id}/zone`, { zone: 'Unassigned' })
-        ));
+        await Promise.all(unassignedUsers.map(u => {
+          const rawUser = rawUsers.find(ru => ru.id === u.id);
+          const currentZones = (rawUser?.zone || '').split(',').map((z: string) => z.trim()).filter(Boolean);
+          const remainingZones = currentZones.filter((z: string) => z !== selectedZoneId && z !== 'Unassigned');
+          const updatedZoneStr = remainingZones.join(', ') || 'Unassigned';
+          return api.patch(`/users/${u.id}/zone`, { zone: updatedZoneStr });
+        }));
       }
       if (unassignedBatteries.length > 0) {
         await Promise.all(unassignedBatteries.map(b => 
@@ -3301,12 +3321,12 @@ export default function AssignZonePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rawUsers.filter((u: any) => u.zone === viewingZoneResources.id).length === 0 ? (
+                      {rawUsers.filter((u: any) => (u.zone || '').split(',').map((zn: string) => zn.trim().toLowerCase()).includes(viewingZoneResources.id.toLowerCase())).length === 0 ? (
                         <tr>
                           <td colSpan={3} style={{ textAlign: 'center', color: '#94A3B8', padding: '20px' }}>No users allocated</td>
                         </tr>
                       ) : (
-                        rawUsers.filter((u: any) => u.zone === viewingZoneResources.id).map((u: any) => (
+                        rawUsers.filter((u: any) => (u.zone || '').split(',').map((zn: string) => zn.trim().toLowerCase()).includes(viewingZoneResources.id.toLowerCase())).map((u: any) => (
                           <tr key={u.id}>
                             <td style={{ fontWeight: 700 }}>{u.name}</td>
                             <td>{u.role}</td>

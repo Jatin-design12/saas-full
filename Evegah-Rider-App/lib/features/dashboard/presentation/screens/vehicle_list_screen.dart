@@ -37,7 +37,6 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   int _selectedVehicleIndex = 0;
   bool _isLoading = false;
   List<Map<String, dynamic>> _fetchedVehicles = [];
-
   final List<String> _categories = [
     "All",
     "🛵 E-Scooter",
@@ -46,10 +45,25 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     "🚲 E-Cycle",
   ];
 
-  final List<Map<String, dynamic>> _vehicles = [];
+  List<Map<String, dynamic>> get _filteredVehicles {
+    if (_selectedCategory == "All") return _fetchedVehicles;
+    return _fetchedVehicles.where((v) {
+      final String cat = (v['category'] ?? '').toString().toLowerCase();
+      final String name = (v['name'] ?? '').toString().toLowerCase();
+      if (_selectedCategory.contains("Scooter")) {
+        return cat.contains('scooter') || name.contains('city') || name.contains('pro');
+      } else if (_selectedCategory.contains("Bike")) {
+        return cat.contains('bike');
+      } else if (_selectedCategory.contains("Moped")) {
+        return cat.contains('moped') || name.contains('fly') || name.contains('mink');
+      } else if (_selectedCategory.contains("Cycle")) {
+        return cat.contains('cycle');
+      }
+      return true;
+    }).toList();
+  }
 
   Map<String, dynamic>? _zonePricing;
-
   DateTime? _parseDateTimeString(String dtStr) {
     try {
       if (dtStr.toLowerCase().contains("select")) return null;
@@ -213,7 +227,11 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     setState(() { _isLoading = true; });
     final urls = [
       '${AppConstants.apiBaseUrl}/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
-      AppConstants.getLiveZones,
+      if (kDebugMode) ...[
+        'http://192.168.1.4:5000/api/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
+        'http://localhost:5000/api/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
+        'http://10.0.2.2:5000/api/vehicles?zone=${Uri.encodeComponent(widget.selectedZone)}',
+      ]
     ];
 
     String formatSpeed(dynamic val) {
@@ -230,56 +248,62 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           final data = json.decode(response.body);
           if (data['status'] == 'success' && data['data'] != null) {
             final List dbList = data['data'];
-            if (dbList.isNotEmpty) {
-              final Map<String, List<dynamic>> grouped = {};
-              for (var v in dbList) {
-                final String modelName = v['evegah_model_name'] ?? v['name'] ?? 'Evegah City';
-                grouped.putIfAbsent(modelName, () => []).add(v);
-              }
-
-              final List<Map<String, dynamic>> mappedList = [];
-              grouped.forEach((modelName, list) {
-                final first = list.first;
-                String img = 'assets/city.png';
-                if (modelName.toLowerCase().contains('mink')) img = 'assets/mink.png';
-                else if (modelName.toLowerCase().contains('fly')) img = 'assets/kick_scooter_fly.png';
-
-                final int totalUnits = list.length;
-                final int availableUnits = list.where((v) => v['vehicle_status'] == 'Available' || v['status'] == 'Available').length;
-                final int stock = availableUnits > 0 ? availableUnits : (first['bikeCount'] ?? 5);
-
-                mappedList.add({
-                  "name": modelName,
-                  "tag": stock > 0 ? "Available ($stock left)" : "Not available",
-                  "tagColor": stock > 0 ? const Color(0xFFDEF7EC) : const Color(0xFFFDE8E8),
-                  "tagTextColor": stock > 0 ? const Color(0xFF03543F) : const Color(0xFF9B1C1C),
-                  "range": "80–100 km",
-                  "speed": formatSpeed(first['speed']),
-                  "features": ["Fast Charge", "Smart Lock", "Spacious Seat"],
-                  "dailyPrice": "₹350",
-                  "hourlyPrice": "Hourly: ₹35 / 30 min",
-                  "totalPrice": "₹350",
-                  "originalPrice": "₹422",
-                  "discount": "17% OFF",
-                  "image": img,
-                  "isPopular": true,
-                  "popularBadge": "Most Popular",
-                  "isFavorite": false,
-                  "category": first['category'] ?? 'E-Scooter',
-                  "stock": stock,
-                  "vehicles": list,
-                });
+            if (dbList.isEmpty) {
+              setState(() {
+                _fetchedVehicles = [];
+                _isLoading = false;
               });
-
-              if (mappedList.isNotEmpty) {
-                setState(() {
-                  _fetchedVehicles = mappedList;
-                  _isLoading = false;
-                  _updateVehiclePricesAndDeposits();
-                });
-                return;
-              }
+              return;
             }
+
+            final Map<String, List<dynamic>> grouped = {};
+            for (var v in dbList) {
+              final String modelName = v['evegah_model_name'] ?? v['name'] ?? 'Evegah City';
+              grouped.putIfAbsent(modelName, () => []).add(v);
+            }
+
+            final List<Map<String, dynamic>> mappedList = [];
+            grouped.forEach((modelName, list) {
+              final first = list.first;
+              String img = 'assets/city.png';
+              if (modelName.toLowerCase().contains('mink')) img = 'assets/mink.png';
+              else if (modelName.toLowerCase().contains('fly')) img = 'assets/kick_scooter_fly.png';
+
+              final int availableUnits = list.where((v) => 
+                (v['vehicle_status'] ?? '').toString().toLowerCase() == 'available' || 
+                (v['status'] ?? '').toString().toLowerCase() == 'available'
+              ).length;
+              final int stock = availableUnits;
+
+              mappedList.add({
+                "name": modelName,
+                "tag": stock > 0 ? "Available ($stock left)" : "No Available Vehicle",
+                "tagColor": stock > 0 ? const Color(0xFFDEF7EC) : const Color(0xFFFDE8E8),
+                "tagTextColor": stock > 0 ? const Color(0xFF03543F) : const Color(0xFF9B1C1C),
+                "range": "80–100 km",
+                "speed": formatSpeed(first['speed']),
+                "features": ["Fast Charge", "Smart Lock", "Spacious Seat"],
+                "dailyPrice": "₹350",
+                "hourlyPrice": "Hourly: ₹35 / 30 min",
+                "totalPrice": "₹350",
+                "originalPrice": "₹422",
+                "discount": "17% OFF",
+                "image": img,
+                "isPopular": true,
+                "popularBadge": "Most Popular",
+                "isFavorite": false,
+                "category": first['category'] ?? 'E-Scooter',
+                "stock": stock,
+                "vehicles": list,
+              });
+            });
+
+            setState(() {
+              _fetchedVehicles = mappedList;
+              _isLoading = false;
+              _updateVehiclePricesAndDeposits();
+            });
+            return;
           }
         }
       } catch (e) {
@@ -287,33 +311,9 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
       }
     }
 
-    // Default backend synced EV list if server unreachable
-    final defaultStock = 5;
     setState(() {
-      _fetchedVehicles = [
-        {
-          "name": "Evegah City",
-          "tag": "Available ($defaultStock left)",
-          "tagColor": const Color(0xFFDEF7EC),
-          "tagTextColor": const Color(0xFF03543F),
-          "range": "80–100 km",
-          "speed": "45 km/h",
-          "features": ["Fast Charge", "Smart Lock", "Spacious Seat"],
-          "dailyPrice": "₹350",
-          "hourlyPrice": "Hourly: ₹35 / 30 min",
-          "totalPrice": "₹350",
-          "originalPrice": "₹422",
-          "discount": "17% OFF",
-          "image": "assets/city.png",
-          "isPopular": true,
-          "popularBadge": "Most Popular",
-          "isFavorite": false,
-          "category": "E-Scooter",
-          "stock": defaultStock,
-        },
-      ];
+      _fetchedVehicles = [];
       _isLoading = false;
-      _updateVehiclePricesAndDeposits();
     });
   }
 
@@ -381,21 +381,25 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
         final String modelName = v['name'] ?? 'Evegah City';
         final cleanVModel = cleanModelName(modelName);
         
-        double basePrice = 499.0;
+        double basePrice = 350.0;
         double deposit = 500.0;
-        String hourlyPriceText = "Hourly: ₹35 / 30 min";
-        String dailyPriceText = "₹499";
+        String hourlyPriceText = "Zone Rate";
+        String dailyPriceText = "₹350";
         
         if (pricingModel == 'Hourly Based') {
           final hourlyRow = hourlyPricing.firstWhere(
             (r) => cleanModelName(r['model'].toString()) == cleanVModel,
             orElse: () => null,
-          );
+          ) ?? (hourlyPricing.isNotEmpty ? hourlyPricing.first : null);
+
           if (hourlyRow != null) {
             basePrice = double.tryParse(hourlyRow['basePrice'].toString()) ?? 70.0;
             deposit = double.tryParse(hourlyRow['deposit']?.toString() ?? '500') ?? 500.0;
-            hourlyPriceText = "Extra: ₹${hourlyRow['extraPrice']}/${hourlyRow['roundingRule'] ?? '15m'}";
+            hourlyPriceText = "Extra: ₹${hourlyRow['extraPrice'] ?? 10}/${hourlyRow['roundingRule'] ?? '15m'}";
             dailyPriceText = "₹${(basePrice).toStringAsFixed(0)}/hr";
+          } else {
+            dailyPriceText = "Price on Request";
+            hourlyPriceText = "Contact Zone";
           }
         } else {
           // Find package matching both model name and selected duration
@@ -406,15 +410,18 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           ) ?? packages.firstWhere(
             (p) => cleanModelName(p['model'].toString()) == cleanVModel,
             orElse: () => null,
-          );
+          ) ?? (packages.isNotEmpty ? packages.first : null);
 
           if (pkgRow != null) {
-            final double pkgPrice = double.tryParse(pkgRow['price'].toString()) ?? 899.0;
-            final int duration = int.tryParse(pkgRow['duration'].toString()) ?? 3;
+            final double pkgPrice = double.tryParse(pkgRow['price'].toString()) ?? 350.0;
+            final int duration = int.tryParse(pkgRow['duration'].toString()) ?? 1;
             basePrice = duration > 0 ? pkgPrice / duration : pkgPrice;
             deposit = double.tryParse(pkgRow['deposit']?.toString() ?? '500') ?? 500.0;
             hourlyPriceText = "Package: ${pkgRow['name'] ?? '$duration Days'}";
             dailyPriceText = "₹${basePrice.toStringAsFixed(0)}";
+          } else {
+            dailyPriceText = "Price on Request";
+            hourlyPriceText = "Contact Zone";
           }
         }
         
@@ -432,8 +439,10 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedVehicle = _fetchedVehicles.isNotEmpty
-        ? _fetchedVehicles[_selectedVehicleIndex < _fetchedVehicles.length ? _selectedVehicleIndex : 0]
+    final filtered = _filteredVehicles;
+    final bool isNoVehicleAvailable = _fetchedVehicles.isEmpty || _fetchedVehicles.every((v) => (v['stock'] as int? ?? 0) <= 0);
+    final selectedVehicle = (!isNoVehicleAvailable && filtered.isNotEmpty)
+        ? filtered[_selectedVehicleIndex < filtered.length ? _selectedVehicleIndex : 0]
         : null;
 
     return Scaffold(
@@ -463,28 +472,130 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                     _buildPickupZoneCard(),
                     const SizedBox(height: 14),
 
-                    if (_fetchedVehicles.isEmpty && !_isLoading) ...[
-                      const SizedBox(height: 50),
-                      const Center(
-                        child: Text(
-                          "No operational vehicles assigned to this zone.",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF64748B),
+                    if (isNoVehicleAvailable && !_isLoading) ...[
+                      const SizedBox(height: 30),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.02),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 70,
+                                height: 70,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFEE2E2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.electric_scooter_outlined,
+                                  size: 36,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                "No Available Vehicle in This Zone",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Currently, no vehicles are available at ${widget.selectedZone}. Please select another nearby zone with active fleet.",
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.location_on_outlined, size: 16),
+                                label: const Text("Choose Another Zone", style: TextStyle(fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4313B8),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 50),
+                      const SizedBox(height: 30),
                     ] else ...[
                       // --- CATEGORY FILTER TABS ---
                       _buildCategoryFilterTabs(),
                       const SizedBox(height: 16),
 
-                      // --- VEHICLE CARDS LIST ---
-                      ...List.generate(_fetchedVehicles.length, (index) {
-                        return _buildVehicleCard(_fetchedVehicles[index], index);
-                      }),
+                      // --- VEHICLE CARDS LIST OR EMPTY STATE ---
+                      if (filtered.isEmpty) ...[
+                        const SizedBox(height: 20),
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset(
+                                'assets/no vehicle found.png',
+                                height: 160,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.two_wheeler_outlined,
+                                  size: 80,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                "No Vehicles Found",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  "No vehicles available under '$_selectedCategory' at ${widget.selectedZone}.\nTry selecting 'All' or choose another category.",
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                      ] else ...[
+                        ...List.generate(filtered.length, (index) {
+                          return _buildVehicleCard(filtered[index], index);
+                        }),
+                      ],
                     ],
 
                     const SizedBox(height: 14),
@@ -615,7 +726,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
             ),
           ),
           InkWell(
-            onTap: () {},
+            onTap: () => Navigator.pop(context),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: const [
@@ -652,6 +763,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
             onTap: () {
               setState(() {
                 _selectedCategory = cat;
+                _selectedVehicleIndex = 0;
               });
             },
             child: Container(
@@ -915,7 +1027,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                                         children: [
                                           TextSpan(
                                             text: v["dailyPrice"]?.toString() ??
-                                                "₹499",
+                                                "Price on Request",
                                             style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.bold,
@@ -925,7 +1037,8 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                                           if (!(v["dailyPrice"]
                                                   ?.toString()
                                                   .contains("/hr") ??
-                                              false))
+                                              false) &&
+                                              v["dailyPrice"]?.toString() != "Price on Request")
                                             const TextSpan(
                                               text: " / day",
                                               style: TextStyle(
@@ -1120,9 +1233,10 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
 
   // Bottom Summary Bar
   Widget _buildBottomSummaryBar(Map<String, dynamic>? v) {
-    if (v == null) {
+    final bool isOutOfStock = v == null || (v['stock'] as int? ?? 0) <= 0;
+    if (isOutOfStock) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -1133,20 +1247,40 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
             ),
           ],
         ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    "No Vehicle Available",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    "Please select another pickup zone",
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
             ),
-            alignment: Alignment.center,
-            child: const Text(
-              "No vehicle available",
-              style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4313B8),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              ),
+              child: const Text("Change Zone", style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-          ),
+          ],
         ),
       );
     }
@@ -1190,8 +1324,8 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
       }
     }
 
-    double originalAmount = rentAmount / 0.83; // 17% discount representation
-    double totalPayable = rentAmount;
+    final double flexiFee = (widget.isFlexiDrop == true) ? (widget.flexiDropFee ?? 49.0) : 0.0;
+    final double totalPayable = rentAmount + realDeposit + flexiFee;
 
     void showPriceDetailsSheet() {
       showModalBottomSheet(
@@ -1227,6 +1361,12 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildFareRow("Rental Fare (${pricingModel == 'Hourly Based' ? '$hours Hours' : '$days Days'})", "₹${rentAmount.toStringAsFixed(0)}"),
+                const SizedBox(height: 10),
+                _buildFareRow("Refundable Security Deposit", "₹${realDeposit.toStringAsFixed(0)}"),
+                if (widget.isFlexiDrop == true) ...[
+                  const SizedBox(height: 10),
+                  _buildFareRow("Doorstep Delivery Fee", "₹${flexiFee.toStringAsFixed(0)}"),
+                ],
                 const SizedBox(height: 16),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 16),

@@ -14,8 +14,8 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ── shell & layout ── */
-.nr-shell { display: flex; min-height: 100vh; background: #fff; font-family: Inter, sans-serif; }
-.nr-main  { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; flex: 1; min-width: 0; background: #fff; }
+.nr-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: Inter, sans-serif; }
+.nr-main  { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; flex: 1; min-width: 0; background: #F8FAFC; }
 .nr-page  { flex: 1; padding: 18px 22px 60px; }
 
 /* ── responsive 80% fit on 14" screens ── */
@@ -537,7 +537,10 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
       (r.id && r.id.toLowerCase().includes(q)) ||
       (r.vehicle_id && r.vehicle_id.toLowerCase().includes(q))
     );
-    const matchesZone = selectedZone === 'All' || !r.zone || r.zone === 'All' || r.zone.toLowerCase().includes(selectedZone.toLowerCase());
+    const isAll = !selectedZone || selectedZone === 'All' || selectedZone === 'All Zones';
+    const riderZone = (r.zone || '').trim().toLowerCase();
+    const activeZone = (selectedZone || '').trim().toLowerCase();
+    const matchesZone = isAll || (riderZone && (riderZone.includes(activeZone) || activeZone.includes(riderZone)));
     return matchesQ && matchesZone;
   });
 

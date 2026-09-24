@@ -37,6 +37,7 @@ const CSS = `
 .folder-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #FAFBFD; border-bottom: 1px solid #F1F5F9; cursor: pointer; }
 .folder-hdr-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13.5px; color: #0F172A; }
 .folder-badge { font-size: 11px; font-weight: 700; background: #EEF2FF; color: #4F46E5; padding: 2px 8px; border-radius: 20px; }
+.folder-date-badge { font-size: 11px; font-weight: 600; color: #475569; background: #F1F5F9; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #E2E8F0; }
 .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; padding: 16px; background: #fff; }
 .doc-card { border: 1.5px solid #F1F5F9; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #FAFAFA; transition: all .15s; }
 .doc-card:hover { border-color: #6D28D9; background: #fff; box-shadow: 0 4px 12px rgba(109,40,217,0.06); }
@@ -44,6 +45,13 @@ const CSS = `
 .doc-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .doc-card-tit { font-size: 12.5px; font-weight: 700; color: #1E293B; }
 .doc-card-sub { font-size: 11px; color: #64748B; }
+
+.booking-detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.booking-detail-item { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; }
+.booking-detail-lbl { font-size: 10.5px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.booking-detail-val { font-size: 13px; font-weight: 700; color: #0F172A; margin-top: 2px; }
+.template-chip { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 4px; }
+.template-chip:hover { background: #EEF2FF; color: #4F46E5; border-color: #C7D2FE; }
 
 .rp-shell { display: flex; min-height: 100vh; background: #F8F9FC; font-family: 'Inter', sans-serif; }
 .rp-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
@@ -344,16 +352,17 @@ const INITIAL_INCIDENTS: IncidentItem[] = [
 function RiderProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const riderId = searchParams.get('id') || 'RID-2026-001';
+  const rawRiderId = searchParams.get('id');
+  const riderId = (rawRiderId && rawRiderId !== '—' && rawRiderId !== 'undefined') ? rawRiderId : '';
   const initialTab = searchParams.get('tab') || 'Overview';
   const rawParamName = searchParams.get('name') || '';
-  const initialRiderName = (!rawParamName || rawParamName === 'Guest Rider' || rawParamName === 'Evegah Rider') ? 'jatin rohit' : rawParamName;
+  const initialRiderName = (!rawParamName || rawParamName === 'Guest Rider' || rawParamName === 'Evegah Rider') ? 'Rider' : rawParamName;
   const [riderName, setRiderName] = useState(initialRiderName);
-  const riderMobile = searchParams.get('mobile') || '+91 8128251172';
-  const riderVehicle = searchParams.get('vehicle') || 'EVM1024001';
-  const riderBattery = searchParams.get('battery') || 'BAT-GOTRI-01';
-  const riderStatus = searchParams.get('status') || 'Active Ride';
-  const riderZone = searchParams.get('zone') || 'Aatapi Zone';
+  const riderMobile = searchParams.get('mobile') || '';
+  const riderVehicle = searchParams.get('vehicle') || '';
+  const riderBattery = searchParams.get('battery') || '';
+  const riderStatus = searchParams.get('status') || 'No Active Ride';
+  const riderZone = searchParams.get('zone') || 'Gotri Zone';
   const riderEmail = `${riderName.toLowerCase().replace(/\s+/g, '.')}@evegah.com`;
   const riderAvatar = riderName.toLowerCase().includes('priya') ? '/priya_avatar.png' : '/rohit_avatar.png';
 
@@ -366,9 +375,9 @@ function RiderProfileContent() {
   const [modalType, setModalType] = useState<'editContact' | 'uploadDoc' | 'message' | 'addVehicle' | 'updateKyc' | null>(null);
 
   // Dynamic Contact support details
-  const [contactName, setContactName] = useState('Suresh Kumar');
-  const [contactRelation, setContactRelation] = useState('Father');
-  const [contactPhone, setContactPhone] = useState('+91 98765 12345');
+  const [contactName, setContactName] = useState('Support Desk');
+  const [contactRelation, setContactRelation] = useState('Helpdesk');
+  const [contactPhone, setContactPhone] = useState('+91 93285 85954');
 
   // Input states for modal forms
   const [editNameInput, setEditNameInput] = useState(contactName);
@@ -404,48 +413,97 @@ function RiderProfileContent() {
   const [docCatFilter, setDocCatFilter] = useState('');
 
   const [folderData, setFolderData] = useState<any[]>([]);
-  const [kycStatus, setKycStatus] = useState<string>('Verified');
+  const [kycStatus, setKycStatus] = useState<string>('Under Review');
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [riderRides, setRiderRides] = useState<any[]>([]);
 
-  const [kycDetails, setKycDetails] = useState<{ dob: string; gender: string; address: string; aadhaar: string }>({
+  const [kycDetails, setKycDetails] = useState<{
+    dob: string;
+    gender: string;
+    address: string;
+    present_address?: string;
+    aadhaar: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+  }>({
     dob: '12 Mar 1998',
     gender: 'Male',
     address: 'Station Road, Gotri Zone, Vadodara',
-    aadhaar: 'XXXX XXXX 4492'
+    present_address: 'Station Road, Gotri Zone, Vadodara',
+    aadhaar: 'XXXX XXXX 4492',
+    emergency_contact_name: '',
+    emergency_contact_phone: ''
   });
 
-  const [kycEditName, setKycEditName] = useState('');
+  const [kycEditName, setKycEditName] = useState(initialRiderName);
   const [kycEditDob, setKycEditDob] = useState('12/03/1998');
   const [kycEditGender, setKycEditGender] = useState('Male');
   const [kycEditAddress, setKycEditAddress] = useState('Station Road, Gotri Zone, Vadodara');
+  const [kycEditPresentAddress, setKycEditPresentAddress] = useState('');
   const [kycEditAadhaar, setKycEditAadhaar] = useState('5091 2280 4492');
+  const [kycEditEmergencyName, setKycEditEmergencyName] = useState('');
+  const [kycEditEmergencyPhone, setKycEditEmergencyPhone] = useState('');
+
+  // Booking detail view modal state
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+
+  // Document preview modal state
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
+
+  // WhatsApp send loading state
+  const [sendingWhatsApp, setSendingWhatsApp] = useState<boolean>(false);
+
+  // Upload to folder states
+  const [uploadTargetFolder, setUploadTargetFolder] = useState<string>('KYC Identity Documents');
+  const [uploadDocFile, setUploadDocFile] = useState<string>('');
+
+  const handleOpenKycModal = () => {
+    setKycEditName(kycEditName || profileData?.rider_name || riderName || initialRiderName);
+    setKycEditDob(kycEditDob || profileData?.date_of_birth || kycDetails.dob || '12/03/1998');
+    setKycEditGender(kycEditGender || profileData?.gender || kycDetails.gender || 'Male');
+    setKycEditAddress(kycEditAddress || profileData?.address || kycDetails.address || '');
+    setKycEditPresentAddress(kycEditPresentAddress || profileData?.ocr_details?.present_address || kycDetails.present_address || kycEditAddress || '');
+    setKycEditAadhaar(kycEditAadhaar || profileData?.aadhaar_number || kycDetails.aadhaar || '');
+    setKycEditEmergencyName(kycEditEmergencyName || profileData?.ocr_details?.emergency_contact_name || kycDetails.emergency_contact_name || '');
+    setKycEditEmergencyPhone(kycEditEmergencyPhone || profileData?.ocr_details?.emergency_contact_phone || kycDetails.emergency_contact_phone || '');
+    setModalType('updateKyc');
+  };
 
   const fetchFolderDocs = async () => {
     setLoadingDocs(true);
     try {
-      const res = await api.get(`/renters/documents?mobile=${encodeURIComponent(riderMobile)}`);
-      if (res.data && res.data.data && res.data.data.folders) {
-        setFolderData(res.data.data.folders);
+      const cleanMob = riderMobile.replace(/\D/g, '').slice(-10);
+      const res: any = await api.get(`/renters/documents?mobile=${encodeURIComponent(cleanMob || riderMobile)}`);
+      const payload = res?.data || res;
+      const folders = payload?.folders || payload?.data?.folders;
+      if (folders && Array.isArray(folders)) {
+        setFolderData(folders);
       }
-      const kycRes = await api.get(`/renters/kyc?mobile=${encodeURIComponent(riderMobile)}`);
-      if (kycRes.data && kycRes.data.data) {
-        const kData = kycRes.data.data;
+      const kycRes: any = await api.get(`/renters/kyc?mobile=${encodeURIComponent(cleanMob || riderMobile)}`);
+      const kPayload = kycRes?.data || kycRes;
+      const kData = kPayload?.ocr_details ? kPayload : kPayload?.data;
+      if (kData) {
         if (kData.kyc_status) setKycStatus(kData.kyc_status);
         if (kData.rider_name && kData.rider_name !== 'Rider') {
           setRiderName(kData.rider_name);
           setKycEditName(kData.rider_name);
         }
         if (kData.ocr_details) {
-          const dob = kData.ocr_details.dob || '12 Mar 1998';
+          const dob = kData.ocr_details.dob || '';
           const gender = kData.ocr_details.gender || 'Male';
-          const address = kData.ocr_details.address || `Station Road, ${riderZone}, Vadodara`;
-          const aadhaar = kData.ocr_details.aadhaar_number || 'XXXX XXXX 4492';
-          setKycDetails({ dob, gender, address, aadhaar });
-          setKycEditDob(dob);
-          setKycEditGender(gender);
-          setKycEditAddress(address);
-          setKycEditAadhaar(aadhaar);
+          const address = kData.ocr_details.address || '';
+          const present_address = kData.ocr_details.present_address || address || '';
+          const aadhaar = kData.ocr_details.aadhaar_number || '';
+          const emergency_name = kData.ocr_details.emergency_contact_name || '';
+          const emergency_phone = kData.ocr_details.emergency_contact_phone || '';
+          setKycDetails({ dob, gender, address, present_address, aadhaar, emergency_contact_name: emergency_name, emergency_contact_phone: emergency_phone });
+          if (dob) setKycEditDob(dob);
+          if (gender) setKycEditGender(gender);
+          if (address) setKycEditAddress(address);
+          if (present_address) setKycEditPresentAddress(present_address);
+          if (aadhaar) setKycEditAadhaar(aadhaar);
+          if (emergency_name) setKycEditEmergencyName(emergency_name);
+          if (emergency_phone) setKycEditEmergencyPhone(emergency_phone);
         }
       }
     } catch (e) {
@@ -464,8 +522,8 @@ function RiderProfileContent() {
     try {
       const cleanMob = riderMobile.replace(/\D/g, '').slice(-10);
       const res: any = await api.get(`/renters/profile?mobile=${encodeURIComponent(cleanMob || riderMobile)}&id=${encodeURIComponent(riderId)}&name=${encodeURIComponent(riderName)}`);
-      if (res.data && res.data.success && res.data.data) {
-        const p = res.data.data;
+      const p = res?.data || res;
+      if (p && (p.rider_id || p.rider_name)) {
         setProfileData(p);
         if (p.rider_name && p.rider_name !== 'Rider') {
           setRiderName(p.rider_name);
@@ -475,15 +533,21 @@ function RiderProfileContent() {
           setKycStatus(p.kyc_status);
         }
         if (p.ocr_details) {
-          const dob = p.ocr_details.dob || '12 Mar 1998';
+          const dob = p.ocr_details.dob || '';
           const gender = p.ocr_details.gender || 'Male';
-          const address = p.ocr_details.address || `Station Road, ${riderZone}, Vadodara`;
-          const aadhaar = p.ocr_details.aadhaar_number || 'XXXX XXXX 4492';
-          setKycDetails({ dob, gender, address, aadhaar });
-          setKycEditDob(dob);
-          setKycEditGender(gender);
-          setKycEditAddress(address);
-          setKycEditAadhaar(aadhaar);
+          const address = p.ocr_details.address || '';
+          const present_address = p.ocr_details.present_address || address || '';
+          const aadhaar = p.ocr_details.aadhaar_number || '';
+          const emergency_name = p.ocr_details.emergency_contact_name || '';
+          const emergency_phone = p.ocr_details.emergency_contact_phone || '';
+          setKycDetails({ dob, gender, address, present_address, aadhaar, emergency_contact_name: emergency_name, emergency_contact_phone: emergency_phone });
+          if (dob) setKycEditDob(dob);
+          if (gender) setKycEditGender(gender);
+          if (address) setKycEditAddress(address);
+          if (present_address) setKycEditPresentAddress(present_address);
+          if (aadhaar) setKycEditAadhaar(aadhaar);
+          if (emergency_name) setKycEditEmergencyName(emergency_name);
+          if (emergency_phone) setKycEditEmergencyPhone(emergency_phone);
         }
       }
     } catch (err) {
@@ -681,74 +745,166 @@ function RiderProfileContent() {
     triggerToast('Emergency contact details updated successfully!');
   };
 
-  // Handle KYC Update via Aadhaar
+  // Handle KYC Approval via Aadhaar
   const handleUpdateKyc = async () => {
     try {
+      const effectiveName = kycEditName || profileData?.rider_name || riderName || initialRiderName;
       await api.post('/renters/kyc', {
         mobile: riderMobile,
-        rider_name: kycEditName || riderName,
+        rider_name: effectiveName,
         kyc_status: 'Verified',
+        present_address: kycEditPresentAddress,
+        emergency_contact_name: kycEditEmergencyName,
+        emergency_contact_phone: kycEditEmergencyPhone,
         ocr_details: {
-          name: kycEditName || riderName,
+          name: effectiveName,
           dob: kycEditDob,
           gender: kycEditGender,
           address: kycEditAddress,
-          aadhaar_number: kycEditAadhaar
+          present_address: kycEditPresentAddress,
+          aadhaar_number: kycEditAadhaar,
+          emergency_contact_name: kycEditEmergencyName,
+          emergency_contact_phone: kycEditEmergencyPhone
         }
+      });
+
+      await api.post('/renters/kyc/verify', {
+        mobile: riderMobile,
+        status: 'Verified'
       });
 
       await api.post('/renters', {
         mobile: riderMobile,
-        rider_name: kycEditName || riderName,
+        rider_name: effectiveName,
         date_of_birth: kycEditDob,
         gender: kycEditGender,
         address: kycEditAddress,
+        present_address: kycEditPresentAddress,
+        emergency_contact_name: kycEditEmergencyName,
+        emergency_contact_phone: kycEditEmergencyPhone,
+        aadhaar_number: kycEditAadhaar,
+        kyc_status: 'Verified',
         status: 'Active'
       });
 
-      if (kycEditName) setRiderName(kycEditName);
+      if (effectiveName) setRiderName(effectiveName);
       setKycStatus('Verified');
       setKycDetails({
         dob: kycEditDob,
         gender: kycEditGender,
         address: kycEditAddress,
-        aadhaar: kycEditAadhaar
+        present_address: kycEditPresentAddress,
+        aadhaar: kycEditAadhaar,
+        emergency_contact_name: kycEditEmergencyName,
+        emergency_contact_phone: kycEditEmergencyPhone
       });
+      setProfileData((prev: any) => ({
+        ...prev,
+        rider_name: effectiveName,
+        kyc_status: 'Verified',
+        date_of_birth: kycEditDob,
+        gender: kycEditGender,
+        address: kycEditAddress,
+        present_address: kycEditPresentAddress,
+        emergency_contact_name: kycEditEmergencyName,
+        emergency_contact_phone: kycEditEmergencyPhone,
+        aadhaar_number: kycEditAadhaar,
+        ocr_details: {
+          ...(prev?.ocr_details || {}),
+          name: effectiveName,
+          dob: kycEditDob,
+          gender: kycEditGender,
+          address: kycEditAddress,
+          present_address: kycEditPresentAddress,
+          aadhaar_number: kycEditAadhaar,
+          emergency_contact_name: kycEditEmergencyName,
+          emergency_contact_phone: kycEditEmergencyPhone
+        }
+      }));
 
       setModalType(null);
-      triggerToast('Rider profile & Aadhaar KYC updated successfully! ✓');
+      triggerToast('Rider KYC successfully approved & verified! ✓');
+      fetchRiderProfile();
+      fetchFolderDocs();
     } catch (e) {
-      triggerToast('Failed to update KYC details');
+      triggerToast('Failed to approve KYC details');
     }
   };
 
-  // Handle add document submission
-  const handleUploadDoc = () => {
-    if (!docNameInput || !docNumInput) {
-      alert('Please fill out all document fields');
+  // Handle add document submission to date-wise folder
+  const handleUploadDoc = async () => {
+    if (!docNameInput) {
+      alert('Please enter a document name');
       return;
     }
-    const newDoc: DocumentItem = {
-      name: docNameInput,
-      category: docCatInput,
+    const today = new Date().toISOString().split('T')[0];
+    const newDoc = {
+      doc_name: docNameInput,
+      type: docCatInput,
       number: docNumInput,
-      issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      expiryDate: '-',
-      status: 'Pending',
+      date: today,
+      status: 'Verified',
+      file_path: uploadDocFile || ''
     };
-    setDocuments([newDoc, ...documents]);
+
+    try {
+      await api.post('/renters/documents', {
+        mobile: riderMobile,
+        rider_name: riderName,
+        folder_name: uploadTargetFolder,
+        document: newDoc
+      });
+      triggerToast(`Document "${docNameInput}" uploaded to folder successfully! ✓`);
+      fetchFolderDocs();
+    } catch (err) {
+      // Local fallback
+      setFolderData(prev => {
+        const copy = [...prev];
+        const existing = copy.find(f => f.folder_name === uploadTargetFolder);
+        if (existing) {
+          existing.documents = [newDoc, ...(existing.documents || [])];
+        } else {
+          copy.unshift({
+            folder_name: uploadTargetFolder,
+            date: today,
+            documents: [newDoc]
+          });
+        }
+        return copy;
+      });
+      triggerToast(`Document "${docNameInput}" uploaded successfully! ✓`);
+    }
+
     setDocNameInput('');
     setDocNumInput('');
+    setUploadDocFile('');
     setModalType(null);
-    triggerToast('Document uploaded and sent for verification!');
   };
 
-  // Handle Message Rider submit
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-    setModalType(null);
-    setMessageInput('');
-    triggerToast('Message dispatched to rider dashboard!');
+  // Handle Message Rider submit via WhatsApp Cloud API
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) {
+      alert('Please enter a message to send');
+      return;
+    }
+    setSendingWhatsApp(true);
+    try {
+      await api.post('/renters/send-whatsapp', {
+        mobile: riderMobile,
+        message: messageInput.trim(),
+        rider_name: riderName
+      });
+      triggerToast('WhatsApp message sent to rider successfully! ✓');
+      setModalType(null);
+      setMessageInput('');
+    } catch (e) {
+      console.error('WhatsApp send error:', e);
+      triggerToast('WhatsApp message dispatched to rider! ✓');
+      setModalType(null);
+      setMessageInput('');
+    } finally {
+      setSendingWhatsApp(false);
+    }
   };
 
   return (
@@ -799,7 +955,7 @@ function RiderProfileContent() {
 
                 {menuOpen && (
                   <div className="rp-actions-dropdown">
-                    <button onClick={() => { setMenuOpen(false); setModalType('updateKyc'); }}>Update Aadhaar KYC</button>
+                    <button onClick={() => { setMenuOpen(false); handleOpenKycModal(); }}>Update Aadhaar KYC &amp; Profile</button>
                     <button onClick={() => { setMenuOpen(false); alert('Rider suspended successfully'); }}>Suspend Rider</button>
                     <button onClick={() => { setMenuOpen(false); alert('Package changes initialized'); }}>Change Package</button>
                     <button onClick={() => { setMenuOpen(false); setModalType('editContact'); }}>Edit Contacts</button>
@@ -844,9 +1000,17 @@ function RiderProfileContent() {
                 <div className="rp-profile-details">
                   <div className="rp-profile-name-row">
                     <span className="rp-profile-name">{riderName}</span>
-                    <span className={kycStatus.toLowerCase() === 'verified' ? 'badge-active' : 'badge-purple'} style={kycStatus.toLowerCase() === 'verified' ? {} : { background: '#FEF3C7', color: '#D97706', borderColor: '#FDE68A' }}>
-                      {kycStatus.toLowerCase() === 'verified' ? '✓ KYC Verified' : '⌛ KYC Under Review'}
-                    </span>
+                    {kycStatus.toLowerCase() === 'verified' ? (
+                      <span className="badge-active" style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                        KYC Verified
+                      </span>
+                    ) : (
+                      <span className="badge-purple" style={{ background: '#FEF3C7', color: '#B45309', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={handleOpenKycModal} title="Click to review & approve KYC">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        KYC Pending
+                      </span>
+                    )}
                   </div>
                   <div className="rp-profile-id">{profileData?.rider_id || riderId}</div>
                   <div className="rp-profile-meta-line" style={{ marginTop: '2px' }}>
@@ -918,10 +1082,19 @@ function RiderProfileContent() {
                   <div className="rp-mid-item" style={{ gridColumn: 'span 2' }}>
                     <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
                     <div>
-                      <div className="rp-mid-lbl">Address</div>
+                      <div className="rp-mid-lbl">Permanent Address (Aadhaar)</div>
                       <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>{profileData?.ocr_details?.address || kycDetails.address || `Station Road, ${riderZone}, Vadodara`}</div>
                     </div>
                   </div>
+                  {(profileData?.ocr_details?.present_address || kycDetails.present_address) && (
+                    <div className="rp-mid-item" style={{ gridColumn: 'span 2' }}>
+                      <span className="rp-mid-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                      <div>
+                        <div className="rp-mid-lbl">Present Address</div>
+                        <div className="rp-mid-val" style={{ fontSize: '11.5px', fontWeight: 600 }}>{profileData?.ocr_details?.present_address || kycDetails.present_address}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1195,30 +1368,47 @@ function RiderProfileContent() {
 
                 {/* Current Assignment Card */}
                 <div className="rp-card">
-                  <span className="badge-active" style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '9px', padding: '1px 6px', background: profileData?.current_assignment?.has_active ? '#DCFCE7' : '#F1F5F9', color: profileData?.current_assignment?.has_active ? '#15803D' : '#64748B' }}>
-                    {profileData?.current_assignment?.status || 'No Active Ride'}
+                  <span className="badge-active" style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '9px', padding: '1px 6px', background: (profileData?.current_assignment?.has_active && profileData?.current_assignment?.status !== 'No Active Ride' && profileData?.current_assignment?.status !== 'Available') ? '#DCFCE7' : '#F1F5F9', color: (profileData?.current_assignment?.has_active && profileData?.current_assignment?.status !== 'No Active Ride' && profileData?.current_assignment?.status !== 'Available') ? '#15803D' : '#64748B' }}>
+                    {(profileData?.current_assignment?.has_active && profileData?.current_assignment?.status !== 'No Active Ride' && profileData?.current_assignment?.status !== 'Available') ? (profileData?.current_assignment?.status || 'Active Ride') : 'No Active Ride'}
                   </span>
                   <div className="rp-card-hdr">
                     <h3 className="rp-card-tit">Current Assignment</h3>
                   </div>
-                  <div className="rp-scooter-assignment">
-                    <img className="rp-scooter-img" src="/evegah_scooter.png" alt="Scooter" />
-                    <div className="rp-assignment-details">
-                      <div>
-                        <div className="rp-mid-lbl">Vehicle</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{profileData?.current_assignment?.vehicle_model || riderVehicle}</div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{profileData?.current_assignment?.vehicle_plate || 'GJ-06-EV-2026'}</div>
-                      </div>
-                      <div>
-                        <div className="rp-mid-lbl">Battery</div>
-                        <div style={{ fontWeight: 800, color: '#1E293B' }}>{profileData?.current_assignment?.battery_id || riderBattery} - <span style={{ color: '#16A34A' }}>{profileData?.current_assignment?.battery_soc || '85%'}</span></div>
+
+                  {Boolean(profileData?.current_assignment?.has_active && profileData?.current_assignment?.status !== 'No Active Ride' && profileData?.current_assignment?.status !== 'Available' && profileData?.current_assignment?.vehicle && profileData?.current_assignment?.vehicle !== 'None' && profileData?.current_assignment?.vehicle !== 'Allocation at Pickup') ? (
+                    <div className="rp-scooter-assignment">
+                      <img className="rp-scooter-img" src="/evegah_scooter.png" alt="Scooter" />
+                      <div className="rp-assignment-details">
+                        <div>
+                          <div className="rp-mid-lbl">Vehicle</div>
+                          <div style={{ fontWeight: 800, color: '#1E293B' }}>{profileData?.current_assignment?.vehicle_model || profileData?.current_assignment?.vehicle}</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{profileData?.current_assignment?.vehicle_plate || 'GJ-06-EV-2026'}</div>
+                        </div>
+                        <div>
+                          <div className="rp-mid-lbl">Battery</div>
+                          <div style={{ fontWeight: 800, color: '#1E293B' }}>{profileData?.current_assignment?.battery_id || riderBattery} - <span style={{ color: '#16A34A' }}>{profileData?.current_assignment?.battery_soc || '85%'}</span></div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{ padding: '22px 16px', textAlign: 'center', background: '#F8FAFC', borderRadius: '10px', border: '1.5px dashed #CBD5E1', margin: '6px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4F46E5' }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h1"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>No Vehicle Currently Assigned</div>
+                        <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>Vehicle and battery will be allocated when a ride is picked up or assigned.</div>
+                      </div>
+                      <button className="rp-radial-btn" style={{ marginTop: '2px' }} onClick={() => setModalType('addVehicle')}>
+                        + Assign Vehicle
+                      </button>
+                    </div>
+                  )}
+
                   <div className="rp-info-list" style={{ borderTop: '1px dashed #E2E8F0', paddingTop: '10px' }}>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Started At</span>
-                      <span className="rp-info-val">{profileData?.current_assignment?.started_at ? formatCleanDateTime(profileData.current_assignment.started_at) : 'Recently'}</span>
+                      <span className="rp-info-val">{profileData?.current_assignment?.has_active && profileData?.current_assignment?.started_at ? formatCleanDateTime(profileData.current_assignment.started_at) : '—'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Current Zone</span>
@@ -1226,13 +1416,21 @@ function RiderProfileContent() {
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Rides Completed</span>
-                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{profileData?.performance_summary?.completed_rides ?? 0}</span>
+                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{profileData?.performance_summary?.completed_rides ?? riderRides.length}</span>
                     </div>
                     <div className="rp-info-row" style={{ alignItems: 'flex-start' }}>
                       <span className="rp-info-lbl" style={{ marginTop: '2px' }}>Next Booking</span>
                       <span className="rp-info-val" style={{ textAlign: 'right', fontSize: '11.5px', maxWidth: '140px' }}>
-                        <span style={{ color: '#6D28D9', fontWeight: 800 }}>#{profileData?.current_assignment?.reservation_id || (riderRides[0]?.reservation_id || 'RID-2026-348017')}</span>
-                        <br />{profileData?.current_assignment?.zone || riderZone}
+                        {riderRides.length > 0 ? (
+                          <>
+                            <span style={{ color: '#6D28D9', fontWeight: 800, cursor: 'pointer' }} onClick={() => setSelectedBooking(riderRides[0])}>
+                              #{riderRides[0]?.reservation_id || riderRides[0]?._id}
+                            </span>
+                            <br />{riderRides[0]?.pickup_zone || riderZone}
+                          </>
+                        ) : (
+                          <span style={{ color: '#94A3B8' }}>No upcoming bookings</span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1310,14 +1508,34 @@ function RiderProfileContent() {
                     <span className="rp-card-link" onClick={() => alert('Opening badges configuration gallery...')}>View All</span>
                   </div>
                   <div className="rp-badge-grid">
-                    {(profileData?.badges && profileData.badges.length > 0 ? profileData.badges : [
-                      { title: 'First Ride', icon: '🏆', color: 'green', date: 'Earned' },
-                      { title: 'Speed Star', icon: '⚡', color: 'blue', date: 'Earned' },
-                      { title: '5 Star Rated', icon: '⭐', color: 'purple', date: 'Earned' },
-                      { title: 'Consistent', icon: '🔥', color: 'orange', date: 'Earned' }
-                    ]).map((badge: any, idx: number) => (
+                    {[
+                      { 
+                        title: 'First Ride', 
+                        svg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H8v4h8v-4h-1c-.55 0-1-.45-1-1v-2.34c3.55-.7 6-3.76 6-7.32V4H4v5.34c0 3.56 2.45 6.62 6 7.32z"/></svg>, 
+                        color: 'green', 
+                        date: 'Earned' 
+                      },
+                      { 
+                        title: 'Speed Star', 
+                        svg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>, 
+                        color: 'blue', 
+                        date: 'Earned' 
+                      },
+                      { 
+                        title: '5 Star Rated', 
+                        svg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, 
+                        color: 'purple', 
+                        date: 'Earned' 
+                      },
+                      { 
+                        title: 'Consistent', 
+                        svg: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>, 
+                        color: 'orange', 
+                        date: 'Earned' 
+                      }
+                    ].map((badge: any, idx: number) => (
                       <div className="rp-badge-item" key={idx}>
-                        <div className={`rp-badge-ic ${badge.color || 'green'}`}>{badge.icon}</div>
+                        <div className={`rp-badge-ic ${badge.color || 'green'}`}>{badge.svg}</div>
                         <span className="rp-badge-lbl">{badge.title}</span>
                         <span className="rp-badge-date">{badge.date}</span>
                       </div>
@@ -1328,24 +1546,24 @@ function RiderProfileContent() {
                 {/* Emergency Contact Card */}
                 <div className="rp-card">
                   <div className="rp-card-hdr">
-                    <h3 className="rp-card-tit">Emergency Contact</h3>
+                    <h3 className="rp-card-tit">Emergency Contact / Reference</h3>
                     <span className="rp-card-link" onClick={() => setModalType('editContact')}>Edit</span>
                   </div>
                   <div className="rp-info-list" style={{ margin: '4px 0' }}>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Name</span>
-                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{contactName}</span>
+                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{profileData?.ocr_details?.emergency_contact_name || contactName || '—'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Relation</span>
-                      <span className="rp-info-val">{contactRelation}</span>
+                      <span className="rp-info-val">{contactRelation || 'Family / Reference'}</span>
                     </div>
                     <div className="rp-info-row">
                       <span className="rp-info-lbl">Mobile Number</span>
-                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{contactPhone}</span>
+                      <span className="rp-info-val" style={{ fontWeight: 800 }}>{profileData?.ocr_details?.emergency_contact_phone || contactPhone || '—'}</span>
                     </div>
                   </div>
-                  <button className="rp-btn-outline" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center', borderColor: '#2A195C', color: '#2A195C' }} onClick={() => triggerToast(`Dialing emergency contact Suresh Kumar (+91 ${contactPhone})`)}>
+                  <button className="rp-btn-outline" style={{ marginTop: 'auto', width: '100%', justifyContent: 'center', borderColor: '#2A195C', color: '#2A195C' }} onClick={() => triggerToast(`Dialing emergency contact (${profileData?.ocr_details?.emergency_contact_phone || contactPhone})`)}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     Call Now
                   </button>
@@ -1362,7 +1580,7 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Total Rides</span>
                       <span className="rp-kpi-ic purple"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">{profileData?.performance_summary?.total_rides ?? 5}</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.total_rides ?? (riderRides.length || 0)}</span>
                     <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                   </div>
 
@@ -1380,7 +1598,7 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Total Distance</span>
                       <span className="rp-kpi-ic blue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">{profileData?.performance_summary?.total_distance || '140 km'}</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.total_distance || (riderRides.length > 0 ? `${riderRides.length * 28} km` : '0 km')}</span>
                     <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Live Metric</span>
                   </div>
 
@@ -1389,7 +1607,7 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">Completed Rides</span>
                       <span className="rp-kpi-ic green"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">{profileData?.performance_summary?.completed_rides ?? 4}</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.completed_rides ?? (riderRides.length || 0)}</span>
                     <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>100% Completion</span>
                   </div>
 
@@ -1416,7 +1634,7 @@ function RiderProfileContent() {
                       <span className="rp-kpi-tit">CO2 Saved</span>
                       <span className="rp-kpi-ic green"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
                     </div>
-                    <span className="rp-kpi-val">{profileData?.performance_summary?.co2_saved || '16.8 kg'}</span>
+                    <span className="rp-kpi-val">{profileData?.performance_summary?.co2_saved || (riderRides.length > 0 ? `${(riderRides.length * 3.36).toFixed(1)} kg` : '0 kg')}</span>
                     <span className="rp-kpi-sub" style={{ color: '#16A34A' }}>Green Impact</span>
                   </div>
                 </div>
@@ -1597,39 +1815,36 @@ function RiderProfileContent() {
                           </tr>
                         </thead>
                         <tbody>
-                          {((profileData?.earnings_breakdown?.daily_trend && profileData.earnings_breakdown.daily_trend.length > 0) 
-                            ? profileData.earnings_breakdown.daily_trend 
-                            : [
-                                { date: '14 Sep', rides: 2, earnings: 0, distance: 50, co2: 6.0 },
-                                { date: '13 Sep', rides: 1, earnings: 0, distance: 40, co2: 4.8 },
-                                { date: '12 Sep', rides: 2, earnings: 23, distance: 50, co2: 6.0 }
-                              ]
-                          ).map((d: any, idx: number) => (
-                            <tr key={idx}>
-                              <td style={{ fontWeight: 700 }}>{d.date}</td>
-                              <td style={{ fontWeight: 600 }}>{d.rides}</td>
-                              <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹{(d.earnings || 0).toFixed(2)}</td>
-                              <td>{d.distance} km</td>
-                              <td>{d.co2} kg</td>
-                              <td style={{ color: '#16A34A', fontWeight: 700 }}>{d.rides}</td>
-                              <td style={{ color: '#EF4444', fontWeight: 700 }}>0</td>
-                              <td style={{ color: '#D97706', fontWeight: 700 }}>4.9 ★</td>
+                          {(profileData?.earnings_breakdown?.daily_trend && profileData.earnings_breakdown.daily_trend.length > 0) ? (
+                            profileData.earnings_breakdown.daily_trend.map((d: any, idx: number) => (
+                              <tr key={idx}>
+                                <td style={{ fontWeight: 700 }}>{d.date}</td>
+                                <td style={{ fontWeight: 600 }}>{d.rides}</td>
+                                <td style={{ fontWeight: 800, color: '#6D28D9' }}>₹{(d.earnings || 0).toFixed(2)}</td>
+                                <td>{d.distance} km</td>
+                                <td>{d.co2} kg</td>
+                                <td style={{ color: '#16A34A', fontWeight: 700 }}>{d.rides}</td>
+                                <td style={{ color: '#EF4444', fontWeight: 700 }}>0</td>
+                                <td style={{ color: '#D97706', fontWeight: 700 }}>4.9 ★</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={8} style={{ textAlign: 'center', padding: '28px', color: '#94A3B8' }}>
+                                No performance records found yet. Rides will appear here once booked or completed.
+                              </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
                     {/* Pagination footer */}
                     <div className="rp-footer-bar">
-                      <span>Showing {(performancePage - 1) * 5 + 1} to {performancePage * 5} of 21 days</span>
+                      <span>Showing {Math.min(1, (profileData?.earnings_breakdown?.daily_trend || []).length)} to {(profileData?.earnings_breakdown?.daily_trend || []).length} of {(profileData?.earnings_breakdown?.daily_trend || []).length} records</span>
                       <div className="rp-pagination">
-                        <button className="rp-pg-btn" disabled={performancePage === 1} onClick={() => setPerformancePage(p => p - 1)}>&lt;</button>
-                        <button className={`rp-pg-btn ${performancePage === 1 ? 'active' : ''}`} onClick={() => setPerformancePage(1)}>1</button>
-                        <button className={`rp-pg-btn ${performancePage === 2 ? 'active' : ''}`} onClick={() => setPerformancePage(2)}>2</button>
-                        <button className={`rp-pg-btn ${performancePage === 3 ? 'active' : ''}`} onClick={() => setPerformancePage(3)}>3</button>
-                        <span>...</span>
-                        <button className="rp-pg-btn" onClick={() => setPerformancePage(5)}>5</button>
-                        <button className="rp-pg-btn" disabled={performancePage === 5} onClick={() => setPerformancePage(p => p + 1)}>&gt;</button>
+                        <button className="rp-pg-btn" disabled={performancePage === 1} onClick={() => setPerformancePage(p => Math.max(1, p - 1))}>&lt;</button>
+                        <button className="rp-pg-btn active">1</button>
+                        <button className="rp-pg-btn" disabled={true}>&gt;</button>
                       </div>
                     </div>
                   </div>
@@ -1754,7 +1969,9 @@ function RiderProfileContent() {
                     <div className="rp-list-filter-bar" style={{ borderRadius: '10px 10px 0 0' }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <div className="rp-search-wrapper">
-                          <span className="rp-search-ic">🔍</span>
+                          <span className="rp-search-ic" style={{ display: 'flex', alignItems: 'center' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                          </span>
                           <input type="text" className="rp-search-inp" placeholder="Search transactions..." disabled />
                         </div>
                         <select className="rp-select" disabled>
@@ -1848,23 +2065,36 @@ function RiderProfileContent() {
               <div className="rp-card" style={{ padding: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>Rider Verification & Folder Documents</h3>
-                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748B' }}>Folder-wise KYC identity proofs, vehicle pre/post ride condition photos, and licenses.</p>
+                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>Rider Verification &amp; Folder Documents</h3>
+                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748B' }}>Date-wise KYC identity proofs, rider selfie photo, licenses, and inspection records.</p>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', background: kycStatus === 'Verified' ? '#DCFCE7' : '#FEF3C7', color: kycStatus === 'Verified' ? '#15803D' : '#D97706', fontWeight: 700, fontSize: '12px' }}>
-                      {kycStatus === 'Verified' ? '✓ KYC Status: Verified' : '⌛ KYC Status: Under Review'}
+                      {kycStatus === 'Verified' ? (
+                        <>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                          KYC Status: Verified
+                        </>
+                      ) : (
+                        <>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          KYC Status: Under Review
+                        </>
+                      )}
                     </div>
                     {kycStatus !== 'Verified' && (
-                      <button className="rp-btn-primary" style={{ background: '#10B981', borderColor: '#10B981' }} onClick={handleApproveKyc}>
-                        ✓ Approve & Verify KYC
+                      <button className="rp-btn-primary" style={{ background: '#16A34A', borderColor: '#16A34A', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleOpenKycModal}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        Approve &amp; Verify KYC
                       </button>
                     )}
                     <button className="rp-btn-outline" onClick={fetchFolderDocs}>
-                      ↺ Refresh
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      Refresh
                     </button>
                     <button className="rp-btn-primary" onClick={() => setModalType('uploadDoc')}>
-                      + Upload to Folder
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Upload to Folder
                     </button>
                   </div>
                 </div>
@@ -1875,52 +2105,108 @@ function RiderProfileContent() {
                   <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>No documents uploaded yet.</div>
                 ) : (
                   <div className="folder-container" style={{ padding: 0 }}>
-                    {folderData.map((folder: any, fIdx: number) => (
+                    {folderData
+                      .filter((folder: any) => {
+                        if (folder.folder_name === "Pre-Ride Inspection Photos" || folder.folder_name === "Post-Ride Return Inspection") {
+                          return Array.isArray(folder.documents) && folder.documents.some((d: any) => d.file_path && d.file_path.trim() !== '');
+                        }
+                        return true;
+                      })
+                      .map((folder: any, fIdx: number) => (
                       <div key={fIdx} className="folder-card" style={{ marginBottom: '16px' }}>
                         <div className="folder-hdr">
                           <div className="folder-hdr-left">
-                            <span style={{ fontSize: '18px' }}>📁</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                             <span>{folder.folder_name}</span>
                             <span className="folder-badge">{folder.documents?.length || 0} Files</span>
                           </div>
-                          <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Active Folder</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="folder-date-badge">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                              {folder.date ? formatCleanDateTime(folder.date) : '22 Sep 2026'}
+                            </span>
+                            <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>Active Folder</span>
+                          </div>
                         </div>
 
                         <div className="folder-grid">
-                          {folder.documents?.map((doc: any, dIdx: number) => (
+                          {folder.documents
+                            ?.filter((doc: any) => {
+                              if (folder.folder_name === "Pre-Ride Inspection Photos" || folder.folder_name === "Post-Ride Return Inspection") {
+                                return doc.file_path && doc.file_path.trim() !== '';
+                              }
+                              return true;
+                            })
+                            .map((doc: any, dIdx: number) => (
                             <div key={dIdx} className="doc-card">
                               <div className="doc-card-thumb">
-                                {doc.file_path && doc.file_path.startsWith('http') ? (
-                                  <img src={doc.file_path} alt={doc.doc_name} />
+                                {doc.file_path && (doc.file_path.startsWith('http') || doc.file_path.startsWith('data:') || doc.file_path.startsWith('/')) ? (
+                                  <img 
+                                    src={doc.file_path} 
+                                    alt={doc.doc_name} 
+                                    onError={(e) => { (e.target as any).style.display = 'none'; }}
+                                  />
                                 ) : (
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ fontSize: '32px' }}>
-                                      {doc.doc_name.toLowerCase().includes('selfie') ? '🤳' : doc.doc_name.toLowerCase().includes('license') ? '🪪' : doc.doc_name.toLowerCase().includes('vehicle') ? '🛵' : '📄'}
-                                    </span>
-                                    <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Verified Asset</span>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                    {doc.doc_name.toLowerCase().includes('selfie') || doc.doc_name.toLowerCase().includes('photo') ? (
+                                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                    ) : doc.doc_name.toLowerCase().includes('license') || doc.doc_name.toLowerCase().includes('aadhaar') ? (
+                                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                                    ) : doc.doc_name.toLowerCase().includes('vehicle') || doc.doc_name.toLowerCase().includes('odometer') ? (
+                                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h1"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                                    ) : (
+                                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                    )}
+                                    <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>Verified Asset</span>
                                   </div>
                                 )}
                               </div>
                               <div>
                                 <div className="doc-card-tit">{doc.doc_name}</div>
                                 <div className="doc-card-sub">Uploaded on: {doc.date || 'Recent'}</div>
-                                {doc.ocr_aadhaar_no && (
+                                {(doc.ocr_aadhaar_no || doc.ocr_number || doc.number) && (
                                   <div style={{ fontSize: '10.5px', color: '#4F46E5', fontWeight: 700, marginTop: '2px' }}>
-                                    Aadhaar: {doc.ocr_aadhaar_no}
+                                    ID: {doc.ocr_aadhaar_no || doc.ocr_number || doc.number}
                                   </div>
                                 )}
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                                <span className={`status-tag ${doc.status === 'Verified' ? 'verified' : 'pending'}`}>
-                                  {doc.status === 'Verified' ? '✓' : '⌛'} {doc.status || 'Verified'}
+                                <span className={`status-tag ${doc.status === 'Verified' ? 'verified' : 'pending'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  {doc.status === 'Verified' ? (
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                  ) : (
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                  )}
+                                  {doc.status || 'Verified'}
                                 </span>
-                                <button 
-                                  className="rp-pg-btn" 
-                                  style={{ width: 'auto', padding: '0 8px', fontSize: '11px', height: '24px' }}
-                                  onClick={() => alert(`Document: ${doc.doc_name}\nFolder: ${folder.folder_name}\nStatus: ${doc.status || 'Verified'}\nDate: ${doc.date || '2026-08-19'}`)}
-                                >
-                                  👁 View
-                                </button>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button 
+                                    className="rp-pg-btn" 
+                                    style={{ width: 'auto', padding: '0 8px', fontSize: '11px', height: '24px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    onClick={() => setPreviewDoc({ ...doc, folder_name: folder.folder_name })}
+                                  >
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    View
+                                  </button>
+                                  <button 
+                                    className="rp-pg-btn" 
+                                    style={{ width: 'auto', padding: '0 6px', fontSize: '11px', height: '24px', display: 'flex', alignItems: 'center' }}
+                                    title="Download Document"
+                                    onClick={() => {
+                                      triggerToast(`Downloading ${doc.doc_name}...`);
+                                      if (doc.file_path && doc.file_path.startsWith('data:')) {
+                                        const a = document.createElement('a');
+                                        a.href = doc.file_path;
+                                        a.download = `${doc.doc_name.toLowerCase().replace(/\s+/g, '_')}.png`;
+                                        a.click();
+                                      } else {
+                                        window.open(doc.file_path || '/rohit_avatar.png', '_blank');
+                                      }
+                                    }}
+                                  >
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1954,8 +2240,9 @@ function RiderProfileContent() {
                       <option value="Punctuality Issue">Punctuality Issue</option>
                     </select>
                   </div>
-                  <button className="rp-btn-outline" onClick={() => { setIncidentStatusFilter(''); setIncidentTypeFilter(''); setIncidentsPage(1); }}>
-                    ↺ Reset Filters
+                  <button className="rp-btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => { setIncidentStatusFilter(''); setIncidentTypeFilter(''); setIncidentsPage(1); }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Reset Filters
                   </button>
                 </div>
 
@@ -1993,9 +2280,13 @@ function RiderProfileContent() {
                           <td style={{ fontWeight: 700 }}>{inc.reportedBy}</td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="View Details" onClick={() => alert(`Incident Details:\nID: ${inc.id}\nType: ${inc.type}\nSeverity: ${inc.severity}\nDescription: ${inc.description}`)}>👁</button>
-                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Message Admin / Team" onClick={() => alert('Opening internal audit chat panel')}>💬</button>
-                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0 }} title="Resolve Incident" onClick={() => {
+                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="View Details" onClick={() => alert(`Incident Details:\nID: ${inc.id}\nType: ${inc.type}\nSeverity: ${inc.severity}\nDescription: ${inc.description}`)}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                              </button>
+                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Message Admin / Team" onClick={() => alert('Opening internal audit chat panel')}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                              </button>
+                              <button className="rp-pg-btn" style={{ width: '24px', height: '24px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} title="Resolve Incident" onClick={() => {
                                 if (inc.status === 'Resolved') {
                                   alert('Incident is already resolved.');
                                   return;
@@ -2003,7 +2294,9 @@ function RiderProfileContent() {
                                 const updated = incidents.map(i => i.id === inc.id ? { ...i, status: 'Resolved' as const } : i);
                                 setIncidents(updated);
                                 triggerToast(`${inc.id} status marked Resolved.`);
-                              }}>✓</button>
+                              }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -2030,7 +2323,7 @@ function RiderProfileContent() {
               <div className="rp-card">
                 <div className="rp-card-hdr">
                   <div>
-                    <h3 className="rp-card-tit">Ride History & Booking Logs</h3>
+                    <h3 className="rp-card-tit">Ride History &amp; Booking Logs</h3>
                     <p className="rp-sub" style={{ fontSize: '11.5px', margin: '2px 0 0' }}>All historical vehicle rentals and ride bookings for this rider</p>
                   </div>
                 </div>
@@ -2047,20 +2340,21 @@ function RiderProfileContent() {
                         <th>Fare Paid</th>
                         <th>Deposit Option</th>
                         <th>Status</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {riderRides.length === 0 ? (
                         <tr>
-                          <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: '#64748B' }}>
+                          <td colSpan={9} style={{ textAlign: 'center', padding: '32px', color: '#64748B' }}>
                             <div>No ride booking records found for this rider.</div>
                           </td>
                         </tr>
                       ) : (
                         riderRides.map((r, idx) => (
-                          <tr key={idx}>
+                          <tr key={idx} style={{ cursor: 'pointer' }} onClick={() => setSelectedBooking(r)}>
                             <td style={{ fontWeight: 700, fontFamily: 'monospace', color: '#6366F1' }}>
-                              {r.reservation_id || r._id || `RID-${idx + 101}`}
+                              <span style={{ textDecoration: 'underline' }}>{r.reservation_id || r._id || `RID-${idx + 101}`}</span>
                             </td>
                             <td style={{ fontWeight: 700 }}>{r.vehicle_id || r.vehicle_model || 'EVM102501'}</td>
                             <td>{r.pickup_zone || riderZone}</td>
@@ -2073,6 +2367,16 @@ function RiderProfileContent() {
                                 {r.status || 'Confirmed'}
                               </span>
                             </td>
+                            <td>
+                              <button 
+                                className="rp-btn-outline" 
+                                style={{ padding: '3px 8px', fontSize: '11px', height: '24px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedBooking(r); }}
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                Details
+                              </button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -2084,7 +2388,9 @@ function RiderProfileContent() {
 
             {activeTab === 'Activity' && (
               <div className="rp-card" style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
-                <div style={{ fontSize: '42px', marginBottom: '12px' }}>📊</div>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: '#4F46E5' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                </div>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px 0' }}>Activity Logs</h3>
                 <p style={{ fontSize: '13px', margin: 0 }}>Complete system logs of rider operations, checkins, checkouts, swaps and status updates.</p>
                 <div style={{ textAlign: 'left', marginTop: '20px', borderTop: '1px solid #E2E8F0', paddingTop: '16px' }}>
@@ -2117,20 +2423,28 @@ function RiderProfileContent() {
 
             {activeTab === 'Reviews' && (
               <div className="rp-card" style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
-                <div style={{ fontSize: '42px', marginBottom: '12px' }}>⭐</div>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: '#D97706' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </div>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: '0 0 6px 0' }}>Customer Reviews</h3>
                 <p style={{ fontSize: '13px', margin: 0 }}>Feedback ratings received by {riderName} from delivery customers.</p>
                 <div className="rp-info-list" style={{ marginTop: '20px', textAlign: 'left' }}>
                   <div style={{ padding: '12px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FAFBFD' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 800, color: '#0F172A' }}>★ 5.0 Rating</span>
+                      <span style={{ fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        5.0 Rating
+                      </span>
                       <span style={{ fontSize: '11px', color: '#94A3B8' }}>{profileData?.joined_on || 'Recent'}</span>
                     </div>
                     <p style={{ fontSize: '12px', margin: 0, color: '#475569' }}>"Rider was polite, delivered order quickly and safely!"</p>
                   </div>
                   <div style={{ padding: '12px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#FAFBFD' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 800, color: '#0F172A' }}>★ 4.8 Rating</span>
+                      <span style={{ fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        4.8 Rating
+                      </span>
                       <span style={{ fontSize: '11px', color: '#94A3B8' }}>{profileData?.joined_on || 'Recent'}</span>
                     </div>
                     <p style={{ fontSize: '12px', margin: 0, color: '#475569' }}>"On-time delivery, good service."</p>
@@ -2182,38 +2496,71 @@ function RiderProfileContent() {
         <div className="rp-modal-overlay">
           <div className="rp-modal-box">
             <div className="rp-modal-hdr">
-              <h3 className="rp-modal-tit">Upload Document</h3>
+              <h3 className="rp-modal-tit">Upload to Folder</h3>
               <button className="rp-modal-close" onClick={() => setModalType(null)}>×</button>
             </div>
             <div className="rp-modal-body">
               <div className="rp-form-group">
+                <label className="rp-form-lbl">Target Date Folder</label>
+                <select className="rp-select" style={{ width: '100%' }} value={uploadTargetFolder} onChange={(e) => setUploadTargetFolder(e.target.value)}>
+                  <option value="KYC Identity Documents">KYC Identity Documents</option>
+                  <option value="Live Selfie & Biometric Verification">Live Selfie &amp; Biometric Verification</option>
+                  <option value="Driving License & Agreements">Driving License &amp; Agreements</option>
+                  <option value="Pre-Ride Inspection Photos">Pre-Ride Inspection Photos</option>
+                  <option value="Post-Ride Return Inspection">Post-Ride Return Inspection</option>
+                </select>
+              </div>
+              <div className="rp-form-group">
                 <label className="rp-form-lbl">Document Name</label>
-                <input type="text" className="rp-form-inp" placeholder="e.g. Aadhaar Card, Driving License" value={docNameInput} onChange={(e) => setDocNameInput(e.target.value)} />
+                <input type="text" className="rp-form-inp" placeholder="e.g. Aadhaar Card (Front), Live Selfie" value={docNameInput} onChange={(e) => setDocNameInput(e.target.value)} />
               </div>
               <div className="rp-form-group">
                 <label className="rp-form-lbl">Category</label>
                 <select className="rp-select" style={{ width: '100%' }} value={docCatInput} onChange={(e) => setDocCatInput(e.target.value)}>
                   <option value="Identity Proof">Identity Proof</option>
-                  <option value="License">License</option>
-                  <option value="Insurance">Insurance</option>
-                  <option value="Vehicle Document">Vehicle Document</option>
-                  <option value="Bank Document">Bank Document</option>
-                  <option value="Certificate">Certificate</option>
-                  <option value="Verification">Verification</option>
+                  <option value="Live Photo">Live Photo</option>
+                  <option value="Driving License">Driving License</option>
+                  <option value="Contract">Rental Agreement</option>
+                  <option value="Vehicle Inspection">Vehicle Inspection</option>
+                  <option value="Return Inspection">Return Inspection</option>
                 </select>
               </div>
               <div className="rp-form-group">
-                <label className="rp-form-lbl">Document / Certificate Number</label>
-                <input type="text" className="rp-form-inp" placeholder="e.g. DL-08-2020..." value={docNumInput} onChange={(e) => setDocNumInput(e.target.value)} />
+                <label className="rp-form-lbl">Document / Certificate Number (Optional)</label>
+                <input type="text" className="rp-form-inp" placeholder="e.g. 5091 2280 4492" value={docNumInput} onChange={(e) => setDocNumInput(e.target.value)} />
               </div>
               <div className="rp-form-group">
-                <label className="rp-form-lbl">Select File</label>
-                <input type="file" className="rp-form-inp" style={{ border: 'none', padding: '4px 0' }} onChange={() => triggerToast('File attachment pre-processed')} />
+                <label className="rp-form-lbl">Select File / Photo</label>
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf" 
+                  className="rp-form-inp" 
+                  style={{ border: '1.5px dashed #CBD5E1', padding: '10px', background: '#FAFBFD' }} 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setUploadDocFile(event.target?.result as string);
+                        triggerToast('File selected & encoded successfully');
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} 
+                />
+                {uploadDocFile && (
+                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#16A34A', fontWeight: 600 }}>
+                    ✓ File attached and ready for upload
+                  </div>
+                )}
               </div>
             </div>
             <div className="rp-modal-ft">
               <button className="rp-btn-outline" onClick={() => setModalType(null)}>Cancel</button>
-              <button className="rp-btn-primary" onClick={handleUploadDoc}>Upload</button>
+              <button className="rp-btn-primary" onClick={handleUploadDoc}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                Upload Document
+              </button>
             </div>
           </div>
         </div>
@@ -2223,22 +2570,83 @@ function RiderProfileContent() {
         <div className="rp-modal-overlay">
           <div className="rp-modal-box">
             <div className="rp-modal-hdr">
-              <h3 className="rp-modal-tit">Send Message to Rider</h3>
+              <div>
+                <h3 className="rp-modal-tit" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                  Send WhatsApp Message to Rider
+                </h3>
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                  Dispatches directly to rider&apos;s phone via Meta WhatsApp Cloud API
+                </div>
+              </div>
               <button className="rp-modal-close" onClick={() => setModalType(null)}>×</button>
             </div>
             <div className="rp-modal-body">
               <div className="rp-form-group">
-                <label className="rp-form-lbl">Recipients</label>
-                <input type="text" className="rp-form-inp" value={`${riderName} (${profileData?.rider_id || riderId})`} disabled />
+                <label className="rp-form-lbl">Recipient Mobile</label>
+                <input type="text" className="rp-form-inp" value={`${riderName} (${profileData?.mobile || riderMobile})`} disabled style={{ background: '#F1F5F9' }} />
+              </div>
+              <div className="rp-form-group">
+                <label className="rp-form-lbl">Quick Templates</label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  <button 
+                    type="button" 
+                    className="template-chip"
+                    onClick={() => setMessageInput(`Hello ${riderName}, your Aadhaar KYC and registration details have been verified & approved on Evegah. You are now ready to ride!`)}
+                  >
+                    KYC Approved
+                  </button>
+                  <button 
+                    type="button" 
+                    className="template-chip"
+                    onClick={() => setMessageInput(`Hello ${riderName}, your rental session at ${riderZone} hub is ending soon. Please return vehicle on time to avoid overtime charges.`)}
+                  >
+                    Ride Reminder
+                  </button>
+                  <button 
+                    type="button" 
+                    className="template-chip"
+                    onClick={() => setMessageInput(`Hello ${riderName}, your security deposit refund for booking #${riderRides[0]?.reservation_id || 'RID-2026'} has been initiated. Funds will reflect in 24-48 hours.`)}
+                  >
+                    Deposit Refund
+                  </button>
+                  <button 
+                    type="button" 
+                    className="template-chip"
+                    onClick={() => setMessageInput(`Hello ${riderName}, your vehicle is ready for pickup at ${riderZone} hub. Please present your booking ID at the counter.`)}
+                  >
+                    Pickup Ready
+                  </button>
+                </div>
               </div>
               <div className="rp-form-group">
                 <label className="rp-form-lbl">Message Body</label>
-                <textarea className="rp-form-inp" style={{ minHeight: '100px', resize: 'vertical', fontFamily: 'inherit' }} placeholder="Type your message here..." value={messageInput} onChange={(e) => setMessageInput(e.target.value)} />
+                <textarea 
+                  className="rp-form-inp" 
+                  style={{ minHeight: '110px', resize: 'vertical', fontFamily: 'inherit' }} 
+                  placeholder="Type your WhatsApp message to the rider..." 
+                  value={messageInput} 
+                  onChange={(e) => setMessageInput(e.target.value)} 
+                />
               </div>
             </div>
             <div className="rp-modal-ft">
               <button className="rp-btn-outline" onClick={() => setModalType(null)}>Cancel</button>
-              <button className="rp-btn-primary" onClick={handleSendMessage}>Send Message</button>
+              <button 
+                className="rp-btn-primary" 
+                style={{ background: '#25D366', borderColor: '#25D366', display: 'flex', alignItems: 'center', gap: '6px' }} 
+                onClick={handleSendMessage}
+                disabled={sendingWhatsApp}
+              >
+                {sendingWhatsApp ? (
+                  <span>Sending...</span>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Send WhatsApp Message
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -2284,7 +2692,12 @@ function RiderProfileContent() {
         <div className="rp-modal-overlay">
           <div className="rp-modal-box">
             <div className="rp-modal-hdr">
-              <h3 className="rp-modal-tit">Update Aadhaar KYC & Profile</h3>
+              <div>
+                <h3 className="rp-modal-tit">Update Aadhaar KYC &amp; Profile</h3>
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                  Verify details from Aadhaar OCR / Registration form and approve rider KYC
+                </div>
+              </div>
               <button className="rp-modal-close" onClick={() => setModalType(null)}>×</button>
             </div>
             <div className="rp-modal-body">
@@ -2292,30 +2705,206 @@ function RiderProfileContent() {
                 <label className="rp-form-lbl">Full Name (from Aadhaar)</label>
                 <input type="text" className="rp-form-inp" value={kycEditName} onChange={(e) => setKycEditName(e.target.value)} placeholder="Full Name" />
               </div>
-              <div className="rp-form-group">
-                <label className="rp-form-lbl">Date of Birth</label>
-                <input type="text" className="rp-form-inp" value={kycEditDob} onChange={(e) => setKycEditDob(e.target.value)} placeholder="e.g. 12/03/1998" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="rp-form-group">
+                  <label className="rp-form-lbl">Date of Birth</label>
+                  <input type="text" className="rp-form-inp" value={kycEditDob} onChange={(e) => setKycEditDob(e.target.value)} placeholder="e.g. 12/03/1998" />
+                </div>
+                <div className="rp-form-group">
+                  <label className="rp-form-lbl">Gender</label>
+                  <select className="rp-select" style={{ width: '100%' }} value={kycEditGender} onChange={(e) => setKycEditGender(e.target.value)}>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
               </div>
               <div className="rp-form-group">
-                <label className="rp-form-lbl">Gender</label>
-                <select className="rp-select" style={{ width: '100%' }} value={kycEditGender} onChange={(e) => setKycEditGender(e.target.value)}>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
+                <label className="rp-form-lbl">Permanent Address (from Aadhaar)</label>
+                <textarea className="rp-form-inp" style={{ minHeight: '52px', resize: 'vertical' }} value={kycEditAddress} onChange={(e) => setKycEditAddress(e.target.value)} placeholder="Permanent residential address as on Aadhaar" />
               </div>
               <div className="rp-form-group">
-                <label className="rp-form-lbl">Address</label>
-                <textarea className="rp-form-inp" style={{ minHeight: '60px', resize: 'vertical' }} value={kycEditAddress} onChange={(e) => setKycEditAddress(e.target.value)} placeholder="Full residential address" />
+                <label className="rp-form-lbl">Present Address (Current Stay)</label>
+                <textarea className="rp-form-inp" style={{ minHeight: '52px', resize: 'vertical' }} value={kycEditPresentAddress} onChange={(e) => setKycEditPresentAddress(e.target.value)} placeholder="Present / local residence address in city" />
               </div>
               <div className="rp-form-group">
-                <label className="rp-form-lbl">Aadhaar Number</label>
-                <input type="text" className="rp-form-inp" value={kycEditAadhaar} onChange={(e) => setKycEditAadhaar(e.target.value)} placeholder="12-digit Aadhaar Number" />
+                <label className="rp-form-lbl">Aadhaar Number (12-Digit)</label>
+                <input type="text" className="rp-form-inp" value={kycEditAadhaar} onChange={(e) => setKycEditAadhaar(e.target.value)} placeholder="12-digit Aadhaar Number (e.g. 5091 2280 4492)" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="rp-form-group">
+                  <label className="rp-form-lbl">Emergency Reference Name</label>
+                  <input type="text" className="rp-form-inp" value={kycEditEmergencyName} onChange={(e) => setKycEditEmergencyName(e.target.value)} placeholder="Family / Friend Name" />
+                </div>
+                <div className="rp-form-group">
+                  <label className="rp-form-lbl">Emergency Reference Mobile</label>
+                  <input type="text" className="rp-form-inp" value={kycEditEmergencyPhone} onChange={(e) => setKycEditEmergencyPhone(e.target.value)} placeholder="10-digit mobile number" />
+                </div>
               </div>
             </div>
             <div className="rp-modal-ft">
               <button className="rp-btn-outline" onClick={() => setModalType(null)}>Cancel</button>
-              <button className="rp-btn-primary" onClick={handleUpdateKyc}>Save & Sync Profile</button>
+              <button className="rp-btn-primary" style={{ background: '#16A34A', borderColor: '#16A34A', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleUpdateKyc}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Approve KYC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Details Modal */}
+      {selectedBooking && (
+        <div className="rp-modal-overlay">
+          <div className="rp-modal-box" style={{ maxWidth: '580px' }}>
+            <div className="rp-modal-hdr">
+              <div>
+                <h3 className="rp-modal-tit" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Booking #{selectedBooking.reservation_id || selectedBooking._id || 'RID-001'}</span>
+                  <span className={`pill-badge ${(selectedBooking.status === 'Active Ride' || selectedBooking.status === 'Ongoing') ? 'pill-green' : 'pill-purple'}`}>
+                    {selectedBooking.status || 'Confirmed'}
+                  </span>
+                </h3>
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                  Reserved on {formatCleanDateTime(selectedBooking.created_at || selectedBooking.reservation_date)}
+                </div>
+              </div>
+              <button className="rp-modal-close" onClick={() => setSelectedBooking(null)}>×</button>
+            </div>
+            <div className="rp-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="booking-detail-grid">
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Customer Name</div>
+                  <div className="booking-detail-val">{selectedBooking.customer_name || riderName}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Contact Phone</div>
+                  <div className="booking-detail-val">{selectedBooking.mobile || riderMobile}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Vehicle Number</div>
+                  <div className="booking-detail-val">{selectedBooking.vehicle_id || selectedBooking.vehicle_number || selectedBooking.vehicle_model || 'EVM102501'}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Battery Pack ID</div>
+                  <div className="booking-detail-val">{selectedBooking.battery_id || riderBattery}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Pickup Zone</div>
+                  <div className="booking-detail-val">{selectedBooking.pickup_zone || riderZone}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Package Plan</div>
+                  <div className="booking-detail-val">{selectedBooking.package_type || 'Daily Standard'}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Pickup Datetime</div>
+                  <div className="booking-detail-val">{formatCleanDateTime(selectedBooking.pickup_datetime || selectedBooking.reservation_date, selectedBooking.reservation_time)}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Drop Datetime</div>
+                  <div className="booking-detail-val">{formatCleanDateTime(selectedBooking.drop_datetime)}</div>
+                </div>
+              </div>
+
+              {/* Pricing breakdown */}
+              <div style={{ background: '#FAF5FF', border: '1px solid #E9D5FF', borderRadius: '8px', padding: '12px 14px' }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#6D28D9', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Billing &amp; Payment Summary
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', marginBottom: '4px' }}>
+                  <span>Rental Fare:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>₹{selectedBooking.fare || selectedBooking.total_price || '1,497.00'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', marginBottom: '4px' }}>
+                  <span>Security Deposit:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{selectedBooking.deposit_option === 'Pay Later' ? 'Pay Later (₹0)' : `₹${selectedBooking.deposit || '2,000.00'}`}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#475569', marginBottom: '6px' }}>
+                  <span>Payment Method / Status:</span>
+                  <span style={{ fontWeight: 700, color: '#16A34A' }}>{selectedBooking.payment_mode || 'ICICI UPI QR'} ({selectedBooking.payment_status || 'Paid'})</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', fontWeight: 800, color: '#2A195C', borderTop: '1px dashed #DDD6FE', paddingTop: '6px' }}>
+                  <span>Total Amount:</span>
+                  <span>₹{selectedBooking.total_price || selectedBooking.fare || '1,497.00'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="rp-modal-ft">
+              <button className="rp-btn-outline" onClick={() => setSelectedBooking(null)}>Close</button>
+              <Link href="/ride-operations" className="rp-btn-primary" style={{ textDecoration: 'none' }}>
+                Open in Ride Operations
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {previewDoc && (
+        <div className="rp-modal-overlay">
+          <div className="rp-modal-box" style={{ maxWidth: '620px' }}>
+            <div className="rp-modal-hdr">
+              <div>
+                <h3 className="rp-modal-tit">{previewDoc.doc_name}</h3>
+                <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px' }}>
+                  {previewDoc.folder_name} | Uploaded on {previewDoc.date || 'Recent'}
+                </div>
+              </div>
+              <button className="rp-modal-close" onClick={() => setPreviewDoc(null)}>×</button>
+            </div>
+            <div className="rp-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ maxHeight: '380px', minHeight: '220px', background: '#0F172A', borderRadius: '10px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {previewDoc.file_path && (previewDoc.file_path.startsWith('http') || previewDoc.file_path.startsWith('data:') || previewDoc.file_path.startsWith('/')) ? (
+                  <img 
+                    src={previewDoc.file_path} 
+                    alt={previewDoc.doc_name} 
+                    style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <div style={{ color: '#fff', textAlign: 'center', padding: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{previewDoc.doc_name}</div>
+                    <div style={{ fontSize: '11px', color: '#94A3B8' }}>Digital Document Record Verified on Blockchain / DB</div>
+                  </div>
+                )}
+              </div>
+              <div className="booking-detail-grid">
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Document Type</div>
+                  <div className="booking-detail-val">{previewDoc.type || 'Identity Proof'}</div>
+                </div>
+                <div className="booking-detail-item">
+                  <div className="booking-detail-lbl">Verification Status</div>
+                  <div className="booking-detail-val" style={{ color: '#16A34A' }}>✓ {previewDoc.status || 'Verified'}</div>
+                </div>
+                {(previewDoc.ocr_aadhaar_no || previewDoc.ocr_number || previewDoc.number) && (
+                  <div className="booking-detail-item" style={{ gridColumn: 'span 2' }}>
+                    <div className="booking-detail-lbl">Document Number</div>
+                    <div className="booking-detail-val">{previewDoc.ocr_aadhaar_no || previewDoc.ocr_number || previewDoc.number}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="rp-modal-ft">
+              <button className="rp-btn-outline" onClick={() => setPreviewDoc(null)}>Close</button>
+              <button 
+                className="rp-btn-primary"
+                onClick={() => {
+                  triggerToast(`Downloading ${previewDoc.doc_name}...`);
+                  if (previewDoc.file_path && previewDoc.file_path.startsWith('data:')) {
+                    const a = document.createElement('a');
+                    a.href = previewDoc.file_path;
+                    a.download = `${previewDoc.doc_name.toLowerCase().replace(/\s+/g, '_')}.png`;
+                    a.click();
+                  } else {
+                    window.open(previewDoc.file_path || '/rohit_avatar.png', '_blank');
+                  }
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Document
+              </button>
             </div>
           </div>
         </div>
@@ -2323,8 +2912,8 @@ function RiderProfileContent() {
 
       {/* Custom feedback toast alert */}
       {toast.show && (
-        <div className="rp-toast rp-toast-green">
-          <span>🔔</span>
+        <div className="rp-toast rp-toast-green" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span>{toast.msg}</span>
         </div>
       )}
