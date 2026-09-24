@@ -114,6 +114,7 @@ export default function BatteryListPage() {
       if (res.ok) {
         const result = await res.json();
         const list = Array.isArray(result) ? result : (result?.data || []);
+        const mapped = list.map((b: any, index: number) => {
           const rawStatus = (b.status || 'available').toString().toLowerCase().trim();
           const normalizedStatus: 'available' | 'in_use' | 'charging' | 'maintenance' = 
             rawStatus.includes('use') ? 'in_use' : 
@@ -134,6 +135,7 @@ export default function BatteryListPage() {
             location: b.location || (normalizedStatus === 'in_use' ? (b.vehicle_number ? `Vehicle ${b.vehicle_number}` : 'Vehicle Fleet') : `${b.zone || 'Depot'} Swap Dock`),
             lastSwap: b.last_swap || 'Today'
           };
+        });
         
         setBatteries(mapped);
       }
