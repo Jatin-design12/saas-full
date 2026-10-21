@@ -1373,8 +1373,8 @@ function RiderProfileContent() {
       }
     },
     scales: showAxis ? {
-      x: { grid: { display: false, drawBorder: false }, ticks: { font: { size: 9, family: 'Inter' }, color: '#8A8DA3', maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } },
-      y: { beginAtZero: true, grid: { color: 'rgba(237, 239, 245, 0.7)', drawBorder: false }, ticks: { font: { size: 9, family: 'Inter' }, color: '#8A8DA3', maxTicksLimit: 4 } }
+      x: { grid: { display: false }, ticks: { font: { size: 9, family: 'Inter' }, color: '#8A8DA3', maxRotation: 0, autoSkip: true, maxTicksLimit: 7 } },
+      y: { beginAtZero: true, grid: { color: 'rgba(237, 239, 245, 0.7)' }, ticks: { font: { size: 9, family: 'Inter' }, color: '#8A8DA3', maxTicksLimit: 4 } }
     } : {
       x: { display: false }, y: { display: false }
     }
@@ -2257,9 +2257,9 @@ function RiderProfileContent() {
                             pointHoverBorderColor: '#fff',
                             pointHoverBorderWidth: 2,
                             borderDash: [6, 4]
-                          }
-                        ]
-                      }}
+                          } as any
+                        ] as any
+                      } as any}
                       options={{
                         responsive: true,
                         maintainAspectRatio: false,
@@ -2279,8 +2279,8 @@ function RiderProfileContent() {
                           }
                         },
                         scales: {
-                          x: { grid: { display: false, drawBorder: false }, ticks: { font: { size: 10, family: 'Inter' }, color: '#8A8DA3', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
-                          y: { beginAtZero: true, grid: { color: 'rgba(237, 239, 245, 0.7)', drawBorder: false }, ticks: { font: { size: 10, family: 'Inter' }, color: '#8A8DA3', callback: (val: any) => `₹${val}` } }
+                          x: { grid: { display: false }, ticks: { font: { size: 10, family: 'Inter' }, color: '#8A8DA3', maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+                          y: { beginAtZero: true, grid: { color: 'rgba(237, 239, 245, 0.7)' }, ticks: { font: { size: 10, family: 'Inter' }, color: '#8A8DA3', callback: (val: any) => `₹${val}` } }
                         }
                       }}
                     />
