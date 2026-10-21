@@ -854,6 +854,7 @@ export default function RentersPage() {
   const [selectedZone, setSelectedZone] = useState('All Zones');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 10 });
+  const [summary, setSummary] = useState<any>(null);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
 
   const [selectedMobiles, setSelectedMobiles] = useState<string[]>([]);
@@ -1123,6 +1124,7 @@ export default function RentersPage() {
           }
           setRenters(dataList);
           if (res.pagination) setPagination(res.pagination);
+          if (res.summary) setSummary(res.summary);
         }
       })
       .catch((err) => console.error('Error loading renters:', err))
@@ -1224,11 +1226,11 @@ export default function RentersPage() {
     }
   };
 
-  const totalRidesCount = pagination.total || renters.length;
-  const activeRidesCount = renters.filter(r => r.status === 'Active Ride').length || Math.round(totalRidesCount * 0.46);
-  const retainRidesCount = renters.filter(r => r.status === 'Retain Ride').length || Math.round(totalRidesCount * 0.19);
-  const returnedRidesCount = renters.filter(r => r.status === 'Return').length || Math.round(totalRidesCount * 0.31);
-  const extendedRidesCount = renters.filter(r => r.status === 'Extend').length || Math.round(totalRidesCount * 0.04);
+  const totalRidesCount = summary?.total ?? pagination.total ?? renters.length;
+  const activeRidesCount = summary?.activeRides ?? renters.filter(r => r.status === 'Active Ride').length;
+  const retainRidesCount = summary?.retainRides ?? renters.filter(r => r.status === 'Retain Ride').length;
+  const returnedRidesCount = summary?.returnedRides ?? renters.filter(r => r.status === 'Return').length;
+  const extendedRidesCount = summary?.extendedRides ?? renters.filter(r => r.status === 'Extend').length;
 
   const formatCurrency = (val: string | number) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
@@ -1265,22 +1267,25 @@ export default function RentersPage() {
   };
 
   const getStatusClass = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s === 'active ride' || (s.includes('active') && !s.includes('no'))) return 's-active';
+    const s = (status || '').toLowerCase().trim();
+    if (s === 'active ride') return 's-active';
     if (s.includes('upcoming') || s.includes('reserved')) return 's-upcoming';
     if (s.includes('retain')) return 's-retain';
     if (s.includes('return') || s.includes('complete')) return 's-return';
     if (s.includes('extend')) return 's-extend';
-    if (s.includes('no active') || s.includes('inactive')) return 's-noactive';
+    if (s.includes('suspended')) return 's-suspended';
     return 's-noactive';
   };
 
   const getStatusLabel = (status: string) => {
-    if (status === 'Return' || status === 'Returned') return 'Returned';
-    if (status === 'Extend' || status === 'Extended') return 'Extended';
-    if (status === 'Upcoming' || status === 'Reserved') return 'Upcoming';
-    if (!status || status === 'No Active Ride') return 'No Active Ride';
-    return status;
+    const s = (status || '').toLowerCase().trim();
+    if (s === 'active ride') return 'Active Ride';
+    if (s === 'return' || s === 'returned' || s === 'completed') return 'Returned';
+    if (s === 'extend' || s === 'extended') return 'Extended';
+    if (s === 'retain' || s === 'retain ride') return 'Retain Ride';
+    if (s === 'upcoming' || s === 'reserved') return 'Upcoming';
+    if (s === 'suspended') return 'Suspended';
+    return 'No Active Ride';
   };
 
   return (
@@ -1716,6 +1721,16 @@ export default function RentersPage() {
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                     <circle cx="12" cy="12" r="3"/>
+                                  </svg>
+                                </Link>
+                                <Link
+                                  href={`/payment/history?search=${encodeURIComponent((r.mobile || '').replace(/\D/g, '').slice(-10))}`}
+                                  className="re-action-btn"
+                                  title="View Payment & Deposit History"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="2" y="5" width="20" height="14" rx="2"/>
+                                    <line x1="2" y1="10" x2="22" y2="10"/>
                                   </svg>
                                 </Link>
                                 <button

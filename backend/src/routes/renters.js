@@ -902,8 +902,8 @@ router.get('/', async (req, res) => {
       const depVal = r.deposit !== undefined && r.deposit !== null ? parseFloat(r.deposit) : 0;
       const totVal = r.total !== undefined && r.total !== null ? parseFloat(r.total) : (rentVal + depVal);
 
-      let displayStatus = 'Active';
-      if (['active ride', 'ongoing'].includes(sLower) || (isDirectActive && r.vehicle_id && r.vehicle_id !== '—' && r.vehicle_id !== 'EV-DEFAULT')) {
+      let displayStatus = 'No Active Ride';
+      if (sLower === 'active ride' || sLower === 'ongoing') {
         displayStatus = 'Active Ride';
       } else if (sLower === 'retain ride') {
         displayStatus = 'Retain Ride';
@@ -916,7 +916,7 @@ router.get('/', async (req, res) => {
       } else if (sLower === 'suspended') {
         displayStatus = 'Suspended';
       } else {
-        displayStatus = 'Active';
+        displayStatus = 'No Active Ride';
       }
 
       if (!ridersMap.has(key)) {
@@ -1040,7 +1040,7 @@ router.get('/', async (req, res) => {
           rider.deposit = resvDep.toFixed(2);
           rider.total = (resvFare + resvDep).toFixed(2);
           if (pZone) rider.latest_zone = pZone;
-        } else if (!rider.has_active_ride && !rider.is_direct_renter && rider.status !== 'Upcoming') {
+        } else if (!rider.has_active_ride && rider.status !== 'Upcoming') {
           if (!rider.has_updated_from_resv) {
             rider.has_updated_from_resv = true;
             rider.rental_start_date = resvStart;
@@ -1050,6 +1050,8 @@ router.get('/', async (req, res) => {
             rider.rent = resvFare.toFixed(2);
             rider.deposit = resvDep.toFixed(2);
             rider.total = (resvFare + resvDep).toFixed(2);
+            if (resv.vehicle_number) rider.vehicle_id = resv.vehicle_number;
+            if (resv.battery_id) rider.battery_id = resv.battery_id;
           }
         }
       }
@@ -1109,6 +1111,17 @@ router.get('/', async (req, res) => {
       );
     }
 
+    // Global KPI summary across all riders (before pagination and status filters)
+    const summary = {
+      total: allRiders.length,
+      activeRides: allRiders.filter(r => r.status === 'Active Ride').length,
+      retainRides: allRiders.filter(r => r.status === 'Retain Ride').length,
+      returnedRides: allRiders.filter(r => r.status === 'Return').length,
+      extendedRides: allRiders.filter(r => r.status === 'Extend').length,
+      upcomingRides: allRiders.filter(r => r.status === 'Upcoming').length,
+      noActiveRides: allRiders.filter(r => r.status === 'No Active Ride').length,
+    };
+
     // 6. Filter by Status
     if (status) {
       allRiders = allRiders.filter(r => r.status.toLowerCase() === status.toLowerCase());
@@ -1120,6 +1133,7 @@ router.get('/', async (req, res) => {
     const responsePayload = {
       status: 'success',
       data: paginated,
+      summary,
       pagination: {
         page,
         limit,
