@@ -10,9 +10,26 @@ const getBaseUrl = () => {
 
 const BASE_URL = getBaseUrl();
 
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extraHeaders,
+  };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('evegah_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    headers['x-api-key'] = 'evegah-internal-key';
+  }
+  return headers;
+};
+
 export const api = {
   async get(endpoint: string) {
-    const response = await fetch(`${BASE_URL}${endpoint}`);
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      headers: getAuthHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -22,9 +39,7 @@ export const api = {
   async post(endpoint: string, data: any) {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -36,9 +51,7 @@ export const api = {
   async put(endpoint: string, data: any) {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -50,9 +63,7 @@ export const api = {
   async patch(endpoint: string, data: any) {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -64,9 +75,9 @@ export const api = {
   async delete(endpoint: string, data?: any) {
     const options: RequestInit = {
       method: 'DELETE',
+      headers: getAuthHeaders(data ? { 'Content-Type': 'application/json' } : {}),
     };
     if (data) {
-      options.headers = { 'Content-Type': 'application/json' };
       options.body = JSON.stringify(data);
     }
     const response = await fetch(`${BASE_URL}${endpoint}`, options);
@@ -76,3 +87,5 @@ export const api = {
     return response.json();
   }
 };
+
+export default api;

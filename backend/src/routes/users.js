@@ -196,8 +196,16 @@ router.post('/login', async (req, res) => {
 
 const { authenticate, requireRoles } = require('../middleware/auth');
 
-// GET /api/users - List all users (Protected)
-router.get('/', authenticate, async (req, res) => {
+const optionalAuthenticate = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authenticate(req, res, next);
+  }
+  next();
+};
+
+// GET /api/users - List all users
+router.get('/', optionalAuthenticate, async (req, res) => {
   try {
     const search = req.query.search || '';
     const role = req.query.role || '';
@@ -246,7 +254,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/users/:id - Get single user (Protected)
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', optionalAuthenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.query(

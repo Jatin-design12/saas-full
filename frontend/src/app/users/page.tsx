@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import RoleGuard from '@/components/RoleGuard';
+import { api } from '@/lib/api';
 
 function AnimatedCount({ value }: { value: string | number }) {
   const [displayValue, setDisplayValue] = useState<string | number>(value);
@@ -237,11 +238,9 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
 
   const fetchUsers = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/users`);
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data.data || []);
+      const data = await api.get('/users');
+      if (data && data.data) {
+        setUsers(data.data);
       }
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -250,11 +249,9 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
 
   const fetchRoles = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/roles`);
-      if (res.ok) {
-        const data = await res.json();
-        setRoles(data.data || []);
+      const data = await api.get('/roles');
+      if (data && data.data) {
+        setRoles(data.data);
       }
     } catch (err) {
       console.error('Error fetching roles:', err);
