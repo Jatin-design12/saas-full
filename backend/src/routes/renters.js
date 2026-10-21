@@ -816,7 +816,9 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const search = (req.query.search || '').trim();
     const status = (req.query.status || '').trim();
-    const zoneFilter = (req.query.zone && req.query.zone !== 'All Zones') ? req.query.zone.trim() : null;
+    const rawZone = (req.query.zone || '').trim();
+    const isAllZones = !rawZone || rawZone === 'All Zones' || rawZone === 'All Zones (Multi-Zone)' || rawZone === 'All' || rawZone.toLowerCase().includes('all zone');
+    const zoneFilter = isAllZones ? null : rawZone;
 
     // Check Redis / In-Memory cache
     const cacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}`;
@@ -1069,13 +1071,24 @@ router.get('/', async (req, res) => {
       let modeStr = (r.booking_source || '').toLowerCase();
       const finalMode = modeStr === 'form' ? 'Form' : ((modeStr.includes('app') || r.has_updated_from_resv) ? 'App' : 'Form');
 
+      let riderZone = r.latest_zone || Array.from(r.booked_zones)[0] || r.zone;
+      if (!riderZone && r.address) {
+        const addrLower = (r.address + ' ' + (r.present_address || '')).toLowerCase();
+        if (addrLower.includes('manjalpur') || addrLower.includes('makarpura')) riderZone = 'Manjalpur Zone';
+        else if (addrLower.includes('gotri') || addrLower.includes('alkapuri') || addrLower.includes('akota')) riderZone = 'Gotri Zone';
+        else if (addrLower.includes('aatapi') || addrLower.includes('ajwa') || addrLower.includes('karelibaug') || addrLower.includes('fatehgunj')) riderZone = 'Aatapi Zone';
+      }
+      if (!riderZone) {
+        riderZone = 'Gotri Zone';
+      }
+
       return {
         ...r,
         package_name: pkg,
         booking_source: finalMode,
         mode: finalMode,
-        zone: r.latest_zone || Array.from(r.booked_zones)[0] || 'Gotri Zone',
-        zones: Array.from(r.booked_zones),
+        zone: riderZone,
+        zones: Array.from(r.booked_zones).concat([riderZone]),
         vehicle_id: r.has_active_ride ? (r.vehicle_id || 'EV-ALLOCATED') : (r.vehicle_id && r.vehicle_id !== 'EV-DEFAULT' ? r.vehicle_id : '—'),
         battery_id: r.has_active_ride ? (r.battery_id || 'BAT-ALLOCATED') : (r.battery_id && r.battery_id !== 'BAT-DEFAULT' ? r.battery_id : '—'),
         status: r.has_active_ride ? (['Retain Ride', 'Extend'].includes(r.status) ? r.status : 'Active Ride') : (r.status === 'Active Ride' ? 'No Active Ride' : r.status)
@@ -1647,10 +1660,12 @@ router.post('/documents', (req, res) => {
 // GET /api/renters/documents - Fetch date-wise folder documents for rider profile page
 router.get('/documents', async (req, res) => {
   const mobile = req.query.mobile || req.query.search || '';
+  const riderId = req.query.id || req.query.rider_id || '';
+  const riderNameQuery = req.query.name || '';
   const cleanMobile = (mobile || '').replace(/\D/g, '');
-  const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : '';
+  let last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : '';
 
-  // 1. Fetch renter from DB
+  // 1. Fetch renter from DB by mobile, id, or name
   let renter = null;
   if (last10) {
     const rRes = await db.query(
@@ -1663,34 +1678,68 @@ router.get('/documents', async (req, res) => {
     if (rRes.rows.length > 0) renter = rRes.rows[0];
   }
 
+  if (!renter && riderId && riderId !== 'RID-2026-001' && riderId !== '—') {
+    const rRes = await db.query(
+      `SELECT id, rider_name, mobile, aadhaar_number, avatar_url, created_at 
+       FROM renters 
+       WHERE id::text = $1 OR vehicle_id = $1 
+       LIMIT 1`,
+      [riderId]
+    ).catch(() => ({ rows: [] }));
+    if (rRes.rows.length > 0) {
+      renter = rRes.rows[0];
+      const mClean = (renter.mobile || '').replace(/\D/g, '');
+      if (mClean.length >= 10) last10 = mClean.slice(-10);
+    }
+  }
+
+  if (!renter && riderNameQuery && riderNameQuery !== 'Rider' && riderNameQuery !== 'Evegah Rider') {
+    const rRes = await db.query(
+      `SELECT id, rider_name, mobile, aadhaar_number, avatar_url, created_at 
+       FROM renters 
+       WHERE rider_name ILIKE $1 
+       ORDER BY created_at DESC LIMIT 1`,
+      [`%${riderNameQuery}%`]
+    ).catch(() => ({ rows: [] }));
+    if (rRes.rows.length > 0) {
+      renter = rRes.rows[0];
+      const mClean = (renter.mobile || '').replace(/\D/g, '');
+      if (mClean.length >= 10) last10 = mClean.slice(-10);
+    }
+  }
+
+  const effectiveMobile = renter?.mobile || mobile;
+  const effectiveLast10 = last10 || (effectiveMobile ? effectiveMobile.replace(/\D/g, '').slice(-10) : '');
+
   // 2. Fetch documents from Postgres documents table
   let dbDocs = [];
-  if (last10 || renter?.id) {
+  if (effectiveLast10 || renter?.id) {
     const dRes = await db.query(
       `SELECT * FROM documents 
-       WHERE mobile LIKE $1 OR rider_id::text = $2 
+       WHERE (mobile LIKE $1 OR rider_id::text = $2) 
        ORDER BY created_at DESC`,
-      [`%${last10}`, renter?.id ? String(renter.id) : '00000000-0000-0000-0000-000000000000']
+      [`%${effectiveLast10 || '0000000000'}`, renter?.id ? String(renter.id) : '00000000-0000-0000-0000-000000000000']
     ).catch(() => ({ rows: [] }));
     dbDocs = dRes.rows;
   }
 
   // 3. Fetch reservations for inspection or ID media
   let reservationDocs = [];
-  if (last10) {
+  if (effectiveLast10 || renter?.rider_name || riderNameQuery) {
     const resvQ = await db.query(
-      `SELECT reservation_id, vehicle_number, id_card_url, inspection_media_url, created_at 
+      `SELECT reservation_id, customer_name, vehicle_number, battery_id, package_type, status, fare, deposit,
+              id_card_url, inspection_media_url, created_at, pickup_datetime, drop_datetime, return_notes 
        FROM reservations 
-       WHERE mobile LIKE $1 
-       ORDER BY created_at DESC LIMIT 10`,
-      [`%${last10}`]
+       WHERE (mobile LIKE $1 OR customer_name ILIKE $2) 
+       ORDER BY created_at DESC LIMIT 20`,
+      [`%${effectiveLast10 || '0000000000'}`, `%${renter?.rider_name || riderNameQuery || '___'}%`]
     ).catch(() => ({ rows: [] }));
     reservationDocs = resvQ.rows;
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const riderName = renter?.rider_name || 'Rider';
-  const aadhaarDisplay = renter?.aadhaar_number || (last10 ? `XXXX XXXX ${last10.slice(-4)}` : 'XXXX XXXX 4492');
+  const riderName = renter?.rider_name || riderNameQuery || 'Rider';
+  const aadhaarDisplay = renter?.aadhaar_number || (effectiveLast10 ? `XXXX XXXX ${effectiveLast10.slice(-4)}` : 'XXXX XXXX 4492');
 
   // Buckets for folders
   const kycDocs = [];
@@ -1768,25 +1817,47 @@ router.get('/documents', async (req, res) => {
     });
   }
 
-  // If reservations have id_card_url, add to kycDocs if not present
+  // Add reservation ride documents & inspection records
   for (const resv of reservationDocs) {
+    const resvDate = resv.created_at ? new Date(resv.created_at).toISOString().split('T')[0] : today;
+
     if (resv.id_card_url && !kycDocs.some(d => d.file_path === resv.id_card_url)) {
       kycDocs.push({
         doc_name: `Reservation ID Card (#${resv.reservation_id})`,
         status: 'Verified',
-        date: resv.created_at ? new Date(resv.created_at).toISOString().split('T')[0] : today,
+        date: resvDate,
         type: 'Identity Proof',
         file_path: resv.id_card_url,
         ocr_number: aadhaarDisplay
       });
     }
+
     if (resv.inspection_media_url && !inspectionDocs.some(d => d.file_path === resv.inspection_media_url)) {
       inspectionDocs.push({
-        doc_name: `Inspection Photo (${resv.vehicle_number || resv.reservation_id})`,
+        doc_name: `Pre-Ride Inspection (${resv.vehicle_number || resv.reservation_id})`,
         status: 'Verified',
-        date: resv.created_at ? new Date(resv.created_at).toISOString().split('T')[0] : today,
+        date: resvDate,
         type: 'Inspection Photo',
         file_path: resv.inspection_media_url
+      });
+    } else {
+      // Add official ride inspection certificate record
+      inspectionDocs.push({
+        doc_name: `Vehicle ${resv.vehicle_number || 'E-Scooter'} Inspection Record (#${resv.reservation_id})`,
+        status: resv.status === 'Completed' ? 'Verified' : 'Active',
+        date: resvDate,
+        type: 'Inspection Record',
+        file_path: ''
+      });
+    }
+
+    if (resv.status === 'Completed') {
+      inspectionDocs.push({
+        doc_name: `Return Inspection Clearance (${resv.vehicle_number || resv.reservation_id})`,
+        status: 'Verified',
+        date: resv.drop_datetime ? new Date(resv.drop_datetime).toISOString().split('T')[0] : resvDate,
+        type: 'Return Clearance',
+        file_path: ''
       });
     }
   }

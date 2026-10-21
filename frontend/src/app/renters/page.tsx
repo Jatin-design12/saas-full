@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -68,26 +69,12 @@ const CSS = `
 }
 
 /* ═══════════ SHELL & LAYOUT ═══════════ */
-.re-shell { display: flex; min-height: 100vh; background: var(--bg); font-family: 'Plus Jakarta Sans', sans-serif; color: var(--ink); }
-.re-main { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
-.re-page { flex: 1; padding: 26px 32px 90px; display: flex; flex-direction: column; gap: 24px; max-width: 1760px; }
+/* Layout container */
 
-/* Ambient background orbs */
-.re-shell::before {
-  content: ''; position: fixed;
-  top: -200px; right: -150px;
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.09) 0%, transparent 65%);
-  pointer-events: none; z-index: 0;
-}
-.re-shell::after {
-  content: ''; position: fixed;
-  bottom: -200px; left: 200px;
-  width: 460px; height: 460px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.07) 0%, transparent 65%);
-  pointer-events: none; z-index: 0;
-}
-.re-main { position: relative; z-index: 1; }
+/* Static Clean Background (No Gradient Orbs) */
+.re-shell { display: flex; min-height: 100vh; background: #F8FAFC !important; font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A; }
+.re-main { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); background: #F8FAFC !important; }
+.re-page { flex: 1; padding: 24px 32px 80px; display: flex; flex-direction: column; gap: 20px; max-width: 1760px; background: #F8FAFC !important; }
 
 /* ═══════════ TITLE ROW ═══════════ */
 .re-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -358,6 +345,88 @@ const CSS = `
   color: var(--ink-lo);
   letter-spacing: 0.6px;
   text-transform: uppercase;
+}
+
+
+/* ═══════════ MODERN DIRECTORY TABLE STYLES ═══════════ */
+.re-badge-capsule {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #F1F5F9;
+  color: #1E293B;
+  border: 1px solid #E2E8F0;
+  letter-spacing: 0.2px;
+}
+.re-badge-battery {
+  background: #F8FAFC;
+  color: #334155;
+}
+.re-pkg-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0F172A;
+  text-transform: lowercase;
+}
+.re-mode-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.re-mode-pill.app {
+  background: #F0FDF4;
+  color: #16A34A;
+  border: 1px solid #86EFAC;
+}
+.re-mode-pill.form {
+  background: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #93C5FD;
+}
+.re-datetime-block {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.re-dt-main {
+  font-size: 12.5px; font-weight: 700; color: #0F172A;
+}
+.re-dt-sub {
+  font-size: 11px; font-weight: 600;
+}
+.re-dt-sub.green { color: #16A34A; }
+.re-dt-sub.gray { color: #64748B; }
+.re-dt-sub.muted { color: #94A3B8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+.re-status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.re-status-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+.re-status-pill.returned {
+  background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE;
+}
+.re-status-pill.active {
+  background: #ECFDF5; color: #047857; border-color: #A7F3D0;
+}
+.re-status-pill.retain {
+  background: #FFF7ED; color: #C2410C; border-color: #FED7AA;
+}
+.re-status-pill.extend {
+  background: #FAF5FF; color: #6D28D9; border-color: #DDD6FE;
+}
+.re-status-pill.default {
+  background: #F1F5F9; color: #475569; border-color: #CBD5E1;
 }
 
 /* ═══════════ TABLE ═══════════ */
@@ -843,7 +912,102 @@ interface Renter {
   booking_source?: string;
 }
 
+
+function getRiderInitials(name: string): string {
+  if (!name || name === 'Rider' || name === 'Evegah Rider') return 'EV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getAvatarColor(name: string): { bg: string; color: string; border: string } {
+  const palettes = [
+    { bg: '#EDE9FE', color: '#6D28D9', border: '#DDD6FE' },
+    { bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+    { bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
+    { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA' },
+    { bg: '#FDF2F8', color: '#BE185D', border: '#FBCFE8' },
+    { bg: '#F0FDFA', color: '#0F766E', border: '#99F6E4' },
+    { bg: '#F5F3FF', color: '#7C3AED', border: '#C4B5FD' }
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % palettes.length;
+  return palettes[idx];
+}
+
+function RiderAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = getRiderInitials(name);
+  const color = getAvatarColor(name);
+
+  if (avatarUrl && !imgError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className="re-avatar"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        background: color.bg,
+        color: color.color,
+        border: `1.5px solid ${color.border}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 800,
+        fontSize: 12.5,
+        flexShrink: 0,
+        letterSpacing: '0.4px',
+        boxShadow: '0 1px 2px rgba(15, 17, 41, 0.04)'
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+function formatRenterDateTime(dateStr?: string | null, isStartDate = true) {
+  if (!dateStr || dateStr === '—' || String(dateStr).startsWith('0000')) {
+    return { main: '—', sub: isStartDate ? 'BOOKING DATE' : 'SCHEDULED RETURN', isTime: false };
+  }
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) {
+      return { main: dateStr, sub: '', isTime: false };
+    }
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = d.toLocaleDateString('en-GB', { month: 'short' });
+    const year = d.getFullYear();
+    const main = `${day} ${month} ${year}`;
+
+    const iso = d.toISOString();
+    const isMidnight = iso.endsWith('00:00:00.000Z') || iso.endsWith('18:30:00.000Z');
+    if (isMidnight) {
+      return { main, sub: isStartDate ? 'BOOKING DATE' : 'SCHEDULED RETURN', isTime: false };
+    }
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { main, sub: `• ${timeStr}`, isTime: true };
+  } catch (_) {
+    return { main: dateStr || '—', sub: '', isTime: false };
+  }
+}
+
 export default function RentersPage() {
+  const router = useRouter();
   const [renters, setRenters] = useState<Renter[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -1089,12 +1253,13 @@ export default function RentersPage() {
 
   const fetchRenters = () => {
     setLoading(true);
+    const isAllZones = !selectedZone || selectedZone === 'All Zones' || selectedZone === 'All Zones (Multi-Zone)';
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: '10',
       search: search,
       status: statusFilter,
-      ...(selectedZone && selectedZone !== 'All Zones' ? { zone: selectedZone } : {}),
+      ...(!isAllZones ? { zone: selectedZone } : {}),
       ...(modeFilter ? { mode: modeFilter } : {})
     });
 
@@ -1112,14 +1277,6 @@ export default function RentersPage() {
             dataList = dataList.filter(r => {
               const isApp = (r.booking_source || '').toLowerCase().includes('app');
               return modeFilter === 'App' ? isApp : !isApp;
-            });
-          }
-          if (selectedZone && selectedZone !== 'All Zones') {
-            const zNorm = selectedZone.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
-            dataList = dataList.filter(r => {
-              const rz = ((r as any).zone || (r as any).zone_name || (r as any).hub || '').toLowerCase();
-              if (!rz) return true;
-              return rz.includes(zNorm) || zNorm.includes(rz);
             });
           }
           setRenters(dataList);
@@ -1556,26 +1713,22 @@ export default function RentersPage() {
                           disabled={loading}
                         />
                       </th>
-                      <th>Rider</th>
-                      <th>Mobile</th>
-                      <th>Vehicle</th>
-                      <th>Battery</th>
-                      <th>Package</th>
-                      <th>Mode</th>
-                      <th>Rental Start</th>
-                      <th>Return</th>
-                      <th>Status</th>
-                      <th>Rent</th>
-                      <th>Deposit</th>
-                      <th>Total</th>
-                      <th style={{ textAlign: 'center' }}>Action</th>
+                      <th>RIDER</th>
+                      <th>MOBILE</th>
+                      <th>VEHICLE</th>
+                      <th>BATTERY</th>
+                      <th>PACKAGE</th>
+                      <th>MODE</th>
+                      <th>RENTAL START</th>
+                      <th>RETURN</th>
+                      <th>STATUS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       Array.from({ length: 6 }).map((_, sIdx) => (
                         <tr key={`skel-${sIdx}`}>
-                          {Array.from({ length: 14 }).map((_, cIdx) => (
+                          {Array.from({ length: 10 }).map((_, cIdx) => (
                             <td key={cIdx}>
                               <div style={{
                                 height: 14,
@@ -1583,7 +1736,7 @@ export default function RentersPage() {
                                 background: 'linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%)',
                                 backgroundSize: '200% 100%',
                                 animation: 'shimmer 1.5s ease-in-out infinite',
-                                width: cIdx === 0 ? 16 : cIdx === 1 ? 140 : cIdx === 13 ? 130 : 90
+                                width: cIdx === 0 ? 16 : cIdx === 1 ? 140 : 90
                               }} />
                             </td>
                           ))}
@@ -1591,39 +1744,57 @@ export default function RentersPage() {
                       ))
                     ) : renters.length === 0 ? (
                       <tr>
-                        <td colSpan={14} style={{ padding: '70px 20px', textAlign: 'center' }}>
+                        <td colSpan={10} style={{ padding: '70px 20px', textAlign: 'center' }}>
                           <div style={{
-                            width: 72, height: 72, borderRadius: 22,
-                            background: 'linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%)',
+                            width: 64, height: 64, borderRadius: 20,
+                            background: '#F1F5F9',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            margin: '0 auto 18px',
-                            color: 'var(--brand)'
+                            margin: '0 auto 16px',
+                            color: '#64748B'
                           }}>
-                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                               <circle cx="11" cy="11" r="8"/>
                               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                             </svg>
                           </div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1129', marginBottom: 6 }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
                             No riders found
                           </div>
-                          <div style={{ fontSize: 13, color: '#8A8DA3', fontWeight: 500 }}>
-                            Try adjusting your search or filters
+                          <div style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
+                            Try adjusting your search or selected zone filter
                           </div>
                         </td>
                       </tr>
                     ) : (
                       renters.map((r, idx) => {
-                        const start = formatDateTime(r.rental_start_date);
-                        const end = formatDateTime(r.return_date);
+                        const start = formatRenterDateTime(r.rental_start_date, true);
+                        const end = formatRenterDateTime(r.return_date, false);
                         const displayName = getDisplayName(r, idx);
                         const displayMobile = r.mobile || '+91 98765 43210';
-                        const displayAvatar = r.avatar_url || (displayName.toLowerCase().includes('priya') || displayName.toLowerCase().includes('pooja') || displayName.toLowerCase().includes('neha') ? '/priya_avatar.png' : '/rohit_avatar.png');
                         const isSelected = selectedMobiles.includes(r.mobile);
 
+                        const sLower = (r.status || '').toLowerCase();
+                        const isReturned = ['return', 'returned', 'completed'].includes(sLower);
+                        const isActive = ['active ride', 'active', 'ongoing'].includes(sLower);
+                        const isRetain = ['retain ride', 'retain'].includes(sLower);
+                        const isExtend = ['extend', 'extended'].includes(sLower);
+
+                        const statusLabel = isReturned ? 'Returned' : (isActive ? 'Active Ride' : (isRetain ? 'Retain Ride' : (isExtend ? 'Extended' : (r.status || 'Active Ride'))));
+                        const statusCls = isReturned ? 'returned' : (isActive ? 'active' : (isRetain ? 'retain' : (isExtend ? 'extend' : 'default')));
+
+                        const profileUrl = `/renters/profile?id=${encodeURIComponent(r.id || r.vehicle_id || '')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status || '')}&zone=${encodeURIComponent((r as any).zone || selectedZone || 'Gotri Zone')}`;
+
+                        const isApp = (r.booking_source || '').toLowerCase().includes('app') || (r as any).mode === 'App';
+                        const pkgDisplay = (!r.package_name || r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || r.package_name.toLowerCase().includes('custom')) ? 'custom' : r.package_name.toLowerCase();
+
                         return (
-                          <tr key={r.id || idx} className={isSelected ? 'selected' : ''}>
-                            <td>
+                          <tr
+                            key={r.id || idx}
+                            className={isSelected ? 'selected' : ''}
+                            onClick={() => router.push(profileUrl)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <td onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -1632,137 +1803,57 @@ export default function RentersPage() {
                             </td>
                             <td>
                               <div className="re-rider-cell">
-                                <img src={displayAvatar} alt="" className="re-avatar" />
+                                <RiderAvatar name={displayName} avatarUrl={r.avatar_url} />
                                 <div>
                                   <span className="re-rider-name">{displayName}</span>
-                                  <span className="re-rider-sub">Rider ID #{r.id?.slice(0, 8) || `RID-${idx + 100}`}</span>
+                                  <span className="re-rider-sub">Rider ID #${r.id ? r.id.replace(/-/g, '').slice(0, 8) : `RID-${idx + 100}`}</span>
                                 </div>
                               </div>
                             </td>
-                            <td style={{ fontWeight: 600, color: 'var(--ink-mid)' }}>{displayMobile}</td>
+                            <td style={{ fontWeight: 600, color: '#334155' }}>{displayMobile}</td>
                             <td>
-                              {r.vehicle_id ? (
-                                <span className="re-chip re-chip-vehicle">{r.vehicle_id}</span>
+                              {r.vehicle_id && r.vehicle_id !== '—' && r.vehicle_id !== 'EV-DEFAULT' ? (
+                                <span className="re-badge-capsule">{r.vehicle_id}</span>
                               ) : (
-                                <span style={{ color: 'var(--ink-faint)' }}>—</span>
+                                <span style={{ color: '#94A3B8' }}>—</span>
                               )}
                             </td>
                             <td>
-                              {r.battery_id ? (
-                                <span className="re-chip re-chip-battery">{r.battery_id}</span>
+                              {r.battery_id && r.battery_id !== '—' && r.battery_id !== 'BAT-DEFAULT' ? (
+                                <span className="re-badge-capsule re-badge-battery">{r.battery_id}</span>
                               ) : (
-                                <span style={{ color: 'var(--ink-faint)' }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ fontWeight: 700, color: 'var(--ink)' }}>
-                              {(!r.package_name || r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || r.package_name.toLowerCase().includes('custom')) ? 'Custom' : r.package_name}
-                            </td>
-                            <td>
-                              {(r.booking_source === 'App' || (r.booking_source || '').toLowerCase().includes('app')) ? (
-                                <span className="re-mode app">
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-                                    <line x1="12" y1="18" x2="12" y2="18"/>
-                                  </svg>
-                                  App
-                                </span>
-                              ) : (
-                                <span className="re-mode form">
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                  </svg>
-                                  Form
-                                </span>
+                                <span style={{ color: '#94A3B8' }}>—</span>
                               )}
                             </td>
                             <td>
-                              <div className="re-date-cell">
-                                <span className="re-date-main">{start.date}</span>
-                                {start.time ? (
-                                  <span className="re-date-time green">{start.time}</span>
-                                ) : (
-                                  <span className="re-date-label">Booking Date</span>
-                                )}
-                              </div>
+                              <span className="re-pkg-text">{pkgDisplay}</span>
                             </td>
                             <td>
-                              {end.date !== '—' ? (
-                                <div className="re-date-cell">
-                                  <span className="re-date-main">{end.date}</span>
-                                  {end.time ? (
-                                    <span className="re-date-time muted">{end.time}</span>
-                                  ) : (
-                                    <span className="re-date-label">Scheduled Return</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ color: 'var(--ink-faint)' }}>—</span>
-                              )}
-                            </td>
-                            <td>
-                              <span className={`re-sbadge ${getStatusClass(r.status)}`}>
-                                <span className="s-dot" />
-                                {getStatusLabel(r.status)}
+                              <span className={`re-mode-pill ${isApp ? 'app' : 'form'}`}>
+                                {isApp ? 'App' : 'Form'}
                               </span>
                             </td>
-                            <td style={{ fontWeight: 800, color: 'var(--ink)' }}>{formatCurrency(r.rent)}</td>
-                            <td style={{ fontWeight: 700, color: 'var(--ink-mid)' }}>{formatCurrency(r.deposit)}</td>
                             <td>
-                              <span className="re-chip re-chip-total">{formatCurrency(r.total)}</span>
+                              <div className="re-datetime-block">
+                                <span className="re-dt-main">{start.main}</span>
+                                <span className={`re-dt-sub ${start.isTime ? 'green' : 'muted'}`}>
+                                  {start.sub}
+                                </span>
+                              </div>
                             </td>
                             <td>
-                              <div className="re-action-cell">
-                                <Link
-                                  href={`/renters/profile?id=${encodeURIComponent(r.id || r._id || r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Gotri%20Zone`}
-                                  className="re-action-btn"
-                                  title="View Full Rider Profile"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                    <circle cx="12" cy="12" r="3"/>
-                                  </svg>
-                                </Link>
-                                <Link
-                                  href={`/payment/history?search=${encodeURIComponent((r.mobile || '').replace(/\D/g, '').slice(-10))}`}
-                                  className="re-action-btn"
-                                  title="View Payment & Deposit History"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="2" y="5" width="20" height="14" rx="2"/>
-                                    <line x1="2" y1="10" x2="22" y2="10"/>
-                                  </svg>
-                                </Link>
-                                <button
-                                  className="re-action-btn"
-                                  title="Allocate Vehicle & Battery"
-                                  onClick={() => openAllocationModal(r, displayName, displayMobile)}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="5.5" cy="17.5" r="3.5" />
-                                    <circle cx="18.5" cy="17.5" r="3.5" />
-                                    <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
-                                    <path d="M5.5 17.5l4-8h4l2.5 8" />
-                                    <path d="M8.5 12h5" />
-                                  </svg>
-                                </button>
-                                <button className="re-action-btn danger" title="Delete Rider" onClick={() => openDeleteModalForSingle(r.mobile)}>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                  </svg>
-                                </button>
-                                <button className="re-action-btn success" title="Message Rider" onClick={() => alert(`Message sent to ${displayName} rider app.`)}>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                                  </svg>
-                                </button>
-                                <button className="re-action-btn" title="Download Booking Receipt" onClick={() => handleDownloadReceipt(r)}>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 2-2 2 2 2-2 3 2V4a2 2 0 0 0-2-2z"/>
-                                  </svg>
-                                </button>
+                              <div className="re-datetime-block">
+                                <span className="re-dt-main">{end.main}</span>
+                                <span className={`re-dt-sub ${end.isTime ? 'gray' : 'muted'}`}>
+                                  {end.sub}
+                                </span>
                               </div>
+                            </td>
+                            <td>
+                              <span className={`re-status-pill ${statusCls}`}>
+                                <span className="dot" />
+                                {statusLabel}
+                              </span>
                             </td>
                           </tr>
                         );

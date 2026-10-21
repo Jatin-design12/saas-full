@@ -995,6 +995,15 @@ const INITIAL_INCIDENTS: IncidentItem[] = [
   { id: 'INC-2024-0958', type: 'Punctuality Issue', severity: 'Medium', description: 'Frequently cancelling rides after acceptance', reportedOn: '07 May 2024, 06:15 PM', status: 'Open', reportedBy: 'System' },
 ];
 
+function getRiderInitials(name: string): string {
+  if (!name || name === 'Rider' || name === 'Evegah Rider') return 'EV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function RiderProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1008,6 +1017,8 @@ function RiderProfileContent() {
   const riderBattery = searchParams.get('battery') || '';
   const riderZone = searchParams.get('zone') || 'Gotri Zone';
   const riderEmail = `${riderName.toLowerCase().replace(/\s+/g, '.')}@evegah.com`;
+  const [avatarError, setAvatarError] = useState(false);
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<string>>(new Set());
 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1112,7 +1123,7 @@ function RiderProfileContent() {
     setLoadingDocs(true);
     try {
       const cleanMob = riderMobile.replace(/\D/g, '').slice(-10);
-      const res: any = await api.get(`/renters/documents?mobile=${encodeURIComponent(cleanMob || riderMobile)}`);
+      const res: any = await api.get(`/renters/documents?mobile=${encodeURIComponent(cleanMob || riderMobile)}&id=${encodeURIComponent(riderId)}&name=${encodeURIComponent(riderName)}`);
       const payload = res?.data || res;
       const folders = payload?.folders || payload?.data?.folders;
       if (folders && Array.isArray(folders)) setFolderData(folders);
@@ -1664,7 +1675,27 @@ function RiderProfileContent() {
             <div className="rp-profile-card">
               <div className="rp-profile-left">
                 <div className="rp-avatar-circle">
-                  <img src={riderAvatar} alt={riderName} />
+                  {riderAvatar && !avatarError ? (
+                    <img src={riderAvatar} alt={riderName} onError={() => setAvatarError(true)} />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: '50%',
+                        background: '#EDE9FE',
+                        color: '#6D28D9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '24px',
+                        fontWeight: 800,
+                        letterSpacing: '0.5px'
+                      }}
+                    >
+                      {getRiderInitials(riderName)}
+                    </div>
+                  )}
                 </div>
                 <div className="rp-profile-details">
                   <div className="rp-profile-name-row">
@@ -2460,12 +2491,16 @@ function RiderProfileContent() {
                           {folder.documents?.map((doc: any, dIdx: number) => (
                             <div key={dIdx} className="doc-card">
                               <div className="doc-card-thumb">
-                                {doc.file_path ? (
-                                  <img src={doc.file_path} alt={doc.doc_name} onError={(e) => { (e.target as any).style.display = 'none'; }} />
+                                {doc.file_path && !failedThumbnails.has(doc.doc_name + dIdx) ? (
+                                  <img
+                                    src={doc.file_path}
+                                    alt={doc.doc_name}
+                                    onError={() => setFailedThumbnails(prev => new Set(prev).add(doc.doc_name + dIdx))}
+                                  />
                                 ) : (
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', height: '100%', background: '#F8FAFC' }}>
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                    <span style={{ fontSize: '10.5px', color: 'var(--ink-lo)', fontWeight: 700 }}>Verified Asset</span>
+                                    <span style={{ fontSize: '10.5px', color: 'var(--ink-lo)', fontWeight: 700 }}>{doc.type || 'Verified Asset'}</span>
                                   </div>
                                 )}
                               </div>
