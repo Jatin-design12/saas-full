@@ -237,7 +237,7 @@ router.post('/send-otp', async (req, res) => {
     const TWO_FACTOR_KEY = process.env.TWO_FACTOR_API_KEY || '7d84d134-26fe-11ed-9c12-0200cd936042';
     const TWO_FACTOR_TEMPLATE = process.env.TWO_FACTOR_TEMPLATE || 'eVegah+SMS';
 
-    const isTestAccount = last10 === '9999999999' || last10 === '8980966677' || last10 === '1234567890';
+    const isTestAccount = last10 === '9999999999' || last10 === '1234567890';
     const otp = isTestAccount ? '1234' : String(Math.floor(1000 + Math.random() * 9000));
     const expiresAt = Date.now() + 10 * 60 * 1000;
 
@@ -1704,6 +1704,222 @@ router.get('/documents', async (req, res) => {
   }
 
   res.json({ status: 'success', data: docData });
+});
+
+// GET /api/renters/export-riders - Export all renters data as JSON or CSV
+router.get('/export-riders', async (req, res) => {
+  try {
+    const format = (req.query.format || 'json').toLowerCase();
+    const rowsRes = await db.query('SELECT * FROM renters ORDER BY created_at DESC');
+    const riders = rowsRes.rows;
+
+    if (format === 'csv') {
+      if (riders.length === 0) {
+        return res.send('No riders found');
+      }
+      const keys = Object.keys(riders[0]);
+      const csvHeader = keys.join(',');
+      const csvRows = riders.map(row =>
+        keys.map(k => {
+          const val = row[k];
+          if (val === null || val === undefined) return '';
+          return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(',')
+      );
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="riders_export_${Date.now()}.csv"`);
+      return res.send([csvHeader, ...csvRows].join('\n'));
+    }
+
+    return res.json({
+      status: 'success',
+      count: riders.length,
+      data: riders
+    });
+  } catch (err) {
+    console.error('Export riders error:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/renters/migrate-vps-riders - Migrate riders from local VPS DB (5432) to evegah.cloud (5433)
+router.post('/migrate-vps-riders', async (req, res) => {
+  const secretKey = req.body.secret_key || req.headers['x-admin-key'] || req.query.secret;
+  if (secretKey !== 'EvegahAdmin2026' && secretKey !== 'Evegah@2026') {
+    return res.status(403).json({ status: 'error', message: 'Unauthorized: Valid admin secret key required' });
+  }
+
+  const sourceUrl = req.body.source_url || 'postgresql://evegah:Evegah%402026@127.0.0.1:5432/evegah';
+  const isDryRun = req.body.dry_run === true;
+
+  const { Pool } = require('pg');
+  const sourcePool = new Pool({ connectionString: sourceUrl, connectionTimeoutMillis: 10000 });
+
+  try {
+    const tablesRes = await sourcePool.query(`
+      SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name
+    `);
+    const tables = tablesRes.rows.map(r => r.table_name);
+    const candidateTables = ['renters', 'riders', 'users', 'rider_profiles'].filter(t => tables.includes(t));
+
+    if (candidateTables.length === 0) {
+      await sourcePool.end();
+      return res.status(404).json({
+        status: 'error',
+        message: 'No default rider tables (renters, riders, users) found in source database.',
+        available_tables: tables
+      });
+    }
+
+    let allExtracted = [];
+    const seen = new Set();
+
+    for (const tbl of candidateTables) {
+      const rows = await sourcePool.query(`SELECT * FROM "${tbl}"`);
+      for (const row of rows.rows) {
+        const rawPhone = row.mobile || row.phone || row.phone_number || row.mobile_number || row.contact;
+        if (!rawPhone) continue;
+        const digits = String(rawPhone).replace(/\D/g, '');
+        if (digits.length < 10) continue;
+        const last10 = digits.slice(-10);
+        if (seen.has(last10)) continue;
+        seen.add(last10);
+
+        const riderName =
+          row.rider_name ||
+          row.name ||
+          row.full_name ||
+          (row.first_name ? `${row.first_name} ${row.last_name || ''}`.trim() : null) ||
+          'Evegah Rider';
+
+        allExtracted.push({
+          source_table: tbl,
+          rider_name: riderName,
+          mobile: `+91 ${last10}`,
+          mobile_raw: last10,
+          email: row.email && !row.email.endsWith('@example.com') ? row.email : `${last10}@evegah.com`,
+          vehicle_id: row.vehicle_id || null,
+          battery_id: row.battery_id || null,
+          package_name: row.package_name || 'Daily Pass',
+          rental_start_date: row.rental_start_date || null,
+          return_date: row.return_date || null,
+          status: row.status || 'Active',
+          rent: Number(row.rent || 0),
+          deposit: Number(row.deposit || 0),
+          total: Number(row.total || 0),
+          avatar_url: row.avatar_url || row.avatar || row.profile_image || null,
+          date_of_birth: row.date_of_birth || row.dob || null,
+          address: row.address || row.permanent_address || null,
+          present_address: row.present_address || null,
+          gender: row.gender || null,
+          wallet_balance: Number(row.wallet_balance || row.wallet || 0),
+          bonus_balance: Number(row.bonus_balance || 0),
+          zone: row.zone || row.zone_name || 'Gotri Zone',
+          kyc_status: row.kyc_status || (row.is_verified ? 'Verified' : 'Pending'),
+          aadhaar_number: row.aadhaar_number || row.aadhaar || null,
+          emergency_contact_name: row.emergency_contact_name || null,
+          emergency_contact_phone: row.emergency_contact_phone || null,
+          booking_source: 'Migrated from evegah-rider-main',
+          created_at: row.created_at || new Date()
+        });
+      }
+    }
+
+    await sourcePool.end();
+
+    const targetRenters = await db.query('SELECT id, mobile, rider_name, email FROM renters');
+    const targetMap = new Map();
+    for (const r of targetRenters.rows) {
+      const d = String(r.mobile || '').replace(/\D/g, '');
+      if (d.length >= 10) targetMap.set(d.slice(-10), r);
+    }
+
+    let inserted = 0;
+    let updated = 0;
+
+    for (const rider of allExtracted) {
+      const existing = targetMap.get(rider.mobile_raw);
+      if (existing) {
+        if (!isDryRun) {
+          await db.query(`
+            UPDATE renters SET
+              rider_name = COALESCE(NULLIF(rider_name, 'Evegah Rider'), $1),
+              email = COALESCE(NULLIF(email, ''), $2),
+              avatar_url = COALESCE(avatar_url, $3),
+              date_of_birth = COALESCE(date_of_birth, $4),
+              address = COALESCE(address, $5),
+              present_address = COALESCE(present_address, $6),
+              gender = COALESCE(gender, $7),
+              kyc_status = CASE WHEN kyc_status = 'Pending' THEN $8 ELSE kyc_status END,
+              aadhaar_number = COALESCE(aadhaar_number, $9),
+              emergency_contact_name = COALESCE(emergency_contact_name, $10),
+              emergency_contact_phone = COALESCE(emergency_contact_phone, $11),
+              wallet_balance = CASE WHEN wallet_balance = 0 THEN $12 ELSE wallet_balance END
+            WHERE id = $13
+          `, [
+            rider.rider_name, rider.email, rider.avatar_url, rider.date_of_birth,
+            rider.address, rider.present_address, rider.gender, rider.kyc_status,
+            rider.aadhaar_number, rider.emergency_contact_name, rider.emergency_contact_phone,
+            rider.wallet_balance, existing.id
+          ]);
+        }
+        updated++;
+      } else {
+        if (!isDryRun) {
+          const crypto = require('crypto');
+          const newId = crypto.randomUUID();
+          await db.query(`
+            INSERT INTO renters (
+              id, rider_name, mobile, vehicle_id, battery_id, package_name,
+              rental_start_date, return_date, status, rent, deposit, total,
+              avatar_url, created_at, email, date_of_birth, address, present_address,
+              gender, wallet_balance, bonus_balance, zone, kyc_status, aadhaar_number,
+              emergency_contact_name, emergency_contact_phone, booking_source
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6,
+              $7, $8, $9, $10, $11, $12,
+              $13, $14, $15, $16, $17, $18,
+              $19, $20, $21, $22, $23, $24,
+              $25, $26, $27
+            )
+          `, [
+            newId, rider.rider_name, rider.mobile, rider.vehicle_id, rider.battery_id, rider.package_name,
+            rider.rental_start_date, rider.return_date, rider.status, rider.rent, rider.deposit, rider.total,
+            rider.avatar_url, rider.created_at, rider.email, rider.date_of_birth, rider.address, rider.present_address,
+            rider.gender, rider.wallet_balance, rider.bonus_balance, rider.zone, rider.kyc_status, rider.aadhaar_number,
+            rider.emergency_contact_name, rider.emergency_contact_phone, rider.booking_source
+          ]);
+
+          try {
+            await db.query(`
+              INSERT INTO riders (id, name, mobile, status, created_at)
+              VALUES ($1, $2, $3, $4, $5)
+              ON CONFLICT (id) DO NOTHING
+            `, [newId, rider.rider_name, rider.mobile, rider.status, rider.created_at]);
+          } catch (_) {}
+        }
+        inserted++;
+      }
+    }
+
+    const finalCount = await db.query('SELECT count(*) FROM renters');
+
+    return res.json({
+      status: 'success',
+      mode: isDryRun ? 'dry_run (preview only)' : 'live migration completed',
+      summary: {
+        source_tables_checked: candidateTables,
+        total_extracted: allExtracted.length,
+        inserted,
+        updated,
+        target_total_renters: Number(finalCount.rows[0].count)
+      },
+      preview: allExtracted.slice(0, 10)
+    });
+  } catch (err) {
+    console.error('Migration endpoint error:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
 });
 
 module.exports = router;
