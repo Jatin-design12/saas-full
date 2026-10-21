@@ -818,7 +818,8 @@ router.get('/', async (req, res) => {
 
     // Check Redis / In-Memory cache
     const cacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}`;
-    const cachedData = await getCache(cacheKey);
+    const skipCache = req.query.forceRefresh === 'true' || req.query.refresh === 'true';
+    const cachedData = skipCache ? null : await getCache(cacheKey);
     if (cachedData) {
       return res.json(cachedData);
     }
@@ -893,12 +894,30 @@ router.get('/', async (req, res) => {
       const key = getClean10(r.mobile);
       if (!key) continue;
 
-      const rStatus = r.status || 'No Active Ride';
-      const isDirectActive = ['Active Ride', 'Retain Ride', 'Extend', 'Active', 'Ongoing'].includes(rStatus);
-      const isDirectReturned = ['Return', 'Completed', 'Refunded'].includes(rStatus);
+      const rStatus = (r.status || 'Active').trim();
+      const sLower = rStatus.toLowerCase();
+      const isDirectActive = ['active ride', 'retain ride', 'extend', 'active', 'ongoing'].includes(sLower);
+      const isDirectReturned = ['return', 'completed', 'refunded'].includes(sLower);
       const rentVal = r.rent !== undefined && r.rent !== null ? parseFloat(r.rent) : 0;
       const depVal = r.deposit !== undefined && r.deposit !== null ? parseFloat(r.deposit) : 0;
       const totVal = r.total !== undefined && r.total !== null ? parseFloat(r.total) : (rentVal + depVal);
+
+      let displayStatus = 'Active';
+      if (['active ride', 'ongoing'].includes(sLower) || (isDirectActive && r.vehicle_id && r.vehicle_id !== '—' && r.vehicle_id !== 'EV-DEFAULT')) {
+        displayStatus = 'Active Ride';
+      } else if (sLower === 'retain ride') {
+        displayStatus = 'Retain Ride';
+      } else if (sLower === 'extend') {
+        displayStatus = 'Extend';
+      } else if (isDirectReturned) {
+        displayStatus = 'Return';
+      } else if (sLower === 'upcoming') {
+        displayStatus = 'Upcoming';
+      } else if (sLower === 'suspended') {
+        displayStatus = 'Suspended';
+      } else {
+        displayStatus = 'Active';
+      }
 
       if (!ridersMap.has(key)) {
         ridersMap.set(key, {
@@ -912,18 +931,18 @@ router.get('/', async (req, res) => {
           rental_start_date: (r.rental_start_date && String(r.rental_start_date).length > 10 && !String(r.rental_start_date).endsWith('00:00:00.000Z') && !String(r.rental_start_date).endsWith('18:30:00.000Z')) ? r.rental_start_date : (r.created_at || r.rental_start_date),
           return_date: (r.return_date && !String(r.return_date).endsWith('00:00:00.000Z') && !String(r.return_date).endsWith('18:30:00.000Z')) ? r.return_date : null,
           created_at: r.created_at,
-          status: isDirectActive ? rStatus : (isDirectReturned ? 'Return' : 'No Active Ride'),
+          status: displayStatus,
           rent: rentVal.toFixed(2),
           deposit: depVal.toFixed(2),
           total: totVal.toFixed(2),
           avatar_url: r.avatar_url,
           wallet_balance: r.wallet_balance || 0,
           kyc_status: r.kyc_status || 'Verified',
-          booking_source: r.booking_source || 'Form',
+          booking_source: r.booking_source || 'Migrated',
           booked_zones: new Set(r.zone ? [r.zone] : []),
           latest_zone: r.zone || null,
-          has_active_ride: isDirectActive,
-          is_direct_renter: isDirectActive || isDirectReturned
+          has_active_ride: displayStatus === 'Active Ride' || displayStatus === 'Retain Ride' || displayStatus === 'Extend',
+          is_direct_renter: true
         });
       } else {
         const existing = ridersMap.get(key);
@@ -1059,13 +1078,7 @@ router.get('/', async (req, res) => {
       };
     });
 
-    // STRICT: Only include riders who have an actual booking/reservation, assigned vehicle, or payment done!
-    allRiders = allRiders.filter(r => {
-      const hasReservation = Boolean(r.has_active_ride || r.is_direct_renter || r.has_updated_from_resv || r.status === 'Upcoming' || r.status === 'Active Ride' || r.status === 'Retain Ride' || r.status === 'Extend' || r.status === 'Return');
-      const hasVehicle = Boolean(r.vehicle_id && r.vehicle_id !== '—' && r.vehicle_id !== 'EV-DEFAULT');
-      const hasPayment = (parseFloat(r.total || '0') > 0) || (parseFloat(r.rent || '0') > 0);
-      return hasReservation || hasVehicle || hasPayment;
-    });
+    // Master list includes all registered & migrated renters from database
 
     // 4. Filter by Booking Mode / Source
     const modeFilter = req.query.mode || req.query.booking_source;
