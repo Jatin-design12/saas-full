@@ -1008,7 +1008,6 @@ function RiderProfileContent() {
   const riderBattery = searchParams.get('battery') || '';
   const riderZone = searchParams.get('zone') || 'Gotri Zone';
   const riderEmail = `${riderName.toLowerCase().replace(/\s+/g, '.')}@evegah.com`;
-  const riderAvatar = riderName.toLowerCase().includes('priya') ? '/priya_avatar.png' : '/rohit_avatar.png';
 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1083,6 +1082,7 @@ function RiderProfileContent() {
 
   const [userWalletTxs, setUserWalletTxs] = useState<any[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
+  const riderAvatar = profileData?.avatar_url || profileData?.avatar || (riderName.toLowerCase().includes('priya') ? '/priya_avatar.png' : '/rohit_avatar.png');
 
   const triggerToast = (msg: string) => {
     setToast({ show: true, msg });

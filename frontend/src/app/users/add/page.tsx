@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -137,25 +138,18 @@ function AddUserPageContent() {
   // Load roles list & live zones list on component mount
   useEffect(() => {
     const fetchRolesAndZones = async () => {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
       try {
-        const res = await fetch(`${apiUrl}/roles`);
-        if (res.ok) {
-          const result = await res.json();
-          setRoles(result.data || []);
-        }
+        const result: any = await api.get('/roles');
+        setRoles(result.data || []);
       } catch (err) {
         console.error('Error fetching roles:', err);
       }
 
       try {
-        const resZ = await fetch(`${apiUrl}/zones`);
-        if (resZ.ok) {
-          const resultZ = await resZ.json();
-          if (resultZ.data && Array.isArray(resultZ.data)) {
-            const names = resultZ.data.map((z: any) => z.name || z.locality).filter(Boolean);
-            setLiveZones(Array.from(new Set<string>(['All Zones / Platform Wide', ...names])));
-          }
+        const resultZ: any = await api.get('/zones');
+        if (resultZ.data && Array.isArray(resultZ.data)) {
+          const names = resultZ.data.map((z: any) => z.name || z.locality).filter(Boolean);
+          setLiveZones(Array.from(new Set<string>(['All Zones / Platform Wide', ...names])));
         }
       } catch (err) {
         console.error('Error fetching zones:', err);
@@ -169,24 +163,20 @@ function AddUserPageContent() {
     if (editUserId) {
       const fetchUser = async () => {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-          const res = await fetch(`${apiUrl}/users/${editUserId}`);
-          if (res.ok) {
-            const result = await res.json();
-            const u = result.data;
-            if (u) {
-              setFullName(u.name || '');
-              setEmail(u.email || '');
-              setPhone(u.mobile || '');
-              setRole(u.role || 'Select role');
-              setZone(u.zone || 'Select zone or scope');
-              if (u.zone) {
-                const parts = u.zone.split(',').map((s: string) => s.trim()).filter(Boolean);
-                setSelectedZones(parts);
-              }
-              setStatus(u.status === 'Active' ? 'Active' : 'Inactive');
-              setAvatarUrl(u.avatar_url || '');
+          const result: any = await api.get(`/users/${editUserId}`);
+          const u = result.data;
+          if (u) {
+            setFullName(u.name || '');
+            setEmail(u.email || '');
+            setPhone(u.mobile || '');
+            setRole(u.role || 'Select role');
+            setZone(u.zone || 'Select zone or scope');
+            if (u.zone) {
+              const parts = u.zone.split(',').map((s: string) => s.trim()).filter(Boolean);
+              setSelectedZones(parts);
             }
+            setStatus(u.status === 'Active' ? 'Active' : 'Inactive');
+            setAvatarUrl(u.avatar_url || '');
           }
         } catch (err) {
           console.error('Error fetching user details:', err);
@@ -266,25 +256,12 @@ function AddUserPageContent() {
     };
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const url = editUserId ? `${apiUrl}/users/${editUserId}` : `${apiUrl}/users`;
-      const method = editUserId ? 'PUT' : 'POST';
+      const resData: any = editUserId
+        ? await api.put(`/users/${editUserId}`, payload)
+        : await api.post('/users', payload);
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const resData = await response.json();
-      if (response.ok) {
-        alert(editUserId ? 'User details updated successfully!' : 'User account registered successfully!');
-        router.push('/users');
-      } else {
-        alert(`Error: ${resData.message || 'Failed to save user'}`);
-      }
+      alert(editUserId ? 'User details updated successfully!' : 'User account registered successfully!');
+      router.push('/users');
     } catch (err) {
       console.error(err);
       alert('Network error. Failed to save user details.');

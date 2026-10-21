@@ -629,6 +629,8 @@ router.get('/profile', async (req, res) => {
         rider_name: riderFinalName,
         mobile: effectiveMobile,
         email: finalRiderEmail,
+        avatar_url: renter?.avatar_url || null,
+        avatar: renter?.avatar_url || null,
         joined_on: joinedOnStr,
         kyc_status: kycStatus,
         is_kyc_verified: isKycDone,
@@ -1537,7 +1539,7 @@ router.get('/kyc', async (req, res) => {
   if (!kycData) {
     try {
       const dbRes = await db.query(`
-        SELECT rider_name, mobile, address, date_of_birth, gender, kyc_status, created_at
+        SELECT rider_name, mobile, address, date_of_birth, gender, kyc_status, avatar_url, aadhaar_number, created_at
         FROM renters
         WHERE mobile LIKE $1
         ORDER BY created_at DESC
@@ -1550,9 +1552,11 @@ router.get('/kyc', async (req, res) => {
           mobile: r.mobile,
           rider_name: r.rider_name,
           kyc_status: r.kyc_status || 'Verified',
+          avatar_url: r.avatar_url || null,
+          live_photo: r.avatar_url || null,
           ocr_details: {
             name: r.rider_name,
-            aadhaar_number: 'XXXX XXXX ' + last10.slice(-4),
+            aadhaar_number: r.aadhaar_number || ('XXXX XXXX ' + last10.slice(-4)),
             dob: r.date_of_birth || '12/03/1998',
             gender: r.gender || 'Male',
             address: r.address || 'Vadodara, Gujarat'
@@ -1646,89 +1650,248 @@ router.get('/documents', async (req, res) => {
   const cleanMobile = (mobile || '').replace(/\D/g, '');
   const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : '';
 
-  let docData = null;
-  if (last10 && RIDER_DOCUMENTS_STORE[last10]) {
-    docData = RIDER_DOCUMENTS_STORE[last10];
+  // 1. Fetch renter from DB
+  let renter = null;
+  if (last10) {
+    const rRes = await db.query(
+      `SELECT id, rider_name, mobile, aadhaar_number, avatar_url, created_at 
+       FROM renters 
+       WHERE mobile LIKE $1 
+       ORDER BY created_at DESC LIMIT 1`,
+      [`%${last10}`]
+    ).catch(() => ({ rows: [] }));
+    if (rRes.rows.length > 0) renter = rRes.rows[0];
   }
 
-  // Pull live selfie / KYC if present in RIDER_KYC_STORE
-  const kycStoreData = last10 ? RIDER_KYC_STORE[last10] : null;
+  // 2. Fetch documents from Postgres documents table
+  let dbDocs = [];
+  if (last10 || renter?.id) {
+    const dRes = await db.query(
+      `SELECT * FROM documents 
+       WHERE mobile LIKE $1 OR rider_id::text = $2 
+       ORDER BY created_at DESC`,
+      [`%${last10}`, renter?.id ? String(renter.id) : '00000000-0000-0000-0000-000000000000']
+    ).catch(() => ({ rows: [] }));
+    dbDocs = dRes.rows;
+  }
 
-  if (!docData) {
-    const today = new Date().toISOString().split('T')[0];
-    docData = {
-      mobile: mobile || '',
-      rider_name: kycStoreData?.rider_name || 'Rider',
-      folders: [
-        {
-          folder_name: "KYC Identity Documents",
-          date: today,
-          documents: [
-            {
-              doc_name: "Aadhaar Card (Front)",
-              status: "Verified",
-              date: today,
-              type: "Identity Proof",
-              file_path: "/aadhaar_sample_front.png",
-              ocr_number: kycStoreData?.ocr_details?.aadhaar_number || ("XXXX XXXX " + (last10 ? last10.slice(-4) : "4492"))
-            },
-            {
-              doc_name: "Aadhaar Card (Back)",
-              status: "Verified",
-              date: today,
-              type: "Address Proof",
-              file_path: "/aadhaar_sample_back.png",
-              ocr_number: kycStoreData?.ocr_details?.aadhaar_number || ("XXXX XXXX " + (last10 ? last10.slice(-4) : "4492"))
-            }
-          ]
-        },
-        {
-          folder_name: "Live Selfie & Biometric Verification",
-          date: today,
-          documents: [
-            {
-              doc_name: "Rider Live Selfie Photo",
-              status: "Verified",
-              date: today,
-              type: "Live Photo",
-              file_path: kycStoreData?.live_photo || "/rohit_avatar.png"
-            }
-          ]
-        },
-        {
-          folder_name: "Driving License & Agreements",
-          date: today,
-          documents: [
-            {
-              doc_name: "Driving License (Smart Card)",
-              status: "Verified",
-              date: today,
-              type: "Driving License",
-              file_path: "/sample_dl.png",
-              ocr_number: "GJ-06-2022-0049281"
-            },
-            {
-              doc_name: "Evegah Rental Terms & Agreement",
-              status: "Verified",
-              date: today,
-              type: "Contract",
-              file_path: ""
-            }
-          ]
-        }
-      ]
+  // 3. Fetch reservations for inspection or ID media
+  let reservationDocs = [];
+  if (last10) {
+    const resvQ = await db.query(
+      `SELECT reservation_id, vehicle_number, id_card_url, inspection_media_url, created_at 
+       FROM reservations 
+       WHERE mobile LIKE $1 
+       ORDER BY created_at DESC LIMIT 10`,
+      [`%${last10}`]
+    ).catch(() => ({ rows: [] }));
+    reservationDocs = resvQ.rows;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const riderName = renter?.rider_name || 'Rider';
+  const aadhaarDisplay = renter?.aadhaar_number || (last10 ? `XXXX XXXX ${last10.slice(-4)}` : 'XXXX XXXX 4492');
+
+  // Buckets for folders
+  const kycDocs = [];
+  const selfieDocs = [];
+  const licenseDocs = [];
+  const inspectionDocs = [];
+
+  // Categorize DB documents
+  for (const doc of dbDocs) {
+    const kind = (doc.kind || '').toLowerCase();
+    const docDate = doc.created_at ? new Date(doc.created_at).toISOString().split('T')[0] : today;
+
+    let docName = doc.file_name || 'Document';
+    let docType = 'Attachment';
+
+    if (kind.includes('aadhaar_front')) {
+      docName = 'Aadhaar Card (Front)';
+      docType = 'Identity Proof';
+    } else if (kind.includes('aadhaar_back')) {
+      docName = 'Aadhaar Card (Back)';
+      docType = 'Address Proof';
+    } else if (kind.includes('aadhaar')) {
+      docName = 'Aadhaar Card';
+      docType = 'Identity Proof';
+    } else if (kind.includes('photo') || kind.includes('selfie') || kind.includes('avatar')) {
+      docName = 'Rider Live Selfie Photo';
+      docType = 'Live Photo';
+    } else if (kind.includes('signature')) {
+      docName = 'Digital Signature';
+      docType = 'Biometric Proof';
+    } else if (kind.includes('license') || kind.includes('dl')) {
+      docName = 'Driving License (Smart Card)';
+      docType = 'Driving License';
+    } else if (kind.includes('agreement') || kind.includes('contract')) {
+      docName = 'Rental Terms & Agreement';
+      docType = 'Contract';
+    } else if (kind.includes('pre_ride') || kind.includes('inspection') || kind.includes('pickup')) {
+      docName = 'Pre-Ride Vehicle Inspection';
+      docType = 'Inspection Photo';
+    } else if (kind.includes('return') || kind.includes('drop')) {
+      docName = 'Post-Ride Return Inspection';
+      docType = 'Inspection Photo';
+    }
+
+    const item = {
+      doc_name: docName,
+      status: doc.status || 'Verified',
+      date: docDate,
+      type: docType,
+      file_path: doc.url,
+      ocr_number: doc.meta?.ocr_number || (kind.includes('aadhaar') ? aadhaarDisplay : null)
     };
+
+    if (kind.includes('photo') || kind.includes('selfie') || kind.includes('avatar') || kind.includes('signature')) {
+      selfieDocs.push(item);
+    } else if (kind.includes('aadhaar') || kind.includes('government') || kind.includes('id_') || kind.includes('pan') || kind.includes('voter')) {
+      kycDocs.push(item);
+    } else if (kind.includes('license') || kind.includes('dl') || kind.includes('agreement') || kind.includes('contract')) {
+      licenseDocs.push(item);
+    } else if (kind.includes('inspection') || kind.includes('pre_ride') || kind.includes('return')) {
+      inspectionDocs.push(item);
+    } else {
+      kycDocs.push(item);
+    }
   }
 
-  // Filter out any folders that only contain empty dummy documents without a valid file_path
-  if (docData && Array.isArray(docData.folders)) {
-    docData.folders = docData.folders.filter(f => {
-      if (f.folder_name === "Pre-Ride Inspection Photos" || f.folder_name === "Post-Ride Return Inspection") {
-        return Array.isArray(f.documents) && f.documents.some(d => d.file_path && d.file_path.trim() !== '');
-      }
-      return true;
+  // If renter has avatar_url and not yet in selfieDocs, prepend it
+  if (renter?.avatar_url && !selfieDocs.some(d => d.file_path === renter.avatar_url)) {
+    selfieDocs.unshift({
+      doc_name: 'Rider Profile Photo',
+      status: 'Verified',
+      date: renter.created_at ? new Date(renter.created_at).toISOString().split('T')[0] : today,
+      type: 'Live Photo',
+      file_path: renter.avatar_url
     });
   }
+
+  // If reservations have id_card_url, add to kycDocs if not present
+  for (const resv of reservationDocs) {
+    if (resv.id_card_url && !kycDocs.some(d => d.file_path === resv.id_card_url)) {
+      kycDocs.push({
+        doc_name: `Reservation ID Card (#${resv.reservation_id})`,
+        status: 'Verified',
+        date: resv.created_at ? new Date(resv.created_at).toISOString().split('T')[0] : today,
+        type: 'Identity Proof',
+        file_path: resv.id_card_url,
+        ocr_number: aadhaarDisplay
+      });
+    }
+    if (resv.inspection_media_url && !inspectionDocs.some(d => d.file_path === resv.inspection_media_url)) {
+      inspectionDocs.push({
+        doc_name: `Inspection Photo (${resv.vehicle_number || resv.reservation_id})`,
+        status: 'Verified',
+        date: resv.created_at ? new Date(resv.created_at).toISOString().split('T')[0] : today,
+        type: 'Inspection Photo',
+        file_path: resv.inspection_media_url
+      });
+    }
+  }
+
+  // Fallbacks if no specific docs in category
+  if (kycDocs.length === 0) {
+    kycDocs.push(
+      {
+        doc_name: "Aadhaar Card (Front)",
+        status: "Verified",
+        date: today,
+        type: "Identity Proof",
+        file_path: "/aadhaar_sample_front.png",
+        ocr_number: aadhaarDisplay
+      },
+      {
+        doc_name: "Aadhaar Card (Back)",
+        status: "Verified",
+        date: today,
+        type: "Address Proof",
+        file_path: "/aadhaar_sample_back.png",
+        ocr_number: aadhaarDisplay
+      }
+    );
+  }
+
+  if (selfieDocs.length === 0) {
+    selfieDocs.push({
+      doc_name: "Rider Live Selfie Photo",
+      status: "Verified",
+      date: today,
+      type: "Live Photo",
+      file_path: renter?.avatar_url || "/rohit_avatar.png"
+    });
+  }
+
+  if (licenseDocs.length === 0) {
+    licenseDocs.push(
+      {
+        doc_name: "Driving License (Smart Card)",
+        status: "Verified",
+        date: today,
+        type: "Driving License",
+        file_path: "/sample_dl.png",
+        ocr_number: "GJ-06-2022-0049281"
+      },
+      {
+        doc_name: "Evegah Rental Terms & Agreement",
+        status: "Verified",
+        date: today,
+        type: "Contract",
+        file_path: ""
+      }
+    );
+  }
+
+  const folders = [
+    {
+      folder_name: "KYC Identity Documents",
+      date: today,
+      documents: kycDocs
+    },
+    {
+      folder_name: "Live Selfie & Biometric Verification",
+      date: today,
+      documents: selfieDocs
+    },
+    {
+      folder_name: "Driving License & Agreements",
+      date: today,
+      documents: licenseDocs
+    }
+  ];
+
+  if (inspectionDocs.length > 0) {
+    folders.push({
+      folder_name: "Pre-Ride & Return Inspection Photos",
+      date: today,
+      documents: inspectionDocs
+    });
+  }
+
+  // Merge any in-memory uploaded folder store if present
+  if (last10 && RIDER_DOCUMENTS_STORE[last10]?.folders) {
+    for (const memFolder of RIDER_DOCUMENTS_STORE[last10].folders) {
+      const match = folders.find(f => f.folder_name === memFolder.folder_name);
+      if (match) {
+        if (Array.isArray(memFolder.documents)) {
+          for (const mDoc of memFolder.documents) {
+            if (!match.documents.some(d => d.file_path === mDoc.file_path && d.doc_name === mDoc.doc_name)) {
+              match.documents.unshift(mDoc);
+            }
+          }
+        }
+      } else {
+        folders.push(memFolder);
+      }
+    }
+  }
+
+  const docData = {
+    mobile: mobile || (renter?.mobile || ''),
+    rider_name: riderName,
+    folders
+  };
 
   res.json({ status: 'success', data: docData });
 });

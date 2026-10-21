@@ -568,23 +568,277 @@ async function run() {
     console.log(`✅ Payments Migration: ${iciciPaymentsInserted} ICICI records processed.`);
 
     // =========================================================================
+    // PART 4: MIGRATING DOCUMENTS & RIDER PHOTOS
+    // =========================================================================
+    console.log('\n--- [PART 4/4] MIGRATING DOCUMENTS & RIDER PHOTOS ---');
+
+    let allExtractedDocs = [];
+    let docsMigrated = 0;
+    let avatarsUpdated = 0;
+    let docsCsvPath = null;
+
+    if (!isDryRun) {
+      // Ensure documents table and target columns exist
+      await targetPool.query(`
+        CREATE TABLE IF NOT EXISTS documents (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          rider_id UUID,
+          rental_id UUID,
+          return_id UUID,
+          mobile VARCHAR(20),
+          kind VARCHAR(100),
+          file_name VARCHAR(255),
+          mime_type VARCHAR(100),
+          url TEXT NOT NULL,
+          meta JSONB,
+          status VARCHAR(50) DEFAULT 'Verified',
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        ALTER TABLE renters ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+        ALTER TABLE reservations ADD COLUMN IF NOT EXISTS id_card_url TEXT;
+        ALTER TABLE reservations ADD COLUMN IF NOT EXISTS inspection_media_url TEXT;
+      `);
+    }
+
+    if (sourceTables.includes('documents')) {
+      console.log("Reading documents from source 'documents' table...");
+      const docColsRes = await sourcePool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'documents'
+      `);
+      const docCols = docColsRes.rows.map((r) => r.column_name);
+      console.log(`Columns in source 'documents':`, docCols.join(', '));
+
+      const docsRes = await sourcePool.query('SELECT * FROM "documents"');
+      console.log(`Found ${docsRes.rows.length} rows in 'documents'.`);
+
+      for (const row of docsRes.rows) {
+        const url = row.url || row.file_path || row.path || row.link || row.s3_url || '';
+        if (!url || typeof url !== 'string' || url.trim() === '') continue;
+
+        const kind = (row.kind || row.type || row.document_type || 'document').toLowerCase();
+        const docId = row.id || crypto.randomUUID();
+        const riderId = row.rider_id || null;
+        const rentalId = row.rental_id || null;
+        const returnId = row.return_id || null;
+        const fileName = row.file_name || row.filename || row.name || path.basename(url);
+        const mimeType = row.mime_type || row.mimetype || 'image/jpeg';
+        const createdAt = row.created_at ? new Date(row.created_at) : new Date();
+
+        // Map to rider mobile
+        let phone10 = null;
+        if (riderId && sourceRidersById.has(String(riderId))) {
+          phone10 = sourceRidersById.get(String(riderId)).mobile_raw;
+        }
+        if (!phone10 && rentalId && rentalsById.has(String(rentalId))) {
+          phone10 = cleanPhone(rentalsById.get(String(rentalId)).mobile);
+        }
+        if (!phone10 && row.mobile) {
+          phone10 = cleanPhone(row.mobile);
+        }
+
+        const docObj = {
+          doc_id: docId,
+          rider_id: riderId,
+          rental_id: rentalId,
+          mobile: formatPhoneDisplay(phone10),
+          mobile_raw: phone10,
+          kind,
+          file_name: fileName,
+          url,
+          mime_type: mimeType,
+          created_at: createdAt.toISOString()
+        };
+        allExtractedDocs.push(docObj);
+
+        if (!isDryRun) {
+          // 1. Insert into target documents table
+          try {
+            await targetPool.query(`
+              INSERT INTO documents (
+                id, rider_id, rental_id, return_id, mobile, kind, file_name, mime_type, url, meta, status, created_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Verified', $11)
+              ON CONFLICT (id) DO UPDATE SET
+                url = EXCLUDED.url,
+                kind = EXCLUDED.kind,
+                mobile = EXCLUDED.mobile
+            `, [
+              docId, riderId, rentalId, returnId, formatPhoneDisplay(phone10), kind, fileName, mimeType, url, row.meta ? JSON.stringify(row.meta) : null, createdAt
+            ]);
+            docsMigrated++;
+          } catch (e) {
+            try {
+              await targetPool.query(`
+                INSERT INTO documents (
+                  id, rider_id, rental_id, return_id, mobile, kind, file_name, mime_type, url, meta, status, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Verified', $11)
+              `, [
+                crypto.randomUUID(), riderId, rentalId, returnId, formatPhoneDisplay(phone10), kind, fileName, mimeType, url, row.meta ? JSON.stringify(row.meta) : null, createdAt
+              ]);
+              docsMigrated++;
+            } catch (_) {}
+          }
+
+          // 2. If it's a rider photo / selfie / avatar, update renters.avatar_url
+          const isAvatar = kind.includes('rider') || kind.includes('photo') || kind.includes('selfie') || kind.includes('avatar') || kind.includes('profile');
+          if (isAvatar && phone10) {
+            const upRes = await targetPool.query(`
+              UPDATE renters 
+              SET avatar_url = $1 
+              WHERE (mobile LIKE $2 OR id::text = $3)
+            `, [url, `%${phone10}`, String(riderId || '')]);
+            if (upRes.rowCount > 0) avatarsUpdated += upRes.rowCount;
+          }
+
+          // 3. If it's Aadhaar / government ID, update reservations.id_card_url
+          const isIdCard = kind.includes('aadhaar') || kind.includes('government') || kind.includes('id_');
+          if (isIdCard && phone10) {
+            await targetPool.query(`
+              UPDATE reservations 
+              SET id_card_url = $1 
+              WHERE mobile LIKE $2 AND (id_card_url IS NULL OR id_card_url = '')
+            `, [url, `%${phone10}`]);
+          }
+        }
+      }
+    }
+
+    // Also scan source riders table's 'meta' column for photo / selfie / Aadhaar URLs
+    if (sourceTables.includes('riders')) {
+      console.log("Scanning source riders 'meta' column for profile photos & KYC documents...");
+      try {
+        const metaRidersRes = await sourcePool.query(`SELECT id, mobile, full_name, meta, created_at FROM riders WHERE meta IS NOT NULL`);
+        for (const rRow of metaRidersRes.rows) {
+          if (!rRow.meta) continue;
+          let meta = rRow.meta;
+          if (typeof meta === 'string') {
+            try { meta = JSON.parse(meta); } catch (_) { meta = {}; }
+          }
+          if (typeof meta !== 'object') continue;
+
+          const phone10 = cleanPhone(rRow.mobile);
+          const photoUrl = meta.selfie || meta.photo || meta.avatar_url || meta.profile_photo || meta.image_url || meta.live_photo || null;
+          const aadhaarFrontUrl = meta.aadhaar_front || meta.aadhaar_front_url || meta.aadhaar_card_front || null;
+          const aadhaarBackUrl = meta.aadhaar_back || meta.aadhaar_back_url || meta.aadhaar_card_back || null;
+
+          if (photoUrl && typeof photoUrl === 'string' && photoUrl.trim() !== '') {
+            allExtractedDocs.push({
+              doc_id: crypto.randomUUID(),
+              rider_id: rRow.id,
+              mobile: formatPhoneDisplay(phone10),
+              mobile_raw: phone10,
+              kind: 'rider_photo',
+              file_name: 'rider_selfie.jpg',
+              url: photoUrl,
+              mime_type: 'image/jpeg',
+              created_at: rRow.created_at || new Date().toISOString()
+            });
+
+            if (!isDryRun && phone10) {
+              const upRes = await targetPool.query(`
+                UPDATE renters 
+                SET avatar_url = $1 
+                WHERE (mobile LIKE $2 OR id::text = $3)
+              `, [photoUrl, `%${phone10}`, String(rRow.id || '')]);
+              if (upRes.rowCount > 0) avatarsUpdated += upRes.rowCount;
+
+              await targetPool.query(`
+                INSERT INTO documents (
+                  id, rider_id, mobile, kind, file_name, mime_type, url, status, created_at
+                ) VALUES ($1, $2, $3, 'rider_photo', 'rider_selfie.jpg', 'image/jpeg', $4, 'Verified', $5)
+              `, [crypto.randomUUID(), rRow.id, formatPhoneDisplay(phone10), photoUrl, rRow.created_at || new Date()]).catch(() => {});
+              docsMigrated++;
+            }
+          }
+
+          if (aadhaarFrontUrl && typeof aadhaarFrontUrl === 'string' && aadhaarFrontUrl.trim() !== '') {
+            allExtractedDocs.push({
+              doc_id: crypto.randomUUID(),
+              rider_id: rRow.id,
+              mobile: formatPhoneDisplay(phone10),
+              mobile_raw: phone10,
+              kind: 'aadhaar_front',
+              file_name: 'aadhaar_front.jpg',
+              url: aadhaarFrontUrl,
+              mime_type: 'image/jpeg',
+              created_at: rRow.created_at || new Date().toISOString()
+            });
+
+            if (!isDryRun && phone10) {
+              await targetPool.query(`
+                INSERT INTO documents (
+                  id, rider_id, mobile, kind, file_name, mime_type, url, status, created_at
+                ) VALUES ($1, $2, $3, 'aadhaar_front', 'aadhaar_front.jpg', 'image/jpeg', $4, 'Verified', $5)
+              `, [crypto.randomUUID(), rRow.id, formatPhoneDisplay(phone10), aadhaarFrontUrl, rRow.created_at || new Date()]).catch(() => {});
+              docsMigrated++;
+            }
+          }
+
+          if (aadhaarBackUrl && typeof aadhaarBackUrl === 'string' && aadhaarBackUrl.trim() !== '') {
+            allExtractedDocs.push({
+              doc_id: crypto.randomUUID(),
+              rider_id: rRow.id,
+              mobile: formatPhoneDisplay(phone10),
+              mobile_raw: phone10,
+              kind: 'aadhaar_back',
+              file_name: 'aadhaar_back.jpg',
+              url: aadhaarBackUrl,
+              mime_type: 'image/jpeg',
+              created_at: rRow.created_at || new Date().toISOString()
+            });
+
+            if (!isDryRun && phone10) {
+              await targetPool.query(`
+                INSERT INTO documents (
+                  id, rider_id, mobile, kind, file_name, mime_type, url, status, created_at
+                ) VALUES ($1, $2, $3, 'aadhaar_back', 'aadhaar_back.jpg', 'image/jpeg', $4, 'Verified', $5)
+              `, [crypto.randomUUID(), rRow.id, formatPhoneDisplay(phone10), aadhaarBackUrl, rRow.created_at || new Date()]).catch(() => {});
+              docsMigrated++;
+            }
+          }
+        }
+      } catch (metaErr) {
+        console.warn('Notice scanning riders meta:', metaErr.message);
+      }
+    }
+
+    // Export Documents to JSON & CSV
+    const docsJsonPath = path.join(exportDir, `documents_export_${timestamp}.json`);
+    docsCsvPath = path.join(exportDir, `documents_export_${timestamp}.csv`);
+    fs.writeFileSync(docsJsonPath, JSON.stringify(allExtractedDocs, null, 2), 'utf8');
+    if (allExtractedDocs.length > 0) {
+      const keys = Object.keys(allExtractedDocs[0]);
+      const csv = [keys.join(','), ...allExtractedDocs.map((r) => keys.map((k) => escapeCsvField(r[k])).join(','))].join('\n');
+      fs.writeFileSync(docsCsvPath, csv, 'utf8');
+    }
+    console.log(`📁 Exported Documents: ${allExtractedDocs.length} records to ${docsCsvPath}`);
+    console.log(`✅ Documents Migration: ${docsMigrated} documents migrated, ${avatarsUpdated} rider avatars updated.`);
+
+    // =========================================================================
     // FINAL SUMMARY
     // =========================================================================
-    const [finalRenters, finalResv, finalTx] = await Promise.all([
+    const [finalRenters, finalResv, finalTx, finalDocs, finalAvatars] = await Promise.all([
       targetPool.query('SELECT count(*) FROM renters'),
       targetPool.query('SELECT count(*) FROM reservations'),
-      targetPool.query('SELECT count(*) FROM wallet_transactions')
+      targetPool.query('SELECT count(*) FROM wallet_transactions'),
+      targetPool.query('SELECT count(*) FROM documents').catch(() => ({ rows: [{ count: 0 }] })),
+      targetPool.query("SELECT count(*) FROM renters WHERE avatar_url IS NOT NULL AND avatar_url != ''").catch(() => ({ rows: [{ count: 0 }] }))
     ]);
 
     console.log('\n=====================================================');
     console.log('🎉 COMPLETE MIGRATION & EXPORT SUMMARY:');
     console.log(`- Total Renters in evegah.cloud: ${finalRenters.rows[0].count}`);
+    console.log(`- Total Renters with Live Photos/Avatars: ${finalAvatars.rows[0].count}`);
+    console.log(`- Total Documents Migrated: ${finalDocs.rows[0].count}`);
     console.log(`- Total Reservations in evegah.cloud: ${finalResv.rows[0].count}`);
     console.log(`- Total Wallet/Deposit Transactions: ${finalTx.rows[0].count}`);
     console.log(`- Export Directory: ${exportDir}`);
     if (ridersCsvPath) console.log(`  * ${ridersCsvPath}`);
     if (rentalsCsvPath) console.log(`  * ${rentalsCsvPath}`);
     if (txCsvPath) console.log(`  * ${txCsvPath}`);
+    if (docsCsvPath) console.log(`  * ${docsCsvPath}`);
     console.log('=====================================================\n');
   } catch (err) {
     console.error('❌ Migration Error:', err);

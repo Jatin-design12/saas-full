@@ -31,7 +31,14 @@ export const api = {
       headers: getAuthHeaders(),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let msg = `HTTP error! status: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && (errJson.message || errJson.error)) {
+          msg = errJson.message || errJson.error;
+        }
+      } catch (_) {}
+      throw new Error(msg);
     }
     return response.json();
   },
@@ -43,7 +50,14 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let msg = `HTTP error! status: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && (errJson.message || errJson.error)) {
+          msg = errJson.message || errJson.error;
+        }
+      } catch (_) {}
+      throw new Error(msg);
     }
     return response.json();
   },
@@ -55,7 +69,14 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let msg = `HTTP error! status: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && (errJson.message || errJson.error)) {
+          msg = errJson.message || errJson.error;
+        }
+      } catch (_) {}
+      throw new Error(msg);
     }
     return response.json();
   },
@@ -67,7 +88,14 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let msg = `HTTP error! status: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && (errJson.message || errJson.error)) {
+          msg = errJson.message || errJson.error;
+        }
+      } catch (_) {}
+      throw new Error(msg);
     }
     return response.json();
   },
@@ -82,7 +110,14 @@ export const api = {
     }
     const response = await fetch(`${BASE_URL}${endpoint}`, options);
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let msg = `HTTP error! status: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && (errJson.message || errJson.error)) {
+          msg = errJson.message || errJson.error;
+        }
+      } catch (_) {}
+      throw new Error(msg);
     }
     return response.json();
   }

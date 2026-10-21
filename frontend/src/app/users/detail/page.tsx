@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 
 const CSS = `
@@ -391,14 +392,11 @@ function UserDetailContent() {
     const fetchUserData = async () => {
       setLoading(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const resUser = await fetch(`${apiUrl}/users/${userId}`);
-        
         let u = null;
-        if (resUser.ok) {
-          const userResult = await resUser.json();
+        try {
+          const userResult: any = await api.get(`/users/${userId}`);
           u = userResult.data;
-        }
+        } catch (_) {}
 
         if (u) {
           const initials = u.name ? u.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) : '?';
@@ -423,9 +421,8 @@ function UserDetailContent() {
           };
           setUser(userObj);
 
-          const resRoles = await fetch(`${apiUrl}/roles`);
-          if (resRoles.ok) {
-            const rolesResult = await resRoles.json();
+          try {
+            const rolesResult: any = await api.get('/roles');
             const matchedRole = rolesResult.data?.find((r: any) => 
               r.name.toLowerCase() === userObj.role.toLowerCase() || 
               r.code.toLowerCase() === userObj.role.toLowerCase()
@@ -433,7 +430,7 @@ function UserDetailContent() {
             if (matchedRole) {
               setRolePermissions(matchedRole.permissions || {});
             }
-          }
+          } catch (_) {}
         } else {
           // Fallback to static mock data
           const mockUser = USERS_DATA[userId] || USERS_DATA['USR-002'];
@@ -441,13 +438,12 @@ function UserDetailContent() {
         }
 
         // Fetch real activity logs for this user
-        const resAct = await fetch(`${apiUrl}/users/${userId}/activities`);
-        if (resAct.ok) {
-          const actData = await resAct.json();
+        try {
+          const actData: any = await api.get(`/users/${userId}/activities`);
           if (actData.data && actData.data.length > 0) {
             setDbActivities(actData.data);
           }
-        }
+        } catch (_) {}
       } catch (err) {
         console.error('Error fetching user detail:', err);
         // Fallback to mock data on error

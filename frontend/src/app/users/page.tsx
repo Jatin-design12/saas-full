@@ -325,19 +325,13 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
   const handleDeleteUser = async (id: string) => {
     if (confirm(`Are you sure you want to delete user ${id}?`)) {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiUrl}/users/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          alert('User deleted successfully!');
-          fetchUsers();
-          fetchRoles();
-        } else {
-          const data = await res.json();
-          alert(`Error: ${data.message || 'Failed to delete user'}`);
-        }
-      } catch (err) {
+        await api.delete(`/users/${id}`);
+        alert('User deleted successfully!');
+        fetchUsers();
+        fetchRoles();
+      } catch (err: any) {
         console.error(err);
-        alert('Network error. Failed to delete user.');
+        alert(`Error: ${err.message || 'Failed to delete user'}`);
       }
     }
   };
@@ -345,18 +339,12 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
   const handleDeleteRole = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete role "${name}"?`)) {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiUrl}/roles/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          alert('Role deleted successfully!');
-          fetchRoles();
-        } else {
-          const data = await res.json();
-          alert(`Error: ${data.message || 'Failed to delete role'}`);
-        }
-      } catch (err) {
+        await api.delete(`/roles/${id}`);
+        alert('Role deleted successfully!');
+        fetchRoles();
+      } catch (err: any) {
         console.error(err);
-        alert('Network error. Failed to delete role.');
+        alert(`Error: ${err.message || 'Failed to delete role'}`);
       }
     }
   };
@@ -898,19 +886,14 @@ export default function UsersPage({ defaultTab = 0 }: { defaultTab?: number } = 
               <button className="usr-btn-outline" onClick={() => { setIsRoleMatrixOpen(false); setSelectedRoleMatrix(null); }}>Cancel</button>
               <button className="usr-btn-primary" onClick={async () => {
                 try {
-                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-                  await fetch(`${apiUrl}/roles/${selectedRoleMatrix.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      name: selectedRoleMatrix.name,
-                      code: selectedRoleMatrix.code,
-                      description: selectedRoleMatrix.description,
-                      permissions: {
-                        Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
-                        ...(selectedRoleMatrix.permissions || {})
-                      }
-                    })
+                  await api.put(`/roles/${selectedRoleMatrix.id}`, {
+                    name: selectedRoleMatrix.name,
+                    code: selectedRoleMatrix.code,
+                    description: selectedRoleMatrix.description,
+                    permissions: {
+                      Dashboard: { access: true, create: true, view: true, edit: true, delete: true, export: true },
+                      ...(selectedRoleMatrix.permissions || {})
+                    }
                   });
                   alert(`Role matrix & dashboard permissions updated for ${selectedRoleMatrix.name}!`);
                   fetchRoles();
