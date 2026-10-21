@@ -496,5 +496,203 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/payments/history/export
+ * Export all unified payment transactions and deposit history as CSV or JSON
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const format = (req.query.format || 'csv').toLowerCase();
+    const query = `
+      WITH unified_transactions AS (
+        -- 1. ICICI Payments
+        SELECT 
+          'icici_' || ip.id::text AS id,
+          ip.tx_id,
+          COALESCE(ip.upi_ref_no, ip.merchant_id, 'ICICI-UPI') AS reference_id,
+          COALESCE(
+            NULLIF(ip.rider_name, 'Rider'),
+            r.customer_name,
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ip.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Evegah Rider'
+          ) AS rider_name,
+          COALESCE(NULLIF(ip.mobile, ''), r.mobile, '') AS mobile,
+          COALESCE(r.fare, CASE WHEN ip.amount >= 10 THEN (ip.amount - COALESCE(r.deposit, 5)) ELSE ip.amount END)::numeric AS rent_amount,
+          COALESCE(r.deposit, CASE WHEN ip.amount >= 10 THEN 5 ELSE 0 END)::numeric AS deposit_amount,
+          ip.amount::numeric AS amount,
+          'Credit' AS type,
+          CASE 
+            WHEN UPPER(ip.status) = 'SUCCESS' THEN 'Successful'
+            WHEN UPPER(ip.status) = 'PENDING' THEN 'Pending'
+            ELSE 'Failed'
+          END AS status,
+          'ICICI UPI' AS payment_method,
+          COALESCE(ip.purpose, 'Ride / Booking') AS purpose,
+          ip.created_at
+        FROM icici_payments ip
+        LEFT JOIN reservations r ON (r.transaction_id = ip.tx_id OR r.reservation_id = ip.reservation_id)
+
+        UNION ALL
+
+        -- 2. PayU Payments
+        SELECT 
+          'payu_' || pp.id::text AS id,
+          pp.tx_id,
+          COALESCE(pp.payu_id, pp.bank_ref_num, pp.tx_id) AS reference_id,
+          COALESCE(
+            NULLIF(pp.rider_name, 'Rider'),
+            r.customer_name,
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(pp.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Evegah Rider'
+          ) AS rider_name,
+          COALESCE(NULLIF(pp.mobile, ''), r.mobile, '') AS mobile,
+          COALESCE(r.fare, pp.amount)::numeric AS rent_amount,
+          COALESCE(r.deposit, 0)::numeric AS deposit_amount,
+          pp.amount::numeric AS amount,
+          'Credit' AS type,
+          CASE 
+            WHEN UPPER(pp.status) = 'SUCCESS' THEN 'Successful'
+            WHEN UPPER(pp.status) = 'PENDING' THEN 'Pending'
+            ELSE 'Failed'
+          END AS status,
+          'PayU India' AS payment_method,
+          COALESCE(pp.purpose, 'Ride Payment') AS purpose,
+          pp.created_at
+        FROM payu_payments pp
+        LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
+        WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
+          AND pp.purpose NOT ILIKE '%refund%'
+          AND pp.tx_id NOT LIKE 'REF-%'
+
+        UNION ALL
+
+        -- 3. Wallet Transactions
+        SELECT 
+          'wallet_' || wt.id::text AS id,
+          COALESCE(wt.transaction_id, 'TXN-W' || wt.id::text) AS tx_id,
+          COALESCE(wt.transaction_id, 'WLT-' || wt.id::text) AS reference_id,
+          COALESCE(
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(wt.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            (SELECT name FROM users WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(wt.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Rider (' || wt.mobile || ')'
+          ) AS rider_name,
+          COALESCE(wt.mobile, '') AS mobile,
+          wt.amount::numeric AS rent_amount,
+          0.00::numeric AS deposit_amount,
+          wt.amount::numeric AS amount,
+          CASE 
+            WHEN LOWER(wt.type) = 'debit' THEN 'Debit'
+            ELSE 'Credit'
+          END AS type,
+          CASE 
+            WHEN UPPER(wt.status) IN ('SUCCESS', 'SUCCESSFUL') THEN 'Successful'
+            WHEN UPPER(wt.status) = 'PENDING' THEN 'Pending'
+            ELSE 'Failed'
+          END AS status,
+          COALESCE(wt.payment_method, 'Wallet') AS payment_method,
+          COALESCE(wt.title, wt.subtitle, 'Wallet Transaction') AS purpose,
+          wt.created_at
+        FROM wallet_transactions wt
+        WHERE wt.title NOT ILIKE '%deposit refund%' AND wt.subtitle NOT ILIKE '%deposit refund%'
+
+        UNION ALL
+
+        -- 4. Completed Deposit Refunds from Reservations
+        SELECT 
+          'refund_' || id::text AS id,
+          COALESCE(refund_tx_id, 'REF-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
+          reservation_id AS reference_id,
+          COALESCE(customer_name, 'Rider') AS rider_name,
+          COALESCE(mobile, '') AS mobile,
+          0.00::numeric AS rent_amount,
+          COALESCE(refund_amount, deposit, 0)::numeric AS deposit_amount,
+          COALESCE(refund_amount, deposit, 0)::numeric AS amount,
+          'Debit' AS type,
+          'Successful' AS status,
+          COALESCE(refund_mode, 'PayU') AS payment_method,
+          'Security Deposit Refund' AS purpose,
+          COALESCE(refund_date, returned_at, created_at) AS created_at
+        FROM reservations
+        WHERE deposit_status = 'Refunded' AND COALESCE(refund_amount, deposit, 0) > 0
+
+        UNION ALL
+
+        -- 5. Direct / Cash / Offline Bookings
+        SELECT
+          'res_' || id::text AS id,
+          COALESCE(cash_voucher_number, transaction_id, 'CSH-VCHR-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
+          COALESCE(cash_voucher_number, transaction_id, reservation_id) AS reference_id,
+          COALESCE(customer_name, 'Rider') AS rider_name,
+          COALESCE(mobile, '') AS mobile,
+          COALESCE(fare, 0)::numeric AS rent_amount,
+          COALESCE(deposit, 0)::numeric AS deposit_amount,
+          COALESCE(total_payable, (COALESCE(fare, 0) + COALESCE(deposit, 0)), fare)::numeric AS amount,
+          'Credit' AS type,
+          'Successful' AS status,
+          CASE 
+            WHEN payment_mode ILIKE '%cash%' THEN 'Cash'
+            WHEN payment_mode ILIKE '%upi%' THEN 'UPI'
+            WHEN payment_mode ILIKE '%card%' THEN 'Card'
+            ELSE COALESCE(payment_mode, 'Offline / Counter')
+          END AS payment_method,
+          COALESCE(package_type || ' Booking', 'Counter Booking') AS purpose,
+          created_at
+        FROM reservations
+        WHERE NOT EXISTS (
+          SELECT 1 FROM payu_payments pp 
+          WHERE pp.transaction_id = reservations.transaction_id 
+             OR (pp.reservation_id IS NOT NULL AND pp.reservation_id = reservations.reservation_id)
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM icici_payments ip 
+          WHERE ip.tx_id = reservations.transaction_id 
+             OR (ip.reservation_id IS NOT NULL AND ip.reservation_id = reservations.reservation_id)
+        )
+      )
+      SELECT * FROM unified_transactions ORDER BY created_at DESC;
+    `;
+
+    const txRes = await db.query(query);
+    const rows = txRes.rows;
+
+    if (format === 'json') {
+      return res.json({ status: 'success', count: rows.length, data: rows });
+    }
+
+    // CSV format
+    if (rows.length === 0) {
+      return res.send('No transactions found');
+    }
+
+    const headers = ['Transaction ID', 'Reference ID', 'Rider Name', 'Mobile', 'Rent (INR)', 'Deposit (INR)', 'Total Amount (INR)', 'Type', 'Status', 'Payment Method', 'Purpose', 'Date Time'];
+    const csvLines = [headers.join(',')];
+
+    for (const r of rows) {
+      const line = [
+        `"${String(r.tx_id || '').replace(/"/g, '""')}"`,
+        `"${String(r.reference_id || '').replace(/"/g, '""')}"`,
+        `"${String(r.rider_name || '').replace(/"/g, '""')}"`,
+        `"${String(r.mobile || '').replace(/"/g, '""')}"`,
+        `"${Number(r.rent_amount || 0).toFixed(2)}"`,
+        `"${Number(r.deposit_amount || 0).toFixed(2)}"`,
+        `"${Number(r.amount || 0).toFixed(2)}"`,
+        `"${String(r.type || '').replace(/"/g, '""')}"`,
+        `"${String(r.status || '').replace(/"/g, '""')}"`,
+        `"${String(r.payment_method || '').replace(/"/g, '""')}"`,
+        `"${String(r.purpose || '').replace(/"/g, '""')}"`,
+        `"${r.created_at ? new Date(r.created_at).toISOString() : ''}"`
+      ];
+      csvLines.push(line.join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="transactions_export_${Date.now()}.csv"`);
+    return res.send(csvLines.join('\n'));
+  } catch (err) {
+    console.error('Error exporting transactions:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 module.exports = router;
 
