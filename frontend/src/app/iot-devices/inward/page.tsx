@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -136,6 +136,36 @@ export default function IoTInwardPage() {
   const [supplierFilter, setSupplierFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: '' });
+
+  useEffect(() => {
+    async function loadInwardRecords() {
+      try {
+        const res = await fetch('http://localhost:5000/api/iot/inward');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped: InwardRecord[] = json.data.map((b: any) => ({
+              inwardNo: b.inward_no || 'INW-NEW',
+              inwardDate: b.inward_date ? new Date(b.inward_date).toLocaleString() : 'Recent',
+              invoiceNo: b.invoice_no || '-',
+              supplier: b.supplier || 'Vendor',
+              deviceType: b.device_type || 'GPS Tracker',
+              deviceIcon: b.device_type?.toLowerCase().includes('obd') ? '🔌' : '📡',
+              deviceModel: b.device_model || 'Standard',
+              quantity: b.quantity || 1,
+              receivedOn: b.received_on ? new Date(b.received_on).toLocaleString() : 'Recent',
+              status: (b.status === 'Completed' || b.status === 'In Progress' || b.status === 'Cancelled') ? b.status : 'Completed',
+              qcStatus: (b.qc_status === 'Accepted' || b.qc_status === 'Rejected' || b.qc_status === 'Pending') ? b.qc_status : 'Accepted'
+            }));
+            setRecords(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch live inward records, using fallback baseline:', err);
+      }
+    }
+    loadInwardRecords();
+  }, []);
 
   const triggerToast = (msg: string) => {
     setToast({ show: true, msg });

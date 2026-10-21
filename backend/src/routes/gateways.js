@@ -17,24 +17,13 @@ const DEFAULT_GATEWAYS = [
     notes: 'PayU Hosted Checkout, Cards, NetBanking, UPI'
   },
   {
-    id: 'icici',
-    name: 'ICICI Bank UPI',
-    provider: 'icici',
-    active: true,
-    key_id: '613268',
-    key_secret: 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp',
-    vpa: 'EVEGAHUAT@icici',
-    payee_name: 'Evegah',
-    environment: 'production',
-    notes: 'Direct Merchant UPI QR & Intent Launch'
-  },
-  {
     id: 'phonepe',
     name: 'PhonePe',
     provider: 'phonepe',
     active: false,
-    key_id: 'PGTESTxxxxxxxx',
-    key_secret: '••••••••••••••••',
+    key_id: 'PGTESTPAYUAT',
+    key_secret: '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399',
+    key_index: '1',
     environment: 'test',
     notes: 'PhonePe Payment Gateway'
   },
@@ -86,8 +75,8 @@ router.get('/', async (req, res) => {
     let primaryGateway = 'payu';
 
     if (settings && Array.isArray(settings.gateways) && settings.gateways.length > 0) {
-      gateways = settings.gateways;
-      primaryGateway = settings.primary_gateway || primaryGateway;
+      gateways = settings.gateways.filter(g => g.id !== 'icici' && g.provider !== 'icici');
+      primaryGateway = settings.primary_gateway === 'icici' ? 'payu' : (settings.primary_gateway || primaryGateway);
     } else if (settings) {
       // Build gateways from legacy flat settings
       gateways = DEFAULT_GATEWAYS.map(g => {
@@ -139,9 +128,9 @@ router.get('/config', async (req, res) => {
 
     if (settings) {
       if (Array.isArray(settings.gateways) && settings.gateways.length > 0) {
-        gateways = settings.gateways;
+        gateways = settings.gateways.filter(g => g.id !== 'icici' && g.provider !== 'icici');
       }
-      primaryGateway = settings.primary_gateway || 'payu';
+      primaryGateway = settings.primary_gateway === 'icici' ? 'payu' : (settings.primary_gateway || 'payu');
       paymentMethods = {
         upi: settings.methods_upi !== false,
         card: settings.methods_card !== false,
@@ -153,7 +142,7 @@ router.get('/config', async (req, res) => {
 
     // Only return safe public info for active gateways
     const activeGateways = gateways
-      .filter(g => g.active)
+      .filter(g => g.active && g.id !== 'icici' && g.provider !== 'icici')
       .map(g => ({
         id: g.id,
         name: g.name,
@@ -200,6 +189,7 @@ router.post('/', async (req, res) => {
       active: active !== undefined ? !!active : true,
       key_id: key_id || '',
       key_secret: key_secret || '',
+      key_index: req.body.key_index || (existingIdx >= 0 ? gateways[existingIdx].key_index : '1') || '1',
       client_id: client_id || '',
       client_secret: client_secret || '',
       vpa: vpa || '',
@@ -241,6 +231,9 @@ router.post('/', async (req, res) => {
     } else if (gatewayId === 'phonepe') {
       settings.phonepe_active = gatewayObj.active;
       settings.phonepe_merchant_id = gatewayObj.key_id;
+      settings.phonepe_salt_key = gatewayObj.key_secret;
+      settings.phonepe_key_index = gatewayObj.key_index;
+      settings.phonepe_env = gatewayObj.environment;
     } else if (gatewayId === 'paytm') {
       settings.paytm_active = gatewayObj.active;
       settings.paytm_merchant_id = gatewayObj.key_id;

@@ -247,6 +247,7 @@ router.get('/super-admin', async (req, res) => {
 // GET /api/stats/co2 — Real-time CO2 & ESG Environmental Impact Statistics
 router.get('/co2', async (req, res) => {
   try {
+    const { calculateEnvironmentalSavings } = require('../utils/environmental');
     const zone = req.query.zone && req.query.zone !== 'All' && req.query.zone !== 'All Zones' ? req.query.zone : null;
     const zoneParams = zone ? [zone] : [];
     const zoneFilter = zone ? 'WHERE zone = $1' : '';
@@ -260,16 +261,20 @@ router.get('/co2', async (req, res) => {
       FROM vehicles ${zoneFilter}
     `, zoneParams);
 
-    const totalVehicles = parseInt(vRes.rows[0]?.total_vehicles) || 12;
-    const rawKm = parseFloat(vRes.rows[0]?.total_km) || 4470;
-    const fleetKm = Math.max(rawKm, 4470);
-    const co2SavedKg = Math.round(fleetKm * 0.106 * 10) / 10;
-    const fuelSavedLitres = Math.round(fleetKm / 38);
-    const fuelCostSavedInr = Math.round(fuelSavedLitres * 102.5);
-    const treesEquivalent = Math.max(1, Math.round(co2SavedKg / 21.77));
-    const carsOffRoad = Math.max(1, Math.round(co2SavedKg / 4.6));
-    const carbonCredits = parseFloat((co2SavedKg / 1000).toFixed(3));
-    const aqiPmAvoidedGrams = Math.round(fleetKm * 0.05);
+    const totalVehicles = parseInt(vRes.rows[0]?.total_vehicles) || 0;
+    let fleetKm = parseFloat(vRes.rows[0]?.total_km) || 0;
+
+    // If total_km_covered is zero, aggregate from completed reservations
+    if (fleetKm === 0) {
+      const resKmQuery = zone
+        ? "SELECT COUNT(*) as ride_count FROM reservations WHERE pickup_zone ILIKE $1"
+        : "SELECT COUNT(*) as ride_count FROM reservations";
+      const resKmRes = await db.query(resKmQuery, zoneParams).catch(() => ({ rows: [{ ride_count: 0 }] }));
+      const rideCount = parseInt(resKmRes.rows[0]?.ride_count) || 0;
+      fleetKm = rideCount * 6.4; // Average urban trip length
+    }
+
+    const envSavings = calculateEnvironmentalSavings(fleetKm);
 
     // 2. Breakdown by Model / Category
     const modelRes = await db.query(`
@@ -284,13 +289,13 @@ router.get('/co2', async (req, res) => {
     `, zoneParams);
 
     const modelBreakdown = modelRes.rows.map(m => {
-      const km = parseFloat(m.km) || (m.model_name.includes('City') ? 2870 : 920);
-      const co2 = Math.round(km * 0.106);
+      const km = parseFloat(m.km) || 0;
+      const co2 = Math.round(km * 0.095 * 10) / 10;
       return {
         name: m.model_name,
         category: m.category,
         count: parseInt(m.count),
-        km: Math.round(km),
+        km: Math.round(km * 10) / 10,
         co2SavedKg: co2,
         percentage: fleetKm > 0 ? Math.round((km / fleetKm) * 100) : 0
       };
@@ -312,16 +317,16 @@ router.get('/co2', async (req, res) => {
       return {
         zone: z.zone_name,
         count: parseInt(z.count),
-        km: Math.round(km),
-        co2SavedKg: Math.round(km * 0.106),
+        km: Math.round(km * 10) / 10,
+        co2SavedKg: Math.round(km * 0.095 * 10) / 10,
       };
     });
 
     // 4. Batteries & Swaps
-    const bRes = await db.query(`SELECT COUNT(*) as total, COALESCE(AVG(soc), 92) as avg_soc FROM batteries ${zone ? 'WHERE zone = $1' : ''}`, zoneParams).catch(() => ({ rows: [{ total: 13, avg_soc: 92 }] }));
-    const totalBatteries = parseInt(bRes.rows[0]?.total) || 13;
+    const bRes = await db.query(`SELECT COUNT(*) as total, COALESCE(AVG(soc), 92) as avg_soc FROM batteries ${zone ? 'WHERE zone = $1' : ''}`, zoneParams).catch(() => ({ rows: [{ total: 0, avg_soc: 92 }] }));
+    const totalBatteries = parseInt(bRes.rows[0]?.total) || 0;
     const avgBatterySoc = Math.round(parseFloat(bRes.rows[0]?.avg_soc) || 92);
-    const estimatedSwaps = totalBatteries * 18 + 42;
+    const estimatedSwaps = totalBatteries * 18;
 
     // 5. Verified Green Mobility Run Logs
     const logRes = await db.query(`
@@ -340,18 +345,18 @@ router.get('/co2', async (req, res) => {
     `, zoneParams);
 
     const logs = logRes.rows.map((v, i) => {
-      const km = parseFloat(v.total_km_covered) || parseFloat(v.current_km_reading) || ((12 - i) * 65);
-      const co2 = Math.round(km * 0.106 * 10) / 10;
-      const fuel = Math.round((km / 38) * 10) / 10;
-      const rName = v.renter_name && v.renter_name !== 'None (Available)' ? v.renter_name : (['Hardik Joshi', 'Kinjal Trivedi', 'Devendra Rana', 'Vikram Patel', 'Priya Sharma', 'Manish Parmar'][i % 6]);
-      const logDate = v.created_at ? new Date(v.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '04 Sep 2026';
+      const km = parseFloat(v.total_km_covered) || parseFloat(v.current_km_reading) || 0;
+      const co2 = Math.round(km * 0.095 * 10) / 10;
+      const fuel = Math.round((km / 42.0) * 10) / 10;
+      const rName = v.renter_name && v.renter_name !== 'None (Available)' ? v.renter_name : 'Active EV Rider';
+      const logDate = v.created_at ? new Date(v.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Verified';
       return {
         id: `LOG-EV-${v.code}`,
         vehicleCode: v.code,
         model: v.model,
         riderName: rName,
         zone: v.zone,
-        distanceKm: Math.round(km),
+        distanceKm: Math.round(km * 10) / 10,
         fuelSavedL: fuel,
         co2SavedKg: co2,
         date: logDate,
@@ -362,12 +367,12 @@ router.get('/co2', async (req, res) => {
     // 6. Trend time series
     const monthlyLabels = ['Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026', 'Sep 2026'];
     const monthlyCo2 = [
-      Math.round(co2SavedKg * 0.25),
-      Math.round(co2SavedKg * 0.40),
-      Math.round(co2SavedKg * 0.58),
-      Math.round(co2SavedKg * 0.72),
-      Math.round(co2SavedKg * 0.88),
-      co2SavedKg
+      Math.round(envSavings.totalCo2SavedKg * 0.25 * 10) / 10,
+      Math.round(envSavings.totalCo2SavedKg * 0.40 * 10) / 10,
+      Math.round(envSavings.totalCo2SavedKg * 0.58 * 10) / 10,
+      Math.round(envSavings.totalCo2SavedKg * 0.72 * 10) / 10,
+      Math.round(envSavings.totalCo2SavedKg * 0.88 * 10) / 10,
+      envSavings.totalCo2SavedKg
     ];
     const monthlyKm = [
       Math.round(fleetKm * 0.25),
@@ -375,21 +380,26 @@ router.get('/co2', async (req, res) => {
       Math.round(fleetKm * 0.58),
       Math.round(fleetKm * 0.72),
       Math.round(fleetKm * 0.88),
-      fleetKm
+      Math.round(fleetKm)
     ];
 
     res.json({
       status: 'success',
+      co2_saved_kg: envSavings.totalCo2SavedKg,
+      total_km: Math.round(fleetKm),
+      trees_equivalent: envSavings.treesEquivalent,
+      fuel_saved_litres: envSavings.fuelAvoidedLitres,
+      methodology: envSavings.methodology,
       data: {
         kpis: {
-          totalCo2SavedKg: co2SavedKg,
+          totalCo2SavedKg: envSavings.totalCo2SavedKg,
           totalKmDriven: Math.round(fleetKm),
-          treesEquivalent,
-          carsOffRoad,
-          fuelAvoidedLitres: fuelSavedLitres,
-          fuelCostSavedInr,
-          carbonCreditsTonnes: carbonCredits,
-          aqiPmAvoidedGrams,
+          treesEquivalent: envSavings.treesEquivalent,
+          carsOffRoad: envSavings.carsOffRoad,
+          fuelAvoidedLitres: envSavings.fuelAvoidedLitres,
+          fuelCostSavedInr: envSavings.fuelCostSavedInr,
+          carbonCreditsTonnes: envSavings.carbonCreditsTonnes,
+          aqiPmAvoidedGrams: envSavings.aqiPmAvoidedGrams,
           totalVehicles,
           totalBatteries,
           avgBatterySoc,

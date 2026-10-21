@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -142,6 +142,7 @@ export default function FranchiseExpensesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: '' });
+  const [loading, setLoading] = useState(false);
 
   // Add modal states
   const [modalOpen, setModalOpen] = useState(false);
@@ -150,10 +151,41 @@ export default function FranchiseExpensesPage() {
   const [newExpAmount, setNewExpAmount] = useState('');
   const [newExpPay, setNewExpPay] = useState<'Bank Transfer' | 'UPI' | 'Card' | 'Cash'>('Bank Transfer');
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
   const triggerToast = (msg: string) => {
     setToast({ show: true, msg });
     setTimeout(() => setToast({ show: false, msg: '' }), 3000);
   };
+
+  // Load persistent expenses from backend
+  const fetchExpensesFromBackend = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${apiUrl}/franchises/expenses/all`);
+      const json = await res.json();
+      if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+        const mapped: ExpenseItem[] = json.data.map((r: any) => ({
+          id: r.invoice_number || `EXP-${r.id.slice(0, 8)}`,
+          name: r.title,
+          category: r.category as any,
+          amount: parseFloat(r.amount),
+          date: new Date(r.expense_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          payMethod: (r.payment_mode || 'UPI') as any,
+          status: (r.status || 'Approved') as any,
+        }));
+        setExpenses(mapped);
+      }
+    } catch (e) {
+      console.warn('Could not fetch backend expenses, retaining local records:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExpensesFromBackend();
+  }, []);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -164,26 +196,53 @@ export default function FranchiseExpensesPage() {
     triggerToast('Filters reset successfully');
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     if (!newExpName || !newExpAmount) {
       alert('Please fill out all fields');
       return;
     }
-    const newId = `EXP-2024-00${Math.floor(53 + Math.random() * 40)}`;
-    const newEntry: ExpenseItem = {
-      id: newId,
-      name: newExpName,
-      category: newExpCat,
-      amount: parseFloat(newExpAmount),
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      payMethod: newExpPay,
-      status: 'Approved'
-    };
-    setExpenses([newEntry, ...expenses]);
-    setNewExpName('');
-    setNewExpAmount('');
-    setModalOpen(false);
-    triggerToast(`Expense ${newId} logged successfully!`);
+
+    const amt = parseFloat(newExpAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter a valid expense amount');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/franchises/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newExpName,
+          category: newExpCat,
+          amount: amt,
+          payment_mode: newExpPay,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        const item = data.data;
+        const newEntry: ExpenseItem = {
+          id: item.invoice_number || `EXP-${item.id.slice(0, 8)}`,
+          name: item.title,
+          category: item.category,
+          amount: parseFloat(item.amount),
+          date: new Date(item.expense_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          payMethod: item.payment_mode,
+          status: item.status,
+        };
+        setExpenses((prev) => [newEntry, ...prev]);
+        setNewExpName('');
+        setNewExpAmount('');
+        setModalOpen(false);
+        triggerToast(`Expense ${newEntry.id} recorded and persisted to database!`);
+      } else {
+        alert(data.message || 'Failed to record expense');
+      }
+    } catch (e: any) {
+      alert('Network error connecting to backend: ' + e.message);
+    }
   };
 
   // Filter logic

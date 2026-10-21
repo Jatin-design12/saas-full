@@ -176,34 +176,57 @@ class GooglePlacesService {
 
   /// Get LatLng coordinates for a Place ID or Place Prediction
   Future<LatLng?> getCoordinatesForPlace(PlacePrediction prediction) async {
-    if (prediction.lat != null && prediction.lng != null) {
-      return LatLng(prediction.lat!, prediction.lng!);
+    final details = await getPlaceDetails(prediction);
+    return details?['location'] as LatLng?;
+  }
+
+  /// Get full Place Details (formatted address and LatLng coordinates)
+  Future<Map<String, dynamic>?> getPlaceDetails(PlacePrediction prediction) async {
+    if (prediction.placeId.startsWith('loc_')) {
+      final found = _knownSocieties.firstWhere(
+        (p) => p.placeId == prediction.placeId,
+        orElse: () => _knownSocieties.first,
+      );
+      final coords = LatLng(found.lat ?? 22.3072, found.lng ?? 73.1812);
+      return {
+        'formatted_address': found.description,
+        'location': coords,
+      };
     }
 
     try {
-      if (prediction.placeId.startsWith('loc_')) {
-        final found = _knownSocieties.firstWhere(
-          (p) => p.placeId == prediction.placeId,
-          orElse: () => _knownSocieties.first,
-        );
-        return LatLng(found.lat ?? 22.3072, found.lng ?? 73.1812);
-      }
-
-      // Call Place Details API
       final url =
-          'https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.placeId}&fields=geometry&key=$apiKey';
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 3));
+          'https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.placeId}&fields=formatted_address,geometry&key=$apiKey';
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-        if (data['status'] == 'OK' && data['result']?['geometry']?['location'] != null) {
-          final loc = data['result']['geometry']['location'];
-          return LatLng((loc['lat'] as num).toDouble(), (loc['lng'] as num).toDouble());
+        if (data['status'] == 'OK' && data['result'] != null) {
+          final result = data['result'];
+          final formattedAddress = (result['formatted_address'] as String?) ?? prediction.description;
+          LatLng? coords;
+          if (result['geometry']?['location'] != null) {
+            final loc = result['geometry']['location'];
+            coords = LatLng((loc['lat'] as num).toDouble(), (loc['lng'] as num).toDouble());
+          } else if (prediction.lat != null && prediction.lng != null) {
+            coords = LatLng(prediction.lat!, prediction.lng!);
+          }
+          return {
+            'formatted_address': formattedAddress,
+            'location': coords,
+          };
         }
       }
     } catch (e) {
       debugPrint("Place details error: $e");
     }
-    return null;
+
+    // Fallback using prediction description
+    return {
+      'formatted_address': prediction.description,
+      'location': prediction.lat != null && prediction.lng != null
+          ? LatLng(prediction.lat!, prediction.lng!)
+          : null,
+    };
   }
 
   /// Get LatLng coordinates for a text address

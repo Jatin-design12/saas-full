@@ -122,7 +122,7 @@ class _HelpScreenState extends State<HelpScreen> {
               iconColor: const Color(0xFF10B981),
               iconBg: const Color(0xFFECFDF5),
               borderColor: const Color(0xFF10B981),
-              onTap: () => _makePhoneCall("+919876543210"),
+              onTap: () => _makePhoneCall("+911800 889 8791"),
             ),
             const SizedBox(height: 12),
 

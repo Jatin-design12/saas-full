@@ -55,7 +55,7 @@ export default function ContactCTA({ onRequestDemo }: ContactCTAProps) {
                 </div>
                 <div>
                   <div className="channel-label">Call Us</div>
-                  <a href="tel:+919876543210" className="channel-value">+91 89809 66677 </a>
+                  <a href="tel:+911800 889 8791" className="channel-value">+91 89809 66677 </a>
                 </div>
               </div>
 

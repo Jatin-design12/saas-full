@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../../data/models/battery_model.dart';
 import '../../providers/battery_provider.dart';
@@ -227,6 +228,16 @@ class _BatteryLiveTabState extends ConsumerState<BatteryLiveTab>
                     const SizedBox(height: 16),
 
                     if (selectedBattery != null) ...[
+                      // Connection & Stale telemetry indicator
+                      _buildConnectionAndStaleStatus(selectedBattery),
+                      const SizedBox(height: 12),
+
+                      // Active Hardware Faults Banner
+                      if (selectedBattery.faults.isNotEmpty) ...[
+                        _buildFaultsAlertCard(selectedBattery),
+                        const SizedBox(height: 12),
+                      ],
+
                       // State of Charge Card
                       _buildStateOfChargeCard(selectedBattery),
                       const SizedBox(height: 16),
@@ -259,6 +270,121 @@ class _BatteryLiveTabState extends ConsumerState<BatteryLiveTab>
             _buildFooterUpdateBar(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildConnectionAndStaleStatus(BatteryModel battery) {
+    final bool isStale = battery.isStale;
+    final String lastUpdateStr = battery.lastUpdatedAt != null
+        ? DateFormat('HH:mm:ss').format(battery.lastUpdatedAt!)
+        : 'Connecting...';
+
+    Color statusColor = const Color(0xFF22C55E); // Green
+    String statusText = 'BLE Active (Live)';
+    IconData statusIcon = Icons.bluetooth_connected;
+
+    if (battery.status == BatteryStatus.disconnected) {
+      statusColor = const Color(0xFF64748B);
+      statusText = 'Disconnected';
+      statusIcon = Icons.bluetooth_disabled;
+    } else if (battery.status == BatteryStatus.faulty) {
+      statusColor = const Color(0xFFEF4444);
+      statusText = 'Fault Detected';
+      statusIcon = Icons.warning_amber_rounded;
+    } else if (isStale) {
+      statusColor = const Color(0xFFF59E0B);
+      statusText = 'Stale Telemetry (>10s)';
+      statusIcon = Icons.history_toggle_off;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(statusIcon, color: statusColor, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                statusText,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 14, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Text(
+                'Last Sync: $lastUpdateStr',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFaultsAlertCard(BatteryModel battery) {
+    if (battery.faults.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.report_problem_rounded, color: Color(0xFFDC2626), size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Active Hardware Diagnostics & Faults',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFDC2626),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...battery.faults.map(
+            (fault) => Padding(
+              padding: const EdgeInsets.only(left: 26, top: 2),
+              child: Text(
+                '• $fault',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF991B1B),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

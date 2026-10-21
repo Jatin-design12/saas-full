@@ -264,24 +264,12 @@ function SettingsContent() {
           name: 'PayU India',
           provider: 'payu',
           active: true,
-          key_id: 'WTi3jH',
-          key_secret: '9dascniXrfdMW22AJBbhmh2C7kuBibwb',
+          key_id: 'zWJFsB',
+          key_secret: 'A9xN8x7qX2uH8a4a2L0vD3rJ7xB0lP9o',
           client_id: '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543',
           client_secret: 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4',
-          environment: 'test',
-          notes: 'PayU India Hosted Checkout, Cards, NetBanking, UPI'
-        },
-        {
-          id: 'icici',
-          name: 'ICICI Bank UPI',
-          provider: 'icici',
-          active: true,
-          key_id: '613268',
-          key_secret: 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp',
-          vpa: 'EVEGAHUAT@icici',
-          payee_name: 'Evegah',
           environment: 'production',
-          notes: 'Direct Merchant UPI QR & Intent Launch'
+          notes: 'PayU India Hosted Checkout, Dynamic UPI QR, Cards, NetBanking'
         },
         {
           id: 'phonepe',
@@ -1764,9 +1752,8 @@ function SettingsContent() {
                         {(Array.isArray(currentSettings.payments.gateways) && currentSettings.payments.gateways.length > 0
                           ? currentSettings.payments.gateways
                           : localSettings.payments.gateways
-                        ).map((gw: any) => {
+                        ).filter((gw: any) => gw.id !== 'icici' && gw.provider !== 'icici').map((gw: any) => {
                           const isPayU = gw.id === 'payu' || gw.provider === 'payu';
-                          const isICICI = gw.id === 'icici' || gw.provider === 'icici';
                           const isPhonePe = gw.id === 'phonepe' || gw.provider === 'phonepe';
                           const isPaytm = gw.id === 'paytm' || gw.provider === 'paytm';
                           const isRazorpay = gw.id === 'razorpay' || gw.provider === 'razorpay';
@@ -1775,13 +1762,12 @@ function SettingsContent() {
                           
                           let logoClass = 'logo-default';
                           if (isPayU) logoClass = 'logo-payu';
-                          else if (isICICI) logoClass = 'logo-icici';
                           else if (isPhonePe) logoClass = 'logo-phonepe';
                           else if (isPaytm) logoClass = 'logo-paytm';
                           else if (isRazorpay) logoClass = 'logo-razorpay';
                           else if (isCashfree) logoClass = 'logo-cashfree';
 
-                          const keyLabel = isPayU ? 'Key' : (isICICI ? 'MID' : 'Key ID');
+                          const keyLabel = isPayU ? 'Key' : 'Key ID';
                           const keyVal = gw.key_id ? (gw.key_id.length > 18 ? gw.key_id.slice(0, 18) + '...' : gw.key_id) : 'Not configured';
 
                           return (
@@ -1797,7 +1783,6 @@ function SettingsContent() {
                                 </span>
                                 <span className="se-gateway-key">
                                   {keyLabel}: {keyVal}
-                                  {isICICI && gw.vpa ? ` | VPA: ${gw.vpa}` : ''}
                                 </span>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1857,7 +1842,7 @@ function SettingsContent() {
                         </div>
                         <select
                           className="se-select"
-                          value={currentSettings.payments.primary_gateway || 'payu'}
+                          value={currentSettings.payments.primary_gateway === 'icici' ? 'payu' : (currentSettings.payments.primary_gateway || 'payu')}
                           onChange={(e) => {
                             const val = e.target.value;
                             updateField('payments', 'primary_gateway', val);
@@ -1867,7 +1852,7 @@ function SettingsContent() {
                           {(Array.isArray(currentSettings.payments.gateways) && currentSettings.payments.gateways.length > 0
                             ? currentSettings.payments.gateways
                             : localSettings.payments.gateways
-                          ).map((g: any) => (
+                          ).filter((g: any) => g.id !== 'icici' && g.provider !== 'icici').map((g: any) => (
                             <option key={g.id} value={g.id}>
                               {g.name} ({g.active ? 'Active' : 'Inactive'})
                             </option>
@@ -3316,16 +3301,11 @@ function SettingsContent() {
                     let vpa = '';
                     if (prov === 'payu') {
                       defaultName = 'PayU India';
-                      defaultEnv = 'test';
-                      keyId = 'WTi3jH';
-                      secret = '9dascniXrfdMW22AJBbhmh2C7kuBibwb';
+                      defaultEnv = 'production';
+                      keyId = 'zWJFsB';
+                      secret = 'A9xN8x7qX2uH8a4a2L0vD3rJ7xB0lP9o';
                       clientId = '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543';
                       clientSecret = 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4';
-                    } else if (prov === 'icici') {
-                      defaultName = 'ICICI Bank UPI';
-                      keyId = '613268';
-                      secret = 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp';
-                      vpa = 'EVEGAHUAT@icici';
                     } else if (prov === 'phonepe') {
                       defaultName = 'PhonePe';
                       defaultEnv = 'test';
@@ -3350,7 +3330,6 @@ function SettingsContent() {
                   }}
                 >
                   <option value="payu">PayU India</option>
-                  <option value="icici">ICICI Bank UPI</option>
                   <option value="phonepe">PhonePe</option>
                   <option value="paytm">Paytm</option>
                   <option value="razorpay">Razorpay</option>
@@ -3372,7 +3351,7 @@ function SettingsContent() {
 
               <div className="se-form-group">
                 <label className="se-form-label">
-                  {gatewayForm.provider === 'payu' ? 'Merchant Key' : (gatewayForm.provider === 'icici' ? 'Merchant ID (MID)' : 'Key ID / Merchant ID')}
+                  {gatewayForm.provider === 'payu' ? 'Merchant Key' : 'Key ID / Merchant ID'}
                 </label>
                 <input
                   type="text"
@@ -3386,7 +3365,7 @@ function SettingsContent() {
 
               <div className="se-form-group">
                 <label className="se-form-label">
-                  {gatewayForm.provider === 'payu' ? 'Merchant Salt' : (gatewayForm.provider === 'icici' ? 'API Key / Secret' : 'Key Secret / Salt')}
+                  {gatewayForm.provider === 'payu' ? 'Merchant Salt' : 'Key Secret / Salt'}
                 </label>
                 <input
                   type="text"
@@ -3423,16 +3402,17 @@ function SettingsContent() {
                 </>
               )}
 
-              {gatewayForm.provider === 'icici' && (
+              {gatewayForm.provider === 'phonepe' && (
                 <div className="se-form-group">
-                  <label className="se-form-label">Merchant UPI VPA</label>
+                  <label className="se-form-label">PhonePe Key Index (Salt Index)</label>
                   <input
                     type="text"
                     className="se-form-input"
-                    value={gatewayForm.vpa || ''}
-                    onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, vpa: e.target.value }))}
-                    placeholder="e.g. EVEGAHUAT@icici"
+                    value={gatewayForm.key_index || '1'}
+                    onChange={(e) => setGatewayForm((prev: any) => ({ ...prev, key_index: e.target.value }))}
+                    placeholder="1"
                   />
+                  <span className="se-form-hint">Usually 1. Found in your PhonePe Business Dashboard Developer section</span>
                 </div>
               )}
 

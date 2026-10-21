@@ -185,12 +185,23 @@ const CSS = `
 .nr-prev-btn:hover { border-color: #2a195c; color: #2a195c; }
 .nr-continue-btn {
   display: flex; align-items: center; gap: 8px;
-  padding: 11px 28px; background: #2a195c; border: none;
+  padding: 11px 28px; background: linear-gradient(135deg, #2a195c 0%, #4338CA 100%); border: none;
   border-radius: 10px; font-size: 13px; font-weight: 700; color: #fff;
-  cursor: pointer; font-family: inherit; transition: background .15s;
+  cursor: pointer; font-family: inherit; transition: all .22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(42, 25, 92, 0.25);
   text-decoration: none;
 }
-.nr-continue-btn:hover { background: #4338CA; }
+.nr-continue-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(42, 25, 92, 0.32); }
+.nr-continue-btn:disabled {
+  background: #CBD5E1; color: #64748B; cursor: not-allowed; box-shadow: none; opacity: 0.75;
+}
+@keyframes nrFadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.nr-card, .nr-rp-card, .nr-stepper {
+  animation: nrFadeSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 
 /* ─── RIGHT PANEL ─── */
 .nr-rp { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
@@ -1080,7 +1091,12 @@ export default function RentalDetailsPage() {
                 {/* Footer */}
                 <div className="nr-footer-actions">
                   <Link href="/new-rider" className="nr-prev-btn"><ILeft /> Previous</Link>
-                  <button className="nr-continue-btn" onClick={handleNextStep}>
+                  <button
+                    className="nr-continue-btn"
+                    type="button"
+                    disabled={!selectedVehicleCode || !selectedPackage || !startDate || !returnDate}
+                    onClick={handleNextStep}
+                  >
                     Continue to Payment &amp; Charges <IArr s={12} />
                   </button>
                 </div>

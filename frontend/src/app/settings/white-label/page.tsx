@@ -1,10 +1,11 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 
 const CSS = `
 .ev-shell { display: flex; min-height: 100vh; background: #F3F4F9; font-family: 'Inter', sans-serif; }
-.ev-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
+.ev-main { margin-left: var(--ev-sidebar-width, 240px); display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - var(--ev-sidebar-width, 240px)); }
 .ev-body { padding: 20px 22px 50px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
 
 /* Top Bar Styling */
@@ -132,6 +133,34 @@ const CSS = `
 .badge-pill { font-size: 9px; padding: 2px 8px; border-radius: 12px; font-weight: 800; text-transform: uppercase; }
 .badge-active { background: #ECFDF5; color: #10B981; }
 .badge-expired { background: #FEE2E2; color: #EF4444; }
+
+/* App Sliders Manager Styles */
+.slider-mgmt-wrap { display: flex; flex-direction: column; gap: 16px; }
+.slider-screen-pills { display: flex; gap: 6px; background: #F1F5F9; padding: 4px; border-radius: 10px; width: fit-content; }
+.slider-screen-btn { padding: 7px 16px; border-radius: 8px; border: none; font-size: 12.5px; font-weight: 700; cursor: pointer; color: #64748B; background: transparent; transition: all 0.15s; }
+.slider-screen-btn.act { background: #fff; color: #1E293B; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.slider-card-box { border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 18px; background: #FAFBFD; display: flex; flex-direction: column; gap: 14px; position: relative; transition: all 0.15s; }
+.slider-card-box.active-card { border-color: #6366F1; background: #FFFFFF; box-shadow: 0 4px 12px rgba(99,102,241,0.08); }
+.slider-card-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #F1F5F9; padding-bottom: 12px; }
+.slider-num-badge { width: 24px; height: 24px; border-radius: 12px; background: #1E293B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+.slider-asset-drop { border: 1.5px dashed #CBD5E1; border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px; background: #F8FAFC; cursor: pointer; transition: all 0.15s; }
+.slider-asset-drop:hover { border-color: #6366F1; background: #F1F5F9; }
+.slider-asset-thumb { width: 68px; height: 46px; border-radius: 6px; border: 1px solid #CBD5E1; object-fit: cover; background: #fff; }
+.phone-mock-frame { width: 310px; height: 570px; border: 10px solid #0F172A; border-radius: 40px; background: #000; box-shadow: 0 16px 36px rgba(0,0,0,0.22); position: relative; overflow: hidden; display: flex; flex-direction: column; margin: 0 auto; }
+.phone-mock-notch { width: 100px; height: 18px; background: #0F172A; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 30; }
+.phone-mock-screen { flex: 1; background: #F4F6FB; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+.phone-hero-slider { height: 250px; width: 100%; position: relative; overflow: hidden; background: #F8FAFC; }
+.phone-slide-bg { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+.phone-slide-grad { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.72) 55%, transparent 100%); }
+.phone-slide-copy { position: absolute; left: 14px; bottom: 18px; z-index: 10; max-width: 60%; }
+.phone-tag-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; background: rgba(30,27,75,0.08); border: 1px solid rgba(30,27,75,0.18); font-size: 8px; font-weight: 900; color: #1E1B4B; letter-spacing: 0.5px; margin-bottom: 4px; }
+.phone-slide-h1 { font-size: 14.5px; font-weight: 900; color: #0F172A; line-height: 1.22; margin: 0 0 3px 0; letter-spacing: -0.3px; }
+.phone-slide-p { font-size: 9px; font-weight: 700; color: #475569; margin: 0 0 8px 0; line-height: 1.3; }
+.phone-slide-cta { display: inline-block; padding: 5px 12px; border-radius: 12px; background: #1E1B4B; color: #fff; font-size: 9px; font-weight: 800; border: none; }
+.phone-slide-front { position: absolute; right: 4px; bottom: 8px; height: 175px; max-width: 145px; object-fit: contain; z-index: 8; }
+.phone-dots { position: absolute; right: 12px; bottom: 8px; z-index: 15; display: flex; gap: 4px; align-items: center; }
+.phone-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(15,23,42,0.22); }
+.phone-dot.act { width: 14px; border-radius: 4px; background: #1E1B4B; }
 `;
 
 export default function WhiteLabelManagement() {
@@ -161,7 +190,7 @@ export default function WhiteLabelManagement() {
   // Domain & App states
   const [primaryDomain, setPrimaryDomain] = useState('dashboard.evegah.com');
   const [appName, setAppName] = useState('Evegah Rider');
-  const [packageName, setPackageName] = useState('com.evegah.rider');
+  const [packageName, setPackageName] = useState('io.ionic.evegah');
   const [appVersion, setAppVersion] = useState('2.4.1');
   const [activeAppTab, setActiveAppTab] = useState('android');
 
@@ -185,6 +214,207 @@ export default function WhiteLabelManagement() {
   // Custom code inputs
   const [customCSS, setCustomCSS] = useState('');
   const [customJS, setCustomJS] = useState('');
+
+  // App Sliders state (Home & Rent dynamic banners)
+  const [sliderScreen, setSliderScreen] = useState<'rent' | 'home'>('rent');
+  const [selectedSlideIdx, setSelectedSlideIdx] = useState<number>(0);
+  const [homeSliders, setHomeSliders] = useState<any[]>([
+    {
+      id: 'slide_home_1',
+      tag: 'Slider 1',
+      title: 'Ride Smarter, Go Farther',
+      subtitle: 'High-performance electric vehicles designed for delivery and daily city commute.',
+      cta: 'Rent EV Now',
+      bg: '',
+      front: '',
+      active: true
+    },
+    {
+      id: 'slide_home_2',
+      tag: 'Slider 2',
+      title: 'Swap & Go in 60s',
+      subtitle: 'Never wait for charging. Fast automated battery swapping stations across Vadodara.',
+      cta: 'Find Station',
+      bg: '',
+      front: '',
+      active: true
+    },
+    {
+      id: 'slide_home_3',
+      tag: 'Slider 3',
+      title: 'Zero Emission Mobility',
+      subtitle: 'Reduce carbon footprint with certified green energy battery swaps.',
+      cta: 'Explore Fleet',
+      bg: '',
+      front: '',
+      active: true
+    }
+  ]);
+  const [rentSliders, setRentSliders] = useState<any[]>([
+    {
+      id: 'slide_rent_1',
+      tag: 'Slider 1',
+      title: 'Rent at L&T Knowledge City',
+      subtitle: 'Instant unlock at Main Gate hub. Smooth ride to office.',
+      cta: 'Book This Zone',
+      bg: '',
+      front: '',
+      active: true
+    },
+    {
+      id: 'slide_rent_2',
+      tag: 'Slider 2',
+      title: 'Parul University Campus Fleet',
+      subtitle: 'Zero deposit student & staff plans. Swap batteries inside campus.',
+      cta: 'Select Campus Zone',
+      bg: '',
+      front: '',
+      active: true
+    },
+    {
+      id: 'slide_rent_3',
+      tag: 'Slider 3',
+      title: 'Zepto Dark Store Hub',
+      subtitle: 'High payload commercial EVs. Unlimited battery swaps.',
+      cta: 'Start Earning',
+      bg: '',
+      front: '',
+      active: true
+    }
+  ]);
+  const [isSavingSliders, setIsSavingSliders] = useState<boolean>(false);
+  const [sliderSaveMsg, setSliderSaveMsg] = useState<string>('');
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchSliders = async () => {
+      try {
+        const res = await fetch('/api/settings/app_slider');
+        if (res.ok) {
+          const json = await res.json();
+          if (json && (json.success || json.status === 'success') && json.data) {
+            const val = json.data.value || json.data;
+            if (Array.isArray(val.home_sliders) && val.home_sliders.length > 0) {
+              setHomeSliders(val.home_sliders);
+            }
+            if (Array.isArray(val.rent_sliders) && val.rent_sliders.length > 0) {
+              setRentSliders(val.rent_sliders);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load sliders from settings:', err);
+      }
+    };
+    fetchSliders();
+  }, []);
+
+  const currentSliderList = sliderScreen === 'home' ? homeSliders : rentSliders;
+  const setCurrentSliderList = (updater: any) => {
+    if (sliderScreen === 'home') {
+      setHomeSliders(updater);
+    } else {
+      setRentSliders(updater);
+    }
+  };
+
+  const handleUpdateSlide = (idx: number, field: string, val: any) => {
+    setCurrentSliderList((prev: any[]) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], [field]: val };
+      return copy;
+    });
+  };
+
+  const handleAddSlide = () => {
+    const nextIdx = currentSliderList.length + 1;
+    const newSlide = {
+      id: `slide_${sliderScreen}_${Date.now()}`,
+      tag: `Slider ${nextIdx}`,
+      title: `Special EV Campaign ${nextIdx}`,
+      subtitle: 'High-performance electric mobility with seamless battery swap access.',
+      cta: 'Explore Details',
+      bg: '',
+      front: '',
+      active: true
+    };
+    setCurrentSliderList((prev: any[]) => [...prev, newSlide]);
+    setSelectedSlideIdx(currentSliderList.length);
+  };
+
+  const handleDeleteSlide = (idx: number) => {
+    if (currentSliderList.length <= 1) {
+      alert('You must keep at least 1 slide in the carousel.');
+      return;
+    }
+    setCurrentSliderList((prev: any[]) => prev.filter((_, i) => i !== idx));
+    if (selectedSlideIdx >= idx && selectedSlideIdx > 0) {
+      setSelectedSlideIdx(selectedSlideIdx - 1);
+    }
+  };
+
+  const handleUploadSliderFile = (slideIdx: number, field: 'bg' | 'front', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingField(`${slideIdx}-${field}`);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const dataUrl = reader.result as string;
+        const res = await fetch('/api/settings/upload-asset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            data: dataUrl,
+            dataUrl,
+            name: file.name,
+            filename: file.name
+          })
+        });
+        const resJson = await res.json();
+        if ((resJson.success || resJson.status === 'success') && resJson.url) {
+          handleUpdateSlide(slideIdx, field, resJson.url);
+        } else {
+          alert('Asset upload failed: ' + (resJson.message || resJson.error || 'Server error'));
+        }
+      } catch (err: any) {
+        alert('Upload error: ' + err.message);
+      } finally {
+        setUploadingField(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveSliders = async () => {
+    setIsSavingSliders(true);
+    setSliderSaveMsg('');
+    try {
+      const res = await fetch('/api/settings/app_slider', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          value: {
+            home_sliders: homeSliders,
+            rent_sliders: rentSliders
+          }
+        })
+      });
+      const data = await res.json();
+      if (data.success || data.status === 'success') {
+        setSliderSaveMsg('App sliders successfully saved & published to mobile app!');
+        setTimeout(() => setSliderSaveMsg(''), 5000);
+      } else {
+        alert('Failed to save sliders: ' + (data.error || data.message || 'Unknown error'));
+      }
+    } catch (err: any) {
+      alert('Error saving sliders: ' + err.message);
+    } finally {
+      setIsSavingSliders(false);
+    }
+  };
+
 
   const addQuickLink = () => {
     if (!newLinkLabel) return;
@@ -367,21 +597,10 @@ export default function WhiteLabelManagement() {
         <Sidebar activePath="/settings/white-label" />
         <div className="ev-main">
           
-          <header className="sa-tb">
-            <div className="sa-tb-left">
-              <h1 className="sa-tb-hello">White Label Management</h1>
-              <p className="sa-tb-sub">Customize your brand identity across platform, mobile apps, invoices and communications.</p>
-            </div>
-            <div className="sa-tb-right">
-              <div className="sa-tb-prof">
-                <div className="sa-tb-prof-av">SU</div>
-                <div className="sa-tb-prof-info">
-                  <span className="sa-tb-prof-name">Akash Verma</span>
-                  <span className="sa-tb-prof-role">Super Admin</span>
-                </div>
-              </div>
-            </div>
-          </header>
+          <TopBar 
+            title="White Label Management" 
+            subtitle="Customize your brand identity across platform, mobile apps, invoices and communications." 
+          />
 
           <div className="ev-body">
             
@@ -399,6 +618,7 @@ export default function WhiteLabelManagement() {
               {[
                 { key: 'brand', label: 'Brand Identity' },
                 { key: 'domain', label: 'Domain & App' },
+                { key: 'sliders', label: 'App Sliders' },
                 { key: 'email', label: 'Email & Notifications' },
                 { key: 'invoice', label: 'Invoice & Docs' },
                 { key: 'advanced', label: 'Advanced' }
@@ -987,6 +1207,518 @@ export default function WhiteLabelManagement() {
                     </div>
                   </div>
 
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'sliders' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Sliders Top Controller Bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1.5px solid #E2E8F0', padding: '14px 20px', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div className="slider-screen-pills">
+                      <button
+                        className={`slider-screen-btn ${sliderScreen === 'rent' ? 'act' : ''}`}
+                        onClick={() => { setSliderScreen('rent'); setSelectedSlideIdx(0); }}
+                      >
+                        RentScreen Sliders <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '10px', background: sliderScreen === 'rent' ? '#EEF2FF' : '#E2E8F0', color: sliderScreen === 'rent' ? '#4F46E5' : '#64748B', fontSize: '10.5px' }}>{rentSliders.length}</span>
+                      </button>
+                      <button
+                        className={`slider-screen-btn ${sliderScreen === 'home' ? 'act' : ''}`}
+                        onClick={() => { setSliderScreen('home'); setSelectedSlideIdx(0); }}
+                      >
+                        HomeScreen Sliders <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '10px', background: sliderScreen === 'home' ? '#EEF2FF' : '#E2E8F0', color: sliderScreen === 'home' ? '#4F46E5' : '#64748B', fontSize: '10.5px' }}>{homeSliders.length}</span>
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '12px', color: '#64748B' }}>
+                      Configure promotional banners, background artwork, and vehicle cutouts synchronized with the rider app.
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button
+                      className="wl-btn"
+                      onClick={handleAddSlide}
+                      style={{ fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      <span>Add Slide</span>
+                    </button>
+                    <button
+                      className="wl-btn wl-btn-primary"
+                      onClick={handleSaveSliders}
+                      disabled={isSavingSliders}
+                      style={{ fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                      </svg>
+                      <span>{isSavingSliders ? 'Publishing...' : 'Save & Publish Sliders'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {sliderSaveMsg && (
+                  <div style={{ background: '#ECFDF5', border: '1.5px solid #A7F3D0', padding: '12px 16px', borderRadius: '10px', color: '#065F46', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <span>{sliderSaveMsg}</span>
+                  </div>
+                )}
+
+                <div className="wl-layout">
+                  {/* Left Column: Slide Cards Editor */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {currentSliderList.map((slide: any, idx: number) => {
+                      const isSelected = selectedSlideIdx === idx;
+                      const slideLabel = `Slider ${idx + 1}`;
+                      return (
+                        <div
+                          key={slide.id || idx}
+                          className={`slider-card-box ${isSelected ? 'active-card' : ''}`}
+                          onClick={() => setSelectedSlideIdx(idx)}
+                        >
+                          <div className="slider-card-head">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div className="slider-num-badge">{idx + 1}</div>
+                              <div>
+                                <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
+                                  {slideLabel}
+                                </span>
+                                <span style={{ fontSize: '11px', color: '#64748B', display: 'block', marginTop: '1px' }}>
+                                  Key ID: {slide.id}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }} onClick={e => e.stopPropagation()}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#475569', fontWeight: 600 }}>
+                                <span>Active</span>
+                                <input
+                                  type="checkbox"
+                                  className="switch-inp"
+                                  checked={slide.active !== false}
+                                  onChange={e => handleUpdateSlide(idx, 'active', e.target.checked)}
+                                />
+                                <span className="switch-slider" />
+                              </label>
+
+                              <button
+                                className="wl-tag-del"
+                                title="Delete Slide"
+                                style={{ padding: '5px 10px', borderRadius: '6px', background: '#FEE2E2', color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                                onClick={() => handleDeleteSlide(idx)}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6"/>
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Inputs */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div className="wl-form-group">
+                              <label className="wl-lbl">Tag / Category Badge <span>*</span></label>
+                              <input
+                                type="text"
+                                className="wl-inp"
+                                value={slide.tag || ''}
+                                onChange={e => handleUpdateSlide(idx, 'tag', e.target.value)}
+                                placeholder={slideLabel}
+                              />
+                            </div>
+
+                            <div className="wl-form-group">
+                              <label className="wl-lbl">Call to Action (CTA) Button Text</label>
+                              <input
+                                type="text"
+                                className="wl-inp"
+                                value={slide.cta || ''}
+                                onChange={e => handleUpdateSlide(idx, 'cta', e.target.value)}
+                                placeholder="Book This Zone"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="wl-form-group">
+                            <label className="wl-lbl">Title / Headline (Dark &amp; Stylish) <span>*</span></label>
+                            <input
+                              type="text"
+                              className="wl-inp"
+                              value={slide.title || ''}
+                              onChange={e => handleUpdateSlide(idx, 'title', e.target.value)}
+                              placeholder="Rent at L&T Knowledge City"
+                            />
+                          </div>
+
+                          <div className="wl-form-group">
+                            <label className="wl-lbl">Subtitle / Description</label>
+                            <textarea
+                              className="wl-inp"
+                              style={{ height: '56px', resize: 'vertical' }}
+                              value={slide.subtitle || ''}
+                              onChange={e => handleUpdateSlide(idx, 'subtitle', e.target.value)}
+                              placeholder="Instant unlock at Main Gate hub. Smooth ride to office."
+                            />
+                          </div>
+
+                          {/* Image Assets Section: Background & Front Cutout */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '4px' }}>
+                            {/* Background Image */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <label className="wl-lbl">Background Image Asset</label>
+                              <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
+                                {slide.bg ? (
+                                  <img
+                                    src={slide.bg}
+                                    alt="Background preview"
+                                    className="slider-asset-thumb"
+                                    onError={(e: any) => { e.target.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div style={{ width: '68px', height: '46px', borderRadius: '6px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>
+                                    Default BG
+                                  </div>
+                                )}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                      <polyline points="17 8 12 3 7 8"/>
+                                      <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                    <span>{uploadingField === `${idx}-bg` ? 'Uploading...' : 'Upload BG Photo'}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      style={{ display: 'none' }}
+                                      onChange={e => handleUploadSliderFile(idx, 'bg', e)}
+                                    />
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="wl-inp"
+                                    style={{ fontSize: '10.5px', padding: '4px 8px' }}
+                                    placeholder="or paste image URL"
+                                    value={slide.bg || ''}
+                                    onChange={e => handleUpdateSlide(idx, 'bg', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Front Cutout Asset */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <label className="wl-lbl">Front Asset Cutout (Scooter / Mascot)</label>
+                              <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
+                                {slide.front ? (
+                                  <img
+                                    src={slide.front}
+                                    alt="Front preview"
+                                    className="slider-asset-thumb"
+                                    style={{ objectFit: 'contain' }}
+                                    onError={(e: any) => { e.target.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div style={{ width: '68px', height: '46px', borderRadius: '6px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>
+                                    Default EV
+                                  </div>
+                                )}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                      <polyline points="17 8 12 3 7 8"/>
+                                      <line x1="12" y1="3" x2="12" y2="15"/>
+                                    </svg>
+                                    <span>{uploadingField === `${idx}-front` ? 'Uploading...' : 'Upload Cutout PNG'}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      style={{ display: 'none' }}
+                                      onChange={e => handleUploadSliderFile(idx, 'front', e)}
+                                    />
+                                  </label>
+                                  <input
+                                    type="text"
+                                    className="wl-inp"
+                                    style={{ fontSize: '10.5px', padding: '4px 8px' }}
+                                    placeholder="or paste image URL"
+                                    value={slide.front || ''}
+                                    onChange={e => handleUpdateSlide(idx, 'front', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <button
+                      className="wl-btn"
+                      style={{ borderStyle: 'dashed', padding: '14px', justifyContent: 'center', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={handleAddSlide}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      <span>Add New Slide to {sliderScreen === 'home' ? 'HomeScreen' : 'RentScreen'}</span>
+                    </button>
+                  </div>
+
+                  {/* Right Column: Exact Mobile Phone Screen Layout Preview */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="wl-panel" style={{ position: 'sticky', top: '20px' }}>
+                      <div className="wl-panel-hdr">
+                        <span className="wl-panel-tit">Rider Mobile Screen Preview</span>
+                        <span className="badge-pill badge-active">Live Synchronized</span>
+                      </div>
+
+                      <div className="wl-panel-body" style={{ alignItems: 'center', background: '#F8FAFC', padding: '20px 16px' }}>
+                        {/* Slide switcher selector pills */}
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                          {currentSliderList.map((_, i: number) => (
+                            <button
+                              key={i}
+                              style={{
+                                padding: '4px 12px',
+                                borderRadius: '16px',
+                                border: '1px solid',
+                                borderColor: selectedSlideIdx === i ? '#1E1B4B' : '#CBD5E1',
+                                background: selectedSlideIdx === i ? '#1E1B4B' : '#fff',
+                                color: selectedSlideIdx === i ? '#fff' : '#475569',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => setSelectedSlideIdx(i)}
+                            >
+                              Slide {i + 1}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Real Mobile App Phone Frame */}
+                        {(() => {
+                          const activeSlide = currentSliderList[selectedSlideIdx] || currentSliderList[0] || {};
+                          const currentTag = activeSlide.tag || `Slider ${selectedSlideIdx + 1}`;
+                          return (
+                            <div className="phone-mock-frame">
+                              <div className="phone-mock-notch" />
+                              <div className="phone-mock-screen">
+                                {/* Status bar with real SVG indicators */}
+                                <div style={{ height: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 20px 4px', fontSize: '10px', fontWeight: 800, color: '#0F172A', zIndex: 25 }}>
+                                  <span>9:41</span>
+                                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                    {/* Cellular */}
+                                    <svg width="12" height="10" viewBox="0 0 16 12" fill="#0F172A">
+                                      <rect x="0" y="8" width="2.5" height="4" rx="0.5"/>
+                                      <rect x="4" y="6" width="2.5" height="6" rx="0.5"/>
+                                      <rect x="8" y="3" width="2.5" height="9" rx="0.5"/>
+                                      <rect x="12" y="0" width="2.5" height="12" rx="0.5"/>
+                                    </svg>
+                                    {/* WiFi */}
+                                    <svg width="12" height="10" viewBox="0 0 16 12" fill="#0F172A">
+                                      <path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                                      <path d="M4.5 5.5a5 5 0 017 0" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                                      <path d="M2 3a8.5 8.5 0 0112 0" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                                    </svg>
+                                    {/* Battery */}
+                                    <svg width="16" height="9" viewBox="0 0 22 12" fill="none" stroke="#0F172A" strokeWidth="1.5">
+                                      <rect x="1" y="1" width="17" height="10" rx="2.5"/>
+                                      <rect x="3" y="3" width="11" height="6" rx="1" fill="#0F172A"/>
+                                      <path d="M19 4v4" strokeLinecap="round"/>
+                                    </svg>
+                                  </div>
+                                </div>
+
+                                {/* Real Screen Header */}
+                                {sliderScreen === 'rent' ? (
+                                  <div style={{ padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <div style={{ width: '28px', height: '28px', borderRadius: '14px', background: 'rgba(255,255,255,0.9)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+                                        ‹
+                                      </div>
+                                      <div>
+                                        <div style={{ fontSize: '12px', fontWeight: 900, color: '#0F172A' }}>Rent EV</div>
+                                        <div style={{ fontSize: '8px', color: '#64748B' }}>Vadodara Knowledge City</div>
+                                      </div>
+                                    </div>
+                                    <span style={{ fontSize: '8.5px', fontWeight: 800, background: 'rgba(108,56,255,0.08)', color: '#6C38FF', padding: '3px 7px', borderRadius: '10px', border: '1px solid rgba(108,56,255,0.18)' }}>
+                                      ● Active Zone
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div style={{ padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#6C38FF" stroke="#6C38FF" strokeWidth="2">
+                                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                                        <circle cx="12" cy="9" r="2.5" fill="#fff"/>
+                                      </svg>
+                                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A' }}>Gotri Zone, Vadodara ▾</span>
+                                    </div>
+                                    <div style={{ width: '26px', height: '26px', borderRadius: '13px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
+                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                                      </svg>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Dynamic Slider with Real Layout & Styling */}
+                                <div className="phone-hero-slider">
+                                  {/* Background Image */}
+                                  {activeSlide.bg ? (
+                                    <img
+                                      src={activeSlide.bg}
+                                      alt="Slide BG"
+                                      className="phone-slide-bg"
+                                    />
+                                  ) : (
+                                    <div
+                                      className="phone-slide-bg"
+                                      style={{
+                                        background: sliderScreen === 'rent'
+                                          ? 'radial-gradient(circle at 80% 20%, #EDE9FE 0%, #E0E7FF 40%, #F1F5F9 100%)'
+                                          : 'radial-gradient(circle at 80% 20%, #CCFBF1 0%, #E0E7FF 40%, #F8FAFC 100%)'
+                                      }}
+                                    />
+                                  )}
+
+                                  {/* Soft luminous gradient overlay for dark typography */}
+                                  <div className="phone-slide-grad" />
+
+                                  {/* Left Copy (Dark Luxury Typography) */}
+                                  <div className="phone-slide-copy">
+                                    <span className="phone-tag-badge">
+                                      {currentTag}
+                                    </span>
+                                    <h3 className="phone-slide-h1">
+                                      {activeSlide.title || 'Rent at L&T Knowledge City'}
+                                    </h3>
+                                    <p className="phone-slide-p">
+                                      {activeSlide.subtitle || 'Instant unlock at Main Gate hub. Smooth ride to office.'}
+                                    </p>
+                                    <button className="phone-slide-cta">
+                                      {activeSlide.cta || 'Book This Zone'} ➔
+                                    </button>
+                                  </div>
+
+                                  {/* Front Asset Cutout */}
+                                  {activeSlide.front ? (
+                                    <img
+                                      src={activeSlide.front}
+                                      alt="Slide Front"
+                                      className="phone-slide-front"
+                                    />
+                                  ) : (
+                                    <div className="phone-slide-front" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <svg width="125" height="125" viewBox="0 0 200 180" fill="none">
+                                        <circle cx="50" cy="140" r="28" fill="#1E1B4B" stroke="#6C38FF" strokeWidth="5"/>
+                                        <circle cx="50" cy="140" r="14" fill="#E2E8F0"/>
+                                        <circle cx="155" cy="140" r="28" fill="#1E1B4B" stroke="#6C38FF" strokeWidth="5"/>
+                                        <circle cx="155" cy="140" r="14" fill="#E2E8F0"/>
+                                        <path d="M45 130 Q70 120 100 125 L145 130" stroke="#0F172A" strokeWidth="11" strokeLinecap="round"/>
+                                        <path d="M75 125 L95 85 L140 100 L145 130 Z" fill="#6C38FF"/>
+                                        <path d="M60 85 Q90 80 115 85" stroke="#1E1B4B" strokeWidth="9" strokeLinecap="round"/>
+                                        <path d="M135 125 L160 50" stroke="#0F172A" strokeWidth="7" strokeLinecap="round"/>
+                                        <path d="M148 48 L170 48" stroke="#1E1B4B" strokeWidth="5" strokeLinecap="round"/>
+                                        <circle cx="168" cy="52" r="5" fill="#00D26A"/>
+                                      </svg>
+                                    </div>
+                                  )}
+
+                                  {/* Pagination Dots */}
+                                  <div className="phone-dots">
+                                    {currentSliderList.map((_, dotIdx: number) => (
+                                      <span
+                                        key={dotIdx}
+                                        className={`phone-dot ${selectedSlideIdx === dotIdx ? 'act' : ''}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Real Screen Body Content Below Slider */}
+                                {sliderScreen === 'rent' ? (
+                                  <div style={{ flex: 1, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {/* Operational hours notice */}
+                                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '7px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+                                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#334155' }}>Operational: 06:00 AM – 11:00 PM (Daily)</span>
+                                    </div>
+
+                                    {/* Real Rent Schedule Selector Card */}
+                                    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '9px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <span style={{ fontSize: '9px', fontWeight: 800, color: '#0F172A' }}>Select Rental Schedule</span>
+                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                        <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '6px', border: '1px solid #F1F5F9' }}>
+                                          <div style={{ fontSize: '7px', color: '#64748B', fontWeight: 800 }}>PICKUP</div>
+                                          <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Today, 10:00 AM</div>
+                                        </div>
+                                        <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '6px', border: '1px solid #F1F5F9' }}>
+                                          <div style={{ fontSize: '7px', color: '#64748B', fontWeight: 800 }}>DROPOFF</div>
+                                          <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Tomorrow, 10:00 AM</div>
+                                        </div>
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #E2E8F0' }}>
+                                        <span style={{ fontSize: '8px', color: '#475569' }}>Selected: <strong>Daily Pass (24 hrs)</strong></span>
+                                        <span style={{ fontSize: '9px', fontWeight: 900, color: '#6C38FF' }}>₹149/day</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Action button */}
+                                    <div style={{ background: '#6C38FF', color: '#fff', borderRadius: '10px', padding: '9px', textAlign: 'center', fontSize: '10.5px', fontWeight: 800, marginTop: '2px', boxShadow: '0 4px 10px rgba(108,56,255,0.25)' }}>
+                                      Continue to Vehicle Selection ➔
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ flex: 1, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {/* Real HomeScreen Booking Sheet */}
+                                    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#0F172A' }}>Find Zones near to you</span>
+                                      <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '6px 8px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '9px' }}>📍</span>
+                                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#1E293B' }}>Gotri Zone Central Hub</span>
+                                      </div>
+                                      <div style={{ background: '#6C38FF', color: '#fff', borderRadius: '8px', padding: '8px', textAlign: 'center', fontSize: '9.5px', fontWeight: 800, marginTop: '2px' }}>
+                                        Rent Your EV ➔
+                                      </div>
+                                    </div>
+
+                                    {/* Real Fleet Card */}
+                                    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div>
+                                        <div style={{ fontSize: '9px', fontWeight: 800, color: '#0F172A' }}>Evegah City 60V</div>
+                                        <div style={{ fontSize: '7.5px', color: '#10B981', fontWeight: 700 }}>● 8 Vehicles Available Now</div>
+                                      </div>
+                                      <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#6C38FF' }}>From ₹149</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        <p style={{ fontSize: '10.5px', color: '#64748B', textAlign: 'center', marginTop: '14px', maxWidth: '280px', lineHeight: 1.4 }}>
+                          Real-time preview matching the exact layout, aspect ratio, and typography delivered to mobile riders.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

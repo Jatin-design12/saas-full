@@ -9,8 +9,31 @@ class RideService {
   RideService._internal();
 
   // --- 1. FETCH RIDE HISTORY ---
-  Future<List<Map<String, dynamic>>> fetchRideHistory() async {
-    await Future.delayed(const Duration(milliseconds: 350));
+  Future<List<Map<String, dynamic>>> fetchRideHistory({String? mobileNumber}) async {
+    final identifier = mobileNumber ?? '8128251172';
+    final urls = [
+      '${AppConstants.apiBaseUrl}/rides/history/$identifier',
+      if (kDebugMode) ...[
+        'http://localhost:5000/api/rides/history/$identifier',
+        'http://192.168.1.4:5000/api/rides/history/$identifier',
+      ]
+    ];
+
+    for (final url in urls) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['data'] is List && (body['data'] as List).isNotEmpty) {
+            return List<Map<String, dynamic>>.from(body['data']);
+          }
+        }
+      } catch (e) {
+        debugPrint('Fetch ride history error from $url: $e');
+      }
+    }
+
+    // Graceful offline/local fallback
     return [
       {
         "rideId": "RIDE-9021",

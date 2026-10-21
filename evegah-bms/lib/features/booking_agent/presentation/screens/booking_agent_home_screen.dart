@@ -5,6 +5,10 @@ import 'retain_rider_search_screen.dart';
 import 'return_ride_search_screen.dart';
 import 'battery_swap_search_screen.dart';
 
+import '../../../../core/storage/secure_storage_service.dart';
+import '../../../../app/routes.dart';
+import 'package:go_router/go_router.dart';
+
 class BookingAgentHomeScreen extends StatefulWidget {
   const BookingAgentHomeScreen({super.key});
 
@@ -15,6 +19,52 @@ class BookingAgentHomeScreen extends StatefulWidget {
 class _BookingAgentHomeScreenState extends State<BookingAgentHomeScreen> {
   int _currentBottomNavIndex = 0;
   String _agentStatus = "Online";
+  String _employeeName = "Employee";
+  String _employeeRole = "Operations Staff";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await SecureStorageService.getUserSession();
+    if (mounted) {
+      setState(() {
+        if (session['name'] != null && session['name']!.isNotEmpty) {
+          _employeeName = session['name']!;
+        }
+        if (session['role'] != null && session['role']!.isNotEmpty) {
+          _employeeRole = session['role']!;
+        }
+      });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Logout'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await SecureStorageService.clearSession();
+      if (mounted) {
+        context.go(AppRoutes.login);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -131,27 +181,40 @@ class _BookingAgentHomeScreenState extends State<BookingAgentHomeScreen> {
           ),
         ),
 
-        // Notification Bell Icon with Badge
-        Stack(
+        Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.notifications_none_rounded, color: EmployeeTheme.textDark, size: 24),
-            ),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
+            // Notification Bell Icon with Badge
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.notifications_none_rounded, color: EmployeeTheme.textDark, size: 24),
                 ),
-              ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            // Logout Icon Button
+            IconButton(
+              icon: const Icon(Icons.logout_rounded, color: EmployeeTheme.textSecondary, size: 22),
+              tooltip: 'Sign Out',
+              onPressed: _handleLogout,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
           ],
         ),
@@ -189,19 +252,19 @@ class _BookingAgentHomeScreenState extends State<BookingAgentHomeScreen> {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                "Hello, Akash",
-                style: TextStyle(
+                "Hello, $_employeeName",
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: EmployeeTheme.textDark,
                 ),
               ),
-              SizedBox(height: 2),
+              const SizedBox(height: 2),
               Text(
-                "Booking Agent",
-                style: TextStyle(
+                _employeeRole,
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: EmployeeTheme.textSecondary,

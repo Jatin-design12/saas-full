@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:webview_flutter/webview_flutter.dart';
@@ -144,28 +143,34 @@ class _PayUInAppCheckoutModalState extends State<PayUInAppCheckoutModal> {
   }
 
   Future<void> _verifyAndComplete(bool presumedSuccess, String message) async {
-    // Check status immediately
+    // Authoritative Server Verification: Check status directly with backend
     try {
       String backendStatus = await PayUService().checkPaymentStatus(widget.txnid);
-      if (backendStatus.toLowerCase() != 'success' && presumedSuccess) {
-        // Give backend 800ms to finish processing webhook
-        await Future.delayed(const Duration(milliseconds: 800));
+      int retryCount = 0;
+      // Allow up to 4 retries (total ~5 seconds) for backend webhook / S2S processing
+      while (backendStatus.toLowerCase() != 'success' && retryCount < 4) {
+        retryCount++;
+        await Future.delayed(const Duration(milliseconds: 1200));
         backendStatus = await PayUService().checkPaymentStatus(widget.txnid);
       }
-      final isRealSuccess = backendStatus.toLowerCase() == 'success' || presumedSuccess;
+
+      // STRICT SECURITY RULE: Only mark success if backend status is authoritative 'SUCCESS'
+      final isRealSuccess = backendStatus.toLowerCase() == 'success';
       if (mounted) {
         Navigator.of(context).pop(PayUPaymentResult(
           success: isRealSuccess,
           txId: widget.txnid,
-          message: isRealSuccess ? 'Payment verified successfully' : message,
+          message: isRealSuccess
+              ? 'Payment verified successfully via PayU'
+              : 'Payment verification failed or pending with PayU server.',
         ));
       }
     } catch (_) {
       if (mounted) {
         Navigator.of(context).pop(PayUPaymentResult(
-          success: presumedSuccess,
+          success: false,
           txId: widget.txnid,
-          message: message,
+          message: 'Could not verify payment with server. Please check transaction history.',
         ));
       }
     }

@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/routes.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _rememberMe = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -22,39 +27,97 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _onContinuePressed() {
-    debugPrint('===== LOGIN BUTTON CLICKED =====');
-
+  Future<void> _onContinuePressed() async {
     final mobile = mobileController.text.trim();
     final password = passwordController.text.trim();
 
-    debugPrint('Mobile Number: $mobile, Password length: ${password.length}');
-
     if (mobile.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter mobile number')),
+        const SnackBar(content: Text('Please enter phone number or email')),
       );
       return;
     }
 
-    if (mobile.length != 10) {
+    if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Mobile number must be exactly 10 digits'),
-        ),
+        const SnackBar(content: Text('Please enter password')),
       );
       return;
     }
+
+    setState(() => _isLoading = true);
 
     try {
-      debugPrint('Going to dashboard...');
-      context.go(AppRoutes.dashboard);
-      debugPrint('Navigation command executed');
+      final client = ApiClient();
+      client.updateBaseUrl();
+
+      final response = await client.dio.post(
+        '/users/login',
+        data: {
+          'email': mobile,
+          'password': password,
+        },
+      );
+
+      final data = response.data;
+      final isSuccess = (response.statusCode == 200 || response.statusCode == 201) &&
+          (data['success'] == true || data['status'] == 'success');
+
+      if (!isSuccess) {
+        final errorMsg = data['message'] ?? 'Authentication failed. Please check credentials.';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg), backgroundColor: Colors.red.shade700),
+          );
+        }
+        return;
+      }
+
+      final user = data['user'] ?? data['data']?['user'] ?? {};
+      final token = data['token'] ?? data['data']?['token'] ?? '';
+      final permissions = data['permissions'] ?? data['data']?['permissions'];
+
+      await SecureStorageService.saveUserSession(
+        token: token.toString(),
+        userId: (user['id'] ?? '').toString(),
+        email: (user['email'] ?? '').toString(),
+        name: (user['name'] ?? 'Operations Staff').toString(),
+        role: (user['role'] ?? 'Employee').toString(),
+        zone: (user['zone'] ?? 'Gotri Zone').toString(),
+        permissionsJson: permissions != null ? jsonEncode(permissions) : null,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Welcome, ${user['name'] ?? 'User'}!'),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+        context.go(AppRoutes.dashboard);
+      }
+    } on DioException catch (dioErr) {
+      String msg = 'Failed to connect to authentication server.';
+      if (dioErr.response?.data is Map && dioErr.response?.data['message'] != null) {
+        msg = dioErr.response?.data['message'].toString() ?? msg;
+      } else if (dioErr.message != null && dioErr.message!.isNotEmpty) {
+        msg = dioErr.message!;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700),
+        );
+      }
     } catch (e) {
-      debugPrint('ERROR: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Navigation Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login error: $e'), backgroundColor: Colors.red.shade700),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -403,7 +466,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 24),
                             Container(
                               width: double.infinity,
-                              height: 10,
+                              height: 52,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [
@@ -425,7 +488,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: _onContinuePressed,
+                                onPressed: _isLoading ? null : _onContinuePressed,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
@@ -434,13 +497,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                                child: const Text(
-                                  'Login',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Login',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               ),
                             ),
                             const SizedBox(height: 28),

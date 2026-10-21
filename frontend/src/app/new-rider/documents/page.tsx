@@ -5,196 +5,643 @@ import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
 /* ──────────────────────────────────────────────────────────────
-   STEP 4 · DOCUMENTS — pixel-perfect
+   STEP 4 · DOCUMENTS — Redesigned Premium Light Theme
    ────────────────────────────────────────────────────────────── */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+/* ═══════════ DESIGN TOKENS ═══════════ */
+:root {
+  --brand: #2a195c;
+  --brand-600: #4338CA;
+  --brand-50: #F5F3FF;
+  --brand-100: #EDE9FE;
+  --brand-200: #DDD6FE;
 
-/* ── shell & layout ── */
-.nr-shell { display: flex; min-height: 100vh; background: #F3F4F9; }
-.nr-main  { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
-.nr-page  { flex: 1; padding: 0 28px 80px; }
+  --bg: #F7F8FC;
+  --card: #FFFFFF;
+  --line: #EDEFF5;
+  --line-soft: #F3F5F9;
 
-/* ── breadcrumb ── */
-.nr-bc { display: flex; align-items: center; gap: 7px; padding: 14px 0 0; font-size: 12px; color: #9CA3AF; }
-.nr-bc a { color: #9CA3AF; display: flex; align-items: center; gap: 4px; text-decoration: none; transition: color .15s; }
-.nr-bc a:hover { color: #2a195c; }
-.nr-bc-sep { color: #D1D5DB; }
-.nr-bc-cur { color: #2a195c; font-weight: 600; }
+  --ink: #0F1129;
+  --ink-mid: #4A4D66;
+  --ink-lo: #8A8DA3;
+  --ink-faint: #B8BAC9;
 
-/* ── title row ── */
-.nr-title-row { display: flex; align-items: flex-start; justify-content: space-between; margin: 14px 0 20px; gap: 16px; }
-.nr-h1  { font-size: 24px; font-weight: 800; color: #111827; line-height: 1.2; margin: 0; }
-.nr-sub { font-size: 13px; color: #6B7280; margin-top: 4px; }
-.nr-back-btn {
-  display: flex; align-items: center; gap: 7px;
-  padding: 10px 20px; background: #fff; border: 1.5px solid #E5E7EB;
-  border-radius: 10px; font-size: 13px; font-weight: 600; color: #374151;
-  cursor: pointer; white-space: nowrap; font-family: inherit;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: border-color .15s, color .15s; flex-shrink: 0;
+  --green: #10B981;
+  --green-dark: #059669;
+  --green-soft: #ECFDF5;
+  --green-line: #A7F3D0;
+
+  --amber: #F59E0B;
+  --amber-soft: #FFFBEB;
+  --amber-line: #FDE68A;
+
+  --red: #EF4444;
+  --red-soft: #FEF2F2;
+  --red-line: #FECACA;
+
+  --sky: #3B82F6;
+  --sky-soft: #EFF6FF;
+  --sky-line: #BFDBFE;
+
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+
+  --shadow-xs: 0 1px 2px rgba(15, 17, 41, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 17, 41, 0.05), 0 1px 2px rgba(15, 17, 41, 0.03);
+  --shadow-md: 0 4px 14px rgba(15, 17, 41, 0.06), 0 1px 3px rgba(15, 17, 41, 0.04);
+  --shadow-lg: 0 12px 32px rgba(15, 17, 41, 0.08), 0 4px 8px rgba(15, 17, 41, 0.04);
 }
-.nr-back-btn:hover { border-color: #2a195c; color: #2a195c; }
 
-/* ── stepper ── */
+/* ═══════════ SHELL & LAYOUT ═══════════ */
+.nr-shell { display: flex; min-height: 100vh; background: var(--bg); }
+.nr-main  { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
+.nr-page  { flex: 1; padding: 0 32px 100px; max-width: 1520px; }
+
+/* ═══════════ BREADCRUMB ═══════════ */
+.nr-bc {
+  display: flex; align-items: center; gap: 8px;
+  padding: 20px 0 0;
+  font-size: 12.5px; color: var(--ink-lo);
+}
+.nr-bc a {
+  color: var(--ink-lo); display: flex; align-items: center; gap: 5px;
+  text-decoration: none; transition: color .15s;
+  font-weight: 500;
+}
+.nr-bc a:hover { color: var(--brand); }
+.nr-bc-sep { color: var(--ink-faint); font-weight: 400; }
+.nr-bc-cur { color: var(--brand); font-weight: 700; }
+
+/* ═══════════ TITLE ROW ═══════════ */
+.nr-title-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin: 16px 0 24px; gap: 20px;
+}
+.nr-h1 {
+  font-size: 26px; font-weight: 800; color: var(--ink);
+  line-height: 1.15; margin: 0; letter-spacing: -0.5px;
+}
+.nr-sub { font-size: 13.5px; color: var(--ink-mid); margin-top: 6px; font-weight: 500; }
+.nr-back-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 18px; background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px; font-weight: 600; color: var(--ink-mid);
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: all .18s ease; flex-shrink: 0; text-decoration: none;
+}
+.nr-back-btn:hover {
+  border-color: var(--brand-200); color: var(--brand);
+  box-shadow: var(--shadow-md); transform: translateY(-1px);
+}
+
+/* ═══════════ STEPPER ═══════════ */
 .nr-stepper {
   display: flex; align-items: center;
-  background: #fff; border: 1px solid #E5E7EB; border-radius: 14px;
-  padding: 18px 24px; margin-bottom: 22px; box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px 26px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
 }
-.nr-step-wrap  { display: flex; align-items: center; flex: 1; }
-.nr-step       { display: flex; align-items: center; gap: 10px; }
-.nr-step-num   { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-.nr-step-num.active { background: #2a195c; color: #fff; }
-.nr-step-num.done   { background: #22C55E; color: #fff; }
-.nr-step-num.pend   { background: #fff; color: #9CA3AF; border: 2px solid #E5E7EB; }
-.nr-step-label      { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; }
-.nr-step-label.pend { color: #9CA3AF; font-weight: 500; }
-.nr-step-stat       { font-size: 11.5px; margin-top: 2px; white-space: nowrap; }
-.nr-step-stat.done-s   { color: #22C55E; }
-.nr-step-stat.active-s { color: #2a195c; }
-.nr-step-stat.pend-s   { color: #9CA3AF; }
-.nr-step-line { flex: 1; height: 2px; background: #E5E7EB; margin: 0 14px; min-width: 16px; }
-.nr-step-line.done-l { background: #22C55E; }
+.nr-step-wrap { display: flex; align-items: center; flex: 1; min-width: 0; }
+.nr-step { display: flex; align-items: center; gap: 11px; }
+.nr-step-num {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; flex-shrink: 0;
+  transition: all .2s ease;
+}
+.nr-step-num.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-600));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(42, 25, 92, 0.3);
+}
+.nr-step-num.done {
+  background: var(--green); color: #fff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+}
+.nr-step-num.pend { background: #fff; color: var(--ink-faint); border: 2px solid var(--line); }
+.nr-step-label {
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; line-height: 1.2;
+}
+.nr-step-label.pend { color: var(--ink-lo); font-weight: 600; }
+.nr-step-stat { font-size: 11.5px; margin-top: 3px; white-space: nowrap; font-weight: 500; }
+.nr-step-stat.active-s { color: var(--brand); font-weight: 700; }
+.nr-step-stat.done-s   { color: var(--green-dark); font-weight: 700; }
+.nr-step-stat.pend-s   { color: var(--ink-faint); }
+.nr-step-line {
+  flex: 1; height: 2px;
+  background: var(--line);
+  margin: 0 16px; min-width: 20px; border-radius: 2px;
+  transition: all .2s;
+}
+.nr-step-line.done-l {
+  background: linear-gradient(90deg, var(--green) 0%, #4DD9A5 100%);
+}
 
-/* ── outer 2-col ── */
-.nr-layout { display: grid; grid-template-columns: 1fr 296px; gap: 20px; align-items: start; }
+/* ═══════════ 2-COL LAYOUT ═══════════ */
+.nr-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  align-items: start;
+}
 
-/* ── card ── */
+/* ═══════════ MAIN CARD ═══════════ */
 .nr-card {
-  background: #fff; border: 1px solid #E5E7EB; border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; margin-bottom: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 20px;
 }
 .nr-card-hdr {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; padding: 20px 24px 18px; border-bottom: 1px solid #F3F4F6;
+  gap: 20px; padding: 24px 28px 22px;
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #FCFCFE 0%, #FFFFFF 100%);
 }
-.nr-card-hdr h2 { font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 4px; }
-.nr-card-hdr p  { font-size: 13px; color: #6B7280; margin: 0; }
+.nr-card-hdr h2 {
+  font-size: 19px; font-weight: 800; color: var(--ink);
+  margin: 0 0 5px; letter-spacing: -0.3px;
+}
+.nr-card-hdr p { font-size: 13px; color: var(--ink-mid); margin: 0; line-height: 1.5; max-width: 560px; }
 
-/* ── info banner ── */
+/* ═══════════ INFO BANNER ═══════════ */
 .doc-banner {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px;
-  padding: 11px 18px; margin: 0 0 20px; font-size: 12.5px; color: #1D4ED8;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%);
+  border: 1px solid var(--sky-line);
+  border-radius: var(--radius);
+  padding: 13px 20px; margin-bottom: 26px;
+  font-size: 12.5px; color: #1E40AF; font-weight: 500;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.05);
 }
-.doc-banner-sep { color: #BFDBFE; font-size: 14px; }
+.doc-banner-sep { color: var(--sky-line); font-size: 14px; font-weight: 300; }
 
-/* ── section header ── */
-.doc-sec-body { padding: 20px 24px; }
-.doc-sec-hd { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
-.doc-sec-sub { font-size: 12.5px; color: #6B7280; margin-bottom: 16px; }
+/* ═══════════ SECTION BODY ═══════════ */
+.doc-sec-body { padding: 24px 28px 28px; }
+.doc-sec-hd {
+  font-size: 15px; font-weight: 800; color: var(--ink);
+  margin-bottom: 6px; letter-spacing: -0.2px;
+  display: flex; align-items: center; gap: 10px;
+}
+.doc-sec-hd::before {
+  content: ''; width: 3px; height: 18px;
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-600) 100%);
+  border-radius: 2px;
+}
+.doc-sec-sub { font-size: 12.5px; color: var(--ink-lo); margin-bottom: 20px; margin-left: 13px; font-weight: 500; line-height: 1.5; }
 
-/* ── Document upload grid (2 cols for ID + Photo) ── */
-.doc-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 660px; }
-/* ── Vehicle upload grid (4 angles) ── */
-.doc-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+/* ═══════════ UPLOAD GRIDS ═══════════ */
+.doc-grid-2 {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 20px; max-width: 720px;
+}
+.doc-grid-4 {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
 
-/* ── Document card ── */
+/* ═══════════ DOCUMENT UPLOAD CARD (redesigned) ═══════════ */
 .doc-card {
-  border: 1.5px solid #E5E7EB; border-radius: 12px; overflow: hidden;
-  transition: border-color .15s; cursor: default; background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--card);
+  transition: all .22s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
-.doc-card:hover { border-color: #C7D2FE; }
-.doc-card-top { padding: 10px 12px 8px; }
-.doc-card-icon-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-.doc-card-icon { width: 28px; height: 28px; border-radius: 7px; background: #EEF2FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #2a195c; }
-.doc-card-label { font-size: 12px; font-weight: 700; color: #111827; line-height: 1.2; }
-.doc-card-sub   { font-size: 11px; color: #9CA3AF; }
+.doc-card:hover {
+  border-color: var(--brand-200);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.doc-card.is-uploaded {
+  border-color: var(--green-line);
+  background: linear-gradient(180deg, #FCFEFD 0%, #FFFFFF 100%);
+}
 
-/* Preview area */
-.doc-preview { margin: 0 10px 8px; border-radius: 8px; overflow: hidden; height: 105px; background: #F8FAFC; display: flex; align-items: center; justify-content: center; border: 1px solid #F1F5F9; }
+/* card header with icon */
+.doc-card-top {
+  padding: 14px 14px 10px;
+  display: flex; align-items: flex-start; gap: 11px;
+}
+.doc-card-icon {
+  width: 38px; height: 38px; border-radius: 11px;
+  background: linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--brand);
+  border: 1px solid var(--brand-100);
+  transition: all .2s;
+}
+.doc-card.is-uploaded .doc-card-icon {
+  background: linear-gradient(135deg, var(--green-soft) 0%, #D1FAE5 100%);
+  border-color: var(--green-line);
+  color: var(--green-dark);
+}
+.doc-card-icon-text { flex: 1; min-width: 0; }
+.doc-card-label {
+  font-size: 13px; font-weight: 800; color: var(--ink);
+  line-height: 1.25; letter-spacing: -0.2px;
+  display: flex; align-items: center;
+}
+.doc-card-sub {
+  font-size: 10.5px; color: var(--ink-lo);
+  margin-top: 3px; font-weight: 500; line-height: 1.4;
+}
+
+/* preview area */
+.doc-preview {
+  margin: 0 12px 12px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  height: 118px;
+  background: linear-gradient(135deg, #F8FAFC 0%, #F3F5F9 100%);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--line);
+  position: relative;
+  transition: all .2s;
+}
+.doc-preview.has-image {
+  border-style: solid;
+  border-color: var(--line);
+  background: #FFFFFF;
+}
 .doc-preview img { width: 100%; height: 100%; object-fit: contain; }
 
-/* doc status bar */
-.doc-footer { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-top: 1px solid #F3F4F6; }
-.doc-uploaded { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #16A34A; }
-.doc-view { font-size: 11px; font-weight: 600; color: #2a195c; cursor: pointer; margin-left: 4px; }
-.doc-view:hover { text-decoration: underline; }
-.doc-del { display: flex; align-items: center; color: #EF4444; cursor: pointer; margin-left: auto; font-size: 11px; font-weight: 600; gap: 3px; }
+/* upload badge overlay */
+.doc-badge {
+  position: absolute; top: 8px; right: 8px;
+  padding: 4px 9px;
+  background: var(--green);
+  color: #fff;
+  font-size: 9.5px; font-weight: 800;
+  border-radius: 20px;
+  display: flex; align-items: center; gap: 4px;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.35);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
 
-/* ── Vehicle image card ── */
+/* action buttons row */
+.doc-actions {
+  padding: 10px 12px;
+  display: flex; gap: 8px;
+  background: var(--line-soft);
+  border-top: 1px solid var(--line);
+}
+.doc-btn-upload, .doc-btn-camera {
+  flex: 1; padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 800;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: all .18s ease;
+  letter-spacing: 0.2px;
+  font-family: inherit;
+}
+.doc-btn-upload {
+  background: #FFFFFF;
+  border: 1.5px solid var(--line);
+  color: var(--ink-mid);
+}
+.doc-btn-upload:hover {
+  border-color: var(--brand-200);
+  color: var(--brand);
+  background: var(--brand-50);
+}
+.doc-btn-camera {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  border: none;
+  color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(42, 25, 92, 0.22);
+}
+.doc-btn-camera:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(42, 25, 92, 0.3);
+}
+
+/* status footer */
+.doc-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; padding: 10px 14px;
+  border-top: 1px solid var(--line-soft);
+  background: #FFFFFF;
+}
+.doc-uploaded {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; color: var(--green-dark);
+  letter-spacing: 0.2px;
+}
+.doc-uploaded.ready {
+  color: var(--ink-lo);
+}
+.doc-del {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--red); cursor: pointer;
+  font-size: 11px; font-weight: 700;
+  border: none; background: none; padding: 4px 8px;
+  border-radius: 6px;
+  transition: background .15s;
+}
+.doc-del:hover {
+  background: var(--red-soft);
+  text-decoration: none !important;
+}
+
+/* ═══════════ VEHICLE ANGLE CARD (redesigned) ═══════════ */
 .veh-card {
-  border: 1.5px solid #E5E7EB; border-radius: 12px; overflow: hidden;
-  transition: border-color .15s; background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--card);
+  transition: all .22s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
-.veh-card:hover { border-color: #C7D2FE; }
-.veh-card-label { padding: 10px 12px 6px; font-size: 11.5px; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 3px; }
-.veh-card-req { color: #EF4444; }
-.veh-preview { margin: 0 10px 8px; border-radius: 8px; overflow: hidden; height: 105px; background: #F8FAFC; display: flex; align-items: center; justify-content: center; border: 1px solid #F1F5F9; }
+.veh-card:hover {
+  border-color: var(--brand-200);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.veh-card.is-uploaded {
+  border-color: var(--green-line);
+}
+.veh-card-label {
+  padding: 12px 14px 8px;
+  font-size: 12px; font-weight: 800; color: var(--ink);
+  display: flex; align-items: center; gap: 3px;
+  letter-spacing: -0.1px;
+}
+.veh-card-req { color: var(--red); }
+.veh-preview {
+  margin: 0 12px 12px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  height: 118px;
+  background: linear-gradient(135deg, #F8FAFC 0%, #F3F5F9 100%);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--line);
+  position: relative;
+  transition: all .2s;
+}
+.veh-preview.has-image {
+  border-style: solid;
+  background: #FFFFFF;
+}
 .veh-preview img { width: 100%; height: 100%; object-fit: contain; }
-.veh-footer { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-top: 1px solid #F3F4F6; }
-
-/* ── Terms & Conditions ── */
-.doc-terms-box { background: #F9FAFB; border: 1.5px solid #E5E7EB; border-radius: 12px; padding: 18px 20px; }
-.doc-cb-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; cursor: pointer; }
-.doc-cb { width: 18px; height: 18px; border-radius: 5px; border: 2px solid #2a195c; background: #2a195c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
-.doc-cb-label { font-size: 13px; color: #374151; line-height: 1.5; font-weight: 500; }
-.doc-terms-link { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: #2a195c; cursor: pointer; border: none; background: none; font-family: inherit; padding: 0; margin-bottom: 14px; }
-.doc-terms-link:hover { text-decoration: underline; }
-.doc-confirm-banner {
-  display: flex; align-items: flex-start; gap: 9px;
-  background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 9px;
-  padding: 11px 14px; font-size: 12.5px; color: #15803D; line-height: 1.5;
+.veh-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; padding: 10px 14px;
+  border-top: 1px solid var(--line-soft);
+  background: #FFFFFF;
 }
 
-/* ── Footer ── */
+/* ═══════════ TERMS & CONDITIONS ═══════════ */
+.doc-terms-box {
+  background: linear-gradient(180deg, #FCFCFE 0%, #FFFFFF 100%);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  transition: all .2s;
+}
+.doc-cb-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin-bottom: 14px; cursor: pointer;
+  user-select: none;
+}
+.doc-cb {
+  width: 22px; height: 22px; border-radius: 7px;
+  border: 2px solid var(--line);
+  background: #FFFFFF;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+  transition: all .18s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #fff;
+}
+.doc-cb.on {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  border-color: var(--brand);
+  box-shadow: 0 3px 10px rgba(42, 25, 92, 0.3);
+}
+.doc-cb-label {
+  font-size: 13.5px; color: var(--ink-mid);
+  line-height: 1.6; font-weight: 500;
+}
+.doc-cb-label strong {
+  color: var(--brand); font-weight: 800;
+}
+.doc-terms-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 700; color: var(--brand);
+  cursor: pointer; border: none; background: none;
+  font-family: inherit; padding: 0; margin-bottom: 16px;
+  transition: all .15s;
+}
+.doc-terms-link:hover {
+  gap: 9px;
+  text-decoration: underline;
+}
+.doc-confirm-banner {
+  display: flex; align-items: flex-start; gap: 11px;
+  background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+  border: 1px solid var(--green-line);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-size: 12.5px; color: var(--green-dark); line-height: 1.6;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.06);
+  animation: slideIn .3s ease-out;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════ FOOTER ACTIONS ═══════════ */
 .nr-footer-actions {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 24px; background: #fff;
-  border: 1px solid #E5E7EB; border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  padding: 18px 28px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 .nr-prev-btn {
-  display: flex; align-items: center; gap: 7px;
-  padding: 10px 22px; background: #fff; border: 1.5px solid #E5E7EB;
-  border-radius: 10px; font-size: 13px; font-weight: 600; color: #374151;
-  cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s;
-  text-decoration: none;
-}
-.nr-prev-btn:hover { border-color: #2a195c; color: #2a195c; }
-.nr-continue-btn {
   display: flex; align-items: center; gap: 8px;
-  padding: 11px 28px; background: #2a195c; border: none;
-  border-radius: 10px; font-size: 13px; font-weight: 700; color: #fff;
-  cursor: pointer; font-family: inherit; transition: background .15s;
+  padding: 11px 22px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 700; color: var(--ink-mid);
+  cursor: pointer; font-family: inherit;
+  transition: all .18s ease;
   text-decoration: none;
 }
-.nr-continue-btn:hover { background: #4338CA; }
+.nr-prev-btn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-50);
+  transform: translateY(-1px);
+}
+.nr-continue-btn {
+  display: flex; align-items: center; gap: 9px;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 800; color: #fff;
+  cursor: pointer; font-family: inherit;
+  transition: all .18s ease;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(42, 25, 92, 0.28);
+  letter-spacing: 0.1px;
+}
+.nr-continue-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(42, 25, 92, 0.35);
+}
 
-/* ─── RIGHT PANEL ─── */
-.nr-rp { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
-.nr-rp-card { background: #fff; border: 1px solid #E5E7EB; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; }
-.nr-rp-hdr  { display: flex; align-items: center; gap: 9px; padding: 14px 18px; border-bottom: 1px solid #E5E7EB; }
+/* ═══════════ RIGHT PANEL ═══════════ */
+.nr-rp {
+  display: flex; flex-direction: column; gap: 18px;
+  position: sticky; top: 24px;
+}
+.nr-rp-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.nr-rp-hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #FCFCFE 0%, #FFFFFF 100%);
+}
 .nr-rp-hdr-ic { display: flex; align-items: center; flex-shrink: 0; }
-.nr-rp-title  { font-size: 13.5px; font-weight: 700; color: #111827; }
-.nr-sum-body  { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
-.nr-sum-row   { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }
-.nr-sum-row-img { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; font-size: 13px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }
-.nr-sum-label { color: #64748B; font-weight: 500; }
-.nr-sum-val   { font-weight: 700; color: #111827; display: flex; align-items: center; gap: 8px; }
-.nr-sum-thumb { width: 34px; height: 26px; border-radius: 5px; overflow: hidden; background: #F3F4F9; display: flex; align-items: center; justify-content: center; border: 1px solid #E5E7EB; }
-.nr-sum-divider { height: 1px; background: #E2E8F0; margin: 4px 0; }
+.nr-rp-title { font-size: 13.5px; font-weight: 800; color: var(--ink); letter-spacing: -0.2px; }
+
+/* Rental summary */
+.nr-sum-body {
+  padding: 14px 16px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.nr-sum-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-size: 13px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: all .15s;
+}
+.nr-sum-row:hover {
+  background: #F9FAFC;
+  border-color: var(--line);
+}
+.nr-sum-row-img {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-size: 13px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.nr-sum-label { color: var(--ink-lo); font-weight: 600; }
+.nr-sum-val {
+  font-weight: 800; color: var(--ink);
+  display: flex; align-items: center; gap: 8px;
+  letter-spacing: -0.1px;
+}
+.nr-sum-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
+  margin: 6px 0;
+}
 .nr-sum-total {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; margin: 4px 0 0; border-radius: 10px; background: #F5F3FF; border: 1.5px solid #DDD6FE;
+  padding: 14px 16px; margin-top: 4px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%);
+  border: 1.5px solid var(--brand-200);
 }
-.nr-sum-total-l { font-size: 13px; font-weight: 700; color: #111827; }
-.nr-sum-total-r { font-size: 18px; font-weight: 800; color: #2a195c; }
+.nr-sum-total-l {
+  font-size: 12.5px; font-weight: 700; color: var(--ink-mid);
+  letter-spacing: 0.1px;
+}
+.nr-sum-total-r {
+  font-size: 19px; font-weight: 900; color: var(--brand);
+  letter-spacing: -0.5px;
+}
 
-/* checklist */
-.doc-checklist-body { padding: 6px 0 10px; }
-.doc-cl-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 18px; font-size: 12.5px; }
-.doc-cl-label { color: #374151; }
-.doc-cl-status { display: flex; align-items: center; gap: 5px; color: #16A34A; font-weight: 600; font-size: 11.5px; }
+/* Checklist */
+.doc-checklist-body { padding: 8px 0 12px; }
+.doc-cl-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 20px; font-size: 12.5px;
+  transition: background .15s;
+}
+.doc-cl-row:hover { background: var(--line-soft); }
+.doc-cl-label {
+  color: var(--ink-mid); font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+}
+.doc-cl-label::before {
+  content: ''; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--brand-200);
+  flex-shrink: 0;
+}
+.doc-cl-status {
+  display: flex; align-items: center; gap: 5px;
+  color: var(--green-dark); font-weight: 800; font-size: 11.5px;
+  letter-spacing: 0.2px;
+}
 
-.nr-help-body { padding: 14px 18px 16px; }
-.nr-help-sub  { font-size: 13px; color: #6B7280; margin-bottom: 12px; line-height: 1.5; }
-.nr-help-btn  { width: 100%; padding: 10px; background: #2a195c; color: #fff; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: background .15s; }
-.nr-help-btn:hover { background: #4338CA; }
+/* Need help */
+.nr-help-body { padding: 16px 20px 18px; }
+.nr-help-sub {
+  font-size: 12.5px; color: var(--ink-lo);
+  margin-bottom: 14px; line-height: 1.55;
+}
+.nr-help-btn {
+  width: 100%; padding: 11px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  color: #fff; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 800;
+  cursor: pointer; border: none; font-family: inherit;
+  transition: all .18s ease;
+  box-shadow: 0 4px 12px rgba(42, 25, 92, 0.25);
+  letter-spacing: 0.1px;
+}
+.nr-help-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(42, 25, 92, 0.32);
+}
+
+/* Responsive */
+@media (max-width: 1280px) {
+  .doc-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 1024px) {
+  .nr-layout { grid-template-columns: 1fr; }
+  .nr-rp { position: static; }
+  .doc-grid-2, .doc-grid-4 { grid-template-columns: 1fr 1fr; max-width: none; }
+}
+@media (max-width: 640px) {
+  .doc-grid-2, .doc-grid-4 { grid-template-columns: 1fr; }
+}
 `;
 
-/* ── SVG Helpers ── */
+/* ═══════════ SVG Helpers ═══════════ */
 const S = { fill: 'none', stroke: 'currentColor', strokeWidth: 2 as number, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 const SV = ({ s = 14, children, ...p }: { s?: number; children: React.ReactNode } & React.SVGProps<SVGSVGElement>) => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...S} {...p}>{children}</svg>
@@ -208,11 +655,12 @@ const IReceipt = () => <SV s={14}><path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 2-2 
 const IFile = ({ s = 14 }: { s?: number }) => <SV s={s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></SV>;
 const ITrash = ({ s = 12 }: { s?: number }) => <SV s={s}><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" /></SV>;
 const IExt = () => <SV s={12}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></SV>;
-const ICamera = ({ s = 18 }: { s?: number }) => <SV s={s}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></SV>;
 const ICheckList = () => <SV s={14}><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></SV>;
-const IPen = () => <SV s={13}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></SV>;
+const IUpload = () => <SV s={12}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></SV>;
+const ICamera = () => <SV s={12}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></SV>;
+const IImage = () => <SV s={14}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></SV>;
 
-/* ── Stepper ── */
+/* ═══════════ Stepper ═══════════ */
 const STEPS = [
   { n: 1, label: 'KYC Verification', stat: 'Completed', state: 'done' },
   { n: 2, label: 'Rental Details', stat: 'Completed', state: 'done' },
@@ -221,7 +669,7 @@ const STEPS = [
   { n: 5, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
 ];
 
-/* ── Document Card with File Upload, Camera Capture & Real Image Preview ── */
+/* ═══════════ Document Upload Card ═══════════ */
 interface DocCardProps {
   label: string;
   sub: string;
@@ -256,46 +704,47 @@ function DocCard({ label, sub, defaultImg, storageKey }: DocCardProps) {
     try { localStorage.removeItem(storageKey); } catch (e) {}
   };
 
+  const hasImage = !!imageSrc;
+
   return (
-    <div className="doc-card">
+    <div className={`doc-card ${hasImage ? 'is-uploaded' : ''}`}>
       <div className="doc-card-top">
-        <div className="doc-card-icon-row">
-          <div className="doc-card-icon"><IFile s={13} /></div>
-          <div>
-            <div className="doc-card-label">
-              {label}<span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>
-            </div>
-            <div className="doc-card-sub">{sub}</div>
+        <div className="doc-card-icon"><IFile s={16} /></div>
+        <div className="doc-card-icon-text">
+          <div className="doc-card-label">
+            {label}
+            <span style={{ color: 'var(--red)', marginLeft: 3 }}>*</span>
           </div>
+          <div className="doc-card-sub">{sub}</div>
         </div>
       </div>
-      <div className="doc-preview">
-        <img
-          src={imageSrc || defaultImg}
-          alt={label}
-        />
+
+      <div className={`doc-preview ${hasImage ? 'has-image' : ''}`}>
+        <img src={imageSrc || defaultImg} alt={label} />
+        {hasImage && (
+          <div className="doc-badge">
+            <ICheck s={9} /> Uploaded
+          </div>
+        )}
       </div>
 
-      <div style={{ padding: '6px 10px', display: 'flex', gap: '6px', background: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
-        <label style={{ flex: 1, padding: '5px', background: '#FFF', border: '1.5px solid #CBD5E1', borderRadius: '7px', fontSize: '11px', fontWeight: 700, color: '#334155', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-          📁 Upload
+      <div className="doc-actions">
+        <label className="doc-btn-upload">
+          <IUpload /> Upload
           <input type="file" accept="image/*,.pdf" onChange={handleFile} style={{ display: 'none' }} />
         </label>
-        <label style={{ flex: 1, padding: '5px', background: '#2A195C', border: 'none', borderRadius: '7px', fontSize: '11px', fontWeight: 700, color: '#FFF', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-          📷 Camera
+        <label className="doc-btn-camera">
+          <ICamera /> Camera
           <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
         </label>
       </div>
 
       <div className="doc-footer">
-        <span className="doc-uploaded"><ICheck s={11} /> {imageSrc ? 'Uploaded' : 'Ready'}</span>
-        {imageSrc && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="doc-del"
-            style={{ border: 'none', background: 'none', padding: 0 }}
-          >
+        <span className={`doc-uploaded ${hasImage ? '' : 'ready'}`}>
+          <ICheck s={11} /> {hasImage ? 'Verified' : 'Awaiting upload'}
+        </span>
+        {hasImage && (
+          <button type="button" onClick={handleClear} className="doc-del">
             <ITrash s={11} /> Clear
           </button>
         )}
@@ -304,7 +753,7 @@ function DocCard({ label, sub, defaultImg, storageKey }: DocCardProps) {
   );
 }
 
-/* ── Vehicle Angle Photo Card with Real EV Images ── */
+/* ═══════════ Vehicle Angle Card ═══════════ */
 interface VehCardProps {
   label: string;
   defaultImg: string;
@@ -338,29 +787,37 @@ function VehCard({ label, defaultImg, storageKey }: VehCardProps) {
     try { localStorage.removeItem(storageKey); } catch (e) {}
   };
 
+  const hasImage = !!imageSrc;
+
   return (
-    <div className="veh-card">
-      <div className="veh-card-label">{label}<span className="veh-card-req"> *</span></div>
-      <div className="veh-preview">
-        <img
-          src={imageSrc || defaultImg}
-          alt={label}
-        />
+    <div className={`veh-card ${hasImage ? 'is-uploaded' : ''}`}>
+      <div className="veh-card-label">
+        {label}<span className="veh-card-req">*</span>
       </div>
-      <div style={{ padding: '6px 10px', display: 'flex', gap: '6px', background: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
-        <label style={{ flex: 1, padding: '5px', background: '#FFF', border: '1.5px solid #CBD5E1', borderRadius: '7px', fontSize: '11px', fontWeight: 700, color: '#334155', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-          📁 Upload
+      <div className={`veh-preview ${hasImage ? 'has-image' : ''}`}>
+        <img src={imageSrc || defaultImg} alt={label} />
+        {hasImage && (
+          <div className="doc-badge">
+            <ICheck s={9} /> Uploaded
+          </div>
+        )}
+      </div>
+      <div className="doc-actions">
+        <label className="doc-btn-upload">
+          <IUpload /> Upload
           <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
         </label>
-        <label style={{ flex: 1, padding: '5px', background: '#2A195C', border: 'none', borderRadius: '7px', fontSize: '11px', fontWeight: 700, color: '#FFF', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-          📷 Camera
+        <label className="doc-btn-camera">
+          <ICamera /> Camera
           <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
         </label>
       </div>
       <div className="veh-footer">
-        <span className="doc-uploaded"><ICheck s={11} /> {imageSrc ? 'Uploaded' : 'Ready'}</span>
-        {imageSrc && (
-          <button type="button" onClick={handleClear} className="doc-del" style={{ border: 'none', background: 'none', padding: 0 }}>
+        <span className={`doc-uploaded ${hasImage ? '' : 'ready'}`}>
+          <ICheck s={11} /> {hasImage ? 'Verified' : 'Awaiting upload'}
+        </span>
+        {hasImage && (
+          <button type="button" onClick={handleClear} className="doc-del">
             <ITrash s={11} /> Clear
           </button>
         )}
@@ -369,12 +826,12 @@ function VehCard({ label, defaultImg, storageKey }: VehCardProps) {
   );
 }
 
-/* ── Right Panel ── */
+/* ═══════════ Right Panel ═══════════ */
 function RightPanel({ rentalData, paymentData }: { rentalData?: any; paymentData?: any }) {
   const CHECKLIST = [
-    { l: 'Identity Document (Aadhaar/DL/ID)', s: 'Uploaded' },
+    { l: 'Identity Document', s: 'Uploaded' },
     { l: 'Rider Profile Photo', s: 'Uploaded' },
-    { l: 'Vehicle Photos (4 Angles)', s: 'Complete' },
+    { l: 'Vehicle Photos (4)', s: 'Complete' },
     { l: 'Terms & Conditions', s: 'Agreed' },
   ];
 
@@ -390,20 +847,20 @@ function RightPanel({ rentalData, paymentData }: { rentalData?: any; paymentData
 
   return (
     <div className="nr-rp">
-      {/* Rental Summary with real thumbnails */}
+      {/* Rental Summary */}
       <div className="nr-rp-card">
         <div className="nr-rp-hdr">
-          <span className="nr-rp-hdr-ic" style={{ color: '#2a195c' }}><IReceipt /></span>
+          <span className="nr-rp-hdr-ic" style={{ color: 'var(--brand)' }}><IReceipt /></span>
           <div className="nr-rp-title">Rental Summary</div>
         </div>
         <div className="nr-sum-body">
           <div className="nr-sum-row">
             <span className="nr-sum-label">Vehicle Number</span>
-            <span className="nr-sum-val" style={{ fontWeight: 600 }}>{vehicleNumber}</span>
+            <span className="nr-sum-val" style={{ fontWeight: 700 }}>{vehicleNumber}</span>
           </div>
           <div className="nr-sum-row">
             <span className="nr-sum-label">Vehicle Model</span>
-            <span className="nr-sum-val" style={{ fontWeight: 600 }}>{vehicleModel}</span>
+            <span className="nr-sum-val" style={{ fontWeight: 700 }}>{vehicleModel}</span>
           </div>
           <div className="nr-sum-row-img">
             <span className="nr-sum-label">Battery</span>
@@ -434,7 +891,7 @@ function RightPanel({ rentalData, paymentData }: { rentalData?: any; paymentData
       {/* Document Checklist */}
       <div className="nr-rp-card">
         <div className="nr-rp-hdr">
-          <span className="nr-rp-hdr-ic" style={{ color: '#2a195c' }}><ICheckList /></span>
+          <span className="nr-rp-hdr-ic" style={{ color: 'var(--brand)' }}><ICheckList /></span>
           <div className="nr-rp-title">Document Checklist</div>
         </div>
         <div className="doc-checklist-body">
@@ -450,7 +907,7 @@ function RightPanel({ rentalData, paymentData }: { rentalData?: any; paymentData
       {/* Need Help */}
       <div className="nr-rp-card">
         <div className="nr-rp-hdr">
-          <span className="nr-rp-hdr-ic" style={{ color: '#2a195c' }}><IHead /></span>
+          <span className="nr-rp-hdr-ic" style={{ color: 'var(--brand)' }}><IHead /></span>
           <div className="nr-rp-title">Need Help?</div>
         </div>
         <div className="nr-help-body">
@@ -467,7 +924,6 @@ function RightPanel({ rentalData, paymentData }: { rentalData?: any; paymentData
 ═══════════════════════════════════════════════════════════════ */
 export default function DocumentsPage() {
   const [agreed, setAgreed] = useState(true);
-  const [sigCleared, setSigCleared] = useState(false);
   const [rentalData, setRentalData] = useState<any>(null);
   const [paymentData, setPaymentData] = useState<any>(null);
 
@@ -500,7 +956,7 @@ export default function DocumentsPage() {
             <div className="nr-title-row">
               <div>
                 <h1 className="nr-h1">New Ride Registration</h1>
-                <p className="nr-sub">Register a new ride for the rider</p>
+                <p className="nr-sub">Upload documents and complete the final verification</p>
               </div>
               <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
             </div>
@@ -525,10 +981,10 @@ export default function DocumentsPage() {
               ))}
             </div>
 
-            {/* 2-col outer */}
+            {/* 2-col layout */}
             <div className="nr-layout">
               <div>
-                {/* Main Card */}
+                {/* Main card */}
                 <div className="nr-card">
                   <div className="nr-card-hdr">
                     <div>
@@ -549,7 +1005,7 @@ export default function DocumentsPage() {
                     {/* 1. Rider Documents */}
                     <div className="doc-sec-hd">1. Rider Documents</div>
                     <div className="doc-sec-sub">Upload clear copies of the rider's identity document and profile photo.</div>
-                    <div className="doc-grid-2" style={{ marginBottom: 28 }}>
+                    <div className="doc-grid-2" style={{ marginBottom: 32 }}>
                       <DocCard
                         label="Identity Document"
                         sub="Aadhaar / Driving License / Voter ID / Passport"
@@ -567,7 +1023,7 @@ export default function DocumentsPage() {
                     {/* 2. Vehicle Images */}
                     <div className="doc-sec-hd">2. Vehicle Images</div>
                     <div className="doc-sec-sub">Upload clear inspection photos of the vehicle from all 4 mandatory angles.</div>
-                    <div className="doc-grid-4" style={{ marginBottom: 28 }}>
+                    <div className="doc-grid-4" style={{ marginBottom: 32 }}>
                       <VehCard label="Front View" defaultImg="/City-1.png" storageKey="evegah_veh_front" />
                       <VehCard label="Rear View" defaultImg="/City-2.png" storageKey="evegah_veh_rear" />
                       <VehCard label="Left Side View" defaultImg="/City-3.png" storageKey="evegah_veh_left" />
@@ -576,14 +1032,15 @@ export default function DocumentsPage() {
 
                     {/* 3. Terms & Conditions */}
                     <div className="doc-sec-hd">3. Rider Terms &amp; Conditions</div>
+                    <div className="doc-sec-sub">Please read and accept the terms before continuing.</div>
                     <div className="doc-terms-box">
                       <div className="doc-cb-row" onClick={() => setAgreed(!agreed)}>
-                        <div className="doc-cb" style={{ background: agreed ? '#2a195c' : '#fff', borderColor: agreed ? '#2a195c' : '#D1D5DB' }}>
-                          {agreed && <ICheck s={11} />}
+                        <div className={`doc-cb ${agreed ? 'on' : ''}`}>
+                          {agreed && <ICheck s={13} />}
                         </div>
                         <span className="doc-cb-label">
                           I have read, understood and agree to the{' '}
-                          <span style={{ color: '#2a195c', fontWeight: 700 }}>Rider Terms &amp; Conditions</span>, vehicle safety guidelines, and battery usage policy.
+                          <strong>Rider Terms &amp; Conditions</strong>, vehicle safety guidelines, and battery usage policy.
                         </span>
                       </div>
                       <button type="button" className="doc-terms-link">
@@ -591,25 +1048,34 @@ export default function DocumentsPage() {
                       </button>
                       {agreed && (
                         <div className="doc-confirm-banner">
-                          <span style={{ display: 'flex', flexShrink: 0, marginTop: 1, color: '#16A34A' }}><ICheck s={14} /></span>
+                          <span style={{ display: 'flex', flexShrink: 0, marginTop: 1, color: 'var(--green)' }}><ICheck s={14} /></span>
                           By checking this agreement, I confirm that all rider documents and vehicle images submitted are accurate and legitimate.
                         </div>
                       )}
                     </div>
-
                   </div>
                 </div>
 
-                {/* Footer */}
+                {/* Footer actions */}
                 <div className="nr-footer-actions">
                   <Link href="/new-rider/payment" className="nr-prev-btn"><ILeft /> Previous</Link>
-                  <Link href="/new-rider/review" className="nr-continue-btn">
-                    Continue to Review &amp; Confirm <IArr s={12} />
-                  </Link>
+                  {agreed ? (
+                    <Link href="/new-rider/review" className="nr-continue-btn">
+                      Continue to Review &amp; Confirm <IArr s={12} />
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="nr-continue-btn"
+                      style={{ background: '#CBD5E1', color: '#64748B', cursor: 'not-allowed', boxShadow: 'none', opacity: 0.75 }}
+                    >
+                      Continue to Review &amp; Confirm <IArr s={12} />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Right Panel */}
               <RightPanel rentalData={rentalData} paymentData={paymentData} />
             </div>
           </div>

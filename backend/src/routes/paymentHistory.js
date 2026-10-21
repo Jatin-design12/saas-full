@@ -73,8 +73,8 @@ router.get('/', async (req, res) => {
             r.mobile,
             ''
           ) AS mobile,
-          COALESCE(r.fare, CASE WHEN pp.amount >= 10 THEN (pp.amount - COALESCE(r.deposit, 5)) ELSE pp.amount END)::numeric AS rent_amount,
-          COALESCE(r.deposit, CASE WHEN pp.amount >= 10 THEN 5 ELSE 0 END)::numeric AS deposit_amount,
+          COALESCE(r.fare, pp.amount)::numeric AS rent_amount,
+          COALESCE(r.deposit, 0)::numeric AS deposit_amount,
           pp.amount::numeric AS amount,
           'Credit' AS type,
           CASE 
@@ -180,6 +180,34 @@ router.get('/', async (req, res) => {
           AND NOT EXISTS (
             SELECT 1 FROM wallet_transactions wt 
             WHERE wt.transaction_id = reservations.transaction_id
+          )
+
+        UNION ALL
+
+        -- 6. Form Cash / Offline Payments from payment_transactions
+        SELECT
+          'pt_' || pt.id::text AS id,
+          pt.transaction_id AS tx_id,
+          COALESCE(pt.reference_id, pt.transaction_id) AS reference_id,
+          COALESCE(NULLIF(pt.customer_name, 'Rider'), 'Evegah Rider') AS rider_name,
+          COALESCE(pt.mobile, '') AS mobile,
+          pt.amount::numeric AS rent_amount,
+          0.00::numeric AS deposit_amount,
+          pt.amount::numeric AS amount,
+          'Credit' AS type,
+          CASE 
+            WHEN UPPER(pt.status) IN ('SUCCESS', 'SUCCESSFUL') THEN 'Successful'
+            WHEN UPPER(pt.status) = 'PENDING' THEN 'Pending'
+            ELSE 'Failed'
+          END AS status,
+          COALESCE(pt.payment_method, 'Cash') AS payment_method,
+          COALESCE(pt.purpose, 'Ride Booking') AS purpose,
+          pt.created_at
+        FROM payment_transactions pt
+        WHERE pt.payment_method ILIKE '%cash%'
+          AND NOT EXISTS (
+            SELECT 1 FROM reservations r
+            WHERE r.cash_voucher_number = pt.transaction_id OR r.transaction_id = pt.transaction_id
           )
       )
       SELECT * FROM unified_transactions

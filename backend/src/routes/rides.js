@@ -4,50 +4,76 @@ const db = require('../db');
 const { sendWhatsAppReceipt } = require('../utils/whatsapp');
 const { delByPattern } = require('../redis');
 
-// 1. POST /api/rides/new - New Ride Registration
+// 1. POST /api/rides/new - New Ride Registration (Direct to Renters Table)
 router.post('/new', async (req, res) => {
   try {
     const {
       rider_name,
       mobile,
+      email,
+      date_of_birth,
+      gender,
+      address,
+      present_address,
+      aadhaar_number,
+      emergency_contact_name,
+      emergency_contact_phone,
       vehicle_id,
       battery_id,
       package_name,
       rental_start_date,
+      return_date,
       rent,
       deposit,
-      zone_name
+      total,
+      zone_name,
+      zone
     } = req.body;
 
     if (!rider_name || !mobile) {
       return res.status(400).json({ status: 'error', message: 'Rider name and mobile are required' });
     }
 
-    const rentAmt = parseFloat(rent || 1500);
-    const depAmt = parseFloat(deposit || 1000);
-    const totalAmt = rentAmt + depAmt;
+    const rentAmt = (rent !== undefined && rent !== null && rent !== '') ? parseFloat(rent) : 0;
+    const depAmt = (deposit !== undefined && deposit !== null && deposit !== '') ? parseFloat(deposit) : 0;
+    const totalAmt = (total !== undefined && total !== null && total !== '') ? parseFloat(total) : (rentAmt + depAmt);
     const startDate = rental_start_date ? new Date(rental_start_date) : new Date();
+    const endDate = return_date ? new Date(return_date) : null;
+    const resolvedZone = zone_name || zone || 'Gotri Zone';
 
     let insertedId = `RIDE${Date.now()}`;
 
     try {
       const result = await db.query(`
         INSERT INTO renters (
-          rider_name, mobile, vehicle_id, battery_id, package_name, 
-          rental_start_date, status, rent, deposit, total, booking_source
+          rider_name, mobile, email, date_of_birth, gender, address, present_address,
+          aadhaar_number, emergency_contact_name, emergency_contact_phone,
+          vehicle_id, battery_id, package_name,
+          rental_start_date, return_date, status, rent, deposit, total,
+          zone, kyc_status, booking_source, created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'Active Ride', $7, $8, $9, 'Form')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Active Ride', $16, $17, $18, $19, 'Verified', 'Form', NOW())
         RETURNING id, rider_name, mobile, vehicle_id, status, created_at
       `, [
         rider_name,
         mobile,
+        email || null,
+        date_of_birth || null,
+        gender || null,
+        address || null,
+        present_address || address || null,
+        aadhaar_number || null,
+        emergency_contact_name || null,
+        emergency_contact_phone || null,
         vehicle_id || 'EV-450X-202401',
         battery_id || 'BAT-450X-12340001',
-        package_name || 'Weekly Pro',
+        package_name || 'Daily Plan',
         startDate,
+        endDate,
         rentAmt,
         depAmt,
-        totalAmt
+        totalAmt,
+        resolvedZone
       ]);
       if (result.rows[0]) insertedId = result.rows[0].id;
 
@@ -77,7 +103,6 @@ router.post('/new', async (req, res) => {
       console.warn('DB insert fallback for new ride:', dbErr.message);
     }
 
-    // Ensure reservation is recorded in reservations table for cash reports and invoice tracking
     const isCash = String(req.body.payment_method || req.body.pay_method || req.body.payment_mode || '').toLowerCase().includes('cash');
     let cashVoucher = req.body.cash_voucher_number || req.body.voucher_number || req.body.cash_receipt || null;
     if (isCash && !cashVoucher) {
@@ -85,41 +110,50 @@ router.post('/new', async (req, res) => {
       cashVoucher = `CSH-VCHR-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    try {
-      await db.query(`
-        INSERT INTO reservations (
-          reservation_id, customer_name, mobile, gov_id, reservation_date, reservation_time,
-          package_type, vehicle_category, vehicle_model, vehicle_number, battery_id,
-          fare, deposit, payment_mode, status, payment_status, pickup_zone, drop_zone,
-          transaction_id, cash_voucher_number, total_payable, created_at
-        )
-        VALUES ($1, $2, $3, $4, CURRENT_DATE, CURRENT_TIME, $5, 'E-Scooter', $6, $7, $8, $9, $10, $11, 'Active Ride', 'Paid', $12, $12, $13, $14, $15, NOW())
-      `, [
-        `RID-${Date.now().toString().slice(-6)}`,
-        rider_name,
-        mobile,
-        'GOV-ON-FILE',
-        package_name || 'Weekly Pro',
-        'Evegah City',
-        vehicle_id || 'EV-450X-202401',
-        battery_id || 'BAT-MNZ-001',
-        rentAmt,
-        depAmt,
-        isCash ? 'Cash' : (req.body.pay_method || req.body.payment_method || 'UPI'),
-        zone_name || 'Gotri Zone',
-        cashVoucher || req.body.icici_tx_id || `INV-${Date.now().toString().slice(-6)}`,
-        cashVoucher,
-        totalAmt
-      ]);
-    } catch (resErr) {
-      console.warn('New ride reservation sync notice:', resErr.message);
+    // Record Cash / Form payment in payment_transactions (without inserting into reservations)
+    if (isCash && totalAmt > 0) {
+      try {
+        await db.query(`
+          INSERT INTO payment_transactions (
+            transaction_id, reference_id, amount, payment_method, status, mobile, customer_name, purpose
+          )
+          VALUES ($1, $2, $3, 'Cash', 'SUCCESS', $4, $5, $6)
+          ON CONFLICT (transaction_id) DO NOTHING
+        `, [
+          cashVoucher,
+          String(insertedId),
+          totalAmt,
+          mobile,
+          rider_name,
+          `Ride Booking (${package_name || 'Rental Plan'})`
+        ]);
+      } catch (_) {}
+    } else if (req.body.payu_tx_id) {
+      try {
+        await db.query(`
+          UPDATE payu_payments
+          SET rider_name = COALESCE(NULLIF($1, ''), rider_name),
+              mobile = COALESCE(NULLIF($2, ''), mobile),
+              email = COALESCE(NULLIF($3, ''), email),
+              reservation_id = COALESCE(reservation_id, $4),
+              updated_at = NOW()
+          WHERE tx_id = $5
+        `, [rider_name, mobile, email || null, String(insertedId), req.body.payu_tx_id]);
+        await db.query(`
+          UPDATE payment_transactions
+          SET customer_name = COALESCE(NULLIF($1, ''), customer_name),
+              mobile = COALESCE(NULLIF($2, ''), mobile),
+              updated_at = NOW()
+          WHERE transaction_id = $3
+        `, [rider_name, mobile, req.body.payu_tx_id]);
+      } catch (_) {}
     }
 
     // Send WhatsApp receipt
     sendWhatsAppReceipt({
       mobile,
       name: rider_name,
-      invoice_no: cashVoucher || `INV-${Date.now().toString().slice(-6)}`,
+      invoice_no: cashVoucher || req.body.payu_tx_id || `INV-${Date.now().toString().slice(-6)}`,
       invoice_date: new Date().toLocaleDateString('en-IN'),
       plan: package_name || 'EV Rental Plan',
       amount: totalAmt.toFixed(2)
@@ -133,6 +167,9 @@ router.post('/new', async (req, res) => {
         rider_name,
         mobile,
         vehicle_id,
+        battery_id,
+        rent: rentAmt,
+        deposit: depAmt,
         status: 'Active Ride',
         total: totalAmt,
         cash_voucher_number: cashVoucher,
@@ -160,24 +197,29 @@ const handleRetainRide = async (req, res) => {
       deposit,
       total,
       zone_name,
+      zone,
+      return_date,
       extension_days,
       additional_rent
     } = req.body;
 
     const rName = rider_name || name || 'Returning Rider';
     const cleanMob = (mobile || '').replace(/\D/g, '').slice(-10);
-    const rentAmt = parseFloat(rent || additional_rent || 600);
-    const depAmt = parseFloat(deposit || 0);
-    const totalAmt = parseFloat(total || (rentAmt + depAmt));
+    const rentRaw = rent !== undefined && rent !== null && rent !== '' ? rent : additional_rent;
+    const rentAmt = (rentRaw !== undefined && rentRaw !== null && rentRaw !== '') ? parseFloat(rentRaw) : 0;
+    const depAmt = (deposit !== undefined && deposit !== null && deposit !== '') ? parseFloat(deposit) : 0;
+    const totalAmt = (total !== undefined && total !== null && total !== '') ? parseFloat(total) : (rentAmt + depAmt);
     const packageName = package_name || plan || `Retain Ride (+${extension_days || 7} days)`;
     const vehicleCode = vehicle_id || 'EV-450X-202401';
     const batteryCode = battery_id || 'BAT-MNZ-001';
+    const resolvedZone = zone_name || zone || 'Gotri Zone';
+    const endDate = return_date ? new Date(return_date) : null;
 
     let insertedId = `RET-${Date.now().toString().slice(-6)}`;
 
     try {
       const existing = await db.query(
-        "SELECT id FROM renters WHERE mobile LIKE $1 ORDER BY id DESC LIMIT 1",
+        "SELECT id, deposit FROM renters WHERE mobile LIKE $1 ORDER BY created_at DESC LIMIT 1",
         [`%${cleanMob}%`]
       );
 
@@ -192,26 +234,28 @@ const handleRetainRide = async (req, res) => {
               package_name = COALESCE($4, package_name),
               rent = $5,
               deposit = $6,
-              total = total + $7,
-              rental_start_date = NOW()
-          WHERE id = $8
-        `, [rName, vehicleCode, batteryCode, packageName, rentAmt, depAmt, totalAmt, existing.rows[0].id]);
+              total = $7,
+              zone = COALESCE($8, zone),
+              booking_source = 'Form',
+              rental_start_date = NOW(),
+              return_date = COALESCE($9, return_date)
+          WHERE id = $10
+        `, [rName, vehicleCode, batteryCode, packageName, rentAmt, depAmt, totalAmt, resolvedZone, endDate, existing.rows[0].id]);
       } else {
         const ins = await db.query(`
           INSERT INTO renters (
             rider_name, mobile, vehicle_id, battery_id, package_name, 
-            rental_start_date, status, rent, deposit, total, booking_source
+            rental_start_date, return_date, status, rent, deposit, total, zone, kyc_status, booking_source, created_at
           )
-          VALUES ($1, $2, $3, $4, $5, NOW(), 'Retain Ride', $6, $7, $8, 'Form')
+          VALUES ($1, $2, $3, $4, $5, NOW(), $6, 'Retain Ride', $7, $8, $9, $10, 'Verified', 'Form', NOW())
           RETURNING id
-        `, [rName, mobile || cleanMob, vehicleCode, batteryCode, packageName, rentAmt, depAmt, totalAmt]);
+        `, [rName, mobile || cleanMob, vehicleCode, batteryCode, packageName, endDate, rentAmt, depAmt, totalAmt, resolvedZone]);
         if (ins.rows[0]) insertedId = ins.rows[0].id;
       }
     } catch (dbErr) {
       console.warn('DB error in retain ride:', dbErr.message);
     }
 
-    // Ensure reservation is recorded in reservations table for cash reports and invoice tracking
     const isCash = String(req.body.payment_method || req.body.pay_method || req.body.payment_mode || '').toLowerCase().includes('cash');
     let cashVoucher = req.body.cash_voucher_number || req.body.voucher_number || req.body.cash_receipt || null;
     if (isCash && !cashVoucher) {
@@ -219,40 +263,29 @@ const handleRetainRide = async (req, res) => {
       cashVoucher = `CSH-VCHR-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    try {
-      await db.query(`
-        INSERT INTO reservations (
-          reservation_id, customer_name, mobile, gov_id, reservation_date, reservation_time,
-          package_type, vehicle_category, vehicle_model, vehicle_number, battery_id,
-          fare, deposit, payment_mode, status, payment_status, pickup_zone, drop_zone,
-          transaction_id, cash_voucher_number, total_payable, created_at
-        )
-        VALUES ($1, $2, $3, $4, CURRENT_DATE, CURRENT_TIME, $5, 'E-Scooter', $6, $7, $8, $9, $10, $11, 'Active Ride', 'Paid', $12, $12, $13, $14, $15, NOW())
-      `, [
-        `RID-${Date.now().toString().slice(-6)}`,
-        rName,
-        mobile || cleanMob,
-        'GOV-ON-FILE',
-        packageName,
-        'Evegah City',
-        vehicleCode,
-        batteryCode,
-        rentAmt,
-        depAmt,
-        isCash ? 'Cash' : (req.body.payment_method || 'UPI'),
-        zone_name || 'Gotri Zone',
-        cashVoucher || req.body.icici_tx_id || `RET-${Date.now().toString().slice(-6)}`,
-        cashVoucher,
-        totalAmt
-      ]);
-    } catch (resErr) {
-      console.warn('Retain reservation sync notice:', resErr.message);
+    if (isCash && totalAmt > 0) {
+      try {
+        await db.query(`
+          INSERT INTO payment_transactions (
+            transaction_id, reference_id, amount, payment_method, status, mobile, customer_name, purpose
+          )
+          VALUES ($1, $2, $3, 'Cash', 'SUCCESS', $4, $5, $6)
+          ON CONFLICT (transaction_id) DO NOTHING
+        `, [
+          cashVoucher,
+          String(insertedId),
+          totalAmt,
+          mobile || cleanMob,
+          rName,
+          `Retain Ride (${packageName})`
+        ]);
+      } catch (_) {}
     }
 
     sendWhatsAppReceipt({
       mobile: mobile || cleanMob,
       name: rName,
-      invoice_no: cashVoucher || `RET-${Date.now().toString().slice(-6)}`,
+      invoice_no: cashVoucher || req.body.payu_tx_id || `RET-${Date.now().toString().slice(-6)}`,
       invoice_date: new Date().toLocaleDateString('en-IN'),
       plan: `${packageName} (${vehicleCode})`,
       amount: totalAmt.toFixed(2)
@@ -384,15 +417,17 @@ router.post('/return', async (req, res) => {
         `, [renterRec.rows[0].battery_id]);
       }
 
-      // Record in reservations table for Deposit Refund Dashboard (managed only via /payment/refund)
+      // Record in reservations table for Deposit Refund Dashboard only if an actual reservation exists or deposit > 0
       const renterDep = renterRec.rows[0]?.deposit !== undefined && renterRec.rows[0]?.deposit !== null ? parseFloat(renterRec.rows[0].deposit) : null;
       const existingRes = await db.query(
         "SELECT id, deposit FROM reservations WHERE (mobile LIKE $1 AND mobile != '') OR vehicle_number = $2 ORDER BY id DESC LIMIT 1",
         [`%${cleanMob}%`, vehicle_id]
       ).catch(() => ({ rows: [] }));
       const resDep = existingRes.rows[0]?.deposit !== undefined && existingRes.rows[0]?.deposit !== null ? parseFloat(existingRes.rows[0].deposit) : null;
-      const originalDep = resDep !== null ? resDep : (renterDep !== null ? renterDep : 0);
-      const depRefund = originalDep > 0 ? parseFloat(refund_deposit !== undefined ? refund_deposit : originalDep) : 0;
+      const originalDep = renterDep !== null ? renterDep : (resDep !== null ? resDep : 0);
+      const depRefund = originalDep > 0
+        ? ((refund_deposit !== undefined && refund_deposit !== null && refund_deposit !== '') ? parseFloat(refund_deposit) : originalDep)
+        : 0;
       const deductionsAmt = Math.max(0, originalDep - depRefund);
       const depStatus = originalDep > 0 ? 'Pending_Refund' : 'None';
 
@@ -409,13 +444,13 @@ router.post('/return', async (req, res) => {
         RETURNING id
       `, [return_condition || (isDamaged ? 'Damaged / Inspection Failed' : 'Clean / Good'), notes || '', depStatus, depRefund, deductionsAmt, `%${cleanMob}%`, vehicle_id]);
 
-      if (resUpdate.rows.length === 0) {
+      if (resUpdate.rows.length === 0 && originalDep > 0) {
         await db.query(`
           INSERT INTO reservations (
             reservation_id, customer_name, mobile, package_type, vehicle_number,
-            deposit, status, deposit_status, refund_amount, refund_deductions, return_condition, return_notes, returned_at
+            deposit, status, deposit_status, refund_amount, refund_deductions, return_condition, return_notes, returned_at, booking_source
           )
-          VALUES ($1, $2, $3, 'Rental Plan', $4, $5, 'Completed', $6, $7, $8, $9, $10, NOW())
+          VALUES ($1, $2, $3, 'Rental Plan', $4, $5, 'Completed', $6, $7, $8, $9, $10, NOW(), 'Form')
         `, [
           `RID-${Date.now().toString().slice(-6)}`,
           rider_name || 'Rider',
@@ -440,13 +475,17 @@ router.post('/return', async (req, res) => {
       console.warn('DB return update error:', dbErr.message);
     }
 
+    const finalRefundDeposit = (refund_deposit !== undefined && refund_deposit !== null && refund_deposit !== '')
+      ? parseFloat(refund_deposit)
+      : 0;
+
     sendWhatsAppReceipt({
       mobile: mobile || cleanMob,
       name: rider_name || 'Rider',
       invoice_no: `RTN-${Date.now().toString().slice(-6)}`,
       invoice_date: new Date().toLocaleDateString('en-IN'),
       plan: `Vehicle Return Completed (${vehicle_id || 'EV'})`,
-      amount: parseFloat(refund_deposit || 1000).toFixed(2)
+      amount: finalRefundDeposit.toFixed(2)
     }).catch(() => {});
 
     res.json({
@@ -460,8 +499,8 @@ router.post('/return', async (req, res) => {
         vehicle_id,
         status: 'Return',
         vehicle_status: isDamaged ? 'Maintenance' : 'Available',
-        deposit_status: 'Pending_Refund',
-        refund_deposit: parseFloat(refund_deposit || 1000)
+        deposit_status: finalRefundDeposit > 0 ? 'Pending_Refund' : 'None',
+        refund_deposit: finalRefundDeposit
       }
     });
   } catch (err) {
@@ -469,7 +508,213 @@ router.post('/return', async (req, res) => {
   }
 });
 
-// 4. POST /api/rides/extend - Extend Ride Duration Directly (Without Returning Vehicle)
+// 4. GET /api/rides/active - List All Currently Active Rides (with Vehicle, Battery & Extension details)
+router.get('/active', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        r.id,
+        r.rider_name,
+        r.mobile,
+        r.vehicle_id,
+        r.battery_id,
+        r.package_name,
+        r.rental_start_date,
+        r.return_date,
+        r.status,
+        r.rent,
+        r.deposit,
+        r.total,
+        r.wallet_balance,
+        r.avatar_url,
+        r.created_at,
+        v.registration_number,
+        v.model as vehicle_model,
+        v.battery_percentage,
+        v.zone as vehicle_zone,
+        b.soc as battery_soc,
+        b.voltage as battery_voltage
+      FROM renters r
+      LEFT JOIN vehicles v ON (v.code = r.vehicle_id OR v.registration_number = r.vehicle_id)
+      LEFT JOIN batteries b ON (b.battery_id = r.battery_id OR b.id::text = r.battery_id)
+      WHERE r.status = 'Active Ride'
+      ORDER BY r.rental_start_date DESC
+    `;
+    const dbRes = await db.query(query);
+
+    const now = new Date();
+    const activeRides = dbRes.rows.map(row => {
+      const startDate = row.rental_start_date ? new Date(row.rental_start_date) : new Date(row.created_at);
+      let returnDate = row.return_date ? new Date(row.return_date) : null;
+      if (!returnDate) {
+        // Default return date based on package or +7 days
+        returnDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      }
+
+      const diffMs = returnDate.getTime() - now.getTime();
+      const remainingHours = Math.round(diffMs / (1000 * 60 * 60));
+      const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const isOverdue = diffMs < 0;
+
+      return {
+        ...row,
+        expected_return_date: returnDate.toISOString(),
+        remaining_hours: remainingHours,
+        remaining_days: remainingDays,
+        is_overdue: isOverdue,
+        battery_soc: row.battery_soc || row.battery_percentage || 85,
+        zone: row.vehicle_zone || 'Gotri Zone'
+      };
+    });
+
+    res.json({
+      status: 'success',
+      count: activeRides.length,
+      data: activeRides
+    });
+  } catch (err) {
+    console.error('Error fetching active rides:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// GET /api/rides/active/:identifier - Get Active Ride for a Specific Rider (Mobile, Vehicle or ID)
+router.get('/active/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const cleanId = String(identifier || '').trim();
+    const cleanMob = cleanId.replace(/\D/g, '').slice(-10);
+
+    const query = `
+      SELECT 
+        r.id,
+        r.rider_name,
+        r.mobile,
+        r.vehicle_id,
+        r.battery_id,
+        r.package_name,
+        r.rental_start_date,
+        r.return_date,
+        r.status,
+        r.rent,
+        r.deposit,
+        r.total,
+        r.wallet_balance,
+        r.avatar_url,
+        r.created_at,
+        v.registration_number,
+        v.model as vehicle_model,
+        v.battery_percentage,
+        v.zone as vehicle_zone,
+        b.soc as battery_soc,
+        b.voltage as battery_voltage
+      FROM renters r
+      LEFT JOIN vehicles v ON (v.code = r.vehicle_id OR v.registration_number = r.vehicle_id)
+      LEFT JOIN batteries b ON (b.battery_id = r.battery_id OR b.id::text = r.battery_id)
+      WHERE r.status = 'Active Ride'
+        AND (
+          (r.mobile LIKE $1 AND $1 != '')
+          OR r.vehicle_id = $2
+          OR v.registration_number = $2
+          OR r.id::text = $2
+        )
+      ORDER BY r.rental_start_date DESC
+      LIMIT 1
+    `;
+
+    const dbRes = await db.query(query, [`%${cleanMob}%`, cleanId]);
+    // Check reservations if not found in renters
+    if (dbRes.rows.length === 0) {
+      const resQuery = `
+        SELECT 
+          r.id,
+          r.reservation_id,
+          r.customer_name as rider_name,
+          r.mobile,
+          r.vehicle_number as vehicle_id,
+          r.battery_id,
+          r.package_type as package_name,
+          COALESCE(r.pickup_datetime::timestamp, r.created_at) as rental_start_date,
+          r.drop_datetime::timestamp as return_date,
+          r.status,
+          r.fare as rent,
+          r.deposit,
+          (COALESCE(r.fare, 0) + COALESCE(r.deposit, 0)) as total,
+          0.00 as wallet_balance,
+          null as avatar_url,
+          r.created_at,
+          r.vehicle_number as registration_number,
+          r.vehicle_model,
+          COALESCE(b.soc, 88) as battery_soc,
+          COALESCE(b.voltage, 54.2) as battery_voltage,
+          r.pickup_zone as vehicle_zone
+        FROM reservations r
+        LEFT JOIN batteries b ON (b.battery_id = r.battery_id)
+        WHERE (r.mobile LIKE $1 OR r.vehicle_number = $2 OR r.reservation_id = $2)
+          AND (
+            r.status IN ('Active Ride', 'Ongoing', 'Active', 'In Ride')
+            OR (r.vehicle_number IS NOT NULL AND r.vehicle_number != '' AND r.vehicle_number != '—' AND r.status NOT IN ('Completed', 'Cancelled', 'Returned'))
+          )
+        ORDER BY r.created_at DESC
+        LIMIT 1
+      `;
+      const fallbackRes = await db.query(resQuery, [`%${cleanMob}%`, cleanId]).catch(() => ({ rows: [] }));
+      if (fallbackRes.rows.length > 0) {
+        dbRes.rows = fallbackRes.rows;
+      }
+    }
+    if (dbRes.rows.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No active ride found for the specified rider/vehicle'
+      });
+    }
+
+    const row = dbRes.rows[0];
+    const now = new Date();
+    const startDate = row.rental_start_date ? new Date(row.rental_start_date) : new Date(row.created_at);
+    let returnDate = row.return_date ? new Date(row.return_date) : null;
+    if (!returnDate) {
+      returnDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const diffMs = returnDate.getTime() - now.getTime();
+    const remainingHours = Math.round(diffMs / (1000 * 60 * 60));
+    const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const isOverdue = diffMs < 0;
+
+    // Standard available extension plans ready for mobile app & admin dashboard
+    const extensionPlans = [
+      { id: 'ext_2h', label: '2 Hours Extension', hours: 2, days: 0, fare: 60 },
+      { id: 'ext_4h', label: '4 Hours Extension', hours: 4, days: 0, fare: 120 },
+      { id: 'ext_1d', label: '1 Day (24 Hours)', hours: 24, days: 1, fare: 300 },
+      { id: 'ext_3d', label: '3 Days Extension', hours: 72, days: 3, fare: 850 },
+      { id: 'ext_7d', label: '7 Days (Weekly)', hours: 168, days: 7, fare: 1800 }
+    ];
+
+    res.json({
+      status: 'success',
+      data: {
+        active_ride: {
+          ...row,
+          expected_return_date: returnDate.toISOString(),
+          remaining_hours: remainingHours,
+          remaining_days: remainingDays,
+          is_overdue: isOverdue,
+          battery_soc: row.battery_soc || row.battery_percentage || 85,
+          zone: row.vehicle_zone || 'Gotri Zone'
+        },
+        extension_plans: extensionPlans,
+        primary_payment_gateway: 'payu'
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching rider active ride:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// 5. POST /api/rides/extend - Extend Ride Duration Directly (Without Returning Vehicle)
 router.post('/extend', async (req, res) => {
   try {
     const {
@@ -479,12 +724,75 @@ router.post('/extend', async (req, res) => {
       extension_hours,
       extension_days,
       additional_fare,
-      payment_method,
+      payment_method = 'payu',
+      transaction_id,
       reason,
       notes
     } = req.body;
+
     const cleanMob = (mobile || '').replace(/\D/g, '').slice(-10);
     const addAmt = parseFloat(additional_fare || 0);
+
+    if (addAmt <= 0 && !extension_hours && !extension_days) {
+      return res.status(400).json({ status: 'error', message: 'Valid extension duration and fare are required' });
+    }
+
+    // 1. Locate active renter
+    let renterQuery = await db.query(
+      "SELECT * FROM renters WHERE (mobile LIKE $1 AND mobile != '') OR vehicle_id = $2 ORDER BY created_at DESC LIMIT 1",
+      [`%${cleanMob}%`, vehicle_id]
+    );
+
+    const renter = renterQuery.rows.length > 0 ? renterQuery.rows[0] : null;
+    const resolvedName = (rider_name || renter?.rider_name || 'Rider').trim();
+    const resolvedVeh = vehicle_id || renter?.vehicle_id || 'EV-ALLOCATED';
+
+    // 2. Handle Wallet Payment method
+    if (String(payment_method).toLowerCase() === 'wallet') {
+      const currentBalance = parseFloat(renter?.wallet_balance || 0);
+      if (currentBalance < addAmt) {
+        return res.status(400).json({
+          status: 'error',
+          message: `Insufficient wallet balance (₹${currentBalance.toFixed(2)}). Please add money or choose PayU.`
+        });
+      }
+
+      // Deduct from wallet
+      await db.query(
+        "UPDATE renters SET wallet_balance = wallet_balance - $1 WHERE id = $2",
+        [addAmt, renter.id]
+      );
+
+      // Record wallet transaction
+      try {
+        await db.query(`
+          INSERT INTO wallet_transactions (mobile, title, subtitle, amount, type, status, payment_method, transaction_id)
+          VALUES ($1, $2, $3, $4, 'Debit', 'Success', 'Wallet', $5)
+        `, [
+          cleanMob,
+          'Ride Duration Extension',
+          `Extended Ride on ${resolvedVeh}`,
+          addAmt,
+          `EXT-WLT-${Date.now()}`
+        ]);
+      } catch (wErr) {
+        console.warn('Wallet debit transaction logging notice:', wErr.message);
+      }
+    }
+
+    // 3. Compute New Return Date
+    const currentReturn = renter?.return_date ? new Date(renter.return_date) : new Date();
+    const addDays = parseInt(extension_days || 0, 10);
+    const addHours = parseInt(extension_hours || 0, 10);
+
+    let newReturnDate = new Date(currentReturn.getTime());
+    if (addDays > 0) {
+      newReturnDate.setDate(newReturnDate.getDate() + addDays);
+    } else if (addHours > 0) {
+      newReturnDate.setTime(newReturnDate.getTime() + addHours * 60 * 60 * 1000);
+    } else {
+      newReturnDate.setDate(newReturnDate.getDate() + 1);
+    }
 
     const isCash = String(payment_method || '').toLowerCase().includes('cash');
     let cashVoucher = req.body.cash_voucher_number || null;
@@ -492,22 +800,25 @@ router.post('/extend', async (req, res) => {
       const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       cashVoucher = `CSH-VCHR-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
+    const finalTxnId = transaction_id || cashVoucher || `EXT-${Date.now().toString().slice(-6)}`;
 
+    // 4. Update Database Records
     try {
       await db.query(`
         UPDATE renters 
         SET total = total + $1,
             rent = rent + $1,
+            return_date = $2,
             status = 'Active Ride'
-        WHERE (mobile LIKE $2 AND mobile != '') OR vehicle_id = $3
-      `, [addAmt, `%${cleanMob}%`, vehicle_id]);
+        WHERE (mobile LIKE $3 AND mobile != '') OR vehicle_id = $4
+      `, [addAmt, newReturnDate, `%${cleanMob}%`, resolvedVeh]);
 
-      if (vehicle_id) {
+      if (resolvedVeh) {
         await db.query(`
           UPDATE vehicles 
           SET vehicle_status = 'In Ride', renter_name = COALESCE($1, renter_name) 
           WHERE code = $2 OR registration_number = $2
-        `, [rider_name, vehicle_id]);
+        `, [resolvedName, resolvedVeh]);
       }
 
       await db.query(`
@@ -515,9 +826,22 @@ router.post('/extend', async (req, res) => {
         SET fare = fare + $1,
             total_payable = total_payable + $1,
             transaction_id = COALESCE($2, transaction_id),
-            cash_voucher_number = COALESCE($2, cash_voucher_number)
-        WHERE (mobile LIKE $3 AND mobile != '') OR vehicle_number = $4
-      `, [addAmt, cashVoucher, `%${cleanMob}%`, vehicle_id]).catch(() => {});
+            payment_mode = $3,
+            payment_status = 'Paid',
+            status = 'Active Ride'
+        WHERE (mobile LIKE $4 AND mobile != '') OR vehicle_number = $5
+      `, [addAmt, finalTxnId, isCash ? 'Cash' : (payment_method || 'PayU'), `%${cleanMob}%`, resolvedVeh]).catch(() => {});
+
+      // Record in payment_transactions table
+      try {
+        await db.query(`
+          INSERT INTO payment_transactions (
+            transaction_id, reference_id, amount, payment_method, status, mobile, customer_name, purpose
+          )
+          VALUES ($1, $2, $3, $4, 'SUCCESS', $5, $6, 'extend')
+          ON CONFLICT (transaction_id) DO UPDATE SET status = 'SUCCESS', updated_at = NOW()
+        `, [finalTxnId, finalTxnId, addAmt, isCash ? 'Cash' : (payment_method || 'PayU'), cleanMob, resolvedName]);
+      } catch (_) {}
 
       await delByPattern('reservations:*');
       await delByPattern('vehicles:*');
@@ -527,28 +851,72 @@ router.post('/extend', async (req, res) => {
       console.warn('DB extend ride error:', dbErr.message);
     }
 
+    const durationText = addDays > 0 ? `${addDays} Day(s)` : `${addHours || 2} Hour(s)`;
+
+    // Send WhatsApp Receipt
     sendWhatsAppReceipt({
       mobile: mobile || cleanMob,
-      name: rider_name || 'Rider',
-      invoice_no: cashVoucher || `EXT-${Date.now().toString().slice(-6)}`,
+      name: resolvedName,
+      invoice_no: finalTxnId,
       invoice_date: new Date().toLocaleDateString('en-IN'),
-      plan: `Ride Extended (+${extension_days ? extension_days + ' Days' : (extension_hours || 2) + ' Hours'})`,
+      plan: `Ride Extended (+${durationText})`,
       amount: addAmt.toFixed(2)
     }).catch(() => {});
 
     res.json({
       status: 'success',
-      message: 'Ride extended successfully without returning vehicle! Receipt generated.',
+      message: `Ride extended successfully by ${durationText}! New return date: ${newReturnDate.toLocaleDateString('en-IN')}`,
       data: {
-        rider_name,
-        mobile,
-        vehicle_id,
+        rider_name: resolvedName,
+        mobile: cleanMob,
+        vehicle_id: resolvedVeh,
         additional_fare: addAmt,
-        cash_voucher_number: cashVoucher,
+        payment_method: payment_method || 'PayU',
+        transaction_id: finalTxnId,
+        new_return_date: newReturnDate.toISOString(),
         status: 'Active Ride'
       }
     });
   } catch (err) {
+    console.error('Ride extension error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// 6. POST /api/rides/extend/initiate-payu - Initiate PayU Payment for Ride Extension
+router.post('/extend/initiate-payu', async (req, res) => {
+  try {
+    const { mobile, vehicle_id, additional_fare, extension_hours, extension_days, rider_name, return_url } = req.body;
+    const addAmt = parseFloat(additional_fare || 0);
+
+    if (addAmt <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Valid extension fare is required' });
+    }
+
+    const cleanMob = (mobile || '').replace(/\D/g, '').slice(-10) || '1800 889 8791';
+    const txnid = `EVGEXTPAYU${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+
+    const host = req.get('host') || 'evegah.cloud';
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+
+    // Initiate via internal PayU route directly
+    const payuReq = await fetch(`${protocol}://${host}/api/payments/payu/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: addAmt,
+        rider_name: rider_name || 'Rider',
+        mobile: cleanMob,
+        purpose: 'extend',
+        reservation_id: vehicle_id || 'EXT',
+        return_url: return_url || `${protocol}://${host}/extend-ride?status=success`
+      })
+    });
+
+    const payuRes = await payuReq.json();
+    res.json(payuRes);
+  } catch (err) {
+    console.error('Error initiating PayU for extend ride:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
@@ -674,6 +1042,96 @@ router.post('/exchange', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// GET /api/rides/history/:identifier - List past & completed rides for a rider with details
+router.get('/history/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const cleanId = String(identifier || '').trim();
+    const cleanMob = cleanId.replace(/\D/g, '').slice(-10);
+
+    const query = `
+      SELECT 
+        'RID-' || rn.id::text as ride_id,
+        COALESCE(rn.rider_name, 'Rider') as rider_name,
+        rn.mobile,
+        rn.vehicle_id,
+        rn.battery_id,
+        COALESCE(rn.package_name, 'Standard EV Plan') as package_name,
+        rn.rental_start_date::text as ride_date,
+        rn.return_date::text as return_date,
+        COALESCE(rn.status, 'Active') as status,
+        COALESCE(rn.rent, 0) as rent,
+        COALESCE(rn.deposit, 0) as deposit,
+        COALESCE(rn.total, 0) as total_cost,
+        'UPI' as payment_mode,
+        'TXN-ON-FILE' as transaction_id,
+        'Gotri Hub' as pickup_zone,
+        'Gotri Hub' as drop_zone,
+        rn.created_at
+      FROM renters rn
+      WHERE ($1 != '%%' AND rn.mobile LIKE $1)
+         OR rn.rider_name ILIKE $2
+         OR rn.vehicle_id ILIKE $2
+
+      UNION ALL
+
+      SELECT 
+        COALESCE(r.reservation_id, 'RES-' || r.id::text) as ride_id,
+        COALESCE(r.customer_name, 'Rider') as rider_name,
+        r.mobile,
+        r.vehicle_number as vehicle_id,
+        r.battery_id,
+        COALESCE(r.package_type, 'Standard EV Plan') as package_name,
+        r.reservation_date::text as ride_date,
+        (r.created_at + INTERVAL '7 days')::date::text as return_date,
+        COALESCE(r.status, 'Confirmed') as status,
+        COALESCE(r.fare, 0) as rent,
+        COALESCE(r.deposit, 0) as deposit,
+        COALESCE(r.total_payable, 0) as total_cost,
+        COALESCE(r.payment_mode, 'UPI') as payment_mode,
+        COALESCE(r.transaction_id, 'TXN-ON-FILE') as transaction_id,
+        COALESCE(r.pickup_zone, 'Gotri Hub') as pickup_zone,
+        COALESCE(r.drop_zone, 'Gotri Hub') as drop_zone,
+        r.created_at
+      FROM reservations r
+      WHERE ($1 != '%%' AND r.mobile LIKE $1)
+         OR r.customer_name ILIKE $2
+         OR r.vehicle_number ILIKE $2
+
+      ORDER BY created_at DESC
+      LIMIT 50
+    `;
+
+    const result = await db.query(query, [`%${cleanMob}%`, `%${cleanId}%`]);
+
+    const formattedHistory = result.rows.map(row => ({
+      rideId: row.ride_id,
+      date: row.ride_date || new Date(row.created_at).toLocaleDateString('en-GB'),
+      vehicleId: row.vehicle_id,
+      batteryId: row.battery_id,
+      package: row.package_name,
+      distance: '6.4 km',
+      time: '28 mins',
+      cost: `₹ ${parseFloat(row.total_cost || row.rent || 45).toFixed(0)}`,
+      amountNum: parseFloat(row.total_cost || row.rent || 45),
+      deposit: parseFloat(row.deposit || 0),
+      status: row.status,
+      paymentMethod: row.payment_mode,
+      pickupZone: row.pickup_zone,
+      dropZone: row.drop_zone
+    }));
+
+    res.json({
+      status: 'success',
+      count: formattedHistory.length,
+      data: formattedHistory
+    });
+  } catch (err) {
+    console.error('Fetch ride history error:', err);
+    res.status(500).json({ status: 'error', message: 'Failed to retrieve ride history: ' + err.message });
   }
 });
 

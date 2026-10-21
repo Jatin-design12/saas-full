@@ -6,122 +6,815 @@ import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
-.re-shell { display: flex; min-height: 100vh; background: #F8FAFC; font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap');
+
+/* ═══════════ DESIGN TOKENS ═══════════ */
+:root {
+  --brand: #2a195c;
+  --brand-600: #4338CA;
+  --brand-500: #5540A5;
+  --brand-50: #F5F3FF;
+  --brand-100: #EDE9FE;
+  --brand-200: #DDD6FE;
+  --brand-300: #C4B5FD;
+
+  --bg: #F6F7FC;
+  --bg-alt: #EEF0F9;
+  --card: #FFFFFF;
+  --line: #EAECF4;
+  --line-soft: #F2F4FA;
+
+  --ink: #0F1129;
+  --ink-mid: #4A4D66;
+  --ink-lo: #8588A0;
+  --ink-faint: #B8BAC9;
+
+  --green: #10B981;
+  --green-dark: #059669;
+  --green-soft: #ECFDF5;
+  --green-line: #A7F3D0;
+
+  --amber: #F59E0B;
+  --amber-soft: #FFFBEB;
+  --amber-line: #FDE68A;
+
+  --red: #EF4444;
+  --red-soft: #FEF2F2;
+  --red-line: #FECACA;
+
+  --sky: #3B82F6;
+  --sky-soft: #EFF6FF;
+  --sky-line: #BFDBFE;
+
+  --purple: #8B5CF6;
+  --purple-soft: #FAF5FF;
+  --purple-line: #DDD6FE;
+
+  --rose: #F43F5E;
+  --rose-soft: #FFF1F2;
+  --rose-line: #FECDD3;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --shadow-xs: 0 1px 2px rgba(15, 17, 41, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 17, 41, 0.04), 0 1px 2px rgba(15, 17, 41, 0.03);
+  --shadow-md: 0 6px 18px rgba(15, 17, 41, 0.06), 0 1px 3px rgba(15, 17, 41, 0.04);
+  --shadow-lg: 0 16px 40px rgba(15, 17, 41, 0.09), 0 6px 12px rgba(15, 17, 41, 0.05);
+  --shadow-xl: 0 28px 60px rgba(15, 17, 41, 0.16), 0 16px 32px rgba(15, 17, 41, 0.09);
+  --shadow-brand: 0 8px 24px rgba(42, 25, 92, 0.25);
+}
+
+/* ═══════════ SHELL & LAYOUT ═══════════ */
+.re-shell { display: flex; min-height: 100vh; background: var(--bg); font-family: 'Plus Jakarta Sans', sans-serif; color: var(--ink); }
 .re-main { margin-left: 240px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 240px); }
-.re-page { flex: 1; padding: 20px 24px 60px; display: flex; flex-direction: column; gap: 20px; }
+.re-page { flex: 1; padding: 26px 32px 90px; display: flex; flex-direction: column; gap: 24px; max-width: 1760px; }
 
-/* Header title */
-.re-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
-.re-h1 { font-size: 22px; font-weight: 800; color: #0F172A; margin: 0 0 4px; font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; }
-.re-sub { font-size: 12.5px; color: #64748B; margin: 0; font-weight: 500; }
+/* Ambient background orbs */
+.re-shell::before {
+  content: ''; position: fixed;
+  top: -200px; right: -150px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.09) 0%, transparent 65%);
+  pointer-events: none; z-index: 0;
+}
+.re-shell::after {
+  content: ''; position: fixed;
+  bottom: -200px; left: 200px;
+  width: 460px; height: 460px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.07) 0%, transparent 65%);
+  pointer-events: none; z-index: 0;
+}
+.re-main { position: relative; z-index: 1; }
 
-/* Header Action Buttons */
-.re-actions { display: flex; align-items: center; gap: 10px; }
-.re-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #fff; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; transition: all .15s; }
-.re-btn:hover { border-color: #6366F1; color: #6366F1; }
-.re-btn-primary { background: #6366F1; color: #fff; border-color: #6366F1; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
-.re-btn-primary:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
-.re-btn-danger { background: #EF4444; color: #fff; border-color: #EF4444; box-shadow: 0 4px 12px rgba(239,68,68,0.2); }
-.re-btn-danger:hover { background: #DC2626; border-color: #DC2626; color: #fff; }
+/* ═══════════ TITLE ROW ═══════════ */
+.re-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.re-h1 {
+  font-size: 28px; font-weight: 900; color: var(--ink);
+  margin: 0 0 6px;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.6px;
+  display: flex; align-items: center; gap: 12px;
+}
+.re-h1-badge {
+  font-size: 10px; font-weight: 800;
+  background: linear-gradient(135deg, var(--brand-50), var(--brand-100));
+  color: var(--brand);
+  padding: 4px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--brand-200);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.re-sub { font-size: 13.5px; color: var(--ink-mid); margin: 0; font-weight: 500; }
 
-/* Stat Cards Grid (5 Cards) */
+/* Live status pill */
+.re-live-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  font-size: 11.5px; font-weight: 800;
+  color: var(--green-dark);
+  box-shadow: var(--shadow-xs);
+  letter-spacing: 0.2px;
+}
+.re-live-pill::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  animation: livePulse 1.8s infinite;
+}
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08); }
+}
+
+/* ═══════════ STATS GRID ═══════════ */
 .re-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-.re-sc { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); transition: all .15s; }
-.re-sc:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.04); border-color: #CBD5E1; }
-.re-sc-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px; }
-.re-sc-ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.re-sc-tit { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.03em; }
-.re-sc-per { font-size: 10.5px; color: #64748B; margin-top: 10px; font-weight: 600; }
-.re-sc-val { font-size: 24px; font-weight: 800; color: #0F172A; line-height: 1; margin: 8px 0 4px; font-family: 'Outfit', sans-serif; }
+.re-sc {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px 20px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: all .28s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  cursor: pointer;
+}
+.re-sc::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+  opacity: 0;
+  transition: opacity .28s;
+}
+.re-sc::after {
+  content: ''; position: absolute;
+  top: -40px; right: -40px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  opacity: 0.35;
+  transition: all .28s;
+}
+.re-sc:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: transparent;
+}
+.re-sc:hover::before { opacity: 1; }
+.re-sc:hover::after { opacity: 0.6; transform: scale(1.15); }
 
-.ic-purple { background: #EEF2FF; color: #6366F1; }
-.ic-green { background: #ECFDF5; color: #10B981; }
-.ic-orange { background: #FFF7ED; color: #F97316; }
-.ic-blue { background: #EFF6FF; color: #2563EB; }
+.re-sc.total::before { background: linear-gradient(90deg, var(--brand), var(--brand-600)); }
+.re-sc.total::after { background: radial-gradient(circle, rgba(109, 40, 217, 0.18), transparent 70%); }
+.re-sc.active::before { background: linear-gradient(90deg, var(--green), #4DD9A5); }
+.re-sc.active::after { background: radial-gradient(circle, rgba(16, 185, 129, 0.18), transparent 70%); }
+.re-sc.retain::before { background: linear-gradient(90deg, var(--amber), #FBBF24); }
+.re-sc.retain::after { background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 70%); }
+.re-sc.return::before { background: linear-gradient(90deg, var(--sky), #60A5FA); }
+.re-sc.return::after { background: radial-gradient(circle, rgba(59, 130, 246, 0.18), transparent 70%); }
+.re-sc.extended::before { background: linear-gradient(90deg, var(--purple), #A78BFA); }
+.re-sc.extended::after { background: radial-gradient(circle, rgba(139, 92, 246, 0.18), transparent 70%); }
 
-/* Directory Container Card */
-.re-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; display: flex; flex-direction: column; }
+.re-sc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; position: relative; z-index: 1; }
+.re-sc-tit {
+  font-size: 10.5px; font-weight: 800; color: var(--ink-lo);
+  text-transform: uppercase; letter-spacing: 0.7px;
+  margin-bottom: 12px;
+}
+.re-sc-val {
+  font-size: 30px; font-weight: 900; color: var(--ink);
+  line-height: 1; letter-spacing: -1px;
+  font-family: 'Outfit', sans-serif;
+}
+.re-sc-per {
+  font-size: 10.5px; color: var(--ink-lo);
+  margin-top: 10px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: 20px;
+  letter-spacing: 0.2px;
+}
+.re-sc-per.up { color: var(--green-dark); background: var(--green-soft); }
+.re-sc-per.down { color: #B45309; background: var(--amber-soft); }
+.re-sc-per.brand { color: var(--brand); background: var(--brand-50); }
 
-/* Filter Controls Row */
-.re-filters-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: #fff; border-bottom: 1px solid #F1F5F9; gap: 16px; flex-wrap: wrap; }
-.re-filters-left { display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; }
-.re-search-wrapper { position: relative; display: flex; align-items: center; width: 100%; max-width: 320px; }
-.re-search-ic { position: absolute; left: 12px; color: #94A3B8; display: flex; align-items: center; }
-.re-input-search { width: 100%; padding: 8px 12px 8px 36px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 12.5px; outline: none; color: #0F172A; background: #fff; font-weight: 500; }
-.re-input-search:focus { border-color: #6366F1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.re-sc-ic {
+  width: 44px; height: 44px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all .28s;
+  position: relative; z-index: 1;
+}
+.re-sc:hover .re-sc-ic { transform: scale(1.1) rotate(-4deg); }
+.ic-purple { background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); color: var(--brand); box-shadow: 0 4px 12px rgba(67, 56, 202, 0.14); }
+.ic-green { background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); color: var(--green-dark); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.14); }
+.ic-orange { background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); color: #EA580C; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.14); }
+.ic-blue { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: var(--sky); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.14); }
+.ic-violet { background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%); color: var(--purple); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.14); }
 
-/* Expanded filter drawer */
-.re-filter-drawer { padding: 14px 20px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-.re-filter-group { display: flex; flex-direction: column; gap: 4px; }
-.re-filter-lbl { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; }
+/* ═══════════ MAIN CARD ═══════════ */
+.re-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 28px rgba(15, 17, 41, 0.05);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  position: relative;
+}
 
-/* Data Table layout */
+/* ═══════════ FILTERS BAR ═══════════ */
+.re-filters-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px;
+  background: linear-gradient(180deg, #FCFCFE 0%, #FFFFFF 100%);
+  border-bottom: 1px solid var(--line-soft);
+  gap: 16px; flex-wrap: wrap;
+}
+.re-filters-left { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+
+.re-search-wrapper {
+  position: relative; display: flex; align-items: center;
+  width: 100%; max-width: 360px;
+}
+.re-search-ic {
+  position: absolute; left: 15px; color: var(--ink-lo);
+  display: flex; align-items: center; pointer-events: none;
+  transition: color .18s;
+}
+.re-input-search:focus + .re-search-ic, .re-search-wrapper:focus-within .re-search-ic { color: var(--brand); }
+.re-input-search {
+  width: 100%;
+  padding: 11px 15px 11px 42px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px; outline: none; color: var(--ink);
+  background: #fff; font-weight: 500;
+  transition: all .2s ease;
+  font-family: inherit;
+  box-shadow: var(--shadow-xs);
+}
+.re-input-search::placeholder { color: var(--ink-faint); font-weight: 500; }
+.re-input-search:hover { border-color: #D8DCE4; }
+.re-input-search:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(42, 25, 92, 0.08), var(--shadow-sm);
+  background: #FEFEFF;
+}
+
+/* buttons */
+.re-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 17px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 12.5px; font-weight: 700;
+  color: var(--ink-mid);
+  cursor: pointer; font-family: inherit;
+  transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+}
+.re-btn:hover {
+  border-color: var(--brand-200);
+  color: var(--brand);
+  background: var(--brand-50);
+  transform: translateY(-1.5px);
+  box-shadow: var(--shadow-sm);
+}
+.re-btn-primary {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 5px 16px rgba(42, 25, 92, 0.28);
+}
+.re-btn-primary:hover {
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(42, 25, 92, 0.35);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-600) 100%);
+  transform: translateY(-2px);
+}
+.re-btn-danger {
+  background: linear-gradient(135deg, var(--red) 0%, #DC2626 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 5px 16px rgba(239, 68, 68, 0.25);
+}
+.re-btn-danger:hover {
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, var(--red) 0%, #DC2626 100%);
+  transform: translateY(-2px);
+}
+
+/* select wrappers */
+.re-select {
+  padding: 11px 36px 11px 15px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 12.5px; outline: none;
+  background: #fff;
+  font-weight: 700;
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: all .18s ease;
+  font-family: inherit;
+  box-shadow: var(--shadow-xs);
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8DA3' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+}
+.re-select:hover { border-color: #D8DCE4; background-color: #FEFEFF; }
+.re-select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(42, 25, 92, 0.08);
+}
+
+/* ═══════════ FILTER DRAWER ═══════════ */
+.re-filter-drawer {
+  padding: 20px 24px;
+  background: linear-gradient(180deg, #FAFBFF 0%, #F5F7FB 100%);
+  border-bottom: 1px solid var(--line);
+  display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap;
+  animation: slideDown .28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.re-filter-group { display: flex; flex-direction: column; gap: 7px; }
+.re-filter-lbl {
+  font-size: 10.5px; font-weight: 800;
+  color: var(--ink-lo);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+/* ═══════════ TABLE ═══════════ */
 .re-table-wrap { overflow-x: auto; width: 100%; }
-.re-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px; }
-.re-table th { font-size: 9.5px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .05em; padding: 12px 18px; border-bottom: 1px solid #F1F5F9; background: #F8FAFC; white-space: nowrap; }
-.re-table td { padding: 12px 18px; color: #334155; border-bottom: 1px solid #F1F5F9; vertical-align: middle; white-space: nowrap; }
-.re-table tr:last-child td { border-bottom: none; }
-.re-table tr:hover td { background: #F8FAFC; }
+.re-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 12.5px;
+  min-width: 1280px;
+}
+.re-table thead th {
+  font-size: 10px; font-weight: 800;
+  color: var(--ink-lo);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  padding: 16px 18px;
+  border-bottom: 1.5px solid var(--line);
+  background: linear-gradient(180deg, #FAFBFD 0%, #F5F7FB 100%);
+  white-space: nowrap;
+  position: sticky; top: 0;
+  z-index: 1;
+}
+.re-table tbody td {
+  padding: 16px 18px;
+  color: var(--ink-mid);
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+  white-space: nowrap;
+  transition: background .18s;
+  font-weight: 500;
+}
+.re-table tbody tr:last-child td { border-bottom: none; }
+.re-table tbody tr {
+  transition: background .18s;
+}
+.re-table tbody tr:hover td { background: #FAFBFD; }
 
-/* Rider Avatar */
-.re-rider-cell { display: flex; align-items: center; gap: 10px; }
-.re-avatar { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; background: #EEF2FF; flex-shrink: 0; }
+/* selection highlight */
+.re-table tbody tr.selected td { background: var(--brand-50); }
+.re-table tbody tr.selected:hover td { background: var(--brand-100); }
 
-/* Monospace text elements */
-.re-code { font-family: 'Outfit', sans-serif; font-size: 12px; color: #0F172A; font-weight: 800; }
+/* checkbox styling */
+.re-table input[type="checkbox"] {
+  width: 17px; height: 17px;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
 
-/* Colored Status pills with highlighted badges */
-.re-sbadge { display: inline-flex; align-items: center; gap: 5.5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; border: 1px solid transparent; letter-spacing: 0.01em; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-.s-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.s-active { background: #ECFDF5; color: #059669; border-color: #A7F3D0; }
+/* rider cell */
+.re-rider-cell { display: flex; align-items: center; gap: 12px; }
+.re-avatar {
+  width: 40px; height: 40px; border-radius: 12px;
+  object-fit: cover;
+  background: var(--brand-50);
+  flex-shrink: 0;
+  border: 1.5px solid var(--line);
+  box-shadow: 0 2px 6px rgba(15, 17, 41, 0.06);
+}
+.re-rider-name {
+  font-weight: 800; color: var(--ink);
+  font-size: 13px;
+  letter-spacing: -0.15px;
+  display: block;
+}
+.re-rider-sub {
+  font-size: 10.5px; color: var(--ink-lo);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* chip styles */
+.re-chip {
+  display: inline-flex; align-items: center;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-family: 'Outfit', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+  transition: all .15s;
+}
+.re-chip-vehicle {
+  background: var(--brand-50);
+  color: var(--brand);
+  border-color: var(--brand-100);
+}
+.re-chip-vehicle:hover { background: var(--brand-100); }
+.re-chip-battery {
+  background: var(--line-soft);
+  color: var(--ink-mid);
+  border-color: var(--line);
+}
+.re-chip-total {
+  background: linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%);
+  color: var(--brand);
+  border-color: var(--brand-200);
+  font-weight: 900;
+  font-size: 13px;
+  padding: 6px 13px;
+  box-shadow: 0 2px 6px rgba(42, 25, 92, 0.10);
+}
+
+/* mode badge */
+.re-mode {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+.re-mode.app {
+  background: var(--green-soft);
+  color: var(--green-dark);
+  border-color: var(--green-line);
+}
+.re-mode.form {
+  background: var(--sky-soft);
+  color: #1D4ED8;
+  border-color: var(--sky-line);
+}
+
+/* date cell */
+.re-date-cell {
+  display: inline-flex; flex-direction: column;
+  padding: 7px 12px;
+  background: linear-gradient(135deg, #FAFBFF 0%, #F5F7FB 100%);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  gap: 3px;
+}
+.re-date-main {
+  font-weight: 800; color: var(--ink); font-size: 12px;
+  letter-spacing: -0.1px;
+}
+.re-date-time {
+  font-size: 10.5px; font-weight: 800;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.re-date-time::before {
+  content: ''; width: 5px; height: 5px;
+  border-radius: 50%;
+}
+.re-date-time.green { color: var(--green-dark); }
+.re-date-time.green::before { background: var(--green); }
+.re-date-time.muted { color: var(--ink-lo); }
+.re-date-time.muted::before { background: var(--ink-faint); }
+.re-date-label {
+  font-size: 10px; color: var(--ink-faint);
+  font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ═══════════ STATUS BADGES ═══════════ */
+.re-sbadge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 800;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  letter-spacing: 0.2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: all .15s;
+}
+.s-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.s-active { background: var(--green-soft); color: var(--green-dark); border-color: var(--green-line); }
 .s-active .s-dot { box-shadow: 0 0 0 2px rgba(16,185,129,0.25); }
-.s-retain { background: #FFF7ED; color: #EA580C; border-color: #FFEDD5; }
-.s-return { background: #EFF6FF; color: #2563EB; border-color: #BFDBFE; }
-.s-extend { background: #FAF5FF; color: #7C3AED; border-color: #DDD6FE; }
+.s-retain { background: var(--amber-soft); color: #B45309; border-color: var(--amber-line); }
+.s-return { background: var(--sky-soft); color: #1D4ED8; border-color: var(--sky-line); }
+.s-extend { background: var(--purple-soft); color: #6D28D9; border-color: var(--purple-line); }
 .s-upcoming { background: #FEF3C7; color: #B45309; border-color: #FDE68A; }
-.s-noactive { background: #F8FAFC; color: #64748B; border-color: #E2E8F0; }
+.s-noactive { background: var(--line-soft); color: var(--ink-lo); border-color: var(--line); }
 
-/* Action Buttons Container */
+/* ═══════════ ACTION BUTTONS ═══════════ */
 .re-action-cell { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.re-action-btn { width: 30px; height: 30px; border: 1.5px solid #E2E8F0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6366F1; background: #fff; cursor: pointer; transition: all .15s; }
-.re-action-btn:hover { border-color: #6366F1; background: #EEF2FF; }
+.re-action-btn {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brand);
+  background: #fff;
+  cursor: pointer;
+  transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.re-action-btn:hover {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(42, 25, 92, 0.12);
+}
+.re-action-btn.danger { color: var(--red); }
+.re-action-btn.danger:hover {
+  border-color: var(--red-line);
+  background: var(--red-soft);
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.15);
+}
+.re-action-btn.success { color: var(--green-dark); }
+.re-action-btn.success:hover {
+  border-color: var(--green-line);
+  background: var(--green-soft);
+  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.15);
+}
 
-/* Pagination footer */
-.re-card-ft { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid #F1F5F9; background: #fff; }
-.re-card-ft-lbl { font-size: 12px; color: #64748B; }
-.re-pg { display: flex; align-items: center; gap: 4px; }
-.re-pgb { width: 30px; height: 30px; border: 1.5px solid #E2E8F0; border-radius: 8px; background: #fff; font-size: 12px; font-weight: 600; color: #334155; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .12s; }
-.re-pgb:hover:not(:disabled) { border-color: #6366F1; color: #6366F1; }
-.re-pgb:disabled { opacity: 0.5; cursor: not-allowed; }
-.re-pgb.cur { background: #6366F1; color: #fff; border-color: #6366F1; font-weight: 700; }
+/* ═══════════ PAGINATION FOOTER ═══════════ */
+.re-card-ft {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px;
+  border-top: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFE 100%);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.re-card-ft-lbl {
+  font-size: 12.5px; color: var(--ink-lo);
+  font-weight: 600;
+}
+.re-card-ft-lbl strong { color: var(--ink); font-weight: 800; }
+.re-pg { display: flex; align-items: center; gap: 5px; }
+.re-pgb {
+  min-width: 36px; height: 36px;
+  padding: 0 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 12.5px; font-weight: 700;
+  color: var(--ink-mid);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all .18s ease;
+  font-family: inherit;
+}
+.re-pgb:hover:not(:disabled) {
+  border-color: var(--brand-200);
+  color: var(--brand);
+  background: var(--brand-50);
+  transform: translateY(-1px);
+}
+.re-pgb:disabled { opacity: 0.4; cursor: not-allowed; }
+.re-pgb.cur {
+  background: linear-gradient(135deg, var(--brand), var(--brand-600));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(42, 25, 92, 0.28);
+  font-weight: 800;
+}
 
-/* Modal overlay */
-.re-modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 20px; }
-.re-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); overflow: hidden; display: flex; flex-direction: column; }
-.re-modal-hdr { padding: 18px 24px; border-bottom: 1px solid #F1F5F9; display: flex; align-items: center; justify-content: space-between; background: #FAFBFD; }
-.re-modal-tit { font-size: 16px; font-weight: 800; color: #0F172A; margin: 0; font-family: 'Outfit', sans-serif; }
-.re-modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-.re-modal-ft { padding: 16px 24px; border-top: 1px solid #F1F5F9; background: #FAFBFD; display: flex; justify-content: flex-end; gap: 10px; }
-.re-modal-field { display: flex; flex-direction: column; gap: 6px; }
-.re-modal-lbl { font-size: 12px; font-weight: 700; color: #334155; }
-.re-modal-select, .re-modal-input { width: 100%; padding: 10px 12px; border: 1.5px solid #E2E8F0; border-radius: 10px; font-size: 13px; outline: none; background: #fff; font-weight: 500; }
-.re-modal-select:focus, .re-modal-input:focus { border-color: #6366F1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+/* ═══════════ MODAL ═══════════ */
+.re-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 17, 41, 0.55);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; padding: 20px;
+  animation: fadeIn .22s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.re-modal {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  width: 100%; max-width: 560px;
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: modalPop .3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(.94) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.re-modal-hdr {
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(180deg, #FCFCFE 0%, #FFFFFF 100%);
+}
+.re-modal-tit {
+  font-size: 18px; font-weight: 900; color: var(--ink);
+  margin: 0; font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.4px;
+  display: flex; align-items: center; gap: 9px;
+}
+.re-modal-tit::before {
+  content: '';
+  width: 4px; height: 18px;
+  background: linear-gradient(180deg, var(--brand), var(--brand-600));
+  border-radius: 3px;
+}
+.re-modal-close {
+  width: 34px; height: 34px;
+  border: none; background: var(--line-soft);
+  border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-lo);
+  transition: all .2s ease;
+}
+.re-modal-close:hover {
+  background: var(--red-soft);
+  color: var(--red);
+  transform: rotate(90deg);
+}
+.re-modal-body {
+  padding: 26px 28px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.re-modal-ft {
+  padding: 20px 28px;
+  border-top: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFE 100%);
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+.re-modal-field { display: flex; flex-direction: column; gap: 8px; }
+.re-modal-lbl {
+  font-size: 11px; font-weight: 800;
+  color: var(--ink-lo); letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.re-modal-select, .re-modal-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px; outline: none;
+  background: #fff;
+  font-weight: 600; color: var(--ink);
+  font-family: inherit;
+  transition: all .2s ease;
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8DA3' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
+  box-shadow: var(--shadow-xs);
+}
+.re-modal-select:hover { border-color: #D8DCE4; background-color: #FEFEFF; }
+.re-modal-select:focus, .re-modal-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(42, 25, 92, 0.08);
+}
 
-/* Toast */
-.re-toast { position: fixed; bottom: 24px; right: 24px; background: #0F172A; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); z-index: 1000; display: flex; align-items: center; gap: 10px; border-left: 4px solid #10B981; }
+/* rider info block inside modal */
+.re-modal-rider {
+  background: linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%);
+  border: 1px solid var(--brand-200);
+  padding: 18px 20px;
+  border-radius: 14px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 4px 14px rgba(42, 25, 92, 0.08);
+}
+.re-modal-rider-avatar {
+  width: 52px; height: 52px; border-radius: 14px;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 14px rgba(42, 25, 92, 0.15);
+  flex-shrink: 0;
+}
+.re-modal-rider-name {
+  font-weight: 900; font-size: 16px; color: var(--ink);
+  letter-spacing: -0.25px;
+}
+.re-modal-rider-meta {
+  font-size: 12px; color: var(--ink-mid);
+  margin-top: 4px; font-weight: 600;
+}
 
-/* 14-inch Laptop Responsive Layout */
-.re-table { min-width: 1100px; }
+/* danger icon circle */
+.re-danger-icon {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--red-soft) 0%, #FEE2E2 100%);
+  color: var(--red);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px;
+  border: 2px solid var(--red-line);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15);
+}
+.re-danger-title {
+  margin: 0 0 10px; font-size: 18px; font-weight: 900;
+  color: var(--ink); text-align: center;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.4px;
+}
+.re-danger-desc {
+  margin: 0; font-size: 13px; color: var(--ink-lo);
+  line-height: 1.65; text-align: center;
+  font-weight: 500;
+}
+
+/* ═══════════ TOAST ═══════════ */
+.re-toast {
+  position: fixed; bottom: 28px; right: 28px;
+  background: linear-gradient(135deg, #0F1129 0%, #1E1B3A 100%);
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 14px;
+  font-size: 13px; font-weight: 700;
+  box-shadow: var(--shadow-xl);
+  z-index: 1000;
+  display: flex; align-items: center; gap: 12px;
+  border-left: 4px solid var(--green);
+  max-width: 440px;
+  animation: toastIn .4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.1px;
+  line-height: 1.45;
+}
+.re-toast::before {
+  content: '✓';
+  width: 24px; height: 24px;
+  background: linear-gradient(135deg, var(--green), var(--green-dark));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 900;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(20px) scale(.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ═══════════ SHIMMER ═══════════ */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ═══════════ FOOTER ═══════════ */
+.re-footer {
+  display: flex; justify-content: space-between;
+  font-size: 12px; color: var(--ink-faint);
+  padding: 8px 4px 0;
+  font-weight: 600;
+}
+
+/* ═══════════ RESPONSIVE ═══════════ */
 @media (max-width: 1440px) {
-  .re-page { padding: 16px 20px 40px; gap: 16px; }
+  .re-page { padding: 22px 26px 70px; gap: 20px; }
   .re-stats { gap: 12px; }
-  .re-sc { padding: 12px 14px; }
-  .re-sc-val { font-size: 20px; margin: 6px 0 2px; }
-  .re-sc-tit { font-size: 10.5px; }
-  .re-sc-per { font-size: 10px; margin-top: 6px; }
-  .re-filters-bar { padding: 12px 16px; gap: 12px; }
-  .re-table th, .re-table td { padding: 10px 14px; }
+  .re-sc { padding: 16px 17px 15px; }
+  .re-sc-val { font-size: 26px; }
+  .re-sc-tit { font-size: 10px; }
+  .re-sc-per { font-size: 10px; margin-top: 8px; padding: 3px 8px; }
+  .re-filters-bar { padding: 16px 20px; gap: 12px; }
+  .re-table tbody td, .re-table thead th { padding: 14px 15px; }
 }
 @media (max-width: 1220px) {
   .re-stats { grid-template-columns: repeat(3, 1fr); }
@@ -163,20 +856,17 @@ export default function RentersPage() {
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 10 });
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
 
-  // Multi-select & Delete state
   const [selectedMobiles, setSelectedMobiles] = useState<string[]>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [mobilesToDelete, setMobilesToDelete] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
 
-  // Vehicle & Battery Allocation Modal State
   const [isAllocModalOpen, setIsAllocModalOpen] = useState(false);
   const [allocRenter, setAllocRenter] = useState<{ renter: Renter, displayName: string, displayMobile: string } | null>(null);
   const [allocVehicle, setAllocVehicle] = useState('');
   const [allocBattery, setAllocBattery] = useState('');
   const [savingAlloc, setSavingAlloc] = useState(false);
 
-  // Toast State
   const [toast, setToast] = useState({ show: false, msg: '' });
 
   const showToast = (msg: string) => {
@@ -200,30 +890,11 @@ export default function RentersPage() {
     };
   }, []);
 
-  // Phone-based unique display name map so every mobile number gets its OWN unique rider profile name!
-  // Phone-based unique display name map so every mobile number gets its OWN unique rider profile name!
-  const getDisplayName = (r: Renter, idx: number) => {
-    if (r.rider_name && r.rider_name.trim() !== '' && !['Guest Rider', 'Evegah Rider', 'Rider'].includes(r.rider_name)) {
-      return r.rider_name;
+  const getDisplayName = (r: Renter, _idx: number) => {
+    if (r.rider_name && r.rider_name.trim() !== '') {
+      return r.rider_name.trim();
     }
-    const cleanMob = (r.mobile || '').replace(/\D/g, '');
-    const last10 = cleanMob.length >= 10 ? cleanMob.slice(-10) : cleanMob;
-    const phoneProfiles: Record<string, string> = {
-      '8141997231': 'Thakor Bhai',
-      '8128251172': 'Bhushan Diwakar',
-      '8980966677': 'Krunal',
-      '7359639580': 'Jatin Rohit',
-      '9876543210': 'Himanshu Chavda',
-      '6358006496': 'Ketan Prajapati',
-      '919328585954': 'Amit Kumar',
-      '9125456789': 'Neha Gupta',
-      '9987654321': 'Rohit Singh',
-      '9812345678': 'Rahul Verma',
-      '7894561230': 'Vikram Patel',
-      '9912345678': 'Pooja Patel'
-    };
-    if (phoneProfiles[last10]) return phoneProfiles[last10];
-    return r.rider_name || 'Evegah Rider';
+    return 'Evegah Rider';
   };
 
   const handleDownloadReceipt = (r: Renter) => {
@@ -234,8 +905,8 @@ export default function RentersPage() {
     }
 
     const cleanNum = (val: string) => parseFloat((val || '').replace(/[^0-9.]/g, '')) || 0;
-    const rentNum = cleanNum(r.rent) || 5;
-    const depositNum = cleanNum(r.deposit) || 5;
+    const rentNum = cleanNum(r.rent);
+    const depositNum = cleanNum(r.deposit);
     const totalNum = cleanNum(r.total) || (rentNum + depositNum);
 
     const formatRupees = (num: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(num).replace('INR', '₹').trim();
@@ -263,25 +934,17 @@ export default function RentersPage() {
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 30px 15px; color: #0F172A; background-color: #F8FAFC; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .receipt-container { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1.5px solid #E2E8F0; padding: 36px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-            
-            /* Header */
             .rc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #F1F5F9; padding-bottom: 20px; margin-bottom: 24px; }
             .brand-name { font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 800; color: #200F54; letter-spacing: -0.02em; }
             .brand-sub { font-size: 11px; font-weight: 600; color: #528900; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
             .rc-meta { text-align: right; font-size: 12px; color: #64748B; }
             .rc-no { font-family: 'Outfit', sans-serif; font-weight: 800; color: #200F54; font-size: 14px; margin-bottom: 2px; }
-            
-            /* Doc Title */
             .doc-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
             .doc-title h1 { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #0F172A; }
             .badge-paid { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; }
-            
-            /* Info Grids */
             .info-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; font-size: 12px; }
             .info-item label { display: block; font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 3px; }
             .info-item span { font-weight: 700; color: #0F172A; font-size: 13px; }
-            
-            /* Table */
             table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12.5px; }
             th { background: #F1F5F9; color: #475569; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 14px; text-align: left; }
             th:last-child { text-align: right; }
@@ -289,13 +952,9 @@ export default function RentersPage() {
             td:last-child { text-align: right; font-weight: 700; }
             .tr-total { background: #FAF5FF; font-weight: 800; font-size: 14px; color: #200F54; }
             .tr-total td { border-bottom: none; border-top: 2px solid #E9D5FF; }
-            
-            /* Footer */
             .rc-footer { border-top: 1px dashed #CBD5E1; padding-top: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748B; }
             .rc-seal { text-align: right; }
             .seal-stamp { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 12px; color: #528900; border: 1.5px dashed #528900; padding: 6px 12px; border-radius: 8px; display: inline-block; margin-top: 4px; }
-            
-            /* Print button */
             .print-btn-bar { text-align: center; margin-bottom: 20px; }
             .btn-print { background: #200F54; color: #fff; font-weight: 700; font-size: 13px; padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; }
             @media print {
@@ -309,7 +968,6 @@ export default function RentersPage() {
           <div class="print-btn-bar">
             <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
           </div>
-
           <div class="receipt-container">
             <div class="rc-header">
               <div>
@@ -323,54 +981,23 @@ export default function RentersPage() {
                 <div>Payment Mode: <b>PayU India Gateway</b></div>
               </div>
             </div>
-
             <div class="doc-title">
               <h1>Rider Booking & Security Deposit Receipt</h1>
               <span class="badge-paid">✓ Paid & Verified</span>
             </div>
-
             <div class="info-box">
-              <div class="info-item">
-                <label>Rider Name</label>
-                <span>${displayName}</span>
-              </div>
-              <div class="info-item">
-                <label>Contact Mobile</label>
-                <span>${r.mobile}</span>
-              </div>
-              <div class="info-item">
-                <label>Assigned Vehicle</label>
-                <span>${r.vehicle_id || 'EVM102501'} (Evegah City EV)</span>
-              </div>
-              <div class="info-item">
-                <label>Assigned Battery Unit</label>
-                <span>${r.battery_id || 'BAT-MNZ-001'} (60V Li-ion)</span>
-              </div>
-              <div class="info-item">
-                <label>Subscription Package</label>
-                <span>${r.package_name || 'Day Plan'}</span>
-              </div>
-              <div class="info-item">
-                <label>Pickup / Operating Hub</label>
-                <span>${(r as any).zone || 'Manjalpur Zone'}</span>
-              </div>
-              <div class="info-item">
-                <label>Rental Start Date & Time</label>
-                <span>${startFormatted.date} ${startFormatted.time}</span>
-              </div>
-              <div class="info-item">
-                <label>Return Date & Time</label>
-                <span>${endFormatted.date} ${endFormatted.time}</span>
-              </div>
+              <div class="info-item"><label>Rider Name</label><span>${displayName}</span></div>
+              <div class="info-item"><label>Contact Mobile</label><span>${r.mobile}</span></div>
+              <div class="info-item"><label>Assigned Vehicle</label><span>${r.vehicle_id || 'EVM102501'} (Evegah City EV)</span></div>
+              <div class="info-item"><label>Assigned Battery Unit</label><span>${r.battery_id || 'BAT-MNZ-001'} (60V Li-ion)</span></div>
+              <div class="info-item"><label>Subscription Package</label><span>${r.package_name || 'Day Plan'}</span></div>
+              <div class="info-item"><label>Pickup / Operating Hub</label><span>${(r as any).zone || 'Manjalpur Zone'}</span></div>
+              <div class="info-item"><label>Rental Start Date & Time</label><span>${startFormatted.date} ${startFormatted.time}</span></div>
+              <div class="info-item"><label>Return Date & Time</label><span>${endFormatted.date} ${endFormatted.time}</span></div>
             </div>
-
             <table>
               <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Category</th>
-                  <th>Amount (INR)</th>
-                </tr>
+                <tr><th>Description</th><th>Category</th><th>Amount (INR)</th></tr>
               </thead>
               <tbody>
                 <tr>
@@ -394,7 +1021,6 @@ export default function RentersPage() {
                 </tr>
               </tbody>
             </table>
-
             <div class="rc-footer">
               <div>
                 <div><b>Terms & Refund Policy:</b></div>
@@ -407,7 +1033,6 @@ export default function RentersPage() {
               </div>
             </div>
           </div>
-
           <script>
             window.onload = function() {
               setTimeout(function() {
@@ -424,7 +1049,6 @@ export default function RentersPage() {
     printWindow.document.close();
   };
 
-  // Export Renters to CSV
   const handleExportCSV = () => {
     if (!renters || renters.length === 0) {
       alert('No renters data to export');
@@ -462,7 +1086,6 @@ export default function RentersPage() {
     document.body.removeChild(a);
   };
 
-  // Fetch Renters from API on filters/page change
   const fetchRenters = () => {
     setLoading(true);
     const queryParams = new URLSearchParams({
@@ -499,30 +1122,20 @@ export default function RentersPage() {
             });
           }
           setRenters(dataList);
-          if (res.pagination) {
-            setPagination(res.pagination);
-          }
+          if (res.pagination) setPagination(res.pagination);
         }
       })
-      .catch((err) => {
-        console.error('Error loading renters:', err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      .catch((err) => console.error('Error loading renters:', err))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     fetchRenters();
   }, [search, statusFilter, packageFilter, modeFilter, page, selectedZone]);
 
-  // Handle Multi-Select Checkboxes
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedMobiles(renters.map(r => r.mobile));
-    } else {
-      setSelectedMobiles([]);
-    }
+    if (e.target.checked) setSelectedMobiles(renters.map(r => r.mobile));
+    else setSelectedMobiles([]);
   };
 
   const handleSelectOne = (mobile: string) => {
@@ -533,7 +1146,6 @@ export default function RentersPage() {
     }
   };
 
-  // Trigger Delete Confirmation Modal
   const openDeleteModalForSelection = () => {
     if (selectedMobiles.length === 0) return;
     setMobilesToDelete(selectedMobiles);
@@ -552,11 +1164,10 @@ export default function RentersPage() {
       await api.delete('/renters', { mobiles: mobilesToDelete, ids: idsToDelete });
       setRenters(prev => prev.filter(r => !mobilesToDelete.includes(r.mobile) && !idsToDelete.includes(r.id)));
       setSelectedMobiles(prev => prev.filter(m => !mobilesToDelete.includes(m)));
-      showToast(`Selected rider(s) deleted successfully. 🗑️`);
+      showToast(`Selected rider(s) deleted successfully.`);
       fetchRenters();
     } catch (e) {
       console.error('Delete renters error:', e);
-      // Optimistic local deletion fallback
       setRenters(prev => prev.filter(r => !mobilesToDelete.includes(r.mobile)));
       setSelectedMobiles(prev => prev.filter(m => !mobilesToDelete.includes(m)));
       showToast(`Rider(s) removed from active directory.`);
@@ -567,7 +1178,6 @@ export default function RentersPage() {
     }
   };
 
-  // Open Vehicle & Battery Allocation Modal with KYC Gatekeeper enforcement
   const openAllocationModal = (r: Renter, displayName: string, displayMobile: string) => {
     const kyc = (r.kyc_status || '').toLowerCase();
     if (kyc !== 'verified' && kyc !== 'approved') {
@@ -591,41 +1201,35 @@ export default function RentersPage() {
         battery_id: allocBattery,
         rider_name: allocRenter.displayName
       });
-
-      // Update state in renters table
       setRenters(prev => prev.map(item => {
         if (item.mobile === allocRenter.displayMobile || item.id === allocRenter.renter.id) {
           return { ...item, vehicle_id: allocVehicle, battery_id: allocBattery };
         }
         return item;
       }));
-
-      showToast(`Vehicle ${allocVehicle} & Battery ${allocBattery} assigned to ${allocRenter.displayName}! ⚡`);
+      showToast(`Vehicle ${allocVehicle} & Battery ${allocBattery} assigned to ${allocRenter.displayName}!`);
       setIsAllocModalOpen(false);
     } catch (e) {
       console.error('Error allocating vehicle & battery:', e);
-      // Optimistic state update
       setRenters(prev => prev.map(item => {
         if (item.mobile === allocRenter.displayMobile || item.id === allocRenter.renter.id) {
           return { ...item, vehicle_id: allocVehicle, battery_id: allocBattery };
         }
         return item;
       }));
-      showToast(`Vehicle ${allocVehicle} & Battery assigned to ${allocRenter.displayName}! ⚡`);
+      showToast(`Vehicle ${allocVehicle} & Battery assigned to ${allocRenter.displayName}!`);
       setIsAllocModalOpen(false);
     } finally {
       setSavingAlloc(false);
     }
   };
 
-  // Calculate dynamic actual counts for KPI cards
   const totalRidesCount = pagination.total || renters.length;
   const activeRidesCount = renters.filter(r => r.status === 'Active Ride').length || Math.round(totalRidesCount * 0.46);
   const retainRidesCount = renters.filter(r => r.status === 'Retain Ride').length || Math.round(totalRidesCount * 0.19);
   const returnedRidesCount = renters.filter(r => r.status === 'Return').length || Math.round(totalRidesCount * 0.31);
   const extendedRidesCount = renters.filter(r => r.status === 'Extend').length || Math.round(totalRidesCount * 0.04);
 
-  // Format Helper to render Rupees without decimals
   const formatCurrency = (val: string | number) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
     return new Intl.NumberFormat('en-IN', {
@@ -635,7 +1239,6 @@ export default function RentersPage() {
     }).format(num);
   };
 
-  // Format Date Helper - accurately renders actual booking date and time without fixed 12:00 AM
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return { date: '—', time: '' };
     try {
@@ -646,24 +1249,14 @@ export default function RentersPage() {
         }
       }
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-        return { date: dateStr, time: '' };
-      }
-      const date = d.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      });
-      // Detect if this was a date-only (midnight 00:00:00 or 18:30:00 UTC) placeholder
+      if (isNaN(d.getTime())) return { date: dateStr, time: '' };
+      const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       const hours = d.getHours();
       const minutes = d.getMinutes();
       const isUtcMidnight = String(dateStr).includes('18:30:00') || String(dateStr).includes('00:00:00');
       const isMidnightLocal = hours === 0 && minutes === 0;
-
       const time = (!isUtcMidnight && !isMidnightLocal) ? d.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
+        hour: '2-digit', minute: '2-digit', hour12: true
       }) : '';
       return { date, time };
     } catch (_) {
@@ -671,7 +1264,6 @@ export default function RentersPage() {
     }
   };
 
-  // Status Badge Class Helper - properly highlights all statuses with vivid badges
   const getStatusClass = (status: string) => {
     const s = (status || '').toLowerCase();
     if (s === 'active ride' || (s.includes('active') && !s.includes('no'))) return 's-active';
@@ -696,88 +1288,110 @@ export default function RentersPage() {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="re-shell">
         <Sidebar activePath="/renters" />
-        <div className="re-main page-transition">
+        <div className="re-main">
           <TopBar title="Renter" subtitle="Dashboard > Renter" />
 
           <div className="re-page">
-            {/* Header Area */}
+            {/* Header */}
             <div className="re-title-row">
               <div>
-                <h1 className="re-h1">Renter Directory</h1>
+                <h1 className="re-h1">
+                  Renter Directory
+                  <span className="re-h1-badge">Live Data</span>
+                </h1>
                 <p className="re-sub">Manage rider subscriptions, rentals, KYC, and vehicle/battery allocations</p>
               </div>
+              <div className="re-live-pill">Real-time Sync Active</div>
             </div>
 
-            {/* Stat Counters Grid (5 Cards matching screenshot) */}
+            {/* Stats */}
             <div className="re-stats">
-              <div className="re-sc">
+              <div className="re-sc total">
                 <div className="re-sc-top">
                   <div>
                     <div className="re-sc-tit">Total Rides</div>
                     <div className="re-sc-val">{totalRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per" style={{ color: '#10B981', fontWeight: '700' }}>↑ +14.2% vs last mo</div>
+                    <div className="re-sc-per up">↑ +14.2% MoM</div>
                   </div>
                   <div className="re-sc-ic ic-purple">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="3"/><circle cx="19" cy="5" r="3"/><line x1="5" y1="5" x2="12" y2="12"/><line x1="19" y1="5" x2="12" y2="12"/></svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="re-sc">
-                <div className="re-sc-top">
-                  <div>
-                    <div className="re-sc-tit">Active Rides</div>
-                    <div className="re-sc-val">{activeRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per" style={{ color: '#10B981', fontWeight: '700' }}>↑ +8.5% in progress</div>
-                  </div>
-                  <div className="re-sc-ic ic-green">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="5.5" cy="17.5" r="3.5" />
-                      <circle cx="18.5" cy="17.5" r="3.5" />
-                      <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
-                      <path d="M5.5 17.5l4-8h4l2.5 8" />
-                      <path d="M8.5 12h5" />
-                      <path d="M12 9l-1.5 2.5h2L11 14" strokeWidth="1.8" />
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3"/>
+                      <circle cx="5" cy="5" r="3"/>
+                      <circle cx="19" cy="5" r="3"/>
+                      <line x1="5" y1="5" x2="12" y2="12"/>
+                      <line x1="19" y1="5" x2="12" y2="12"/>
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="re-sc">
+              <div className="re-sc active">
+                <div className="re-sc-top">
+                  <div>
+                    <div className="re-sc-tit">Active Rides</div>
+                    <div className="re-sc-val">{activeRidesCount.toLocaleString()}</div>
+                    <div className="re-sc-per up">↑ +8.5% in progress</div>
+                  </div>
+                  <div className="re-sc-ic ic-green">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="5.5" cy="17.5" r="3.5" />
+                      <circle cx="18.5" cy="17.5" r="3.5" />
+                      <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                      <path d="M5.5 17.5l4-8h4l2.5 8" />
+                      <path d="M8.5 12h5" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="re-sc retain">
                 <div className="re-sc-top">
                   <div>
                     <div className="re-sc-tit">Retain Rides</div>
                     <div className="re-sc-val">{retainRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per" style={{ color: '#F97316', fontWeight: '700' }}>↓ -2.4% retained</div>
+                    <div className="re-sc-per down">↓ -2.4% retained</div>
                   </div>
                   <div className="re-sc-ic ic-orange">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="re-sc">
+              <div className="re-sc return">
                 <div className="re-sc-top">
                   <div>
                     <div className="re-sc-tit">Returned</div>
                     <div className="re-sc-val">{returnedRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per" style={{ color: '#10B981', fontWeight: '700' }}>↑ +12.0% completed</div>
+                    <div className="re-sc-per up">↑ +12.0% completed</div>
                   </div>
                   <div className="re-sc-ic ic-blue">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                      <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="re-sc">
+              <div className="re-sc extended">
                 <div className="re-sc-top">
                   <div>
                     <div className="re-sc-tit">Extended</div>
                     <div className="re-sc-val">{extendedRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per" style={{ color: '#8B5CF6', fontWeight: '700' }}>↑ +5.1% extended</div>
+                    <div className="re-sc-per brand">↑ +5.1% extended</div>
                   </div>
-                  <div className="re-sc-ic ic-purple">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                  <div className="re-sc-ic ic-violet">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -785,38 +1399,36 @@ export default function RentersPage() {
 
             {/* Directory Card */}
             <div className="re-card">
-              {/* Filters Panel */}
+              {/* Filters Bar */}
               <div className="re-filters-bar">
                 <div className="re-filters-left">
                   <div className="re-search-wrapper">
-                    <span className="re-search-ic">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    </span>
                     <input
                       type="text"
-                      placeholder="Search by rider name, mobile, vehicle ID..."
+                      placeholder="Search riders, mobile, vehicle ID..."
                       className="re-input-search"
                       value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setPage(1);
-                      }}
+                      onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                     />
+                    <span className="re-search-ic">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                      </svg>
+                    </span>
                   </div>
 
                   <button className="re-btn" onClick={() => setShowFiltersDrawer(!showFiltersDrawer)}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
                     Filters {showFiltersDrawer ? '▲' : '▼'}
                   </button>
 
                   <select
                     className="re-select"
-                    style={{ minWidth: '130px', padding: '8px 12px', border: '1.5px solid #E2E8F0', borderRadius: '10px', fontSize: '12.5px', outline: 'none', background: '#fff', fontWeight: '600', cursor: 'pointer' }}
                     value={statusFilter}
-                    onChange={(e) => {
-                      setStatusFilter(e.target.value);
-                      setPage(1);
-                    }}
+                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                   >
                     <option value="">All Statuses</option>
                     <option value="Active Ride">Active Ride</option>
@@ -827,12 +1439,8 @@ export default function RentersPage() {
 
                   <select
                     className="re-select"
-                    style={{ minWidth: '110px', padding: '8px 12px', border: '1.5px solid #E2E8F0', borderRadius: '10px', fontSize: '12.5px', outline: 'none', background: '#fff', fontWeight: '600', cursor: 'pointer' }}
                     value={modeFilter}
-                    onChange={(e) => {
-                      setModeFilter(e.target.value);
-                      setPage(1);
-                    }}
+                    onChange={(e) => { setModeFilter(e.target.value); setPage(1); }}
                   >
                     <option value="">All Modes</option>
                     <option value="App">📱 App</option>
@@ -841,32 +1449,41 @@ export default function RentersPage() {
 
                   {selectedMobiles.length > 0 && (
                     <button className="re-btn re-btn-danger" onClick={openDeleteModalForSelection}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      Delete Selected ({selectedMobiles.length})
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      </svg>
+                      Delete ({selectedMobiles.length})
                     </button>
                   )}
                 </div>
 
-                <div className="re-actions">
-                  <button className="re-btn" onClick={handleExportCSV} title="Export Renter Table to CSV">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                  <button className="re-btn" onClick={handleExportCSV}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
                     Export
                   </button>
                   <button className="re-btn re-btn-primary" onClick={() => alert('Feature to manually register new Renter opened.')}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
                     Add Renter
                   </button>
                 </div>
               </div>
 
-              {/* Expandable Filter Drawer */}
+              {/* Filter Drawer */}
               {showFiltersDrawer && (
                 <div className="re-filter-drawer">
                   <div className="re-filter-group">
                     <span className="re-filter-lbl">Package Type</span>
                     <select
                       className="re-select"
-                      style={{ padding: '6px 10px', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '12px' }}
                       value={packageFilter}
                       onChange={(e) => setPackageFilter(e.target.value)}
                     >
@@ -882,7 +1499,6 @@ export default function RentersPage() {
                     <span className="re-filter-lbl">Mode (Form / App)</span>
                     <select
                       className="re-select"
-                      style={{ padding: '6px 10px', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '12px' }}
                       value={modeFilter}
                       onChange={(e) => setModeFilter(e.target.value)}
                     >
@@ -896,7 +1512,6 @@ export default function RentersPage() {
                     <span className="re-filter-lbl">Zone</span>
                     <select
                       className="re-select"
-                      style={{ padding: '6px 10px', border: '1.5px solid #CBD5E1', borderRadius: '8px', fontSize: '12px' }}
                       value={zoneFilter}
                       onChange={(e) => setZoneFilter(e.target.value)}
                     >
@@ -910,7 +1525,6 @@ export default function RentersPage() {
 
                   <button
                     className="re-btn"
-                    style={{ marginTop: '16px', fontSize: '11px', padding: '5px 12px' }}
                     onClick={() => {
                       setSearch('');
                       setStatusFilter('');
@@ -924,7 +1538,7 @@ export default function RentersPage() {
                 </div>
               )}
 
-              {/* Table Wrapper */}
+              {/* Table */}
               <div className="re-table-wrap">
                 <table className="re-table">
                   <thead>
@@ -935,17 +1549,16 @@ export default function RentersPage() {
                           checked={!loading && renters.length > 0 && selectedMobiles.length === renters.length}
                           onChange={handleSelectAll}
                           disabled={loading}
-                          style={{ cursor: 'pointer' }}
                         />
                       </th>
-                      <th>Rider Name</th>
+                      <th>Rider</th>
                       <th>Mobile</th>
-                      <th>Vehicle ID</th>
-                      <th>Battery ID</th>
+                      <th>Vehicle</th>
+                      <th>Battery</th>
                       <th>Package</th>
                       <th>Mode</th>
-                      <th>Rental Start Date</th>
-                      <th>Return Date</th>
+                      <th>Rental Start</th>
+                      <th>Return</th>
                       <th>Status</th>
                       <th>Rent</th>
                       <th>Deposit</th>
@@ -955,200 +1568,131 @@ export default function RentersPage() {
                   </thead>
                   <tbody>
                     {loading ? (
-                      Array.from({ length: 7 }).map((_, sIdx) => (
+                      Array.from({ length: 6 }).map((_, sIdx) => (
                         <tr key={`skel-${sIdx}`}>
-                          <td><span className="skeleton-box" style={{ width: '16px', height: '16px' }} /></td>
-                          <td>
-                            <div className="re-rider-cell">
-                              <span className="skeleton-circle" style={{ width: '32px', height: '32px' }} />
-                              <span className="skeleton-box" style={{ width: '110px', height: '14px' }} />
-                            </div>
-                          </td>
-                          <td><span className="skeleton-box" style={{ width: '95px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '90px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '100px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '80px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '55px', height: '22px', borderRadius: '6px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '85px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '85px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '70px', height: '20px', borderRadius: '12px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '50px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '50px', height: '14px' }} /></td>
-                          <td><span className="skeleton-box" style={{ width: '60px', height: '14px' }} /></td>
-                          <td style={{ textAlign: 'center' }}><span className="skeleton-box" style={{ width: '65px', height: '24px', borderRadius: '6px' }} /></td>
+                          {Array.from({ length: 14 }).map((_, cIdx) => (
+                            <td key={cIdx}>
+                              <div style={{
+                                height: 14,
+                                borderRadius: 6,
+                                background: 'linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%)',
+                                backgroundSize: '200% 100%',
+                                animation: 'shimmer 1.5s ease-in-out infinite',
+                                width: cIdx === 0 ? 16 : cIdx === 1 ? 140 : cIdx === 13 ? 130 : 90
+                              }} />
+                            </td>
+                          ))}
                         </tr>
                       ))
                     ) : renters.length === 0 ? (
                       <tr>
-                        <td colSpan={14} style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
-                          No renters matching filter parameters found.
+                        <td colSpan={14} style={{ padding: '70px 20px', textAlign: 'center' }}>
+                          <div style={{
+                            width: 72, height: 72, borderRadius: 22,
+                            background: 'linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 18px',
+                            color: 'var(--brand)'
+                          }}>
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <circle cx="11" cy="11" r="8"/>
+                              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                          </div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: '#0F1129', marginBottom: 6 }}>
+                            No riders found
+                          </div>
+                          <div style={{ fontSize: 13, color: '#8A8DA3', fontWeight: 500 }}>
+                            Try adjusting your search or filters
+                          </div>
                         </td>
                       </tr>
                     ) : (
                       renters.map((r, idx) => {
                         const start = formatDateTime(r.rental_start_date);
                         const end = formatDateTime(r.return_date);
-
                         const displayName = getDisplayName(r, idx);
                         const displayMobile = r.mobile || '+91 98765 43210';
                         const displayAvatar = r.avatar_url || (displayName.toLowerCase().includes('priya') || displayName.toLowerCase().includes('pooja') || displayName.toLowerCase().includes('neha') ? '/priya_avatar.png' : '/rohit_avatar.png');
                         const isSelected = selectedMobiles.includes(r.mobile);
 
                         return (
-                          <tr 
-                            key={r.id || idx} 
-                            className="table-row-fade"
-                            style={{ 
-                              background: isSelected ? '#F1F5F9' : undefined,
-                              animationDelay: `${Math.min(idx * 0.03, 0.25)}s`
-                            }}
-                          >
+                          <tr key={r.id || idx} className={isSelected ? 'selected' : ''}>
                             <td>
                               <input
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => handleSelectOne(r.mobile)}
-                                style={{ cursor: 'pointer' }}
                               />
                             </td>
                             <td>
                               <div className="re-rider-cell">
-                                <img 
-                                  src={displayAvatar} 
-                                  alt="" 
-                                  className="re-avatar" 
-                                />
-                                <span style={{ fontWeight: 600, color: '#1E293B', fontSize: '13px', letterSpacing: '-0.01em' }}>{displayName}</span>
+                                <img src={displayAvatar} alt="" className="re-avatar" />
+                                <div>
+                                  <span className="re-rider-name">{displayName}</span>
+                                  <span className="re-rider-sub">Rider ID #{r.id?.slice(0, 8) || `RID-${idx + 100}`}</span>
+                                </div>
                               </div>
                             </td>
-                            <td style={{ color: '#64748B', fontWeight: 500 }}>{displayMobile}</td>
+                            <td style={{ fontWeight: 600, color: 'var(--ink-mid)' }}>{displayMobile}</td>
                             <td>
                               {r.vehicle_id ? (
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '3px 8px',
-                                  background: '#EEF2FF',
-                                  color: '#4338CA',
-                                  border: '1px solid #C7D2FE',
-                                  borderRadius: '6px',
-                                  fontFamily: 'monospace',
-                                  fontWeight: 700,
-                                  fontSize: '11.5px',
-                                  letterSpacing: '0.02em'
-                                }}>
-                                  {r.vehicle_id}
-                                </span>
+                                <span className="re-chip re-chip-vehicle">{r.vehicle_id}</span>
                               ) : (
-                                <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
+                                <span style={{ color: 'var(--ink-faint)' }}>—</span>
                               )}
                             </td>
                             <td>
                               {r.battery_id ? (
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '3px 8px',
-                                  background: '#F8FAFC',
-                                  color: '#334155',
-                                  border: '1px solid #E2E8F0',
-                                  borderRadius: '6px',
-                                  fontFamily: 'monospace',
-                                  fontWeight: 600,
-                                  fontSize: '11.5px'
-                                }}>
-                                  {r.battery_id}
-                                </span>
+                                <span className="re-chip re-chip-battery">{r.battery_id}</span>
                               ) : (
-                                <span style={{ color: '#94A3B8', fontWeight: 500 }}>—</span>
+                                <span style={{ color: 'var(--ink-faint)' }}>—</span>
                               )}
                             </td>
-                            <td style={{ fontWeight: 600, color: '#334155' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>{(!r.package_name || r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || r.package_name.toLowerCase().includes('custom')) ? 'Custom' : r.package_name}</span>
-                              </div>
+                            <td style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                              {(!r.package_name || r.package_name === 'Rider Plan' || r.package_name === 'Standard Plan' || r.package_name.toLowerCase().includes('custom')) ? 'Custom' : r.package_name}
                             </td>
                             <td>
                               {(r.booking_source === 'App' || (r.booking_source || '').toLowerCase().includes('app')) ? (
-                                <span style={{
-                                  fontSize: '11px',
-                                  background: '#F0FDF4',
-                                  color: '#15803D',
-                                  border: '1px solid #BBF7D0',
-                                  padding: '3px 8px',
-                                  borderRadius: '6px',
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}>
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                                <span className="re-mode app">
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                                    <line x1="12" y1="18" x2="12" y2="18"/>
+                                  </svg>
                                   App
                                 </span>
                               ) : (
-                                <span style={{
-                                  fontSize: '11px',
-                                  background: '#EFF6FF',
-                                  color: '#1D4ED8',
-                                  border: '1px solid #BFDBFE',
-                                  padding: '3px 8px',
-                                  borderRadius: '6px',
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}>
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                <span className="re-mode form">
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                  </svg>
                                   Form
                                 </span>
                               )}
                             </td>
                             <td>
-                              <div style={{
-                                display: 'inline-flex',
-                                flexDirection: 'column',
-                                padding: '4px 10px',
-                                background: '#F8FAFC',
-                                border: '1px solid #E2E8F0',
-                                borderRadius: '8px'
-                              }}>
-                                <span style={{ fontWeight: 600, color: '#0F172A', fontSize: '12px' }}>{start.date}</span>
+                              <div className="re-date-cell">
+                                <span className="re-date-main">{start.date}</span>
                                 {start.time ? (
-                                  <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3.5px' }}>
-                                    <span style={{ width: '4.5px', height: '4.5px', borderRadius: '50%', background: '#059669' }} />
-                                    {start.time}
-                                  </span>
+                                  <span className="re-date-time green">{start.time}</span>
                                 ) : (
-                                  <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 500, marginTop: '1px' }}>
-                                    Booking Date
-                                  </span>
+                                  <span className="re-date-label">Booking Date</span>
                                 )}
                               </div>
                             </td>
                             <td>
                               {end.date !== '—' ? (
-                                <div style={{
-                                  display: 'inline-flex',
-                                  flexDirection: 'column',
-                                  padding: '4px 10px',
-                                  background: '#F8FAFC',
-                                  border: '1px solid #E2E8F0',
-                                  borderRadius: '8px'
-                                }}>
-                                  <span style={{ fontWeight: 600, color: '#334155', fontSize: '12px' }}>{end.date}</span>
+                                <div className="re-date-cell">
+                                  <span className="re-date-main">{end.date}</span>
                                   {end.time ? (
-                                    <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3.5px' }}>
-                                      <span style={{ width: '4.5px', height: '4.5px', borderRadius: '50%', background: '#64748B' }} />
-                                      {end.time}
-                                    </span>
+                                    <span className="re-date-time muted">{end.time}</span>
                                   ) : (
-                                    <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 500, marginTop: '1px' }}>
-                                      Scheduled Return
-                                    </span>
+                                    <span className="re-date-label">Scheduled Return</span>
                                   )}
                                 </div>
                               ) : (
-                                <span style={{ color: '#94A3B8', fontWeight: 500, fontSize: '12.5px' }}>—</span>
+                                <span style={{ color: 'var(--ink-faint)' }}>—</span>
                               )}
                             </td>
                             <td>
@@ -1157,39 +1701,29 @@ export default function RentersPage() {
                                 {getStatusLabel(r.status)}
                               </span>
                             </td>
-                            <td style={{ fontWeight: 600 }}>{formatCurrency(r.rent)}</td>
-                            <td style={{ fontWeight: 600, color: '#64748B' }}>{formatCurrency(r.deposit)}</td>
+                            <td style={{ fontWeight: 800, color: 'var(--ink)' }}>{formatCurrency(r.rent)}</td>
+                            <td style={{ fontWeight: 700, color: 'var(--ink-mid)' }}>{formatCurrency(r.deposit)}</td>
                             <td>
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                padding: '4px 10px',
-                                background: '#FAF5FF',
-                                color: '#2A195C',
-                                border: '1.5px solid #E9D5FF',
-                                borderRadius: '8px',
-                                fontWeight: 850,
-                                fontSize: '13px'
-                              }}>
-                                {formatCurrency(r.total)}
-                              </span>
+                              <span className="re-chip re-chip-total">{formatCurrency(r.total)}</span>
                             </td>
                             <td>
                               <div className="re-action-cell">
-                                {/* View button opens Vehicle & Battery Allocation modal */}
-                                <Link 
-                                  href={`/renters/profile?id=${encodeURIComponent(r.id || r._id || r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Gotri%20Zone`} 
-                                  className="re-action-btn" 
+                                <Link
+                                  href={`/renters/profile?id=${encodeURIComponent(r.id || r._id || r.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(displayName)}&mobile=${encodeURIComponent(displayMobile)}&vehicle=${encodeURIComponent(r.vehicle_id || '')}&battery=${encodeURIComponent(r.battery_id || '')}&status=${encodeURIComponent(r.status)}&zone=Gotri%20Zone`}
+                                  className="re-action-btn"
                                   title="View Full Rider Profile"
                                 >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                  </svg>
                                 </Link>
-                                <button 
-                                  className="re-action-btn" 
+                                <button
+                                  className="re-action-btn"
                                   title="Allocate Vehicle & Battery"
                                   onClick={() => openAllocationModal(r, displayName, displayMobile)}
                                 >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="5.5" cy="17.5" r="3.5" />
                                     <circle cx="18.5" cy="17.5" r="3.5" />
                                     <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
@@ -1197,14 +1731,21 @@ export default function RentersPage() {
                                     <path d="M8.5 12h5" />
                                   </svg>
                                 </button>
-                                <button className="re-action-btn" title="Delete Rider" onClick={() => openDeleteModalForSingle(r.mobile)}>
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                <button className="re-action-btn danger" title="Delete Rider" onClick={() => openDeleteModalForSingle(r.mobile)}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                  </svg>
                                 </button>
-                                <button className="re-action-btn" title="Message Rider" onClick={() => alert(`Message sent to ${displayName} rider app.`)}>
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                <button className="re-action-btn success" title="Message Rider" onClick={() => alert(`Message sent to ${displayName} rider app.`)}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                  </svg>
                                 </button>
                                 <button className="re-action-btn" title="Download Booking Receipt" onClick={() => handleDownloadReceipt(r)}>
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 2-2 2 2 2-2 3 2V4a2 2 0 0 0-2-2z"/></svg>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 2-2 2 2 2-2 3 2V4a2 2 0 0 0-2-2z"/>
+                                  </svg>
                                 </button>
                               </div>
                             </td>
@@ -1216,51 +1757,38 @@ export default function RentersPage() {
                 </table>
               </div>
 
-              {/* Pagination footer */}
+              {/* Pagination Footer */}
               <div className="re-card-ft">
                 <span className="re-card-ft-lbl">
-                  Showing {(page - 1) * pagination.limit + 1} to {Math.min(page * pagination.limit, pagination.total)} of {pagination.total} entries
+                  Showing <strong>{(page - 1) * pagination.limit + 1}</strong> to <strong>{Math.min(page * pagination.limit, pagination.total)}</strong> of <strong>{pagination.total}</strong> entries
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <select 
-                    className="re-select" 
-                    style={{ minWidth: '100px', padding: '6px 8px', fontSize: '12px' }}
-                    value={pagination.limit}
-                    disabled
-                  >
+                  <select className="re-select" style={{ minWidth: 120 }} value={pagination.limit} disabled>
                     <option value="10">10 per page</option>
                   </select>
                   <div className="re-pg">
-                    <button 
-                      className="re-pgb" 
-                      disabled={page === 1}
-                      onClick={() => setPage(p => p - 1)}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                    <button className="re-pgb" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
                     </button>
                     {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((p) => (
-                      <button
-                        key={p}
-                        className={`re-pgb ${p === page ? 'cur' : ''}`}
-                        onClick={() => setPage(p)}
-                      >
+                      <button key={p} className={`re-pgb ${p === page ? 'cur' : ''}`} onClick={() => setPage(p)}>
                         {p}
                       </button>
                     ))}
-                    <button 
-                      className="re-pgb" 
-                      disabled={page === pagination.totalPages}
-                      onClick={() => setPage(p => p + 1)}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    <button className="re-pgb" disabled={page === pagination.totalPages} onClick={() => setPage(p => p + 1)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Copyright & version footer */}
-            <div className="re-footer" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94A3B8' }}>
+            {/* Footer */}
+            <div className="re-footer">
               <span>© 2026 Evegah Technologies</span>
               <span>Version 2.4.0</span>
             </div>
@@ -1268,41 +1796,55 @@ export default function RentersPage() {
         </div>
       </div>
 
-      {/* Vehicle & Battery Allocation Modal */}
+      {/* Allocation Modal */}
       {isAllocModalOpen && allocRenter && (
-        <div className="re-modal-overlay">
-          <div className="re-modal">
+        <div className="re-modal-overlay" onClick={() => setIsAllocModalOpen(false)}>
+          <div className="re-modal" onClick={(e) => e.stopPropagation()}>
             <div className="re-modal-hdr">
               <h3 className="re-modal-tit">Vehicle & Battery Allocation</h3>
-              <button onClick={() => setIsAllocModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#64748B' }}>✕</button>
+              <button className="re-modal-close" onClick={() => setIsAllocModalOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
 
             <div className="re-modal-body">
-              <div style={{ background: '#F8FAFC', padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-                <div style={{ fontWeight: 800, fontSize: '14px', color: '#0F172A' }}>{allocRenter.displayName}</div>
-                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>Mobile: {allocRenter.displayMobile} • Package: {allocRenter.renter.package_name}</div>
+              <div className="re-modal-rider">
+                <img
+                  src={allocRenter.renter.avatar_url || '/rohit_avatar.png'}
+                  alt=""
+                  className="re-modal-rider-avatar"
+                />
+                <div>
+                  <div className="re-modal-rider-name">{allocRenter.displayName}</div>
+                  <div className="re-modal-rider-meta">
+                    {allocRenter.displayMobile} • {allocRenter.renter.package_name || 'Standard'}
+                  </div>
+                </div>
               </div>
 
               <div className="re-modal-field">
                 <label className="re-modal-lbl">Select Vehicle</label>
                 <select className="re-modal-select" value={allocVehicle} onChange={(e) => setAllocVehicle(e.target.value)}>
-                  <option value="EVM1024001">EVM1024001 - Evegah City 1.0 (Available)</option>
-                  <option value="EVM1024002">EVM1024002 - Evegah City 2.0 (Available)</option>
-                  <option value="EVM1024003">EVM1024003 - Evegah Mink 1.0 (Available)</option>
-                  <option value="EVM1024004">EVM1024004 - Evegah Pro 2.0 (Available)</option>
-                  <option value="EVM1024023">EVM1024023 - Evegah Max 3.0 (Assigned)</option>
-                  <option value="EVM1024024">EVM1024024 - Evegah Speed (Available)</option>
+                  <option value="EVM1024001">EVM1024001 — Evegah City 1.0 (Available)</option>
+                  <option value="EVM1024002">EVM1024002 — Evegah City 2.0 (Available)</option>
+                  <option value="EVM1024003">EVM1024003 — Evegah Mink 1.0 (Available)</option>
+                  <option value="EVM1024004">EVM1024004 — Evegah Pro 2.0 (Available)</option>
+                  <option value="EVM1024023">EVM1024023 — Evegah Max 3.0 (Assigned)</option>
+                  <option value="EVM1024024">EVM1024024 — Evegah Speed (Available)</option>
                 </select>
               </div>
 
               <div className="re-modal-field">
                 <label className="re-modal-lbl">Select Battery</label>
                 <select className="re-modal-select" value={allocBattery} onChange={(e) => setAllocBattery(e.target.value)}>
-                  <option value="BAT-GOTRI-01">BAT-GOTRI-01 - 100% SOC (Idle)</option>
-                  <option value="BAT-GOTRI-02">BAT-GOTRI-02 - 94% SOC (Idle)</option>
-                  <option value="BAT-AATAPI-01">BAT-AATAPI-01 - 98% SOC (Idle)</option>
-                  <option value="BAT-ALKAPURI-01">BAT-ALKAPURI-01 - 90% SOC (Idle)</option>
-                  <option value="BAT-DEFAULT">BAT-DEFAULT - Standard Battery Pack</option>
+                  <option value="BAT-GOTRI-01">BAT-GOTRI-01 — 100% SOC (Idle)</option>
+                  <option value="BAT-GOTRI-02">BAT-GOTRI-02 — 94% SOC (Idle)</option>
+                  <option value="BAT-AATAPI-01">BAT-AATAPI-01 — 98% SOC (Idle)</option>
+                  <option value="BAT-ALKAPURI-01">BAT-ALKAPURI-01 — 90% SOC (Idle)</option>
+                  <option value="BAT-DEFAULT">BAT-DEFAULT — Standard Battery Pack</option>
                 </select>
               </div>
             </div>
@@ -1311,9 +1853,8 @@ export default function RentersPage() {
               <Link
                 href={`/renters/profile?id=${encodeURIComponent(allocRenter.renter.id || allocRenter.renter._id || allocRenter.renter.vehicle_id || 'RID-2026-001')}&name=${encodeURIComponent(allocRenter.displayName)}&mobile=${encodeURIComponent(allocRenter.displayMobile)}&vehicle=${encodeURIComponent(allocVehicle)}&battery=${encodeURIComponent(allocBattery)}&status=${encodeURIComponent(allocRenter.renter.status)}&zone=Gotri%20Zone`}
                 className="re-btn"
-                style={{ textDecoration: 'none' }}
               >
-                View Full Profile
+                View Profile
               </Link>
               <button className="re-btn re-btn-primary" onClick={handleSaveAllocation} disabled={savingAlloc}>
                 {savingAlloc ? 'Assigning...' : 'Confirm Allocation'}
@@ -1323,22 +1864,32 @@ export default function RentersPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       {isDeleteModalOpen && (
-        <div className="re-modal-overlay">
-          <div className="re-modal" style={{ maxWidth: '440px' }}>
+        <div className="re-modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
+          <div className="re-modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
             <div className="re-modal-hdr">
               <h3 className="re-modal-tit">Confirm Deletion</h3>
-              <button onClick={() => setIsDeleteModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#64748B' }}>✕</button>
+              <button className="re-modal-close" onClick={() => setIsDeleteModalOpen(false)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
 
-            <div className="re-modal-body" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <div style={{ width: '48px', height: '48px', background: '#FEE2E2', color: '#EF4444', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <div className="re-modal-body" style={{ textAlign: 'center', padding: '30px 28px' }}>
+              <div className="re-danger-icon">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <line x1="10" y1="11" x2="10" y2="17"/>
+                  <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
               </div>
-              <h4 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>Delete {mobilesToDelete.length} Rider(s)?</h4>
-              <p style={{ margin: 0, fontSize: '13px', color: '#64748B', lineHeight: 1.5 }}>
-                Are you sure you want to permanently delete the selected rider record(s)? This action cannot be undone.
+              <h4 className="re-danger-title">Delete {mobilesToDelete.length} Rider{mobilesToDelete.length > 1 ? 's' : ''}?</h4>
+              <p className="re-danger-desc">
+                Are you sure you want to permanently delete the selected rider record{mobilesToDelete.length > 1 ? 's' : ''}? This action cannot be undone.
               </p>
             </div>
 
@@ -1352,7 +1903,7 @@ export default function RentersPage() {
         </div>
       )}
 
-      {/* Toast Notification */}
+      {/* Toast */}
       {toast.show && (
         <div className="re-toast">
           <span>{toast.msg}</span>

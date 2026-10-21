@@ -408,30 +408,84 @@ router.post('/withdraw', async (req, res) => {
 router.get('/transactions', async (req, res) => {
   const { mobile } = req.query;
   const cleanMobile = (mobile || '').replace(/\D/g, '');
+  const last10 = cleanMobile.slice(-10);
 
   try {
     let txs = [];
     let query = `
       SELECT 
         wt.*,
-        COALESCE(r.rider_name, u.name, 'Customer') AS customer_name
+        (SELECT COALESCE(r.rider_name, r.name) FROM renters r WHERE r.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%' LIMIT 1) AS customer_name
       FROM wallet_transactions wt
-      LEFT JOIN renters r ON (r.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%')
-      LEFT JOIN users u ON (u.mobile LIKE '%' || RIGHT(wt.mobile, 10) || '%')
     `;
     let params = [];
-    if (cleanMobile.length > 0) {
+    if (last10.length > 0) {
       query += ` WHERE wt.mobile LIKE $1`;
-      params.push(`%${cleanMobile}%`);
+      params.push(`%${last10}%`);
     }
     query += ` ORDER BY wt.created_at DESC LIMIT 100`;
 
     const result = await db.query(query, params);
     txs = result.rows;
 
+    // Also include ride booking payments & security deposits from reservations
+    if (last10.length > 0) {
+      try {
+        const resResult = await db.query(
+          `SELECT * FROM reservations WHERE mobile LIKE $1 ORDER BY created_at DESC LIMIT 50`,
+          [`%${last10}%`]
+        );
+        for (const r of resResult.rows) {
+          const fareAmt = parseFloat(r.fare || r.total_amount || 0);
+          if (fareAmt > 0) {
+            txs.push({
+              id: `TXN_RES_${r.reservation_id}`,
+              mobile: r.mobile,
+              title: `EV Ride #${r.reservation_id}`,
+              subtitle: `${r.vehicle_model || 'Evegah EV'} · ${r.pickup_zone || 'Gotri'}`,
+              amount: fareAmt,
+              type: 'Debit',
+              status: r.payment_status === 'Paid' ? 'Success' : (r.status || 'Success'),
+              payment_method: r.payment_mode || r.payment_method || 'Online Payment',
+              transaction_id: `RES-${r.reservation_id}`,
+              created_at: r.created_at || r.pickup_datetime || new Date()
+            });
+          }
+          const depAmt = parseFloat(r.deposit || r.deposit_amount || 0);
+          if (depAmt > 0) {
+            txs.push({
+              id: `TXN_DEP_${r.reservation_id}`,
+              mobile: r.mobile,
+              title: 'Security Deposit Held',
+              subtitle: `100% Refundable · #${r.reservation_id}`,
+              amount: depAmt,
+              type: 'Debit',
+              status: 'Held',
+              payment_method: 'Online Gateway',
+              transaction_id: `DEP-${r.reservation_id}`,
+              created_at: r.created_at || new Date()
+            });
+          }
+        }
+        // Sort all combined transactions descending by date
+        txs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      } catch (errRes) {
+        console.warn('Notice fetching reservations for wallet transactions:', errRes.message);
+      }
+    }
+
+    const seenTxKeys = new Set();
+    const uniqueTxs = [];
+    for (const item of txs) {
+      const key = String(item.transaction_id || item.id || `${item.mobile}_${item.amount}_${item.created_at}`);
+      if (!seenTxKeys.has(key)) {
+        seenTxKeys.add(key);
+        uniqueTxs.push(item);
+      }
+    }
     res.json({
       status: 'success',
-      data: txs
+      data: uniqueTxs
     });
   } catch (err) {
     console.error('Failed to fetch wallet transactions:', err);
@@ -551,7 +605,7 @@ router.post('/create-payment-link', async (req, res) => {
     const activeIcici = gateways.find(g => (g.id === 'icici' || g.provider === 'icici') && g.active);
 
     const txId = `EVGPAY${Date.now()}`;
-    const cleanMobile = (mobile || '').replace(/\D/g, '') || '9876543210';
+    const cleanMobile = (mobile || '').replace(/\D/g, '') || '1800 889 8791';
     const cleanName = name || 'Evegah Rider';
 
     if (primaryGw === 'icici' && activeIcici) {

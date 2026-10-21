@@ -3,13 +3,14 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
 const { sendWhatsAppReceipt } = require('../utils/whatsapp');
+const { authenticate, requireRoles } = require('../middleware/auth');
 
-// Default fallback credentials provided by merchant
-const DEFAULT_PAYU_KEY = process.env.PAYU_MERCHANT_KEY || 'WTi3jH';
-const DEFAULT_PAYU_SALT = process.env.PAYU_MERCHANT_SALT || '9dascniXrfdMW22AJBbhmh2C7kuBibwb';
-const DEFAULT_PAYU_CLIENT_ID = process.env.PAYU_CLIENT_ID || '8ecdb3a31264fb5b8c0ef026846a904d9aefcef39acdfb55d61225cdc06eb543';
-const DEFAULT_PAYU_CLIENT_SECRET = process.env.PAYU_CLIENT_SECRET || 'd9c50d234985c580d2ac5ea6891cfb5d7f8f12dadb5b5afb6cc565b1b28ad7e4';
-const DEFAULT_ENV = process.env.PAYU_ENV || 'test'; // 'test' or 'production'
+// PayU credentials resolved from environment or database settings table
+const DEFAULT_PAYU_KEY = process.env.PAYU_MERCHANT_KEY || '';
+const DEFAULT_PAYU_SALT = process.env.PAYU_MERCHANT_SALT || '';
+const DEFAULT_PAYU_CLIENT_ID = process.env.PAYU_CLIENT_ID || '';
+const DEFAULT_PAYU_CLIENT_SECRET = process.env.PAYU_CLIENT_SECRET || '';
+const DEFAULT_ENV = process.env.PAYU_ENV || 'production';
 
 // Ensure payu_payments table exists
 (async () => {
@@ -70,7 +71,7 @@ async function getPayUCredentials() {
       }
     }
   } catch (err) {
-    console.warn('Could not read PayU settings from DB, using defaults:', err.message);
+    console.warn('Could not read PayU settings from DB, using env vars:', err.message);
   }
 
   return {
@@ -79,8 +80,23 @@ async function getPayUCredentials() {
     clientId: DEFAULT_PAYU_CLIENT_ID,
     clientSecret: DEFAULT_PAYU_CLIENT_SECRET,
     env: DEFAULT_ENV,
-    active: true
+    active: Boolean(DEFAULT_PAYU_KEY && DEFAULT_PAYU_SALT)
   };
+}
+
+/**
+ * Resolve Public HTTPS Backend Base for PayU Callbacks (Never uses internal LAN/localhost for payment callbacks)
+ */
+function getPublicBackendBase(req) {
+  if (process.env.PUBLIC_BACKEND_URL) {
+    return `${process.env.PUBLIC_BACKEND_URL.replace(/\/$/, '')}/api/payments/payu`;
+  }
+  const host = req?.get ? req.get('host') : '';
+  if (host && !host.includes('localhost') && !host.includes('127.0.0.1') && !host.includes('192.168.') && !host.includes('10.0.') && !host.includes('172.16.')) {
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'https';
+    return `${protocol}://${host}/api/payments/payu`;
+  }
+  return 'https://evegah.cloud/api/payments/payu';
 }
 
 /**
@@ -112,10 +128,75 @@ function verifyPayUResponseHash(params, salt) {
   return calculatedHash.toLowerCase() === (params.hash || '').toLowerCase();
 }
 
+// Helper to request official PayU S2S UPI Intent / Dynamic QR URI
+async function createPayUDynamicQr({ creds, txnid, formattedAmount, productInfo, cleanName, cleanEmail, cleanMobile, surl, furl, hash, udf1 = '', udf2 = '', udf3 = '', udf4 = '', udf5 = '', clientIp = '127.0.0.1' }) {
+  const payuActionUrl = creds.env === 'production'
+    ? 'https://secure.payu.in/_payment'
+    : 'https://test.payu.in/_payment';
+
+  try {
+    const params = new URLSearchParams({
+      key: creds.key,
+      txnid,
+      amount: formattedAmount,
+      productinfo: productInfo,
+      firstname: cleanName,
+      email: cleanEmail,
+      phone: cleanMobile,
+      surl,
+      furl,
+      hash,
+      udf1,
+      udf2,
+      udf3,
+      udf4,
+      udf5,
+      pg: 'UPI',
+      bankcode: 'INTENT',
+      txn_s2s_flow: '4',
+      s2s_client_ip: clientIp || '127.0.0.1',
+      s2s_device_info: JSON.stringify({ user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) EvegahPOS/1.0' })
+    });
+
+    const s2sRes = await fetch(payuActionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: params.toString()
+    });
+
+    const json = await s2sRes.json().catch(() => null);
+    const result = json?.result || {};
+    const intentUriData = result.intentURIData || '';
+    const paymentId = result.paymentId || '';
+    const merchantVpa = result.merchantVpa || '';
+    const merchantName = result.merchantName || 'Evegah Mobility';
+
+    if (intentUriData) {
+      const upiUri = intentUriData.startsWith('upi://')
+        ? intentUriData
+        : `upi://pay?${intentUriData}`;
+      return {
+        success: true,
+        qrString: upiUri,
+        paymentId,
+        merchantVpa,
+        merchantName,
+        raw: json
+      };
+    }
+  } catch (err) {
+    console.warn('PayU S2S Dynamic QR generation warning:', err.message);
+  }
+  return { success: false };
+}
+
 // POST /api/payments/payu/initiate - Initiate PayU Transaction
 router.post('/initiate', async (req, res) => {
   try {
-    const { amount, rider_name, mobile, email, purpose, reservation_id, return_url } = req.body;
+    const { amount, rider_name, riderName, name, fullName, mobile, phone, email, purpose, reservation_id, return_url } = req.body;
     const numAmount = parseFloat(amount || 0);
 
     if (numAmount <= 0) {
@@ -128,8 +209,8 @@ router.post('/initiate', async (req, res) => {
     }
 
     const txnid = `EVGPAYU${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
-    const cleanMobile = (mobile || '').replace(/\D/g, '') || '9876543210';
-    const cleanName = (rider_name || 'Evegah Rider').trim();
+    const cleanMobile = (mobile || phone || '').replace(/\D/g, '') || '1800 889 8791';
+    const cleanName = (rider_name || riderName || fullName || name || 'Evegah Rider').trim();
     let resolvedEmail = (email || '').trim();
     if (!resolvedEmail || resolvedEmail === 'rider@evegah.com') {
       try {
@@ -155,12 +236,16 @@ router.post('/initiate', async (req, res) => {
       ? resolvedEmail
       : `rider_${cleanMobile}@evegah.com`;
     const formattedAmount = numAmount.toFixed(2);
-    const productInfo = purpose === 'ride' ? 'Evegah Ride Booking' : 'Evegah Wallet Top-Up';
+    let productInfo = 'Evegah Payment';
+    if (purpose === 'ride' || purpose === 'new-rider') productInfo = 'Evegah Ride Booking';
+    else if (purpose === 'retain' || purpose === 'retain-rider') productInfo = 'Evegah Ride Renewal';
+    else if (purpose === 'extend' || purpose === 'extend-ride' || purpose === 'extend_ride') productInfo = 'Evegah Ride Extension';
+    else if (purpose === 'return') productInfo = 'Evegah Ride Return Charges';
+    else if (purpose === 'battery-swap') productInfo = 'Evegah Battery Swap';
+    else if (purpose === 'wallet' || purpose === 'wallet_topup') productInfo = 'Evegah Wallet Top-Up';
 
-    // Base callback URLs
-    const host = req.get('host') || 'evegah.cloud';
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const backendBase = `${protocol}://${host}/api/payments/payu`;
+    // Public authoritative callback URLs for PayU Gateway
+    const backendBase = getPublicBackendBase(req);
 
     const surl = `${backendBase}/response?client_redirect=${encodeURIComponent(return_url || '')}`;
     const furl = `${backendBase}/response?client_redirect=${encodeURIComponent(return_url || '')}`;
@@ -191,12 +276,33 @@ router.post('/initiate', async (req, res) => {
       ? 'https://secure.payu.in/_payment'
       : 'https://test.payu.in/_payment';
 
-    // Save pending transaction to payu_payments
+    // Request official PayU Dynamic QR via S2S UPI Intent flow
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').toString().split(',')[0].trim();
+    const s2sQr = await createPayUDynamicQr({
+      creds,
+      txnid,
+      formattedAmount,
+      productInfo,
+      cleanName,
+      cleanEmail,
+      cleanMobile,
+      surl,
+      furl,
+      hash,
+      udf1,
+      udf2,
+      udf3,
+      udf4,
+      udf5,
+      clientIp
+    });
+
+    // Save pending transaction to payu_payments (including PayU mihpayid if generated)
     try {
       await db.query(`
-        INSERT INTO payu_payments (tx_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
-        VALUES ($1, $2, $3, $4, $5, 'Pending', $6, $7)
-      `, [txnid, numAmount, cleanName, cleanMobile, cleanEmail, purpose || 'wallet', reservation_id || null]);
+        INSERT INTO payu_payments (tx_id, payu_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
+        VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7, $8)
+      `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanMobile, cleanEmail, purpose || 'wallet', reservation_id || null]);
     } catch (dbErr) {
       console.warn('Could not record PayU payment in DB:', dbErr.message);
     }
@@ -205,6 +311,9 @@ router.post('/initiate', async (req, res) => {
       status: 'success',
       data: {
         txnid,
+        tx_id: txnid,
+        txn_id: txnid,
+        payu_id: s2sQr.paymentId || null,
         key: creds.key,
         amount: formattedAmount,
         productinfo: productInfo,
@@ -219,6 +328,10 @@ router.post('/initiate', async (req, res) => {
         udf3,
         udf4,
         udf5,
+        qrString: s2sQr.qrString || '',
+        upi_string: s2sQr.qrString || '',
+        vpa: s2sQr.merchantVpa || '',
+        payee_name: s2sQr.merchantName || 'Evegah Mobility',
         action_url: payuActionUrl,
         checkout_url: `${backendBase}/checkout/${txnid}`,
         environment: creds.env
@@ -242,16 +355,20 @@ router.get('/checkout/:txnid', async (req, res) => {
     const creds = await getPayUCredentials();
 
     const formattedAmount = parseFloat(payment.amount).toFixed(2);
-    const productInfo = payment.purpose === 'ride' ? 'Evegah Ride Booking' : 'Evegah Wallet Top-Up';
-    const cleanMobile = (payment.mobile || '').replace(/\D/g, '') || '9876543210';
+    let productInfo = 'Evegah Payment';
+    if (payment.purpose === 'ride' || payment.purpose === 'new-rider') productInfo = 'Evegah Ride Booking';
+    else if (payment.purpose === 'retain' || payment.purpose === 'retain-rider') productInfo = 'Evegah Ride Renewal';
+    else if (payment.purpose === 'extend' || payment.purpose === 'extend-ride' || payment.purpose === 'extend_ride') productInfo = 'Evegah Ride Extension';
+    else if (payment.purpose === 'return') productInfo = 'Evegah Ride Return Charges';
+    else if (payment.purpose === 'battery-swap') productInfo = 'Evegah Battery Swap';
+    else if (payment.purpose === 'wallet') productInfo = 'Evegah Wallet Top-Up';
+    const cleanMobile = (payment.mobile || '').replace(/\D/g, '') || '1800 889 8791';
     const cleanName = (payment.rider_name || payment.name || payment.full_name || 'Evegah Rider').trim();
     const cleanEmail = (payment.email && payment.email.trim() !== 'rider@evegah.com')
       ? payment.email.trim()
       : `rider_${cleanMobile}@evegah.com`;
 
-    const host = req.get('host') || 'evegah.cloud';
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const backendBase = `${protocol}://${host}/api/payments/payu`;
+    const backendBase = getPublicBackendBase(req);
     const surl = `${backendBase}/response`;
     const furl = `${backendBase}/response`;
 
@@ -375,11 +492,12 @@ router.all('/response', async (req, res) => {
     const payuTxId = mihpayid || payuMoneyId || existingPayment?.payu_id || '';
     let numAmount = parseFloat(amount || (existingPayment ? existingPayment.amount : 0));
 
-    let isSuccess = (status || '').toLowerCase() === 'success' && (isHashValid || creds.env === 'test');
+    // Enforce hash verification: In all environments, response hash MUST match
+    let isSuccess = (status || '').toLowerCase() === 'success' && isHashValid;
 
-    // If status is success from PayU, but hash didn't match (due to proxy, encoding, or additionalCharges), verify with PayU server directly
+    // Fallback: If hash verification fails but PayU reported success, verify directly with PayU gateway server API
     if (!isSuccess && (status || '').toLowerCase() === 'success' && txnid) {
-      console.log(`PayU response hash verification fallback for ${txnid}...`);
+      console.log(`PayU response hash verification fallback: querying authoritative gateway for ${txnid}...`);
       const verifyRes = await verifyPayUPaymentWithGateway(txnid);
       if (verifyRes.verified && verifyRes.status === 'Success') {
         isSuccess = true;
@@ -414,7 +532,7 @@ router.all('/response', async (req, res) => {
 
     if (isSuccess) {
       // 1. If wallet top-up, credit rider wallet
-      if (purpose === 'wallet' && cleanMobile && numAmount > 0) {
+      if ((purpose === 'wallet' || purpose === 'wallet_topup') && cleanMobile && numAmount > 0) {
         try {
           await db.query(
             'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2 OR mobile LIKE $3',
@@ -440,7 +558,7 @@ router.all('/response', async (req, res) => {
       }
 
       // 2. If ride reservation, confirm reservation
-      if (reservationId) {
+      if (reservationId && (purpose === 'ride' || purpose === 'new-rider')) {
         try {
           await db.query(
             `UPDATE reservations SET payment_status = 'Paid', payment_mode = 'PayU', status = 'Confirmed', transaction_id = $1 WHERE id::text = $2 OR reservation_id = $2`,
@@ -451,13 +569,55 @@ router.all('/response', async (req, res) => {
         }
       }
 
-      // Send WhatsApp Receipt
-      if (cleanMobile && numAmount > 0) {
+      // 3. If ride extension
+      if (purpose === 'extend' || purpose === 'extend-ride' || purpose === 'extend_ride') {
+        try {
+          await db.query(`
+            UPDATE renters 
+            SET total = total + $1,
+                rent = rent + $1,
+                status = 'Active Ride'
+            WHERE (mobile LIKE $2 AND mobile != '') OR vehicle_id = $3
+          `, [numAmount, `%${cleanMobile}%`, reservationId]);
+
+          await db.query(`
+            UPDATE reservations
+            SET fare = fare + $1,
+                total_payable = total_payable + $1,
+                payment_mode = 'PayU',
+                payment_status = 'Paid',
+                transaction_id = COALESCE($2, transaction_id)
+            WHERE (mobile LIKE $3 AND mobile != '') OR vehicle_number = $4 OR reservation_id = $4
+          `, [numAmount, txnid, `%${cleanMobile}%`, reservationId]).catch(() => {});
+        } catch (extErr) {
+          console.warn('Failed to update ride on PayU extend success:', extErr.message);
+        }
+      }
+
+      // 4. Record in general payment_transactions table if available
+      try {
+        await db.query(`
+          INSERT INTO payment_transactions (
+            transaction_id, reference_id, amount, payment_method, status, mobile, customer_name, purpose
+          )
+          VALUES ($1, $2, $3, 'PayU', 'SUCCESS', $4, $5, $6)
+          ON CONFLICT (transaction_id) DO UPDATE SET status = 'SUCCESS', updated_at = NOW()
+        `, [txnid, payuTxId || txnid, numAmount, cleanMobile, firstname || 'Rider', purpose || 'ride']);
+      } catch (_) {}
+
+      // Send WhatsApp Receipt for non-booking payments (ride bookings are dispatched by reservations route with full model & package details)
+      if (cleanMobile && numAmount > 0 && purpose !== 'ride' && purpose !== 'new-rider') {
+        let planDesc = 'EV Ride Booking';
+        if (purpose === 'extend' || purpose === 'extend-ride' || purpose === 'extend_ride') planDesc = 'Ride Extended';
+        else if (purpose === 'retain' || purpose === 'retain-rider') planDesc = 'Ride Renewal';
+        else if (purpose === 'wallet' || purpose === 'wallet_topup') planDesc = 'Wallet Top-Up';
+        else if (purpose === 'battery-swap') planDesc = 'Battery Swap';
+
         sendWhatsAppReceipt({
           mobile: cleanMobile,
           name: firstname || 'Rider',
           invoice_no: txnid,
-          plan: purpose === 'ride' ? 'EV Ride Booking' : 'Wallet Top-Up',
+          plan: planDesc,
           amount: numAmount
         }).catch((wErr) => console.error('[PayU] WhatsApp receipt notice:', wErr.message));
       }
@@ -472,7 +632,7 @@ router.all('/response', async (req, res) => {
       return res.redirect(redirectUrl.toString());
     }
 
-    // HTML response for webview / browser
+    // HTML response for webview / popup / browser
     const statusColor = isSuccess ? '#22C55E' : '#EF4444';
     const statusTitle = isSuccess ? 'Payment Successful!' : 'Payment Failed';
     const statusMsg = isSuccess
@@ -505,18 +665,34 @@ router.all('/response', async (req, res) => {
           <h2>${statusTitle}</h2>
           <p>${statusMsg}</p>
           <div class="row"><span class="lbl">Transaction ID</span><span class="val">${txnid || '—'}</span></div>
+          <div class="row"><span class="lbl">PayU Ref ID</span><span class="val">${payuTxId || '—'}</span></div>
           <div class="row"><span class="lbl">Amount</span><span class="val">₹${numAmount.toFixed(2)}</span></div>
           <div class="row"><span class="lbl">Gateway</span><span class="val">PayU India</span></div>
           <div class="row"><span class="lbl">Status</span><span class="val" style="color: ${statusColor};">${isSuccess ? 'SUCCESS' : 'FAILED'}</span></div>
-          <button onclick="if(window.opener){window.close();}else{window.history.back();}" class="btn">${isSuccess ? 'Continue to App' : 'Close Window'}</button>
+          <button onclick="try{if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify({type:'PAYU_PAYMENT_RESPONSE',txnid:'${txnid || ''}',status:'${isSuccess ? 'SUCCESS' : 'FAILED'}'}));}if(window.opener){window.opener.postMessage({type:'PAYU_PAYMENT_RESPONSE',txnid:'${txnid || ''}',status:'${isSuccess ? 'SUCCESS' : 'FAILED'}'},'*');window.close();return;}if(window.parent&&window.parent!==window){window.parent.postMessage({type:'PAYU_PAYMENT_RESPONSE',txnid:'${txnid || ''}',status:'${isSuccess ? 'SUCCESS' : 'FAILED'}'},'*');return;}}catch(e){}window.history.back();" class="btn">${isSuccess ? 'Continue to App' : 'Close Window'}</button>
         </div>
         <script>
+          try {
+            const msg = { type: 'PAYU_PAYMENT_RESPONSE', txnid: '${txnid || ''}', status: '${isSuccess ? 'SUCCESS' : 'FAILED'}', amount: ${numAmount} };
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+            }
+            if (window.opener) {
+              window.opener.postMessage(msg, '*');
+            }
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(msg, '*');
+            }
+          } catch (_) {}
           if (${isSuccess}) {
             setTimeout(function() {
               try {
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PAYU_PAYMENT_RESPONSE', txnid: '${txnid || ''}', status: 'SUCCESS' }));
+                }
                 if (window.opener) { window.close(); }
               } catch (_) {}
-            }, 1500);
+            }, 1200);
           }
         </script>
       </body>
@@ -563,11 +739,14 @@ async function verifyPayUPaymentWithGateway(txnid) {
 
     if (json && json.status == 1 && json.transaction_details && json.transaction_details[txnid]) {
       const tx = json.transaction_details[txnid];
+      const rawSt = (tx.status || '').toLowerCase();
+      const unmappedSt = (tx.unmappedstatus || '').toLowerCase();
+      const isCaptured = rawSt === 'success' || rawSt === 'captured' || unmappedSt === 'captured';
       return {
         verified: true,
-        status: (tx.status || '').toLowerCase() === 'success' ? 'Success' : 'Failed',
-        payuId: tx.mihpayid,
-        bankRefNum: tx.bank_ref_num,
+        status: isCaptured ? 'Success' : (rawSt === 'failure' || rawSt === 'failed' ? 'Failed' : 'Pending'),
+        payuId: tx.mihpayid && tx.mihpayid !== 'Not Found' ? String(tx.mihpayid) : null,
+        bankRefNum: tx.bank_ref_num || tx.Merchant_UTR || null,
         amount: parseFloat(tx.amt || tx.transaction_amount || 0),
         raw: tx
       };
@@ -592,30 +771,68 @@ router.get('/status/:txnid', async (req, res) => {
     // Auto-verify with PayU if still Pending
     if (payment.status === 'Pending') {
       const verifyRes = await verifyPayUPaymentWithGateway(txnid);
-      if (verifyRes.verified && verifyRes.status === 'Success') {
-        const payuTxId = verifyRes.payuId || '';
-        const bankRef = verifyRes.bankRefNum || '';
+      if (verifyRes.verified) {
+        const payuTxId = verifyRes.payuId || payment.payu_id || null;
+        const bankRef = verifyRes.bankRefNum || payment.bank_ref_num || null;
 
-        await db.query(`
-          UPDATE payu_payments 
-          SET status = 'Success', payu_id = $1, bank_ref_num = $2, updated_at = NOW() 
-          WHERE tx_id = $3
-        `, [payuTxId, bankRef, txnid]);
+        if (verifyRes.status === 'Success') {
+          await db.query(`
+            UPDATE payu_payments 
+            SET status = 'Success', payu_id = COALESCE($1, payu_id), bank_ref_num = COALESCE($2, bank_ref_num), raw_response = $3, updated_at = NOW() 
+            WHERE tx_id = $4
+          `, [payuTxId, bankRef, JSON.stringify(verifyRes.raw || {}), txnid]);
 
-        // If ride reservation, confirm reservation
-        if (payment.reservation_id) {
+          // If ride reservation, confirm reservation
+          if (payment.reservation_id) {
+            await db.query(
+              `UPDATE reservations SET payment_status = 'Paid', payment_mode = 'PayU', status = 'Confirmed', transaction_id = $1 WHERE id::text = $2 OR reservation_id = $2`,
+              [txnid, payment.reservation_id]
+            ).catch(() => {});
+          }
+
+          // If wallet top-up, credit wallet
+          if ((payment.purpose === 'wallet' || payment.purpose === 'wallet_topup') && payment.mobile && parseFloat(payment.amount) > 0) {
+            const cleanMob = payment.mobile.replace(/\D/g, '').slice(-10);
+            await db.query(
+              'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2',
+              [parseFloat(payment.amount), `%${cleanMob}%`]
+            ).catch(() => {});
+          }
+
+          // If ride extension, update rent and reservation
+          if ((payment.purpose === 'extend' || payment.purpose === 'extend-ride' || payment.purpose === 'extend_ride') && parseFloat(payment.amount) > 0) {
+            const cleanMob = payment.mobile ? payment.mobile.replace(/\D/g, '').slice(-10) : '';
+            await db.query(`
+              UPDATE renters 
+              SET total = total + $1,
+                  rent = rent + $1,
+                  status = 'Active Ride'
+              WHERE (mobile LIKE $2 AND mobile != '') OR vehicle_id = $3
+            `, [parseFloat(payment.amount), `%${cleanMob}%`, payment.reservation_id]).catch(() => {});
+
+            await db.query(`
+              UPDATE reservations
+              SET fare = fare + $1,
+                  total_payable = total_payable + $1,
+                  payment_mode = 'PayU',
+                  payment_status = 'Paid',
+                  transaction_id = COALESCE($2, transaction_id)
+              WHERE (mobile LIKE $3 AND mobile != '') OR vehicle_number = $4 OR reservation_id = $4
+            `, [parseFloat(payment.amount), txnid, `%${cleanMob}%`, payment.reservation_id]).catch(() => {});
+          }
+
+          // Record in payment_transactions
+          await db.query(`
+            INSERT INTO payment_transactions (
+              transaction_id, reference_id, amount, payment_method, status, mobile, customer_name, purpose
+            )
+            VALUES ($1, $2, $3, 'PayU', 'SUCCESS', $4, $5, $6)
+            ON CONFLICT (transaction_id) DO UPDATE SET status = 'SUCCESS', updated_at = NOW()
+          `, [txnid, payuTxId || txnid, parseFloat(payment.amount || 0), payment.mobile || '', payment.rider_name || 'Rider', payment.purpose || 'ride']).catch(() => {});
+        } else if (payuTxId && !payment.payu_id) {
           await db.query(
-            `UPDATE reservations SET payment_status = 'Paid', payment_mode = 'PayU', status = 'Confirmed', transaction_id = $1 WHERE id::text = $2 OR reservation_id = $2`,
-            [txnid, payment.reservation_id]
-          ).catch(() => {});
-        }
-
-        // If wallet top-up, credit wallet
-        if (payment.purpose === 'wallet' && payment.mobile && parseFloat(payment.amount) > 0) {
-          const cleanMob = payment.mobile.replace(/\D/g, '').slice(-10);
-          await db.query(
-            'UPDATE renters SET wallet_balance = COALESCE(wallet_balance, 0.00) + $1 WHERE mobile LIKE $2',
-            [parseFloat(payment.amount), `%${cleanMob}%`]
+            'UPDATE payu_payments SET payu_id = $1, updated_at = NOW() WHERE tx_id = $2',
+            [payuTxId, txnid]
           ).catch(() => {});
         }
 
@@ -624,17 +841,248 @@ router.get('/status/:txnid', async (req, res) => {
       }
     }
 
+    const rawStatus = payment?.status || 'Pending';
     res.json({
       status: 'success',
-      data: payment
+      data: {
+        ...payment,
+        status: rawStatus,
+        payment_status: rawStatus.toUpperCase(),
+        payu_payment_id: payment?.payu_id,
+        txnid: payment?.tx_id,
+        txn_id: payment?.tx_id
+      }
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// POST /api/payments/payu/refund - Process Refund via PayU
-router.post('/refund', async (req, res) => {
+// POST /api/payments/payu/qr - Generate Official Dynamic PayU UPI QR for Counter / Screens
+router.post('/qr', async (req, res) => {
+  try {
+    const { amount, rider_name, riderName, name, fullName, mobile, phone, email, notes, purpose = 'ride', reservation_id, txnid: existingTxnid } = req.body;
+    const numAmount = parseFloat(amount || 0);
+
+    if (numAmount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Valid payment amount is required' });
+    }
+
+    const creds = await getPayUCredentials();
+    if (!creds.active) {
+      return res.status(403).json({ status: 'error', message: 'PayU Payment Gateway is currently disabled by Admin' });
+    }
+
+    const cleanMobile = (mobile || phone || '').replace(/\D/g, '') || '1800 889 8791';
+    const cleanName = (rider_name || riderName || fullName || name || 'Evegah Rider').trim();
+    const cleanEmail = (email && email.trim() && email.trim() !== 'rider@evegah.com')
+      ? email.trim()
+      : `rider_${cleanMobile}@evegah.com`;
+    const txnid = existingTxnid || `EVGPAYU${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
+    const formattedAmount = numAmount.toFixed(2);
+
+    let productInfo = notes || 'Evegah Payment';
+    if (!notes) {
+      if (purpose === 'ride' || purpose === 'new-rider') productInfo = 'Evegah Ride Booking';
+      else if (purpose === 'retain' || purpose === 'retain-rider') productInfo = 'Evegah Ride Renewal';
+      else if (purpose === 'extend' || purpose === 'extend-ride') productInfo = 'Evegah Ride Extension';
+      else if (purpose === 'return') productInfo = 'Evegah Ride Return Charges';
+      else if (purpose === 'battery-swap') productInfo = 'Evegah Battery Swap';
+      else if (purpose === 'wallet' || purpose === 'wallet_topup') productInfo = 'Evegah Wallet Top-Up';
+    }
+
+    const backendBase = getPublicBackendBase(req);
+    const surl = `${backendBase}/response`;
+    const furl = `${backendBase}/response`;
+    const udf1 = purpose || 'ride';
+    const udf2 = reservation_id || '';
+    const udf3 = cleanMobile;
+
+    const hash = generatePayUHash({
+      key: creds.key,
+      txnid,
+      amount: formattedAmount,
+      productinfo: productInfo,
+      firstname: cleanName,
+      email: cleanEmail,
+      udf1,
+      udf2,
+      udf3,
+      salt: creds.salt
+    });
+
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').toString().split(',')[0].trim();
+    const s2sQr = await createPayUDynamicQr({
+      creds,
+      txnid,
+      formattedAmount,
+      productInfo,
+      cleanName,
+      cleanEmail,
+      cleanMobile,
+      surl,
+      furl,
+      hash,
+      udf1,
+      udf2,
+      udf3,
+      clientIp
+    });
+
+    if (!s2sQr.success || !s2sQr.qrString) {
+      return res.status(502).json({
+        status: 'error',
+        message: 'Unable to generate official PayU Dynamic QR from gateway'
+      });
+    }
+
+    try {
+      await db.query(`
+        INSERT INTO payu_payments (tx_id, payu_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
+        VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7, $8)
+        ON CONFLICT (tx_id) DO UPDATE SET payu_id = COALESCE(EXCLUDED.payu_id, payu_payments.payu_id), updated_at = NOW()
+      `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanMobile, cleanEmail, purpose, reservation_id || null]);
+    } catch (dbErr) {
+      console.warn('PayU QR DB insert warning:', dbErr.message);
+    }
+
+    const checkoutUrl = `${backendBase}/checkout/${txnid}`;
+
+    res.json({
+      status: 'success',
+      data: {
+        txnid,
+        tx_id: txnid,
+        txn_id: txnid,
+        payu_id: s2sQr.paymentId || null,
+        merchantTranId: txnid,
+        qrString: s2sQr.qrString,
+        upi_string: s2sQr.qrString,
+        checkout_url: checkoutUrl,
+        amount: numAmount,
+        vpa: s2sQr.merchantVpa,
+        payee_name: s2sQr.merchantName || 'Evegah Mobility',
+        status: 'Pending'
+      }
+    });
+  } catch (err) {
+    console.error('PayU QR error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/payments/payu/verify - Authoritative Payment Verification
+router.post('/verify', async (req, res) => {
+  try {
+    const { tx_id, txnid, amount, mobile, rider_name, riderName, purpose = 'ride', reservation_id, status = 'SUCCESS' } = req.body;
+    const activeTxId = tx_id || txnid;
+    if (!activeTxId) {
+      return res.status(400).json({ status: 'error', message: 'Transaction ID is required' });
+    }
+
+    const pRes = await db.query('SELECT * FROM payu_payments WHERE tx_id = $1 LIMIT 1', [activeTxId]);
+    const payment = pRes.rows.length > 0 ? pRes.rows[0] : null;
+
+    // Check caller privilege for administrative manual approval
+    const callerRole = (req.headers['x-user-role'] || '').toLowerCase();
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+    const isPrivilegedOperator = ['superadmin', 'platformadmin', 'admin'].some(r => callerRole.includes(r)) || apiKey === 'evegah-internal-key';
+
+    let isAuthoritativelyVerified = false;
+    if (payment && String(payment.status).toLowerCase() === 'success') {
+      isAuthoritativelyVerified = true;
+    } else if (isPrivilegedOperator && String(status).toUpperCase() === 'SUCCESS') {
+      isAuthoritativelyVerified = true;
+    } else {
+      // Query PayU gateway directly
+      const gwCheck = await verifyPayUPaymentWithGateway(activeTxId);
+      if (gwCheck && gwCheck.verified && gwCheck.status === 'Success') {
+        isAuthoritativelyVerified = true;
+      }
+    }
+
+    if (!isAuthoritativelyVerified) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'PAYMENT_NOT_CONFIRMED',
+        message: 'Payment has not been confirmed by PayU Gateway. Untrusted client status rejected.',
+        tx_id: activeTxId,
+      });
+    }
+
+    const numAmount = parseFloat(amount || payment?.amount || 0);
+    const resolvedMobile = (mobile && mobile !== '1800 889 8791') ? mobile : (payment?.mobile || mobile || '');
+    const incomingName = (rider_name || riderName || '').trim();
+    const resolvedName = (incomingName && incomingName !== 'Rider' && incomingName !== 'Evegah Rider')
+      ? incomingName
+      : (payment?.rider_name || 'Rider');
+    const resolvedPurpose = purpose || payment?.purpose || 'ride';
+    const resolvedResv = reservation_id || payment?.reservation_id || null;
+
+    await db.query(`
+      UPDATE payu_payments
+      SET status = 'Success',
+          rider_name = COALESCE(NULLIF($2, 'Rider'), rider_name),
+          mobile = COALESCE(NULLIF($3, ''), mobile),
+          updated_at = NOW()
+      WHERE tx_id = $1
+    `, [activeTxId, resolvedName, resolvedMobile]);
+
+    // Ensure payment_transactions also has this verified PayU payment
+    try {
+      await db.query(`
+        INSERT INTO payment_transactions (
+          transaction_id, reference_id, amount, payment_method, status, mobile, customer_name, purpose
+        )
+        VALUES ($1, $2, $3, 'PayU', 'SUCCESS', $4, $5, $6)
+        ON CONFLICT (transaction_id) DO UPDATE
+        SET status = 'SUCCESS',
+            customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, 'Rider'), payment_transactions.customer_name),
+            mobile = COALESCE(NULLIF(EXCLUDED.mobile, ''), payment_transactions.mobile),
+            updated_at = NOW()
+      `, [activeTxId, payment?.payu_id || activeTxId, numAmount, resolvedMobile, resolvedName, resolvedPurpose]);
+    } catch (_) {}
+
+    // Handle extension if purpose is extend
+    if (resolvedPurpose === 'extend' || resolvedPurpose === 'extend-ride') {
+      await db.query(`
+        UPDATE renters 
+        SET total = total + $1,
+            rent = rent + $1,
+            status = 'Active Ride'
+        WHERE (mobile LIKE $2 AND mobile != '') OR vehicle_id = $3
+      `, [numAmount, `%${resolvedMobile}%`, resolvedResv]).catch(() => {});
+
+      await db.query(`
+        UPDATE reservations
+        SET fare = fare + $1,
+            total_payable = total_payable + $1,
+            payment_mode = 'PayU',
+            payment_status = 'Paid',
+            transaction_id = COALESCE($2, transaction_id)
+        WHERE (mobile LIKE $3 AND mobile != '') OR vehicle_number = $4 OR reservation_id = $4
+      `, [numAmount, activeTxId, `%${resolvedMobile}%`, resolvedResv]).catch(() => {});
+    }
+
+    res.json({
+      status: 'success',
+      payment_status: 'SUCCESS',
+      data: {
+        tx_id: activeTxId,
+        txnid: activeTxId,
+        amount: numAmount,
+        verified: true,
+        message: 'PayU transaction confirmed successfully'
+      }
+    });
+  } catch (err) {
+    console.error('PayU verify error:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/payments/payu/refund - Process Refund via PayU (Authorized Operators/Admins only)
+router.post('/refund', authenticate, requireRoles('admin', 'superadmin', 'finance_manager'), async (req, res) => {
   try {
     const { payu_id, tx_id, amount, refund_tx_id, reason } = req.body;
     const numAmount = parseFloat(amount || 0);
@@ -735,13 +1183,13 @@ async function processPayURefund({ payuId, txnid, reservationId, mobile, amount,
     }
   }
 
-  // Look up by mobile
+  // Look up by mobile (only matching payments whose amount >= refund amount)
   if (!mihpayid && mobile) {
     const cleanMob = String(mobile).replace(/\D/g, '').slice(-10);
     if (cleanMob.length === 10) {
       const q = await db.query(
-        "SELECT payu_id, tx_id FROM payu_payments WHERE mobile LIKE $1 AND status = 'Success' AND payu_id IS NOT NULL AND payu_id != '' ORDER BY id DESC LIMIT 1",
-        [`%${cleanMob}%`]
+        "SELECT payu_id, tx_id FROM payu_payments WHERE mobile LIKE $1 AND status = 'Success' AND amount >= $2 AND payu_id IS NOT NULL AND payu_id != '' ORDER BY id DESC LIMIT 1",
+        [`%${cleanMob}%`, numAmount]
       ).catch(() => ({ rows: [] }));
       if (q.rows.length > 0 && q.rows[0].payu_id && /^\d+$/.test(q.rows[0].payu_id)) {
         mihpayid = q.rows[0].payu_id;

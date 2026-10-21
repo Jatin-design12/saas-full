@@ -537,7 +537,7 @@ export default function RetainRiderRentalPage() {
   }, [batteriesList, selectedBatteryId]);
 
   const rentPrice = Number(selectedPackage?.base_fare) || 600;
-  const depositAmount = Number(selectedPackage?.deposit_amount) || Number(rider?.deposit) || 500;
+  const depositAmount = Number(selectedPackage?.deposit_amount ?? selectedPackage?.deposit ?? rider?.deposit ?? 0);
   const totalAmount = rentPrice + depositAmount;
 
   // Handle Continue to Payment
@@ -575,9 +575,9 @@ export default function RetainRiderRentalPage() {
     router.push('/retain-rider/payment');
   };
 
-  const riderName = rider?.name || rider?.fullName || 'Akash Verma';
-  const riderPhone = rider?.phone || rider?.mobile || '+91 98765 43210';
-  const riderId = rider?.id || rider?.riderId || 'RDR00124';
+  const riderName = rider?.name || rider?.fullName || 'Returning Rider';
+  const riderPhone = rider?.phone || rider?.mobile || '—';
+  const riderId = rider?.id || rider?.riderId || '—';
 
   return (
     <>

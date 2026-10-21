@@ -47,6 +47,17 @@ class BatteryModel {
   final List<double> voltHistory;
   final List<double> currentHistory;
 
+  // Last telemetry timestamp & Stale data tracking
+  final DateTime? lastUpdatedAt;
+
+  // Active hardware faults detected
+  final List<String> faults;
+
+  bool get isStale {
+    if (lastUpdatedAt == null) return false;
+    return DateTime.now().difference(lastUpdatedAt!).inSeconds > 10;
+  }
+
   const BatteryModel({
     required this.id,
     required this.name,
@@ -76,6 +87,8 @@ class BatteryModel {
     this.tempHistory = const [],
     this.voltHistory = const [],
     this.currentHistory = const [],
+    this.lastUpdatedAt,
+    this.faults = const [],
   });
 
   BatteryModel copyWith({
@@ -107,6 +120,8 @@ class BatteryModel {
     List<double>? tempHistory,
     List<double>? voltHistory,
     List<double>? currentHistory,
+    DateTime? lastUpdatedAt,
+    List<String>? faults,
   }) {
     return BatteryModel(
       id: id ?? this.id,
@@ -137,6 +152,8 @@ class BatteryModel {
       tempHistory: tempHistory ?? this.tempHistory,
       voltHistory: voltHistory ?? this.voltHistory,
       currentHistory: currentHistory ?? this.currentHistory,
+      lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+      faults: faults ?? this.faults,
     );
   }
 }

@@ -48,7 +48,7 @@ class EmployeeListNotifier extends StateNotifier<EmployeeListState> {
               'id': 'USR-001',
               'name': 'Akash Verma',
               'email': 'akash.verma@evegah.com',
-              'mobile': '9876543210',
+              'mobile': '1800 889 8791',
               'role': 'Zone Admin',
               'zone': 'Connaught Place Zone',
               'lastLogin': '20 May 2024, 10:30 AM',

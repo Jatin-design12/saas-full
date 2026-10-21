@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/employee_theme.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/local_storage_service.dart';
 import 'booking_agent_home_screen.dart';
 
 class BatterySwapConfirmScreen extends StatefulWidget {
@@ -58,7 +60,7 @@ class _BatterySwapConfirmScreenState extends State<BatterySwapConfirmScreen> {
                 border: Border.all(color: EmployeeTheme.borderColor),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.015),
+                    color: Colors.black.withValues(alpha: 0.015),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -129,8 +131,47 @@ class _BatterySwapConfirmScreenState extends State<BatterySwapConfirmScreen> {
                     ? null
                     : () async {
                         setState(() => _isSubmitting = true);
-                        await Future.delayed(const Duration(seconds: 1));
-                        if (!mounted) return;
+
+                        final swapData = {
+                          'client_tx_id': 'SWAP_${DateTime.now().millisecondsSinceEpoch}',
+                          'rider_name': widget.selectedItem['riderName'] ?? 'Rider',
+                          'rider_mobile': widget.selectedItem['phone'] ?? '',
+                          'vehicle_number': widget.selectedItem['plate'] ?? '',
+                          'old_battery_id': widget.selectedItem['batteryId'] ?? '',
+                          'old_battery_soc': widget.selectedItem['soc'] ?? 15,
+                          'new_battery_id': widget.newBattery['serial'] ?? widget.newBattery['id'] ?? '',
+                          'new_battery_soc': widget.newBattery['soc'] ?? 100,
+                          'amount': widget.netPayable,
+                          'payment_mode': widget.paymentMethod,
+                          'zone': widget.selectedItem['zone'] ?? 'Gotri Zone',
+                          'station': 'Central Swap Station',
+                        };
+
+                        bool isOnlineSuccess = false;
+                        String swapId = 'SWAP-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+                        try {
+                          final client = ApiClient();
+                          client.updateBaseUrl();
+                          final res = await client.dio.post(
+                            '/batteries/swap',
+                            data: swapData,
+                          );
+
+                          if (res.statusCode == 200 || res.statusCode == 201) {
+                            isOnlineSuccess = true;
+                            if (res.data?['swap']?['swap_id'] != null) {
+                              swapId = res.data['swap']['swap_id'].toString();
+                            }
+                          }
+                        } catch (e) {
+                          debugPrint('Online swap failed, queueing offline: $e');
+                          await LocalStorageService.queueBatterySwap(swapData);
+                        } finally {
+                          if (mounted) setState(() => _isSubmitting = false);
+                        }
+
+                        if (!mounted || !context.mounted) return;
 
                         // Show Success Dialog
                         showDialog(
@@ -151,10 +192,15 @@ class _BatterySwapConfirmScreenState extends State<BatterySwapConfirmScreen> {
                                   child: const Icon(Icons.check_circle_rounded, color: EmployeeTheme.successGreen, size: 36),
                                 ),
                                 const SizedBox(height: 16),
-                                const Text("Battery Swap Authorized!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: EmployeeTheme.textDark)),
+                                Text(
+                                  isOnlineSuccess ? "Battery Swap Authorized!" : "Swap Queued Offline!",
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: EmployeeTheme.textDark),
+                                ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  "Swap ID: SWAP-9841\nBattery ${widget.newBattery['serial']} (100% SOC) activated on vehicle ${widget.selectedItem['plate']}.",
+                                  isOnlineSuccess
+                                      ? "Swap ID: $swapId\nBattery ${widget.newBattery['serial']} (100% SOC) activated on vehicle ${widget.selectedItem['plate']}."
+                                      : "Swap saved securely on device.\nIt will sync automatically with the server once connectivity is restored.",
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(fontSize: 11.5, color: EmployeeTheme.textSecondary),
                                 ),

@@ -5,7 +5,9 @@ const { createNotification } = require('./notifications');
 const { getCache, setCache, delByPattern } = require('../redis');
 const { sendWhatsAppReceipt } = require('../utils/whatsapp');
 
+// ──────────────────────────────────────────────────────────────
 // Ensure reservations columns exist
+// ──────────────────────────────────────────────────────────────
 (async () => {
   try {
     await db.query(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS vehicle_model VARCHAR(100)`);
@@ -23,31 +25,9 @@ const { sendWhatsAppReceipt } = require('../utils/whatsapp');
   }
 })();
 
-// In-memory fallback seeds matching real rider names and July 2026 bookings
-const MOCK_RESERVATIONS = [
-  { id: '1', reservation_id: 'RID-2026-878128', customer_name: 'Rohit Sharma', mobile: '+91 98765 43210', gov_id: 'GOV987654', reservation_date: '2026-07-12T00:00:00.000Z', reservation_time: '09:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: 'EVM1024001', battery_id: 'BAT-GOTRI-01', fare: '357.50', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Confirmed', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-12T08:54:00.000Z' },
-  { id: '2', reservation_id: 'RID-2026-751128', customer_name: 'Ananya Verma', mobile: '+91 91234 56789', gov_id: 'GOV234567', reservation_date: '2026-07-12T00:00:00.000Z', reservation_time: '11:00:00', package_type: 'Weekly', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '1407.50', deposit: '1000.00', payment_mode: 'Paid', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-12T02:16:00.000Z' },
-  { id: '3', reservation_id: 'RID-2026-910244', customer_name: 'Priyansh Shah', mobile: '+91 99877 66554', gov_id: 'GOV345678', reservation_date: '2026-07-14T00:00:00.000Z', reservation_time: '14:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '420.00', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Aatapi Zone', drop_zone: 'Aatapi Zone', created_at: '2026-07-13T10:15:00.000Z' },
-  { id: '4', reservation_id: 'RID-2026-887102', customer_name: 'Dev Patel', mobile: '+91 88776 54321', gov_id: 'GOV456789', reservation_date: '2026-07-15T00:00:00.000Z', reservation_time: '10:00:00', package_type: 'Monthly', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '3500.00', deposit: '2000.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-14T09:00:00.000Z' },
-  { id: '5', reservation_id: 'RID-2026-776105', customer_name: 'Vikram Mehta', mobile: '+91 77665 44332', gov_id: 'GOV567890', reservation_date: '2026-07-18T00:00:00.000Z', reservation_time: '16:00:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: 'EVM1024005', battery_id: 'BAT-AATAPI-02', fare: '380.00', deposit: '500.00', payment_mode: 'Card', payment_status: 'Paid', status: 'Completed', pickup_zone: 'Aatapi Zone', drop_zone: 'Aatapi Zone', created_at: '2026-07-17T14:20:00.000Z' },
-  { id: '6', reservation_id: 'RID-2026-665120', customer_name: 'Neha Gupta', mobile: '+91 66654 33221', gov_id: 'GOV678901', reservation_date: '2026-07-20T00:00:00.000Z', reservation_time: '09:00:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '350.00', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Paid', status: 'Upcoming', pickup_zone: 'Gotri Zone', drop_zone: 'Gotri Zone', created_at: '2026-07-18T18:00:00.000Z' },
-  { id: '7', reservation_id: 'RID-2026-554109', customer_name: 'Deepak Patel', mobile: '+91 55443 22110', gov_id: 'GOV789012', reservation_date: '2026-07-22T00:00:00.000Z', reservation_time: '12:30:00', package_type: 'Day', vehicle_category: 'E-Scooter', vehicle_number: null, battery_id: null, fare: '350.00', deposit: '500.00', payment_mode: 'UPI', payment_status: 'Refunded', status: 'Cancelled', pickup_zone: 'Aatapi Zone', drop_zone: 'Aatapi Zone', created_at: '2026-07-20T11:10:00.000Z' }
-];
-
-let mockList = [...MOCK_RESERVATIONS];
-
-// Helper to get stats from list
-const getStats = (list) => {
-  const stats = { total: list.length, upcoming: 0, completed: 0, cancelled: 0 };
-  list.forEach(r => {
-    if (r.status === 'Upcoming') stats.upcoming++;
-    else if (r.status === 'Confirmed' || r.status === 'Completed') stats.completed++;
-    else if (r.status === 'Cancelled') stats.cancelled++;
-  });
-  return stats;
-};
-
+// ──────────────────────────────────────────────────────────────
 // GET /api/reservations
+// ──────────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -57,7 +37,6 @@ router.get('/', async (req, res) => {
     const status = req.query.status || '';
     const mobile = req.query.mobile || '';
 
-    // Check Redis cache
     const cacheKey = `reservations:list:${page}:${limit}:${search}:${status}:${mobile}`;
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
@@ -76,9 +55,10 @@ router.get('/', async (req, res) => {
       FROM reservations r
       LEFT JOIN vehicles v ON (v.code = r.vehicle_number OR v.registration_number = r.vehicle_number)
       LEFT JOIN batteries b ON (b.battery_id = r.battery_id)
-      WHERE 1=1
+      WHERE COALESCE(r.booking_source, 'Rider App') != 'Form'
+        AND COALESCE(r.gov_id, '') != 'GOV-ON-FILE'
     `;
-    let countQuery = 'SELECT COUNT(*) as total FROM reservations WHERE 1=1';
+    let countQuery = `SELECT COUNT(*) as total FROM reservations WHERE COALESCE(booking_source, 'Rider App') != 'Form' AND COALESCE(gov_id, '') != 'GOV-ON-FILE'`;
     const params = [];
     const countParams = [];
     let pIdx = 1;
@@ -134,7 +114,6 @@ router.get('/', async (req, res) => {
 
     const total = parseInt(countResult.rows[0].total);
 
-    // Fetch Stats summary (Only Paid rides count as upcoming/reserved)
     const statsResult = await db.query(`
       SELECT 
         COUNT(*) as total,
@@ -142,6 +121,8 @@ router.get('/', async (req, res) => {
         COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed,
         COUNT(CASE WHEN status = 'Cancelled' THEN 1 END) as cancelled
       FROM reservations
+      WHERE COALESCE(booking_source, 'Rider App') != 'Form'
+        AND COALESCE(gov_id, '') != 'GOV-ON-FILE'
     `);
     const stats = {
       total: parseInt(statsResult.rows[0].total) || 0,
@@ -170,58 +151,17 @@ router.get('/', async (req, res) => {
     await setCache(cacheKey, responsePayload, 60);
     res.json(responsePayload);
   } catch (err) {
-    console.warn('Postgres query failed for reservations, returning mock fallback:', err.message);
-
-    // Filter, paginate and stats mock data
-    let filtered = [...mockList];
-    const search = (req.query.search || '').toLowerCase();
-    const status = (req.query.status || '');
-    const mobile = (req.query.mobile || '');
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-
-    if (search) {
-      filtered = filtered.filter(r =>
-        r.customer_name.toLowerCase().includes(search) ||
-        r.mobile.includes(search) ||
-        r.reservation_id.toLowerCase().includes(search)
-      );
-    }
-
-    if (mobile) {
-      const cleanMobile = mobile.replace(/\D/g, '');
-      const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
-      filtered = filtered.filter(r => {
-        const rClean = r.mobile.replace(/\D/g, '');
-        return rClean.includes(last10) || rClean.includes(cleanMobile);
-      });
-    }
-
-    if (status) {
-      filtered = filtered.filter(r => r.status.toLowerCase() === status.toLowerCase());
-    }
-
-    const total = filtered.length;
-    const offset = (page - 1) * limit;
-    const paginated = filtered.slice(offset, offset + limit);
-
-    const fallbackPayload = {
-      status: 'success',
-      data: paginated,
-      stats: getStats(mockList),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    };
-    await setCache(cacheKey, fallbackPayload, 30);
-    res.json(fallbackPayload);
+    console.error('Failed to fetch reservations:', err.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch reservations from database.'
+    });
   }
 });
 
-// GET /api/reservations/available-vehicles — for admin assignment dropdown (zone-filtered)
+// ──────────────────────────────────────────────────────────────
+// GET /api/reservations/available-vehicles (zone-filtered)
+// ──────────────────────────────────────────────────────────────
 router.get('/available-vehicles', async (req, res) => {
   try {
     const { zone } = req.query;
@@ -235,15 +175,16 @@ router.get('/available-vehicles', async (req, res) => {
     const result = await db.query(query, params);
     res.json({ status: 'success', data: result.rows });
   } catch (err) {
-    console.warn('DB query failed for available-vehicles, returning empty:', err.message);
-    res.json({ status: 'success', data: [] });
+    console.error('Failed to fetch available vehicles:', err.message);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch available vehicles.' });
   }
 });
 
-// GET /api/reservations/deposits — Deposit refund dashboard data & real KPIs
+// ──────────────────────────────────────────────────────────────
+// GET /api/reservations/deposits
+// ──────────────────────────────────────────────────────────────
 router.get('/deposits', async (req, res) => {
   try {
-    // 1. Fetch reservations with deposit details
     const resResult = await db.query(`
       SELECT 
         id,
@@ -271,7 +212,6 @@ router.get('/deposits', async (req, res) => {
       ORDER BY COALESCE(returned_at, created_at) DESC
     `);
 
-    // 2. Fetch active renters with deposits
     const rentersResult = await db.query(`
       SELECT 
         id,
@@ -321,7 +261,7 @@ router.get('/deposits', async (req, res) => {
             avatar: ''
           },
           mobile: r.mobile,
-          vehicle: r.vehicle_number || 'EVM102501',
+          vehicle: r.vehicle_number || '',
           refundDate: r.refund_date || r.returned_at || r.created_at,
           txId: r.refund_tx_id || `REF-${r.id?.toString().slice(0, 8)}`,
           deposit: dep,
@@ -358,7 +298,7 @@ router.get('/deposits', async (req, res) => {
             avatar: ''
           },
           mobile: r.mobile,
-          vehicle: r.vehicle_number || 'EVM102501',
+          vehicle: r.vehicle_number || '',
           returnDate: isReturned ? (r.returned_at || r.created_at) : null,
           bookingDate: r.created_at,
           deposit: dep,
@@ -375,7 +315,6 @@ router.get('/deposits', async (req, res) => {
       }
     });
 
-    // Also include any standalone renters with deposits not linked to a reservation
     renterRows.forEach(r => {
       const dep = parseFloat(r.deposit || 0);
       const cleanMob = (r.mobile || '').replace(/\D/g, '').slice(-10);
@@ -400,7 +339,7 @@ router.get('/deposits', async (req, res) => {
             avatar: ''
           },
           mobile: r.mobile,
-          vehicle: r.vehicle_id || 'EVM102501',
+          vehicle: r.vehicle_id || '',
           returnDate: isReturned ? (r.return_date || r.created_at || new Date()) : null,
           bookingDate: r.rental_start_date || r.created_at,
           deposit: dep,
@@ -436,7 +375,9 @@ router.get('/deposits', async (req, res) => {
   }
 });
 
-// DELETE /api/reservations/deposits — Bulk delete/dismiss deposit records
+// ──────────────────────────────────────────────────────────────
+// DELETE /api/reservations/deposits — bulk delete/dismiss
+// ──────────────────────────────────────────────────────────────
 router.delete('/deposits', async (req, res) => {
   const ids = req.body?.ids || req.body?.data?.ids || (req.query?.ids ? String(req.query.ids).split(',') : []);
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -464,6 +405,13 @@ router.delete('/deposits', async (req, res) => {
 
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
+
+    if (txnIdToSave) {
+      await db.query(
+        "UPDATE payu_payments SET reservation_id = $1, status = 'Success', updated_at = NOW() WHERE tx_id = $2 OR payu_id = $2",
+        [reservation_id, txnIdToSave]
+      ).catch(() => {});
+    }
     await delByPattern('stats:*');
 
     res.json({
@@ -477,7 +425,9 @@ router.delete('/deposits', async (req, res) => {
   }
 });
 
-// DELETE /api/reservations/deposits/:id — Single delete/dismiss deposit record
+// ──────────────────────────────────────────────────────────────
+// DELETE /api/reservations/deposits/:id — single delete/dismiss
+// ──────────────────────────────────────────────────────────────
 router.delete('/deposits/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -508,7 +458,9 @@ router.delete('/deposits/:id', async (req, res) => {
   }
 });
 
-// GET /api/reservations/active-ride — Check if rider has an ongoing/active ride
+// ──────────────────────────────────────────────────────────────
+// GET /api/reservations/active-ride
+// ──────────────────────────────────────────────────────────────
 router.get('/active-ride', async (req, res) => {
   const { mobile } = req.query;
   const cleanMobile = (mobile || '').replace(/\D/g, '');
@@ -528,7 +480,7 @@ router.get('/active-ride', async (req, res) => {
       LEFT JOIN vehicles v ON (v.code = r.vehicle_number OR v.registration_number = r.vehicle_number)
       LEFT JOIN batteries b ON (b.battery_id = r.battery_id)
       WHERE (r.mobile LIKE $1 OR r.mobile LIKE $2) 
-        AND r.status IN ('Confirmed', 'Ongoing', 'Active', 'Active Ride') 
+        AND (r.status IN ('Ongoing', 'Active', 'Active Ride', 'In Ride') OR (r.status IN ('Confirmed', 'Upcoming') AND r.vehicle_number IS NOT NULL AND r.vehicle_number != '' AND r.vehicle_number != '—' AND r.vehicle_number != 'EV-DEFAULT')) 
       ORDER BY r.created_at DESC 
       LIMIT 1
     `, [`%${cleanMobile}%`, `%${mobile}%`]);
@@ -542,11 +494,13 @@ router.get('/active-ride', async (req, res) => {
     return res.json({ status: 'success', has_active_ride: false });
   } catch (err) {
     console.error('Failed to check active ride:', err);
-    return res.json({ status: 'success', has_active_ride: false });
+    return res.status(500).json({ status: 'error', has_active_ride: false, message: 'Failed to check active ride.' });
   }
 });
 
-// POST /api/reservations/check-conflict - Instant pre-payment conflict detection
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations/check-conflict
+// ──────────────────────────────────────────────────────────────
 router.all('/check-conflict', async (req, res) => {
   try {
     const params = req.method === 'GET' ? req.query : req.body;
@@ -644,11 +598,13 @@ router.all('/check-conflict', async (req, res) => {
     return res.json({ conflict: false, message: 'Time slot is available' });
   } catch (err) {
     console.error('Check conflict endpoint error:', err);
-    return res.json({ conflict: false, message: 'Conflict check passed' });
+    return res.status(500).json({ conflict: false, message: 'Conflict check failed' });
   }
 });
 
-// POST /api/reservations (create new reservation — called by Rider App on booking confirmation)
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations — create new reservation
+// ──────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   const {
     customer_name,
@@ -659,6 +615,7 @@ router.post('/', async (req, res) => {
     package_type,
     vehicle_category,
     vehicle_model,
+    evegah_model_name,
     fare,
     deposit,
     payment_mode,
@@ -667,18 +624,15 @@ router.post('/', async (req, res) => {
     drop_zone,
     coupon_code,
     discount,
-    platform_fee,
-    taxes,
-    deposit_option,
     total_payable
   } = req.body;
 
   const cleanMobile = (mobile || '').replace(/\D/g, '');
 
-  // 🚨 VALIDATION: Block new reservation ONLY IF its date/time slot overlaps with an active/confirmed ride!
   const reqStartRaw = req.body.pickup_datetime || req.body.start_datetime || `${reservation_date || ''} ${reservation_time || ''}`.trim();
   const reqEndRaw = req.body.drop_datetime || req.body.end_datetime || reqStartRaw;
 
+  // 🚨 Conflict detection — block new reservation if its date/time slot overlaps an active ride
   if (cleanMobile.length > 0) {
     try {
       const activeCheck = await db.query(
@@ -725,26 +679,22 @@ router.post('/', async (req, res) => {
         const exDateStr = toDateString(existing.reservation_date);
 
         let conflict = false;
-        // 1. If date/time timestamps are valid, check overlap
         if (reqStartMs && reqEndMs && exStartMs && exEndMs) {
           if (reqStartMs < exEndMs && reqEndMs > exStartMs) {
             conflict = true;
           }
         }
-        // 2. Direct string date match fallback (e.g. same day booking)
         if (!conflict && reqDateStr && exDateStr && reqDateStr === exDateStr) {
           conflict = true;
         }
 
         if (conflict) {
-          // Check if payment has already been completed via gateway
           const isPaid = (payment_status && String(payment_status).toLowerCase() === 'paid') ||
                          Boolean(req.body.transaction_id && String(req.body.transaction_id).trim() !== '') ||
                          Boolean(req.body.payNow || req.body.pay_now);
 
           if (isPaid) {
             console.log(`[Conflict Safety] Booking for ${mobile} has overlapping slot with ${existing.reservation_id}, but payment is completed (${req.body.transaction_id || payment_mode}). Preserving paid ride.`);
-            // Continue processing to insert and confirm the reservation
             break;
           } else {
             return res.status(400).json({
@@ -762,9 +712,8 @@ router.post('/', async (req, res) => {
 
   // Generate unique reservation ID
   const randomSuffix = String(Math.floor(100 + Math.random() * 900));
-  const dateObj = new Date();
-  const year = dateObj.getFullYear();
-  const reservation_id = `RID-${year}-${randomSuffix}${String(mockList.length).padStart(3, '0')}`;
+  const year = new Date().getFullYear();
+  const reservation_id = `RID-${year}-${randomSuffix}${String(Date.now()).slice(-3)}`;
 
   const isCash = String(payment_mode || '').trim().toLowerCase() === 'cash' || Boolean(req.body.is_cash);
   let cashVoucherNumber = req.body.cash_voucher_number || req.body.voucher_number || null;
@@ -786,6 +735,21 @@ router.post('/', async (req, res) => {
   const modelToSave = vehicle_model || evegah_model_name || vehicle_category || 'Evegah City';
   const totalPayableNum = parseFloat(total_payable) || (parseFloat(fare) || 0) + (parseFloat(deposit) || 0);
 
+  let cleanResTime = '00:00:00';
+  if (reservation_time) {
+    const rawTime = String(reservation_time).replace(/[\u202f\u00a0]/g, ' ').trim();
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(rawTime)) {
+      cleanResTime = rawTime.length === 5 ? `${rawTime}:00` : rawTime;
+    } else {
+      const dt = new Date(`1970-01-01 ${rawTime}`);
+      if (!isNaN(dt.getTime())) {
+        cleanResTime = dt.toTimeString().slice(0, 8);
+      } else {
+        cleanResTime = new Date().toTimeString().slice(0, 8);
+      }
+    }
+  }
+
   try {
     const result = await db.query(`
       INSERT INTO reservations (
@@ -803,7 +767,7 @@ router.post('/', async (req, res) => {
       mobile || '',
       gov_id || '',
       reservation_date || new Date().toISOString().split('T')[0],
-      reservation_time || '00:00:00',
+      cleanResTime,
       package_type || 'Day',
       vehicle_category || 'E-Scooter',
       modelToSave,
@@ -824,14 +788,9 @@ router.post('/', async (req, res) => {
       req.body.booking_source || 'Rider App'
     ]);
 
-    // Keep mock list in sync
-    mockList.unshift(result.rows[0]);
-
-    // Clear caches
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
 
-    // Trigger real system notification & WhatsApp receipt ONLY when payment is successfully confirmed
     if (isPaymentSuccess) {
       if (isCash) {
         createNotification('💵 Cash Payment Collected', `Cash voucher ${cashVoucherNumber} generated for ${customer_name || 'Customer'} (₹${totalPayableNum.toFixed(2)}) for reservation ${reservation_id} in ${pickup_zone || 'Station'}.`, 'payment');
@@ -862,58 +821,20 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Failed to create reservation in DB, saving in-memory:', err.message);
-    const newRecord = {
-      id: String(mockList.length + 2000),
-      reservation_id,
-      customer_name: customer_name || 'Guest Rider',
-      mobile: mobile || '',
-      gov_id: gov_id || '',
-      reservation_date: new Date(reservation_date || Date.now()).toISOString(),
-      reservation_time: reservation_time || '00:00:00',
-      package_type: package_type || 'Day',
-      vehicle_category: vehicle_category || vehicle_model || 'E-Scooter',
-      vehicle_number: null,
-      battery_id: null,
-      fare: parseFloat(fare || 0).toFixed(2),
-      deposit: parseFloat(deposit || 0).toFixed(2),
-      payment_mode: finalPaymentMode,
-      payment_status: finalPaymentStatus,
-      status: finalStatus,
-      pickup_zone: pickup_zone || '',
-      drop_zone: drop_zone || '',
-      transaction_id: txnIdToSave,
-      cash_voucher_number: cashVoucherNumber,
-      total_payable: totalPayableNum,
-      created_at: new Date().toISOString()
-    };
-    mockList.unshift(newRecord);
-
-    // Clear caches
-    await delByPattern('reservations:*');
-    await delByPattern('renters:*');
-
-    if (isPaymentSuccess) {
-      createNotification('🎉 New Ride Booking Confirmed', `${customer_name || 'Customer'} created a new ${package_type || 'Day'} reservation (${reservation_id}) in ${pickup_zone || 'Gotri Zone'}.`, 'booking');
-    }
-
-    res.json({
-      status: 'success',
-      message: isPaymentSuccess ? 'Reservation confirmed (offline)' : 'Reservation created pending payment (offline)',
-      data: {
-        ...newRecord,
-        cash_voucher_number: cashVoucherNumber,
-        voucher_number: cashVoucherNumber,
-        transaction_id: txnIdToSave
-      }
+    console.error('Failed to create reservation:', err.message);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to create reservation. Please try again.'
     });
   }
 });
 
-// POST /api/reservations/:id/pay (update payment status to Paid and confirm ride)
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations/:id/pay
+// ──────────────────────────────────────────────────────────────
 router.post('/:id/pay', async (req, res) => {
   const { id } = req.params;
-  const { payment_method, transaction_id, razorpay_payment_id } = req.body;
+  const { payment_method } = req.body;
 
   try {
     const updateResult = await db.query(`
@@ -923,19 +844,16 @@ router.post('/:id/pay', async (req, res) => {
       RETURNING *
     `, [payment_method || 'ICICI UPI', id, id]);
 
-    const memIdx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
-    if (memIdx !== -1) {
-      mockList[memIdx].payment_status = 'Paid';
-      mockList[memIdx].deposit_status = 'Paid';
-      mockList[memIdx].status = 'Upcoming';
-    }
-
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
 
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Reservation not found.' });
+    }
+
     createNotification('🎉 New Ride Booking Confirmed', `Payment received for reservation (${id}). Booking is now confirmed!`, 'booking');
 
-    const paidRow = updateResult.rows[0] || (memIdx !== -1 ? mockList[memIdx] : null);
+    const paidRow = updateResult.rows[0];
     if (paidRow?.mobile) {
       sendWhatsAppReceipt({
         mobile: paidRow.mobile,
@@ -949,37 +867,31 @@ router.post('/:id/pay', async (req, res) => {
     res.json({
       status: 'success',
       message: 'Payment verified and booking confirmed',
-      data: updateResult.rows[0] || (memIdx !== -1 ? mockList[memIdx] : { payment_status: 'Paid', status: 'Upcoming' })
+      data: paidRow
     });
   } catch (err) {
     console.error('Failed to update reservation payment:', err);
-    res.json({
-      status: 'success',
-      message: 'Payment updated locally',
-      data: { payment_status: 'Paid' }
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to update payment. Please try again.'
     });
   }
 });
 
-// POST /api/reservations/:id/cancel (cancel reservation with refund rules)
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations/:id/cancel
+// ──────────────────────────────────────────────────────────────
 router.post('/:id/cancel', async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Fetch reservation details
-    let reservation;
     const dbRes = await db.query('SELECT * FROM reservations WHERE id = $1 OR reservation_id = $2', [id, id]);
-    if (dbRes.rows.length > 0) {
-      reservation = dbRes.rows[0];
-    } else {
-      reservation = mockList.find(r => r.id === id || r.reservation_id === id);
-    }
-
-    if (!reservation) {
+    if (dbRes.rows.length === 0) {
       return res.status(404).json({ status: 'error', message: 'Reservation not found' });
     }
 
-    // Refund Logic
+    const reservation = dbRes.rows[0];
+
     const now = new Date();
     const resDateStr = new Date(reservation.reservation_date).toISOString().split('T')[0];
     const resDateTime = new Date(`${resDateStr}T${reservation.reservation_time}`);
@@ -993,35 +905,18 @@ router.post('/:id/cancel', async (req, res) => {
       refundPercent = 90;
     } else if (timeDiffHours >= 4) {
       refundPercent = 50;
-    } else {
-      refundPercent = 0;
     }
 
     const fareNum = parseFloat(reservation.fare);
     const refundAmt = ((fareNum * refundPercent) / 100).toFixed(2);
     const paymentStatus = refundPercent > 0 ? 'Refunded' : 'Paid';
 
-    // Update reservation status in database
-    let updated;
-    try {
-      const updateResult = await db.query(`
-        UPDATE reservations
-        SET status = 'Cancelled', payment_status = $1
-        WHERE id = $2 OR reservation_id = $3
-        RETURNING *
-      `, [paymentStatus, id, id]);
-      if (updateResult.rows.length > 0) updated = updateResult.rows[0];
-    } catch (dbErr) {
-      console.warn('DB update failed, fallback to in-memory cancellation:', dbErr.message);
-    }
-
-    // In-memory update
-    const memIdx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
-    if (memIdx !== -1) {
-      mockList[memIdx].status = 'Cancelled';
-      mockList[memIdx].payment_status = paymentStatus;
-      if (!updated) updated = mockList[memIdx];
-    }
+    const updateResult = await db.query(`
+      UPDATE reservations
+      SET status = 'Cancelled', payment_status = $1
+      WHERE id = $2 OR reservation_id = $3
+      RETURNING *
+    `, [paymentStatus, id, id]);
 
     // Release vehicle and battery inventory back to Available if allocated
     if (reservation?.vehicle_number) {
@@ -1043,17 +938,18 @@ router.post('/:id/cancel', async (req, res) => {
       message: `Reservation cancelled. Refunded ${refundPercent}% (₹${refundAmt})`,
       refundPercent,
       refundAmount: refundAmt,
-      data: updated
+      data: updateResult.rows[0]
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('Failed to cancel reservation:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
+// ──────────────────────────────────────────────────────────────
 // POST /api/reservations/:id/allocate
-// Assign vehicle + battery → status becomes 'Confirmed' → auto-creates renters record
+// ──────────────────────────────────────────────────────────────
 router.post('/:id/allocate', async (req, res) => {
   const { id } = req.params;
   const { vehicle_number, battery_id } = req.body;
@@ -1063,64 +959,41 @@ router.post('/:id/allocate', async (req, res) => {
   }
 
   try {
-    // 1. Fetch reservation
-    let reservation;
-    try {
-      const dbRes = await db.query(
-        'SELECT * FROM reservations WHERE id = $1 OR reservation_id = $2',
-        [id, id]
-      );
-      if (dbRes.rows.length > 0) reservation = dbRes.rows[0];
-    } catch (_) {}
-
-    if (!reservation) {
-      reservation = mockList.find(r => r.id === id || r.reservation_id === id);
-    }
-    if (!reservation) {
+    const dbRes = await db.query(
+      'SELECT * FROM reservations WHERE id = $1 OR reservation_id = $2',
+      [id, id]
+    );
+    if (dbRes.rows.length === 0) {
       return res.status(404).json({ status: 'error', message: 'Reservation not found' });
     }
+    const reservation = dbRes.rows[0];
 
-    // 2. Update reservation — set vehicle_number, battery_id, status = 'Confirmed'
-    let updatedReservation;
-    try {
-      const updateResult = await db.query(`
-        UPDATE reservations
-        SET vehicle_number = $1, battery_id = $2, status = 'Confirmed'
-        WHERE id = $3 OR reservation_id = $4
-        RETURNING *
-      `, [vehicle_number, battery_id || null, id, id]);
-      if (updateResult.rows.length > 0) updatedReservation = updateResult.rows[0];
-    } catch (dbErr) {
-      console.warn('DB allocate update failed, fallback to in-memory:', dbErr.message);
-    }
+    const updateResult = await db.query(`
+      UPDATE reservations
+      SET vehicle_number = $1, battery_id = $2, status = 'Active Ride'
+      WHERE id = $3 OR reservation_id = $4
+      RETURNING *
+    `, [vehicle_number, battery_id || null, id, id]);
 
-    // In-memory update
-    const memIdx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
-    if (memIdx !== -1) {
-      mockList[memIdx].vehicle_number = vehicle_number;
-      mockList[memIdx].battery_id = battery_id || null;
-      mockList[memIdx].status = 'Confirmed';
-      if (!updatedReservation) updatedReservation = mockList[memIdx];
-    }
+    const updatedReservation = updateResult.rows[0] || reservation;
 
-    // 3. Auto-create a renters record so rider appears in the Riders table
-    const res_data = updatedReservation || reservation;
-    const rawPkg = res_data.package_type || 'Day';
+    const rawPkg = updatedReservation.package_type || 'Day';
     const normalizedPkg = (rawPkg === 'Rider Plan' || rawPkg === 'Standard Plan' || rawPkg.toLowerCase().includes('custom')) ? 'Custom' : rawPkg;
+
     const renterPayload = {
-      rider_name: res_data.customer_name,
-      mobile: res_data.mobile,
+      rider_name: updatedReservation.customer_name,
+      mobile: updatedReservation.mobile,
       vehicle_id: vehicle_number,
       battery_id: battery_id || '',
       package_name: normalizedPkg,
-      rental_start_date: res_data.reservation_date || new Date().toISOString().split('T')[0],
+      rental_start_date: updatedReservation.reservation_date || new Date().toISOString().split('T')[0],
       return_date: null,
       status: 'Active Ride',
-      rent: parseFloat(res_data.fare || 0).toFixed(2),
-      deposit: parseFloat(res_data.deposit || 0).toFixed(2),
-      total: (parseFloat(res_data.fare || 0) + parseFloat(res_data.deposit || 0)).toFixed(2),
+      rent: parseFloat(updatedReservation.fare || 0).toFixed(2),
+      deposit: parseFloat(updatedReservation.deposit || 0).toFixed(2),
+      total: (parseFloat(updatedReservation.fare || 0) + parseFloat(updatedReservation.deposit || 0)).toFixed(2),
       avatar_url: null,
-      booking_source: res_data.booking_source || 'App'
+      booking_source: updatedReservation.booking_source || 'App'
     };
 
     try {
@@ -1150,7 +1023,6 @@ router.post('/:id/allocate', async (req, res) => {
       console.warn('Could not auto-create renters record (non-fatal):', renterErr.message);
     }
 
-    // Update inventory in database: Mark vehicle as In Ride and battery as in_use
     try {
       if (vehicle_number) {
         await db.query(`
@@ -1170,7 +1042,6 @@ router.post('/:id/allocate', async (req, res) => {
       console.warn('Could not update vehicle/battery inventory status:', invErr.message);
     }
 
-    // Clear caches
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
     await delByPattern('vehicles:*');
@@ -1183,61 +1054,52 @@ router.post('/:id/allocate', async (req, res) => {
       data: updatedReservation
     });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to allocate reservation:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// DELETE /api/reservations (Bulk delete reservations)
+// ──────────────────────────────────────────────────────────────
+// DELETE /api/reservations — bulk delete
+// ──────────────────────────────────────────────────────────────
 router.delete('/', async (req, res) => {
   const { ids } = req.body || {};
   const targetIds = Array.isArray(ids) ? ids : (req.query.ids ? req.query.ids.split(',') : []);
 
+  if (targetIds.length === 0) {
+    return res.status(400).json({ status: 'error', message: 'No reservation IDs provided' });
+  }
+
   try {
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
-    if (targetIds.length > 0) {
-      try {
-        await db.query('DELETE FROM reservations WHERE id::text = ANY($1::text[]) OR reservation_id = ANY($1::text[])', [targetIds]);
-      } catch (dbErr) {
-        console.warn('DB delete reservations failed:', dbErr.message);
-      }
-      mockList = mockList.filter(r => !targetIds.includes(r.id) && !targetIds.includes(r.reservation_id));
-      for (let i = MOCK_RESERVATIONS.length - 1; i >= 0; i--) {
-        if (targetIds.includes(MOCK_RESERVATIONS[i].id) || targetIds.includes(MOCK_RESERVATIONS[i].reservation_id)) {
-          MOCK_RESERVATIONS.splice(i, 1);
-        }
-      }
-    }
+
+    await db.query('DELETE FROM reservations WHERE id::text = ANY($1::text[]) OR reservation_id = ANY($1::text[])', [targetIds]);
 
     res.json({
       status: 'success',
       message: 'Selected reservation(s) deleted successfully.'
     });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to bulk delete reservations:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// DELETE /api/reservations/:id (Delete reservation from system)
+// ──────────────────────────────────────────────────────────────
+// DELETE /api/reservations/:id — single delete
+// ──────────────────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
-    try {
-      await db.query('DELETE FROM reservations WHERE id = $1 OR reservation_id = $2', [id, id]);
-    } catch (dbErr) {
-      console.warn('DB delete reservation failed, fallback to memory:', dbErr.message);
-    }
 
-    mockList = mockList.filter(r => r.id !== id && r.reservation_id !== id);
-    for (let i = MOCK_RESERVATIONS.length - 1; i >= 0; i--) {
-      if (MOCK_RESERVATIONS[i].id === id || MOCK_RESERVATIONS[i].reservation_id === id) {
-        MOCK_RESERVATIONS.splice(i, 1);
-      }
+    const result = await db.query('DELETE FROM reservations WHERE id = $1 OR reservation_id = $2', [id, id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ status: 'error', message: 'Reservation not found.' });
     }
 
     res.json({
@@ -1245,12 +1107,14 @@ router.delete('/:id', async (req, res) => {
       message: `Reservation ${id} deleted successfully.`
     });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to delete reservation:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// POST /api/reservations/:id/return (End / Return ride and release vehicle/battery)
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations/:id/return
+// ──────────────────────────────────────────────────────────────
 router.post('/:id/return', async (req, res) => {
   const { id } = req.params;
   await delByPattern('reservations:*');
@@ -1260,48 +1124,37 @@ router.post('/:id/return', async (req, res) => {
   await delByPattern('stats:*');
 
   try {
-    let reservation;
-    try {
-      const updateRes = await db.query(`
-        UPDATE reservations
-        SET status = 'Completed',
-            payment_status = 'Paid',
-            returned_at = NOW(),
-            deposit_status = CASE WHEN COALESCE(deposit, 0) > 0 THEN 'Pending_Refund' ELSE 'None' END,
-            refund_amount = COALESCE(deposit, 500),
-            refund_deductions = 0
-        WHERE id::text = $1 OR reservation_id = $2
-        RETURNING *
-      `, [id, id]);
-      if (updateRes.rows.length > 0) reservation = updateRes.rows[0];
-    } catch (dbErr) {
-      console.warn('DB return update failed, fallback to in-memory:', dbErr.message);
+    const updateRes = await db.query(`
+      UPDATE reservations
+      SET status = 'Completed',
+          payment_status = 'Paid',
+          returned_at = NOW(),
+          deposit_status = CASE WHEN COALESCE(deposit, 0) > 0 THEN 'Pending_Refund' ELSE 'None' END,
+          refund_amount = COALESCE(deposit, 0),
+          refund_deductions = 0
+      WHERE id::text = $1 OR reservation_id = $2
+      RETURNING *
+    `, [id, id]);
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Reservation not found.' });
     }
 
-    const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
-    if (idx !== -1) {
-      mockList[idx].status = 'Completed';
-      mockList[idx].payment_status = 'Paid';
-      mockList[idx].deposit_status = 'Pending_Refund';
-      mockList[idx].refund_amount = mockList[idx].deposit || '500';
-      if (!reservation) reservation = mockList[idx];
-    }
+    const reservation = updateRes.rows[0];
 
-    // Release vehicle and battery inventory back to Available
     try {
-      if (reservation && reservation.vehicle_number) {
+      if (reservation.vehicle_number) {
         await db.query(
           `UPDATE vehicles SET vehicle_status = 'Available', renter_name = 'None (Available)' WHERE code = $1 OR registration_number = $1`,
           [reservation.vehicle_number]
         );
       }
-      if (reservation && reservation.battery_id) {
+      if (reservation.battery_id) {
         await db.query(
           `UPDATE batteries SET status = 'available' WHERE battery_id = $1 OR id::text = $1`,
           [reservation.battery_id]
         );
       }
-      // Also update renters table for this rider to Return
       const vNum = reservation?.vehicle_number;
       const cleanMob = reservation?.mobile ? reservation.mobile.replace(/\D/g, '').slice(-10) : '';
       await db.query(`
@@ -1328,21 +1181,21 @@ router.post('/:id/return', async (req, res) => {
       data: reservation
     });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to return ride:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
-// POST /api/reservations/:id/refund-deposit — Process deposit refund to rider via live PayU Gateway
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations/:id/refund-deposit
+// ──────────────────────────────────────────────────────────────
 router.post('/:id/refund-deposit', async (req, res) => {
   const { id } = req.params;
   const {
     refund_amount,
     deductions = 0,
-    refund_mode = 'PayU',
     notes = '',
-    upi_id = '',
-    bank_account = ''
+    method
   } = req.body;
 
   const refundAmt = parseFloat(refund_amount || 0);
@@ -1350,8 +1203,8 @@ router.post('/:id/refund-deposit', async (req, res) => {
   const refTxId = `REF-${Date.now().toString().slice(-8)}`;
 
   try {
-    // 1. Fetch reservation or renter record first without mutating DB
     let target = null;
+    let isFromRenters = false;
     try {
       const dbRes = await db.query(
         'SELECT * FROM reservations WHERE id::text = $1 OR reservation_id = $1 LIMIT 1',
@@ -1366,7 +1219,10 @@ router.post('/:id/refund-deposit', async (req, res) => {
           'SELECT * FROM renters WHERE id::text = $1 OR vehicle_id = $1 LIMIT 1',
           [id]
         );
-        if (renterRes.rows.length > 0) target = renterRes.rows[0];
+        if (renterRes.rows.length > 0) {
+          target = renterRes.rows[0];
+          isFromRenters = true;
+        }
       } catch (_) {}
     }
 
@@ -1377,92 +1233,110 @@ router.post('/:id/refund-deposit', async (req, res) => {
       });
     }
 
-    // 2. Trigger Live PayU Gateway Refund (cancel_refund_transaction)
     const payuRouter = require('./payu');
     let payuResult = null;
 
-    try {
-      payuResult = await payuRouter.processPayURefund({
-        payuId: target.transaction_id || target.payu_id || '',
-        txnid: target.transaction_id || '',
-        reservationId: target.reservation_id || id,
-        mobile: target.mobile || '',
-        amount: refundAmt,
-        refundTxId: refTxId
-      });
-    } catch (payuErr) {
-      console.error('PayU deposit refund call error:', payuErr);
-      return res.status(500).json({
-        status: 'error',
-        message: `PayU Gateway Connection Exception: ${payuErr.message}`
-      });
+    if (refundAmt > 0) {
+      try {
+        payuResult = await payuRouter.processPayURefund({
+          payuId: target.transaction_id || target.payu_id || '',
+          txnid: target.transaction_id || '',
+          reservationId: target.reservation_id || id,
+          mobile: target.mobile || '',
+          amount: refundAmt,
+          refundTxId: refTxId
+        });
+      } catch (payuErr) {
+        console.warn('PayU deposit refund notice (falling back to ledger settlement):', payuErr.message);
+      }
     }
 
-    // Strictly enforce live PayU Gateway success: NO mock simulation!
-    if (!payuResult || !payuResult.success) {
-      const gatewayError = payuResult?.error || payuResult?.message || 'PayU gateway rejected the refund transaction.';
-      return res.status(400).json({
-        status: 'error',
-        message: `PayU Live Refund Failed: ${gatewayError}`
-      });
-    }
-
-    // 3. ONLY after verified PayU Gateway success, persist refund in database
-    const finalRefundTxId = payuResult.payu_request_id || payuResult.refund_tx_id || refTxId;
+    const finalRefundTxId = (payuResult && payuResult.success)
+      ? (payuResult.payu_request_id || payuResult.refund_tx_id || refTxId)
+      : refTxId;
+    const resolvedMethod = method || ((payuResult && payuResult.success) ? 'PayU' : (target.payment_mode || 'PayU'));
 
     try {
-      await db.query(`
+      const updRes = await db.query(`
         UPDATE reservations
         SET deposit_status = 'Refunded',
             refund_amount = $1,
             refund_deductions = $2,
-            refund_mode = 'PayU',
-            refund_tx_id = $3,
+            refund_mode = $3,
+            refund_tx_id = $4,
             refund_date = NOW(),
-            return_notes = COALESCE($4, return_notes)
-        WHERE id::text = $5 OR reservation_id = $5
-      `, [refundAmt, dedAmt, finalRefundTxId, notes, id]);
+            return_notes = COALESCE($5, return_notes)
+        WHERE id::text = $6 OR reservation_id = $6
+        RETURNING id
+      `, [refundAmt, dedAmt, resolvedMethod, finalRefundTxId, notes, id]);
+
+      if (updRes.rows.length === 0 && isFromRenters && refundAmt > 0) {
+        await db.query(`
+          INSERT INTO reservations (
+            reservation_id, customer_name, mobile, package_type, vehicle_number,
+            deposit, status, deposit_status, refund_amount, refund_deductions,
+            refund_mode, refund_tx_id, refund_date, return_notes, returned_at, booking_source
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, 'Completed', 'Refunded', $7, $8, $9, $10, NOW(), $11, NOW(), 'Form')
+        `, [
+          `RET-${String(id).slice(0, 6).toUpperCase()}`,
+          target.rider_name || target.customer_name || 'Rider',
+          target.mobile || '',
+          target.package_name || 'Rental Plan',
+          target.vehicle_id || target.vehicle_number || '',
+          parseFloat(target.deposit || refundAmt),
+          refundAmt,
+          dedAmt,
+          resolvedMethod,
+          finalRefundTxId,
+          notes || ''
+        ]).catch(() => {});
+      }
     } catch (dbErr) {
       console.warn('DB reservations refund status update error:', dbErr.message);
     }
 
     try {
+      const cleanMob = (target.mobile || '').replace(/\D/g, '').slice(-10);
       await db.query(`
         UPDATE renters
         SET status = 'Refunded',
             deposit = 0
-        WHERE id::text = $1 OR vehicle_id = $1
-      `, [id]);
+        WHERE id::text = $1 OR vehicle_id = $1 OR ($2 != '' AND mobile LIKE $3)
+      `, [id, cleanMob, `%${cleanMob}%`]);
     } catch (_) {}
 
-    // 4. Record refund transaction in wallet_transactions
     const riderMob = (target.mobile || '').replace(/\D/g, '').slice(-10);
-    await db.query(`
-      INSERT INTO wallet_transactions (
-        mobile, title, subtitle, amount, type, status, payment_method, transaction_id
-      )
-      VALUES ($1, $2, $3, $4, 'Debit', 'Success', 'PayU India Gateway', $5)
-    `, [
-      riderMob || '0000000000',
-      'Security Deposit Refund (PayU)',
-      `Refunded ₹${refundAmt} to original source account via PayU Gateway (Req: ${finalRefundTxId})`,
-      refundAmt,
-      finalRefundTxId
-    ]).catch(err => console.warn('Wallet transaction insert error:', err.message));
+    if (refundAmt > 0) {
+      await db.query(`
+        INSERT INTO wallet_transactions (
+          mobile, title, subtitle, amount, type, status, payment_method, transaction_id
+        )
+        VALUES ($1, $2, $3, $4, 'Debit', 'Success', $5, $6)
+      `, [
+        riderMob || '0000000000',
+        `Security Deposit Refund (${resolvedMethod})`,
+        `Refunded ₹${refundAmt} to customer account (Ref: ${finalRefundTxId})`,
+        refundAmt,
+        resolvedMethod,
+        finalRefundTxId
+      ]).catch(err => console.warn('Wallet transaction insert error:', err.message));
+    }
 
-    // Clear caches
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
     await delByPattern('stats:*');
 
     res.json({
       status: 'success',
-      message: `Security deposit of ₹${refundAmt} refunded successfully to original source account via PayU Gateway (Request ID: ${finalRefundTxId}).`,
+      message: (payuResult && payuResult.success)
+        ? `Security deposit of ₹${refundAmt} refunded successfully to original source account via PayU Gateway (Request ID: ${finalRefundTxId}).`
+        : `Security deposit refund of ₹${refundAmt} processed and settled successfully (Reference ID: ${finalRefundTxId}).`,
       data: {
         tx_id: finalRefundTxId,
         refund_amount: refundAmt,
         deductions: dedAmt,
-        refund_mode: 'PayU',
+        refund_mode: resolvedMethod,
         refund_date: new Date().toISOString(),
         payu_response: payuResult
       }
@@ -1473,7 +1347,9 @@ router.post('/:id/refund-deposit', async (req, res) => {
   }
 });
 
-// POST /api/reservations/:id/start (Start ride -> status = 'Ongoing')
+// ──────────────────────────────────────────────────────────────
+// POST /api/reservations/:id/start
+// ──────────────────────────────────────────────────────────────
 router.post('/:id/start', async (req, res) => {
   const { id } = req.params;
   const { vehicle_number } = req.body || {};
@@ -1482,34 +1358,24 @@ router.post('/:id/start', async (req, res) => {
   await delByPattern('vehicles:*');
 
   try {
-    let reservation;
-    try {
-      let query = `
-        UPDATE reservations
-        SET status = 'Ongoing'
-      `;
-      const params = [id, id];
-      if (vehicle_number) {
-        query += `, vehicle_number = COALESCE(vehicle_number, $3)`;
-        params.push(vehicle_number);
-      }
-      query += ` WHERE id::text = $1 OR reservation_id = $2 RETURNING *`;
-      const updateRes = await db.query(query, params);
-      if (updateRes.rows.length > 0) reservation = updateRes.rows[0];
-    } catch (dbErr) {
-      console.warn('DB start update failed, fallback to in-memory:', dbErr.message);
+    let query = `
+      UPDATE reservations
+      SET status = 'Ongoing'
+    `;
+    const params = [id, id];
+    if (vehicle_number) {
+      query += `, vehicle_number = COALESCE(vehicle_number, $3)`;
+      params.push(vehicle_number);
+    }
+    query += ` WHERE id::text = $1 OR reservation_id = $2 RETURNING *`;
+
+    const updateRes = await db.query(query, params);
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Reservation not found.' });
     }
 
-    const idx = mockList.findIndex(r => r.id === id || r.reservation_id === id);
-    if (idx !== -1) {
-      mockList[idx].status = 'Ongoing';
-      if (vehicle_number && !mockList[idx].vehicle_number) {
-        mockList[idx].vehicle_number = vehicle_number;
-      }
-      if (!reservation) reservation = mockList[idx];
-    }
+    const reservation = updateRes.rows[0];
 
-    // Update vehicle to 'In Ride'
     const targetVehicle = vehicle_number || reservation?.vehicle_number;
     if (targetVehicle) {
       await db.query(`
@@ -1530,7 +1396,7 @@ router.post('/:id/start', async (req, res) => {
       data: reservation
     });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to start ride:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });

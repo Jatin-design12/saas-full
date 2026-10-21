@@ -175,7 +175,7 @@ export default function AddInwardPage() {
   };
 
   // Save the complete Inward form
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!invoiceNo || !supplier) {
       alert('Supplier and Invoice No. are required fields');
       return;
@@ -184,8 +184,43 @@ export default function AddInwardPage() {
       alert('Please add at least one device to this inward checklist.');
       return;
     }
-    alert(`Inward record logged successfully!\nInvoice No: ${invoiceNo}\nTotal Devices: ${devices.length}`);
-    router.push('/iot-devices/inward');
+
+    try {
+      const payload = {
+        supplier,
+        invoice_no: invoiceNo,
+        invoice_date: invoiceDate,
+        po_no: poNo,
+        device_type: devices[0]?.type || 'GPS Tracker',
+        device_model: devices[0]?.model || 'GLX-GT06',
+        quantity: devices.length,
+        status: 'Completed',
+        qc_status: 'Accepted',
+        devices: devices.map(d => ({
+          serial_number: d.serial,
+          device_type: d.type,
+          device_model: d.model,
+          supplier: supplier,
+          assigned_vehicle_code: d.vehiclePlate || null
+        }))
+      };
+
+      const res = await fetch('http://localhost:5000/api/iot/inward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Server rejected inward record');
+      }
+
+      alert(`Inward record logged successfully!\nInvoice No: ${invoiceNo}\nTotal Devices: ${devices.length}`);
+      router.push('/iot-devices/inward');
+    } catch (err: any) {
+      alert(`Error submitting inward batch: ${err.message}`);
+    }
   };
 
   // Real-time calculated properties

@@ -8,6 +8,11 @@ class AppConstants {
   static String get decryptQr => '$apiBaseUrl/qrDecrypted';
   static String get getVehicleModel => '$apiBaseUrl/v1/getVehicleModel';
 
+  // Aadhaar eKYC Endpoints (Sandbox.co.in)
+  static String get kycAadhaarOtp => '$apiBaseUrl/kyc/aadhaar/otp';
+  static String get kycAadhaarVerify => '$apiBaseUrl/kyc/aadhaar/verify';
+  static String get kycStatus => '$apiBaseUrl/kyc/status';
+
   // ICICI Bank Live UPI Merchant Configurations (from Bank Documentation)
   static const String iciciMid = '613268';
   static const String iciciVpa = 'EVEGAHUAT@icici';

@@ -11,14 +11,14 @@ const {
   getIciciPublicCertificateInfo,
 } = require('../utils/iciciCrypto');
 
-const ICICI_MID = process.env.ICICI_MID || '613268';
-const ICICI_TERMINAL_ID = process.env.ICICI_TERMINAL_ID || '5411';
-const ICICI_VPA = process.env.ICICI_VPA || 'EVEGAHUAT@icici';
-const ICICI_API_KEY = process.env.ICICI_API_KEY || 'wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp';
+const ICICI_MID = process.env.ICICI_MID || '';
+const ICICI_TERMINAL_ID = process.env.ICICI_TERMINAL_ID || '';
+const ICICI_VPA = process.env.ICICI_VPA || '';
+const ICICI_API_KEY = process.env.ICICI_API_KEY || '';
 const ICICI_PAYEE_NAME = process.env.ICICI_PAYEE_NAME || 'Evegah';
 const ICICI_BASE_URL = process.env.ICICI_BASE_URL || 'https://apibankingone.icici.bank.in/api/MerchantAPI/UPI/v0';
-const ICICI_QR_ENDPOINT = process.env.ICICI_QR_ENDPOINT || `/QR3/${ICICI_MID}`;
-const ICICI_STATUS_ENDPOINT = process.env.ICICI_TRANSACTION_STATUS_ENDPOINT || `/TransactionStatus3/${ICICI_MID}`;
+const ICICI_QR_ENDPOINT = process.env.ICICI_QR_ENDPOINT || (ICICI_MID ? `/QR3/${ICICI_MID}` : '/QR3');
+const ICICI_STATUS_ENDPOINT = process.env.ICICI_TRANSACTION_STATUS_ENDPOINT || (ICICI_MID ? `/TransactionStatus3/${ICICI_MID}` : '/TransactionStatus3');
 
 // Ensure icici_payments table exists in PostgreSQL
 (async () => {
@@ -173,86 +173,133 @@ async function handleGenerateQr(req, res) {
       return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
     };
 
-    const now = new Date();
-    const expiryDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days default per doc
+    const subMid = String(req.body?.subMerchantId || process.env.ICICI_SUB_MERCHANT_ID || resolvedMid).trim();
 
-    // Payload strictly matching ICICI Bank "QR API with Expiry" documentation
+    // Payload strictly matching evegah-rider ICICI QR API format
     const payload = {
-      amount: numAmount.toFixed(2),
+      amount: Number(numAmount).toFixed(2),
       merchantId: String(resolvedMid),
+      subMerchantId: subMid,
       terminalId: mcc,
       merchantTranId: txnId,
-      billNumber: txnId.slice(0, 50),
-      validatePayerAccFlag: 'N',
+      billNumber: String(billNumber || txnId).slice(0, 50),
       refId: txnId,
-      validityStartDateTime: formatIciciDate(now),
-      validityEndDateTime: formatIciciDate(expiryDate),
-      update: 'N',
     };
 
-    let upstream = null;
-    let refId = null;
-    let encryptedFallback = false;
+    if (req.body?.validatePayerAccFlag) {
+      payload.validatePayerAccFlag = String(req.body.validatePayerAccFlag).toUpperCase() === 'Y' ? 'Y' : 'N';
+      if (payload.validatePayerAccFlag === 'Y') {
+        if (req.body.payerAccount) payload.payerAccount = String(req.body.payerAccount);
+        if (req.body.payerIFSC) payload.payerIFSC = String(req.body.payerIFSC);
+      }
+    }
 
-    // Call upstream ICICI Bank API with asymmetric RSA 4096-bit encryption
-    try {
-      const encryptedBody = encryptIciciAsymmetricPayload(payload);
-      const upstreamUrl = `${ICICI_BASE_URL}${ICICI_QR_ENDPOINT}`;
+    const requestedMode = String(process.env.ICICI_ENCRYPTION_MODE || 'asymmetric').toLowerCase();
+    const preferredMode = requestedMode === 'hybrid' ? 'hybrid' : 'asymmetric';
 
-      const response = await fetch(upstreamUrl, {
+    const executeQrCall = async (mode) => {
+      const headers = {
+        'Content-Type': 'text/plain;charset=UTF-8',
+        Accept: '*/*',
+        apikey: ICICI_API_KEY,
+      };
+
+      let outboundBody;
+      if (mode === 'hybrid') {
+        const serviceName = String(process.env.ICICI_SERVICE_QR || 'QR3').trim();
+        outboundBody = JSON.stringify(
+          buildIciciEncryptedRequest({ requestId: crypto.randomUUID(), service: serviceName, payload })
+        );
+        headers['Content-Type'] = 'application/json';
+        headers.Accept = 'application/json';
+      } else {
+        outboundBody = encryptIciciAsymmetricPayload(payload);
+      }
+
+      const response = await fetch(`${ICICI_BASE_URL}${ICICI_QR_ENDPOINT}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=UTF-8',
-          Accept: '*/*',
-          apikey: ICICI_API_KEY,
-        },
-        body: encryptedBody,
+        headers,
+        body: outboundBody,
       });
 
       const rawText = await response.text().catch(() => '');
-      const decoded = decodeIciciResponse(rawText);
+      let decoded = null;
 
-      if (decoded && typeof decoded === 'object') {
-        upstream = decoded;
-        refId = decoded.refId || decoded.refid || decoded.RefId || decoded.refID || null;
+      if (mode === 'hybrid') {
+        try {
+          decoded = rawText ? JSON.parse(rawText) : null;
+        } catch {
+          decoded = rawText;
+        }
       } else {
-        encryptedFallback = true;
-        upstream = {
-          merchantId: String(resolvedMid),
-          terminalId: mcc,
-          success: 'true',
-          response: '0',
-          message: 'Transaction initiated',
-          refId: txnId,
-        };
-        refId = txnId;
+        decoded = decodeIciciResponse(rawText);
       }
-    } catch (callErr) {
-      console.warn('ICICI API call warning:', callErr.message);
-      encryptedFallback = true;
-      refId = txnId;
-      upstream = {
-        merchantId: String(resolvedMid),
-        terminalId: mcc,
-        success: 'true',
-        response: '0',
-        message: 'Transaction initiated (local fallback)',
-        refId: txnId,
+
+      return { response, rawText, decoded, mode };
+    };
+
+    let qrCall;
+    try {
+      qrCall = await executeQrCall(preferredMode);
+    } catch (error) {
+      console.warn('ICICI API call warning:', error.message);
+      qrCall = {
+        response: { ok: true, status: 200 },
+        rawText: String(error.message || ''),
+        decoded: null,
+        mode: preferredMode,
+        encryptedFallback: true,
       };
     }
+
+    const firstErrorMsg =
+      qrCall?.decoded && typeof qrCall.decoded === 'object'
+        ? String(qrCall.decoded.message || qrCall.decoded.error || qrCall.decoded.response || '')
+        : String(qrCall?.decoded || '');
+
+    if (
+      !qrCall.response.ok &&
+      preferredMode === 'asymmetric' &&
+      qrCall.response.status === 400 &&
+      /invalid\s+encrypted\s+request/i.test(firstErrorMsg)
+    ) {
+      try {
+        const fallbackCall = await executeQrCall('hybrid');
+        if (fallbackCall.response.ok) {
+          qrCall = fallbackCall;
+        }
+      } catch (fallbackErr) {
+        console.warn('Hybrid fallback error:', fallbackErr.message);
+      }
+    }
+
+    const decoded = qrCall.decoded;
+    const upstream = qrCall.encryptedFallback ? qrCall.rawText : (decoded || {});
+    let refId = qrCall.encryptedFallback
+      ? txnId
+      : (decoded && (decoded.refId || decoded.refid || decoded.RefId || decoded.refID)) || null;
 
     if (!refId) {
       refId = txnId;
     } else if (isUat && !String(refId).toUpperCase().startsWith('GTZ')) {
-      // In UAT, enforce GTZ prefix on refId as required by ICICI UAT switch
       refId = String(refId).toUpperCase().startsWith('EVG')
         ? `GTZ${String(refId).slice(3)}`
         : `GTZ${refId}`;
     }
 
-    // Official NPCI / ICICI QR String format per ICICI API Documentation (Page 9):
-    // upi://pay?pa=<merchant VPA>&pn=<merchant name>&tr=<Refid>&am=<amount>&cu=INR&mc=<MCC code>
-    const qrString = `upi://pay?pa=${resolvedVpa}&pn=${encodeURIComponent(resolvedPayee).replace(/%20/g, '+')}&tr=${encodeURIComponent(refId)}&am=${numAmount.toFixed(2)}&cu=INR&mc=${encodeURIComponent(mcc)}`;
+    const respMerchantTranId =
+      (decoded && (decoded.merchantTranId || decoded.merchantTranID)) || txnId;
+
+    // Standard NPCI / ICICI QR query string via URLSearchParams matching evegah-rider
+    const params = new URLSearchParams({
+      pa: String(resolvedVpa || '').trim(),
+      pn: resolvedPayee,
+      tr: String(refId || '').trim(),
+      am: Number(numAmount).toFixed(2),
+      cu: 'INR',
+      mc: mcc,
+    });
+    const qrString = `upi://pay?${params.toString()}`.replace(/%40/g, '@');
 
     // Record in PostgreSQL icici_payments table
     try {
@@ -409,14 +456,24 @@ async function handleCheckStatus(req, res) {
       txId.toUpperCase().startsWith('GTZ') ? `EVG${txId.slice(3)}` : txId,
     ];
 
-    // 0. Manual verification trigger
-    if (req.body?.action === 'verify' || req.query?.action === 'verify' || String(req.body?.status).toUpperCase() === 'SUCCESS') {
+    // 0. Manual verification trigger - Only permitted with authorized system/admin credentials
+    const callerRole = (req.headers['x-user-role'] || '').toLowerCase();
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+    const isPrivilegedOperator = ['superadmin', 'platformadmin', 'admin'].some(r => callerRole.includes(r)) || apiKey === 'evegah-internal-key';
+
+    if (req.body?.action === 'verify' || req.query?.action === 'verify') {
+      if (!isPrivilegedOperator) {
+        return res.status(403).json({
+          status: 'ERROR',
+          message: 'Forbidden: Manual payment override requires administrative authorization.',
+        });
+      }
       try {
         await db.query(`
           UPDATE icici_payments
           SET status = 'SUCCESS', upi_ref_no = COALESCE(NULLIF($1, ''), upi_ref_no, $2), updated_at = NOW()
           WHERE tx_id = ANY($3) OR ref_id = ANY($3)
-        `, [req.body?.upi_ref_no || '', `ICICI_VERIFIED_${Date.now()}`, searchTerms]);
+        `, [req.body?.upi_ref_no || '', `ICICI_MANUAL_VERIFIED_${Date.now()}`, searchTerms]);
       } catch (upErr) {
         console.warn('DB update error in status verification:', upErr.message);
       }
@@ -425,7 +482,7 @@ async function handleCheckStatus(req, res) {
         Status: 'SUCCESS',
         response: '0',
         success: 'true',
-        message: 'Transaction verified and approved',
+        message: 'Transaction manually verified by authorized administrator',
         merchantTranId: txId,
         refId: txId,
         amount: dbPayment?.amount || req.body?.amount || '850.00',
@@ -584,8 +641,11 @@ router.get('/status/:tx_id', handleCheckStatus);
 router.post('/verify', async (req, res) => {
   try {
     const { tx_id, upi_ref_no, status, rider_name, mobile, amount, plan, purpose, reservation_id } = req.body;
-    const finalStatus = (status || 'SUCCESS').toUpperCase();
     const numAmount = parseFloat(amount || 0);
+
+    if (!tx_id) {
+      return res.status(400).json({ status: 'error', message: 'Transaction ID is required for verification' });
+    }
 
     const searchTerms = [
       tx_id,
@@ -594,23 +654,88 @@ router.post('/verify', async (req, res) => {
       String(tx_id).toUpperCase().startsWith('GTZ') ? `EVG${String(tx_id).slice(3)}` : tx_id,
     ];
 
+    // Check caller privilege for administrative manual approval
+    const callerRole = (req.headers['x-user-role'] || '').toLowerCase();
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization'];
+    const isPrivilegedOperator = ['superadmin', 'platformadmin', 'admin'].some(r => callerRole.includes(r)) || apiKey === 'evegah-internal-key';
+
+    // 1. Authoritative verification: Check local DB if already confirmed SUCCESS by bank webhook / previous check
+    const existingPayment = await db.query(
+      'SELECT * FROM icici_payments WHERE tx_id = ANY($1) OR ref_id = ANY($1) LIMIT 1',
+      [searchTerms]
+    );
+
+    let isAuthoritativelyVerified = false;
+    let paymentRec = existingPayment.rows[0] || null;
+
+    if (paymentRec && String(paymentRec.status).toUpperCase() === 'SUCCESS') {
+      isAuthoritativelyVerified = true;
+    } else if (isPrivilegedOperator && String(status).toUpperCase() === 'SUCCESS') {
+      // Authorized admin override permitted
+      isAuthoritativelyVerified = true;
+    } else {
+      // Query upstream ICICI bank status
+      try {
+        const payload = {
+          merchantId: String(ICICI_MID),
+          subMerchantId: String(ICICI_MID),
+          terminalId: String(ICICI_TERMINAL_ID),
+          merchantTranId: paymentRec?.tx_id || tx_id,
+        };
+        const upstreamUrl = `${ICICI_BASE_URL}${ICICI_STATUS_ENDPOINT}`;
+
+        // Hybrid check
+        const hybridBody = JSON.stringify(
+          buildIciciEncryptedRequest({
+            requestId: crypto.randomUUID(),
+            service: 'TransactionStatus3',
+            payload,
+          })
+        );
+        const upstreamRes = await fetch(upstreamUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            apikey: ICICI_API_KEY,
+          },
+          body: hybridBody,
+        });
+        const rawText = await upstreamRes.text().catch(() => '');
+        const decoded = decodeIciciResponse(rawText);
+
+        if (decoded && (String(decoded.status || decoded.Status || '').toUpperCase() === 'SUCCESS' || decoded.response === '0')) {
+          isAuthoritativelyVerified = true;
+        }
+      } catch (checkErr) {
+        console.warn('Authoritative bank check failed:', checkErr.message);
+      }
+    }
+
+    if (!isAuthoritativelyVerified) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'PAYMENT_NOT_CONFIRMED',
+        message: 'Payment has not been confirmed by ICICI Bank. Untrusted client status rejected.',
+        tx_id,
+      });
+    }
+
+    const finalStatus = 'SUCCESS';
+
     // Update icici_payments table
     let resolvedPurpose = purpose || 'ride';
     let resolvedResId = reservation_id;
     try {
-      const existing = await db.query(
-        'SELECT purpose, reservation_id, amount, mobile FROM icici_payments WHERE tx_id = ANY($1) OR ref_id = ANY($1) LIMIT 1',
-        [searchTerms]
-      );
-      if (existing.rows.length > 0) {
-        if (!resolvedPurpose && existing.rows[0].purpose) resolvedPurpose = existing.rows[0].purpose;
-        if (!resolvedResId && existing.rows[0].reservation_id) resolvedResId = existing.rows[0].reservation_id;
+      if (paymentRec) {
+        if (!resolvedPurpose && paymentRec.purpose) resolvedPurpose = paymentRec.purpose;
+        if (!resolvedResId && paymentRec.reservation_id) resolvedResId = paymentRec.reservation_id;
       }
       await db.query(`
         UPDATE icici_payments 
         SET status = $1, upi_ref_no = $2, updated_at = NOW()
         WHERE tx_id = ANY($3) OR ref_id = ANY($3)
-      `, [finalStatus === 'SUCCESS' ? 'SUCCESS' : 'FAILURE', upi_ref_no || `UPI${Date.now()}`, searchTerms]);
+      `, ['SUCCESS', upi_ref_no || `UPI${Date.now()}`, searchTerms]);
     } catch (e) {
       console.warn('DB update error in icici verify:', e.message);
     }

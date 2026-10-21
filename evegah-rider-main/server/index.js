@@ -86,14 +86,14 @@ const whatsappWebhookVerifyToken = String(process.env.WHATSAPP_WEBHOOK_VERIFY_TO
 const whatsappAppSecret = String(process.env.WHATSAPP_APP_SECRET || "").trim();
 const fetchApi = typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null;
 
-const iciciMid = String(process.env.ICICI_MID || "").trim();
-const iciciVpa = String(process.env.ICICI_VPA || "").trim();
-const iciciApiKey = String(process.env.ICICI_API_KEY || "").trim();
-const iciciBaseUrl = String(process.env.ICICI_BASE_URL || "").trim();
-const iciciQrEndpoint = String(process.env.ICICI_QR_ENDPOINT || "").trim();
-const iciciTransactionStatusEndpoint = String(process.env.ICICI_TRANSACTION_STATUS_ENDPOINT || "").trim();
-const iciciCallbackStatusEndpoint = String(process.env.ICICI_CALLBACK_STATUS_ENDPOINT || "").trim();
-const iciciRefundEndpoint = String(process.env.ICICI_REFUND_ENDPOINT || "").trim();
+const iciciMid = String(process.env.ICICI_MID || "613268").trim();
+const iciciVpa = String(process.env.ICICI_VPA || "EVEGAHUAT@icici").trim();
+const iciciApiKey = String(process.env.ICICI_API_KEY || "wnHtmdq9q1Zibc05sNX1wzMW1W62K7Lp").trim();
+const iciciBaseUrl = String(process.env.ICICI_BASE_URL || "https://apibankingone.icici.bank.in/api/MerchantAPI/UPI/v0").trim();
+const iciciQrEndpoint = String(process.env.ICICI_QR_ENDPOINT || `/QR3/${iciciMid}`).trim();
+const iciciTransactionStatusEndpoint = String(process.env.ICICI_TRANSACTION_STATUS_ENDPOINT || `/TransactionStatus3/${iciciMid}`).trim();
+const iciciCallbackStatusEndpoint = String(process.env.ICICI_CALLBACK_STATUS_ENDPOINT || `/CallbackStatus2/${iciciMid}`).trim();
+const iciciRefundEndpoint = String(process.env.ICICI_REFUND_ENDPOINT || `/Refund/${iciciMid}`).trim();
 
 // Public (no-auth) config for frontend convenience.
 // Used by getPublicConfig() in src/config/api.js
@@ -3982,7 +3982,7 @@ app.post("/api/payments/icici/qr", async (req, res) => {
       terminalId: mcc,
       merchantTranId: respMerchantTranId,
       refId,
-      qrString: `upi://pay?${params.toString()}`,
+      qrString: `upi://pay?${params.toString()}`.replace(/%40/g, '@'),
       paymentTransactionId,
       upstream: qrCall.encryptedFallback ? qrCall.rawText : decoded,
       encryptedFallback: Boolean(qrCall.encryptedFallback),

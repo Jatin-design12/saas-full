@@ -217,18 +217,18 @@ export default function RetainRiderReviewPage() {
     }
   }, []);
 
-  const riderName = rider?.name || 'Akash Verma';
-  const riderPhone = rider?.phone || '+91 98765 43210';
-  const riderId = rider?.id || 'RDR00124';
+  const riderName = rider?.name || rider?.fullName || 'Returning Rider';
+  const riderPhone = rider?.phone || rider?.mobile || '—';
+  const riderId = rider?.id || rider?.riderId || '—';
   const vehicleName = rental?.vehicle_name || 'Evegah E1';
   const vehicleCode = rental?.vehicle_code || 'EVM1024012';
   const batteryId = rental?.battery_id || 'BAT-0098';
   const planType = rental?.plan_type || 'Daily Plan';
-  const rentRate = Number(payment?.base_rent || rental?.plan_rate || 600);
-  const deposit = Number(payment?.deposit_amount || rental?.deposit_amount || 500);
+  const rentRate = Number(payment?.base_rent ?? rental?.plan_rate ?? 0);
+  const deposit = Number(payment?.deposit_amount ?? rental?.deposit_amount ?? 0);
   const discount = Number(payment?.discount_amount || 0);
   const totalPayable = Math.max(0, rentRate + deposit - discount);
-  const payMethod = payment?.payment_method || 'upi';
+  const payMethod = payment?.payment_method || 'payu';
 
   const [confirmedVoucherId, setConfirmedVoucherId] = useState('');
 
@@ -246,57 +246,35 @@ export default function RetainRiderReviewPage() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      
-      // 1. Create official reservation entry
-      const res = await fetch(`${apiUrl}/reservations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name: riderName,
-          mobile: riderPhone,
-          gov_id: rider?.aadhaar || rider?.gov_id || 'GOV-ON-FILE',
-          reservation_date: rental?.start_date || new Date().toISOString().split('T')[0],
-          reservation_time: rental?.start_time || '10:00:00',
-          pickup_datetime: rental?.pickup_datetime || `${rental?.start_date || ''} ${rental?.start_time || ''}`.trim(),
-          drop_datetime: rental?.drop_datetime || `${rental?.return_date || ''} ${rental?.return_time || ''}`.trim(),
-          package_type: rental?.plan_type || planType || 'Daily Pass',
-          vehicle_category: 'E-Scooter',
-          vehicle_model: rental?.vehicle_model || 'Evegah City',
-          vehicle_number: vehicleCode,
-          battery_id: batteryId,
-          fare: rentRate,
-          deposit: deposit,
-          total_payable: totalPayable,
-          payment_mode: payMethod === 'cash' ? 'Cash' : (payMethod === 'upi' ? 'ICICI UPI' : (payMethod === 'split' ? 'Split' : 'Wallet')),
-          payment_status: 'Paid',
-          pickup_zone: rental?.pickup_zone || 'Gotri Zone',
-          drop_zone: rental?.drop_zone || 'Gotri Zone',
-          transaction_id: payment?.transaction_id || voucherToUse || newRideId,
-          cash_voucher_number: voucherToUse,
-          coupon_code: payment?.coupon_code || null,
-          discount: discount
-        })
-      });
 
-      const resData = await res.json();
-      if (resData?.data?.reservation_id) {
-        setConfirmedRideId(resData.data.reservation_id);
-      }
-      if (resData?.data?.cash_voucher_number) {
-        setConfirmedVoucherId(resData.data.cash_voucher_number);
-      }
-
-      // 2. Retain rider record
-      await fetch(`${apiUrl}/renters/retain`, {
+      // Save Retain Ride directly into renters table (never reservations)
+      const res = await fetch(`${apiUrl}/rides/retain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rider_name: riderName,
+          name: riderName,
+          mobile: riderPhone,
           vehicle_id: vehicleCode,
-          package_name: planType,
-          renewal_rent: rentRate
+          battery_id: batteryId,
+          package_name: rental?.plan_type || planType || 'Daily Pass',
+          rent: rentRate,
+          deposit: deposit,
+          total: totalPayable,
+          zone_name: rental?.pickup_zone || 'Gotri Zone',
+          return_date: rental?.return_date || null,
+          payment_method: payMethod === 'cash' ? 'Cash' : 'PayU',
+          cash_voucher_number: voucherToUse
         })
-      }).catch(() => {});
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      if (resData?.data?.id) {
+        setConfirmedRideId(`RID-${String(resData.data.id).slice(0, 6).toUpperCase()}`);
+      }
+      if (resData?.data?.cash_voucher_number) {
+        setConfirmedVoucherId(resData.data.cash_voucher_number);
+      }
 
     } catch (err) {
       console.error('Retain rider submission fallback:', err);

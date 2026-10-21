@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "EVegah Rider",
+    "slug": "evegah-rider",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo/logo.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/brand.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#042A14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "io.ionic.evegah"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo/logo.png",
+        "backgroundColor": "#042A14"
+      },
+      "package": "io.ionic.evegah",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/logo/logo.png",
+      "bundler": "metro"
+    },
+    "plugins": []
+  }
+}

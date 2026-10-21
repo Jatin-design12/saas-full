@@ -50,7 +50,7 @@ class PayUService {
     final cleanPhone = profile.phoneNumber.replaceAll(RegExp(r'\D'), '');
     final userMobile = cleanPhone.isNotEmpty
         ? cleanPhone
-        : (SessionService().userMobileSync?.replaceAll(RegExp(r'\D'), '') ?? '9876543210');
+        : (SessionService().userMobileSync?.replaceAll(RegExp(r'\D'), '') ?? '1800 889 8791');
     final userProfile = await SessionService().getUserProfile();
     final riderName = (userProfile['name'] != null && userProfile['name']!.isNotEmpty)
         ? userProfile['name']!

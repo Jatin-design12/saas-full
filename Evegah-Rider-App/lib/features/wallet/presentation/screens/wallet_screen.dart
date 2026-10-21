@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../data/services/wallet_service.dart';
 import '../../../../core/services/icici_upi_service.dart';
 import '../../../../core/services/payu_service.dart';
+import '../../../../core/services/phonepe_service.dart';
 import '../../../../core/services/payment_gateway_service.dart';
 import '../../../../core/widgets/payu_in_app_checkout_modal.dart';
+import '../../../../core/widgets/phonepe_in_app_checkout_modal.dart';
 import '../../../offers/presentation/screens/offer_screen.dart';
 import 'transaction_detail_screen.dart';
 
@@ -68,6 +70,57 @@ class _WalletScreenState extends State<WalletScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter a valid amount"), backgroundColor: Colors.redAccent),
       );
+      return;
+    }
+
+    if (_activeGatewayId == 'phonepe') {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF5F259F)),
+        ),
+      );
+
+      try {
+        final phonepeData = await PhonePeService().initiatePayment(amount: amount, purpose: 'wallet');
+        if (!mounted) return;
+        Navigator.pop(context);
+
+        if (phonepeData != null && phonepeData['checkout_url'] != null) {
+          final txId = phonepeData['tx_id']?.toString() ?? '';
+          final checkoutUrl = phonepeData['checkout_url']?.toString() ?? '';
+
+          final result = await PhonePeInAppCheckoutModal.show(
+            context: context,
+            checkoutUrl: checkoutUrl,
+            txId: txId,
+            amount: amount,
+          );
+
+          if (result != null && result.success) {
+            await _walletService.addMoney(amount, paymentMethod: "PhonePe", paymentId: result.txId);
+            await _loadWalletData();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("₹${amount.toStringAsFixed(0)} added to wallet via PhonePe! ⚡"), backgroundColor: const Color(0xFF16A34A)),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result?.message ?? "PhonePe payment cancelled."), backgroundColor: Colors.redAccent),
+              );
+            }
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("PhonePe initiation failed. Trying UPI..."), backgroundColor: Colors.orange),
+          );
+        }
+      } catch (e) {
+        if (mounted) Navigator.pop(context);
+      }
       return;
     }
 
@@ -290,7 +343,7 @@ class _WalletScreenState extends State<WalletScreen> {
               controller: _upiController,
               decoration: InputDecoration(
                 labelText: "UPI ID / Bank Account",
-                hintText: "e.g. 9876543210@paytm",
+                hintText: "e.g. 1800 889 8791@paytm",
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),

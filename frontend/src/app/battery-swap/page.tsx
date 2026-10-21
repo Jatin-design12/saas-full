@@ -331,7 +331,7 @@ export default function BatterySwapPage() {
   const [batteryAdd, setBatteryAdd] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [selectedBatteryId, setSelectedBatteryId] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<string>('UPI');
+  const [paymentMode, setPaymentMode] = useState<string>('PayU');
 
   useEffect(() => {
     const updateZone = () => {
@@ -368,7 +368,7 @@ export default function BatterySwapPage() {
           activePool = sourceList.map((r: any, idx: number) => ({
             id: `RIDER-${r.id || idx + 1}`,
             name: r.rider_name || `Rider ${idx + 1}`,
-            phone: r.mobile ? (r.mobile.startsWith('+91') ? r.mobile : `+91 ${r.mobile}`) : '+91 9876543210',
+            phone: r.mobile ? (r.mobile.startsWith('+91') ? r.mobile : `+91 ${r.mobile}`) : '+91 1800 889 8791',
             vehicle: r.vehicle_number || r.vehicle_id || `Ola S1 Pro (GJ06-EV-${1020 + idx})`,
             removedBattery: {
               id: r.battery_id || `BAT-DEP-0${idx + 1}`,
@@ -424,6 +424,13 @@ export default function BatterySwapPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<string>('');
   const [couponError, setCouponError] = useState<string>('');
 
+  // PayU (Primary Gateway) states
+  const [payuQrString, setPayuQrString] = useState('');
+  const [payuTxId, setPayuTxId] = useState('');
+  const [payuCheckoutUrl, setPayuCheckoutUrl] = useState('');
+  const [payuVerified, setPayuVerified] = useState(false);
+  const [isCheckingPayU, setIsCheckingPayU] = useState(false);
+
   // ICICI QR and polling states
   const [iciciQrString, setIciciQrString] = useState('');
   const [iciciMerchantTranId, setIciciMerchantTranId] = useState('');
@@ -444,6 +451,119 @@ export default function BatterySwapPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Generate dynamic PayU (Primary Gateway) QR & Initiate Checkout for Swap
+  useEffect(() => {
+    if (paymentMode !== 'PayU' || swapPayable <= 0) return;
+    setPayuVerified(false);
+    let isMounted = true;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+    fetch(`${apiUrl}/payments/payu/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: swapPayable,
+        rider_name: selectedRiderName || 'Rider',
+        notes: `Battery Swap fee for ${vehicleNo}`,
+        purpose: 'battery-swap'
+      })
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (!isMounted) return;
+        const data = res?.data || res;
+        const txId = data?.txnid || data?.tx_id || '';
+        const chkUrl = data?.checkout_url || '';
+        setPayuTxId(txId);
+        setPayuCheckoutUrl(chkUrl);
+
+        return fetch(`${apiUrl}/payments/payu/qr`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: swapPayable,
+            rider_name: selectedRiderName || 'Rider',
+            notes: `PayU Battery Swap - ${vehicleNo}`,
+            purpose: 'battery-swap'
+          })
+        });
+      })
+      .then(qrR => qrR ? qrR.json() : null)
+      .then(qrRes => {
+        if (!isMounted || !qrRes) return;
+        const qrData = qrRes?.data || qrRes;
+        const qrStr = qrData?.qrString || qrData?.upi_string || '';
+        setPayuQrString(qrStr);
+      })
+      .catch(err => console.error('Swap PayU QR error:', err));
+
+    return () => { isMounted = false; };
+  }, [paymentMode, swapPayable, selectedRiderName, vehicleNo]);
+
+  // Automated PayU status polling for Swap
+  useEffect(() => {
+    if (paymentMode !== 'PayU' || !payuTxId || payuVerified) return;
+
+    let isMounted = true;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+    const checkPayU = async () => {
+      if (!isMounted || payuVerified) return;
+      try {
+        setIsCheckingPayU(true);
+        const res = await fetch(`${apiUrl}/payments/payu/status/${payuTxId}`);
+        if (!isMounted) return;
+        const data = await res.json();
+        const rawStatus = (data?.data?.status || data?.status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS') {
+          setPayuVerified(true);
+          setUpiVerified(true);
+        }
+      } catch (e) {
+      } finally {
+        if (isMounted) setIsCheckingPayU(false);
+      }
+    };
+
+    const timeout = setTimeout(checkPayU, 1500);
+    const interval = setInterval(checkPayU, 2500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [paymentMode, payuTxId, payuVerified]);
+
+  // Manual payment verification helper for PayU Swap
+  const handleManualPayUSwapVerify = async () => {
+    if (!payuTxId) return;
+    try {
+      setIsCheckingPayU(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/payments/payu/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tx_id: payuTxId,
+          amount: swapPayable,
+          rider_name: selectedRiderName || 'Rider',
+          status: 'SUCCESS',
+          purpose: 'battery-swap'
+        })
+      });
+      const data = await res.json();
+      if (data?.status === 'success' || data?.payment_status === 'SUCCESS') {
+        setPayuVerified(true);
+        setUpiVerified(true);
+      }
+    } catch (e: any) {
+      alert('Verification error: ' + (e?.message || 'Could not verify payment'));
+    } finally {
+      setIsCheckingPayU(false);
+    }
+  };
 
   // Generate dynamic ICICI QR for Swap
   useEffect(() => {
@@ -623,6 +743,10 @@ export default function BatterySwapPage() {
   };
 
   const handleProceedPayment = async () => {
+    if (paymentMode === 'PayU' && !payuVerified) {
+      alert('Please wait for customer to complete PayU payment, or click Confirm Payment Received.');
+      return;
+    }
     if (paymentMode === 'UPI' && !upiVerified) {
       alert('Please wait for customer to complete ICICI UPI payment, or verify the payment status.');
       return;
@@ -640,7 +764,7 @@ export default function BatterySwapPage() {
         new_battery_soc: selectedBattery.soc,
         amount: finalAmount,
         payment_mode: paymentMode,
-        payment_ref: iciciRefId || iciciMerchantTranId || 'CASH',
+        payment_ref: paymentMode === 'PayU' ? (payuTxId || `PAYU-${Date.now()}`) : (iciciRefId || iciciMerchantTranId || 'CASH'),
         zone: selectedZone !== 'All Zones' ? selectedZone : 'Gotri Zone',
         station: `${selectedZone !== 'All Zones' ? selectedZone : 'Gotri'} Swap Dock`,
         operator: 'Self-Service',
@@ -984,10 +1108,16 @@ export default function BatterySwapPage() {
                 <button 
                   className="bs-btn-primary" 
                   onClick={handleProceedPayment}
-                  style={paymentMode === 'UPI' && !upiVerified ? { opacity: 0.65, cursor: 'not-allowed' } : {}}
-                  disabled={paymentMode === 'UPI' && !upiVerified}
+                  style={((paymentMode === 'PayU' && !payuVerified) || (paymentMode === 'UPI' && !upiVerified)) ? { opacity: 0.65, cursor: 'not-allowed' } : {}}
+                  disabled={(paymentMode === 'PayU' && !payuVerified) || (paymentMode === 'UPI' && !upiVerified)}
                 >
-                  <span>{paymentMode === 'UPI' ? (upiVerified ? 'Confirm Swap & Payment' : 'Waiting for ICICI Payment...') : 'Proceed to Payment'}</span>
+                  <span>
+                    {paymentMode === 'PayU'
+                      ? (payuVerified ? 'Confirm Swap & Payment' : 'Waiting for PayU Payment...')
+                      : (paymentMode === 'UPI'
+                        ? (upiVerified ? 'Confirm Swap & Payment' : 'Waiting for ICICI Payment...')
+                        : 'Proceed to Payment')}
+                  </span>
                   <IArrowRight />
                 </button>
               </div>
@@ -1057,13 +1187,28 @@ export default function BatterySwapPage() {
                   <span className="bs-summary-lbl" style={{ fontWeight: '700', color: '#1E293B', fontSize: '13px' }}>Select Payment Method</span>
                   
                   <div className="bs-pay-methods">
+                    {/* PayU (Primary Gateway) */}
+                    <div 
+                      className={`bs-pay-method-card ${paymentMode === 'PayU' ? 'active' : ''}`}
+                      onClick={() => setPaymentMode('PayU')}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5"><path d="M4 4h7a4 4 0 0 1 4 4 4 4 0 0 1-4 4H4V4z"/><path d="M12 12l5 8"/></svg>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span className="bs-pay-method-text" style={{ color: paymentMode === 'PayU' ? '#047857' : '#1E293B' }}>PayU India (Primary)</span>
+                        <span style={{ fontSize: '10px', color: '#64748B' }}>Cards, UPI, NetBanking</span>
+                      </div>
+                      <div className={`bs-pay-radio ${paymentMode === 'PayU' ? 'active' : ''}`} style={paymentMode === 'PayU' ? { background: '#059669', borderColor: '#059669' } : {}}>
+                        {paymentMode === 'PayU' && <span className="bs-pay-radio-dot" />}
+                      </div>
+                    </div>
+
                     {/* UPI Scan & Pay */}
                     <div 
                       className={`bs-pay-method-card ${paymentMode === 'UPI' ? 'active' : ''}`}
                       onClick={() => setPaymentMode('UPI')}
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2A195C" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                      <span className="bs-pay-method-text">UPI (Scan &amp; Pay)</span>
+                      <span className="bs-pay-method-text">ICICI UPI QR</span>
                       <div className={`bs-pay-radio ${paymentMode === 'UPI' ? 'active' : ''}`}>
                         {paymentMode === 'UPI' && <span className="bs-pay-radio-dot" />}
                       </div>
@@ -1087,7 +1232,7 @@ export default function BatterySwapPage() {
                       onClick={() => setPaymentMode('Card')}
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                      <span className="bs-pay-method-text">Debit / Credit Card</span>
+                      <span className="bs-pay-method-text">Card</span>
                       <div className={`bs-pay-radio ${paymentMode === 'Card' ? 'active' : ''}`}>
                         {paymentMode === 'Card' && <span className="bs-pay-radio-dot" />}
                       </div>
@@ -1099,7 +1244,7 @@ export default function BatterySwapPage() {
                       onClick={() => setPaymentMode('Wallets')}
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2.5"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h14v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><rect x="14" y="11" width="8" height="4" rx="1"/></svg>
-                      <span className="bs-pay-method-text">E-Wallets</span>
+                      <span className="bs-pay-method-text">Wallets</span>
                       <div className={`bs-pay-radio ${paymentMode === 'Wallets' ? 'active' : ''}`}>
                         {paymentMode === 'Wallets' && <span className="bs-pay-radio-dot" />}
                       </div>
@@ -1131,6 +1276,93 @@ export default function BatterySwapPage() {
                     </div>
                   )}
                 </div>
+
+                {/* PayU (Primary Gateway) QR & Checkout Container */}
+                {paymentMode === 'PayU' && (
+                  <div className="bs-qr-container" style={{ borderColor: '#86EFAC', background: '#F0FDF4' }}>
+                    <span className="bs-qr-text" style={{ color: '#047857' }}>PayU Smart Dynamic QR &amp; Checkout</span>
+                    
+                    <div className="bs-qr-box" style={{ width: 160, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', padding: 8, borderRadius: 12, border: '1.5px solid #86EFAC' }}>
+                      {payuQrString ? (
+                        <QRCodeSVG value={payuQrString} size={144} level="M" />
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>Generating PayU QR...</div>
+                      )}
+                    </div>
+
+                    <span className="bs-qr-id" style={{ color: '#065F46' }}>Txn Ref: {payuTxId || 'EVG-GENERATING...'}</span>
+
+                    {payuCheckoutUrl && (
+                      <a
+                        href={payuCheckoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          background: '#059669',
+                          color: '#fff',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 800,
+                          textDecoration: 'none',
+                          marginTop: 4,
+                          boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
+                        }}
+                      >
+                        <span>💳</span> Open PayU Hosted Checkout ↗
+                      </a>
+                    )}
+
+                    <div style={{ width: '100%', marginTop: 6, marginBottom: 6 }}>
+                      {payuVerified ? (
+                        <div className="icici-verified-badge" style={{ borderColor: '#059669', color: '#047857' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                          <span>Payment Verified via PayU</span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                          <div className="icici-pulse-badge" style={{ background: '#DCFCE7', borderColor: '#BBF7D0', color: '#047857', width: '100%' }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
+                            <span>{isCheckingPayU ? 'Verifying with PayU...' : `Scan to Pay ₹${swapPayable.toFixed(2)}`}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleManualPayUSwapVerify}
+                            disabled={isCheckingPayU}
+                            style={{
+                              background: '#059669',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '6px 12px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: isCheckingPayU ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 1px 4px rgba(5, 150, 105, 0.2)'
+                            }}
+                          >
+                            ✓ Confirm Payment Received (PayU Approved)
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bs-providers-row">
+                      <div className="bs-provider-tag gpay">GPay</div>
+                      <div className="bs-provider-tag phonepe">PhonePe</div>
+                      <div className="bs-provider-tag paytm">Paytm</div>
+                      <div className="bs-provider-tag" style={{ color: '#059669', borderColor: '#86EFAC', fontWeight: 800 }}>Cards / NetBanking</div>
+                    </div>
+                  </div>
+                )}
 
                 {/* QR Code Container (renders only if UPI selected) */}
                 {paymentMode === 'UPI' && (

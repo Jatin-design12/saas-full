@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/session_service.dart';
-import '../../../../core/services/icici_upi_service.dart';
 import '../../../../core/services/payu_service.dart';
 import '../../../../core/services/payment_gateway_service.dart';
 import '../../../../core/widgets/payu_in_app_checkout_modal.dart';
-import '../../../profile/data/services/profile_service.dart';
 import '../../../dashboard/presentation/widgets/vehicle_360_viewer.dart';
 import '../../../rides/presentation/screen/booking_confirmed_screen.dart';
 import 'offer_screen.dart';
@@ -239,11 +237,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
       return;
     }
 
-    if (_paymentMethod == 'PayU' || _activeGatewayId == 'payu') {
-      _triggerPayUPayment(amountToPay: amountToPay);
-    } else {
-      _triggerIciciUpiPayment();
-    }
+    _triggerPayUPayment(amountToPay: amountToPay);
   }
 
   /// Initiates PayU online checkout
@@ -285,13 +279,7 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
           _showPaymentFailedDialog(result?.message ?? "PayU payment was cancelled or failed.");
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("PayU initiation failed. Switching to UPI."),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        _triggerIciciUpiPayment();
+        _showPaymentFailedDialog("Could not connect to PayU payment gateway. Please check your network and try again.");
       }
     } catch (e) {
       if (mounted) {
@@ -356,43 +344,6 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  /// Triggers ICICI Bank UPI intent modal or confirms booking
-  void _triggerIciciUpiPayment() {
-    final double amountToPay = _totalPayable;
-
-    if (amountToPay <= 0) {
-      _confirmBooking(payNow: true, transactionId: 'FREE-COUPON-${DateTime.now().millisecondsSinceEpoch}');
-      return;
-    }
-
-    final profile = ProfileService();
-    final cleanPhone = profile.phoneNumber.replaceAll(RegExp(r'\D'), '');
-    final userContact = cleanPhone.isNotEmpty ? cleanPhone : (SessionService().userMobileSync?.replaceAll(RegExp(r'\D'), '') ?? '');
-
-    IciciUpiService().showUpiPaymentModal(
-      context: context,
-      amount: amountToPay,
-      mobile: userContact,
-      note: 'Evegah Ride Booking',
-      onPaymentSuccess: (txId) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Payment Verified Successfully via ICICI UPI!"),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _confirmBooking(payNow: true, transactionId: txId);
-        }
-      },
-      onPaymentFailed: (msg) {
-        if (mounted) {
-          _showPaymentFailedDialog(msg.isNotEmpty ? msg : "UPI Payment Cancelled / Failed. Ride was not confirmed.");
-        }
-      },
     );
   }
 
@@ -1356,13 +1307,9 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
             ),
 
             // 5. Dynamic Multi Payment Gateway Section
-            _buildSectionHeader(Icons.bolt, "Payment Method", null),
-            ...(_activeGateways.isNotEmpty
-                ? _activeGateways
-                : [
-                    {'id': 'payu', 'name': 'PayU India', 'provider': 'payu'},
-                    {'id': 'icici', 'name': 'ICICI Bank UPI', 'provider': 'icici'}
-                  ]).map((gw) {
+            ...([
+              {'id': 'payu', 'name': 'PayU India', 'provider': 'payu'}
+            ]).map((gw) {
               final String gwId = (gw['id'] ?? gw['provider'] ?? 'payu').toString().toLowerCase();
               final bool isPayU = gwId == 'payu';
               final bool isIcici = gwId == 'icici';
@@ -1638,12 +1585,10 @@ class _PaymentOffersScreenState extends State<PaymentOffersScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _activeGatewayId == 'payu'
-                              ? "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via PayU"
-                              : "⚡ Pay ₹${_totalPayable.toStringAsFixed(0)} via UPI",
+                          "Pay ₹${_totalPayable.toStringAsFixed(0)}",
                           maxLines: 1,
                           softWrap: false,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 6),
                         const Icon(Icons.arrow_forward, size: 16),

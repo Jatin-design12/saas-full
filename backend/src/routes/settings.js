@@ -178,6 +178,84 @@ const DEFAULT_SETTINGS = {
     last_backup: 'Today, 02:00 AM',
     last_backup_status: 'Success',
     backup_size: '2.4 GB'
+  },
+  app_slider: {
+    home_sliders: [
+      {
+        id: 'home-1',
+        screen: 'home',
+        tag: 'Slider 1',
+        title: 'Ride Smarter, Go Farther',
+        lines: ['Ride Smarter,', 'Go Farther'],
+        sub: 'High-performance electric vehicles designed for daily city commute.',
+        cta: 'Rent EV Now',
+        bg: '',
+        front: '',
+        active: true,
+      },
+      {
+        id: 'home-2',
+        screen: 'home',
+        tag: 'Slider 2',
+        title: 'Swap & Go in 60s',
+        lines: ['Swap & Go', 'in 60s'],
+        sub: 'Never wait for charging. Fast automated battery swapping stations.',
+        cta: 'Find Station',
+        bg: '',
+        front: '',
+        active: true,
+      },
+      {
+        id: 'home-3',
+        screen: 'home',
+        tag: 'Slider 3',
+        title: 'Zero Emission Mobility',
+        lines: ['Zero Emission', 'Mobility'],
+        sub: 'Reduce carbon footprint with certified green energy battery swaps.',
+        cta: 'Explore Fleet',
+        bg: '',
+        front: '',
+        active: true,
+      },
+    ],
+    rent_sliders: [
+      {
+        id: 'rent-1',
+        screen: 'rent',
+        tag: 'Slider 1',
+        title: 'Rent at L&T Knowledge City',
+        lines: ['Rent at L&T', 'Knowledge City'],
+        sub: 'Instant unlock at Main Gate hub. Smooth ride to office.',
+        cta: 'Book This Zone',
+        bg: '',
+        front: '',
+        active: true,
+      },
+      {
+        id: 'rent-2',
+        screen: 'rent',
+        tag: 'Slider 2',
+        title: 'Parul University Campus Fleet',
+        lines: ['Parul University', 'Campus Fleet'],
+        sub: 'Zero deposit student & staff plans. Swap batteries inside campus.',
+        cta: 'Select Campus Zone',
+        bg: '',
+        front: '',
+        active: true,
+      },
+      {
+        id: 'rent-3',
+        screen: 'rent',
+        tag: 'Slider 3',
+        title: 'Zepto Dark Store Hub',
+        lines: ['Zepto Dark', 'Store Hub'],
+        sub: 'High payload commercial EVs. Unlimited battery swaps.',
+        cta: 'Start Earning',
+        bg: '',
+        front: '',
+        active: true,
+      },
+    ],
   }
 };
 
@@ -292,6 +370,147 @@ router.post('/refund-auth/verify', async (req, res) => {
     }
   } catch (err) {
     console.error('Error verifying refund authorization:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/settings/upload-asset - Upload image asset for sliders / branding
+router.post('/upload-asset', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const data = req.body.data || req.body.dataUrl;
+    const name = req.body.name || req.body.filename;
+    if (!data) {
+      return res.status(400).json({ status: 'error', message: 'Asset data (base64) is required' });
+    }
+
+    const matches = data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let buffer;
+    let ext = 'png';
+    if (matches && matches.length === 3) {
+      const mime = matches[1];
+      if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+      else if (mime.includes('webp')) ext = 'webp';
+      else if (mime.includes('svg')) ext = 'svg';
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      buffer = Buffer.from(data, 'base64');
+    }
+
+    const cleanBaseName = (name || 'asset')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 40);
+    const fileName = `slider_${Date.now()}_${cleanBaseName}.${ext}`;
+    const targetDir = path.join(__dirname, '../../public/uploads');
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const targetPath = path.join(targetDir, fileName);
+    fs.writeFileSync(targetPath, buffer);
+
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const host = req.get('host') || 'localhost:5000';
+    const fullUrl = `${protocol}://${host}/uploads/${fileName}`;
+
+    res.json({
+      status: 'success',
+      success: true,
+      fileName,
+      url: `/uploads/${fileName}`,
+      fullUrl,
+    });
+  } catch (err) {
+    console.error('Error uploading asset:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────
+// Dedicated App Slider Management API: GET & POST /app_slider
+// Allows dynamic updates for HomeScreen & RentScreen sliders
+// ──────────────────────────────────────────────────────────────
+router.get('/app_slider', async (req, res) => {
+  try {
+    const result = await db.query('SELECT values FROM settings WHERE category = $1 LIMIT 1', ['app_slider']);
+    let sliderData = result.rows.length > 0 && result.rows[0].values ? result.rows[0].values : DEFAULT_SETTINGS.app_slider;
+
+    if (sliderData && sliderData.value && typeof sliderData.value === 'object') {
+      sliderData = { ...sliderData, ...sliderData.value };
+    }
+
+    // Ensure structure is always present
+    if (!sliderData || typeof sliderData !== 'object') {
+      sliderData = DEFAULT_SETTINGS.app_slider;
+    }
+    if (!Array.isArray(sliderData.home_sliders)) {
+      sliderData.home_sliders = DEFAULT_SETTINGS.app_slider.home_sliders || [];
+    }
+    if (!Array.isArray(sliderData.rent_sliders)) {
+      sliderData.rent_sliders = DEFAULT_SETTINGS.app_slider.rent_sliders || [];
+    }
+
+    res.json({
+      status: 'success',
+      data: sliderData
+    });
+  } catch (err) {
+    console.error('Error fetching app_slider settings:', err);
+    res.json({
+      status: 'success',
+      data: DEFAULT_SETTINGS.app_slider
+    });
+  }
+});
+
+router.post('/app_slider', async (req, res) => {
+  try {
+    const payload = req.body || {};
+    // Fetch current settings to merge
+    const currentRes = await db.query('SELECT values FROM settings WHERE category = $1 LIMIT 1', ['app_slider']);
+    let existing = currentRes.rows.length > 0 && currentRes.rows[0].values ? currentRes.rows[0].values : DEFAULT_SETTINGS.app_slider;
+
+    if (!existing || typeof existing !== 'object') {
+      existing = { ...DEFAULT_SETTINGS.app_slider };
+    }
+
+    const updated = {
+      home_sliders: Array.isArray(payload.home_sliders) ? payload.home_sliders : existing.home_sliders,
+      rent_sliders: Array.isArray(payload.rent_sliders) ? payload.rent_sliders : existing.rent_sliders,
+      ...payload
+    };
+
+    await db.query(`
+      INSERT INTO settings (category, values)
+      VALUES ($1, $2)
+      ON CONFLICT (category) DO UPDATE SET values = EXCLUDED.values
+    `, ['app_slider', JSON.stringify(updated)]);
+
+    res.json({
+      status: 'success',
+      message: 'App sliders updated successfully for HomeScreen and RentScreen',
+      data: updated
+    });
+  } catch (err) {
+    console.error('Error updating app_slider settings:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// GET settings for a specific category
+router.get('/:category', async (req, res) => {
+  const { category } = req.params;
+  try {
+    const result = await db.query('SELECT values FROM settings WHERE category = $1 LIMIT 1', [category]);
+    if (result.rows.length > 0 && result.rows[0].values) {
+      return res.json({ status: 'success', data: result.rows[0].values });
+    }
+    if (DEFAULT_SETTINGS[category]) {
+      return res.json({ status: 'success', data: DEFAULT_SETTINGS[category] });
+    }
+    res.status(404).json({ status: 'error', message: `Settings category '${category}' not found` });
+  } catch (err) {
+    console.error(`Error fetching settings for ${category}:`, err);
     res.status(500).json({ status: 'error', message: err.message });
   }
 });

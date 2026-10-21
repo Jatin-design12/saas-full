@@ -380,26 +380,61 @@ export default function ReviewPage() {
   }, []);
 
   const handleConfirmSubmit = async () => {
+    const riderName = (kycData.fullName || kycData.name || '').trim();
+    const mobileNumber = (kycData.mobile || '').replace(/\D/g, '').slice(-10);
+    if (!riderName || !mobileNumber) {
+      alert('Rider Name and 10-digit Mobile Number are required. Please complete Step 1 (KYC Verification).');
+      router.push('/new-rider');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const riderName = kycData.fullName || kycData.name || 'Akash Verma';
-      const mobileNumber = (kycData.mobile || '9876543210').replace(/\D/g, '').slice(-10);
-      const totalAmount = Number(paymentData.total_payable) || Math.max(0, (Number(rentalData.plan_rate ?? 0)) + (Number(rentalData.deposit_amount ?? 0)) - (Number(paymentData.discount) || 0));
+      const planRate = Number(rentalData?.plan_rate ?? 0);
+      const depositAmt = Number(rentalData?.deposit_amount ?? 0);
+      const discountAmt = Number(paymentData?.discount || 0);
+      const totalAmount = (paymentData?.total_payable !== undefined && paymentData?.total_payable !== null)
+        ? Number(paymentData.total_payable)
+        : Math.max(0, planRate + depositAmt - discountAmt);
+
+      const fullPresentAddress = [kycData.address1, kycData.address2, kycData.city, kycData.state, kycData.pincode]
+        .filter(Boolean)
+        .join(', ');
+      const fullPermAddress = [
+        kycData.permAddress1 || kycData.address1,
+        kycData.permAddress2 || kycData.address2,
+        kycData.permCity || kycData.city,
+        kycData.permState || kycData.state,
+        kycData.permPincode || kycData.pincode,
+      ]
+        .filter(Boolean)
+        .join(', ');
 
       const payload = {
         rider_name: riderName,
         name: riderName,
         mobile: mobileNumber,
+        email: kycData.email || null,
+        date_of_birth: kycData.dob || null,
+        gender: kycData.gender || null,
+        address: fullPermAddress || fullPresentAddress || null,
+        present_address: fullPresentAddress || null,
+        aadhaar_number: kycData.idNumber || kycData.aadhaar || null,
+        emergency_contact_name: kycData.refName || kycData.fatherName || null,
+        emergency_contact_phone: kycData.altMobile || kycData.refNumber || null,
         vehicle_id: rentalData.vehicle_code || rentalData.vehicle_name || 'Evegah City',
         battery_id: rentalData.battery_id || 'BAT-MNZ-001',
         package_name: rentalData.plan_type || 'Daily Plan',
         rental_start_date: rentalData.start_date || new Date().toISOString().split('T')[0],
-        rent: Number(rentalData.plan_rate ?? 0),
-        deposit: Number(rentalData.deposit_amount ?? 0),
+        return_date: rentalData.return_date || null,
+        rent: planRate,
+        deposit: depositAmt,
         total: totalAmount,
         zone_name: rentalData.zone_name || 'Assigned Zone',
-        pay_method: paymentData.pay_method || 'upi',
-        icici_tx_id: paymentData.icici_tx_id || `EVGICICI${Date.now()}`
+        pay_method: paymentData.pay_method || 'payu',
+        payment_mode: paymentData.pay_method === 'cash' ? 'Cash' : 'PayU',
+        payu_tx_id: paymentData.payu_tx_id || null,
+        cash_receipt: paymentData.cash_receipt || null,
       };
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -412,17 +447,18 @@ export default function ReviewPage() {
 
       const resJson = await res.json().catch(() => ({}));
 
-      // Trigger ICICI verification fallback
-      fetch(`${apiUrl}/payments/icici/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tx_id: payload.icici_tx_id,
-          amount: payload.total,
-          mobile: payload.mobile,
-          rider_name: payload.rider_name
-        })
-      }).catch(() => {});
+      if (payload.payu_tx_id) {
+        fetch(`${apiUrl}/payments/payu/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tx_id: payload.payu_tx_id,
+            amount: payload.total,
+            mobile: payload.mobile,
+            rider_name: payload.rider_name
+          })
+        }).catch(() => {});
+      }
 
       const bookingId = resJson?.data?.id || `RIDE-${Date.now().toString().slice(-6)}`;
 
@@ -456,10 +492,15 @@ export default function ReviewPage() {
     }
   };
 
-  const riderName = kycData.fullName || kycData.name || 'Akash Verma';
-  const riderMobile = kycData.mobile || '+91 98765 43210';
-  const cleanMobile = riderMobile.replace(/\D/g, '').slice(-10) || '9876543210';
-  const totalAmount = Number(paymentData?.total_payable) || Math.max(0, (Number(rentalData?.plan_rate) || 600) + (Number(rentalData?.deposit_amount) || 500) - (Number(paymentData?.discount) || 0));
+  const riderName = (kycData.fullName || kycData.name || '').trim() || '—';
+  const riderMobile = (kycData.mobile || '').trim() || '—';
+  const cleanMobile = riderMobile.replace(/\D/g, '').slice(-10);
+  const planRateNum = Number(rentalData?.plan_rate ?? 0);
+  const depositNum = Number(rentalData?.deposit_amount ?? 0);
+  const discountNum = Number(paymentData?.discount || 0);
+  const totalAmount = (paymentData?.total_payable !== undefined && paymentData?.total_payable !== null)
+    ? Number(paymentData.total_payable)
+    : Math.max(0, planRateNum + depositNum - discountNum);
 
   const whatsappReceiptText = `Hello ${riderName}, your Evegah EV ride booking is confirmed!%0A%0A*Booking ID:* ${successBooking?.id || 'EVG-' + Date.now().toString().slice(-6)}%0A*Vehicle:* ${rentalData?.vehicle_name || 'Evegah City'}%0A*Battery:* ${rentalData?.battery_id || 'BAT-MNZ-001'}%0A*Plan:* ${rentalData?.plan_type || 'Daily Plan'}%0A*Total Paid:* ₹${totalAmount.toFixed(2)} (Zero GST)%0A%0AThank you for choosing Evegah Smart Mobility! ⚡`;
 
@@ -542,15 +583,15 @@ export default function ReviewPage() {
                           <span style={{ color: '#2a195c', display: 'flex' }}><IUser s={15} /></span>
                           Rider Details
                         </div>
-                        <Link href="/new-rider/kyc" className="rv-edit-btn"><IPen /> Edit</Link>
+                        <Link href="/new-rider" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
                       {[
                         { l: 'Name', v: riderName },
                         { l: 'Mobile Number', v: riderMobile },
-                        { l: 'Email', v: kycData.email || 'akash.verma@example.com' },
-                        { l: 'Date of Birth', v: kycData.dob || '27/05/1995' },
-                        { l: 'Identity Document', v: `${kycData.idType || 'Aadhaar'}: ${kycData.idNumber || kycData.aadhaar || 'XXXX XXXX 1234'}` },
-                        { l: 'Address', v: `${kycData.address1 || ''} ${kycData.city || ''} ${kycData.state || ''} ${kycData.pincode || ''}`.trim() || 'Sector 62, Noida, UP' },
+                        { l: 'Email', v: kycData.email || '—' },
+                        { l: 'Date of Birth', v: kycData.dob || '—' },
+                        { l: 'Identity Document', v: `${kycData.idType || 'Aadhaar'}: ${kycData.idNumber || kycData.aadhaar || '—'}` },
+                        { l: 'Address', v: `${kycData.address1 || ''} ${kycData.city || ''} ${kycData.state || ''} ${kycData.pincode || ''}`.trim() || '—' },
                       ].map(r => (
                         <div key={r.l} className="rv-row">
                           <span className="rv-row-l">{r.l}</span>
@@ -572,7 +613,7 @@ export default function ReviewPage() {
                         { l: 'Vehicle', v: rentalData?.vehicle_name || rentalData?.vehicle_code || 'Evegah City' },
                         { l: 'Battery', v: rentalData?.battery_id || 'BAT-MNZ-001' },
                         { l: 'Plan', v: rentalData?.plan_type || 'Daily Plan' },
-                        { l: 'Plan Rate', v: `₹${Number(rentalData?.plan_rate || 600).toFixed(2)}` },
+                        { l: 'Plan Rate', v: `₹${planRateNum.toFixed(2)}` },
                         { l: 'Expected Duration', v: `${rentalData?.total_days || 1} Day${(rentalData?.total_days || 1) > 1 ? 's' : ''}` },
                         { l: 'Assigned Zone', v: rentalData?.zone_name || 'Assigned Zone' },
                       ].map(r => (
@@ -593,9 +634,9 @@ export default function ReviewPage() {
                         <Link href="/new-rider/payment" className="rv-edit-btn"><IPen /> Edit</Link>
                       </div>
                       {[
-                        { l: `Plan Charges (${rentalData?.plan_type || 'Daily Plan'})`, v: `₹${Number(rentalData?.plan_rate || 600).toFixed(2)}` },
-                        { l: 'Security Deposit', v: `₹${Number(rentalData?.deposit_amount || 500).toFixed(2)}` },
-                        { l: 'Payment Mode', v: (paymentData?.pay_method || 'upi').toUpperCase() },
+                        { l: `Plan Charges (${rentalData?.plan_type || 'Daily Plan'})`, v: `₹${planRateNum.toFixed(2)}` },
+                        { l: 'Security Deposit', v: `₹${depositNum.toFixed(2)}` },
+                        { l: 'Payment Mode', v: (paymentData?.pay_method || 'payu').toUpperCase() },
                         ...(paymentData?.discount > 0 ? [{ l: 'Coupon Discount', v: `-₹${Number(paymentData.discount).toFixed(2)}` }] : []),
                         ...(paymentData?.pay_method === 'split' ? [
                           { l: 'Cash Component', v: `₹${Number(paymentData.cash_amount || 0).toFixed(2)}` },
@@ -798,19 +839,19 @@ export default function ReviewPage() {
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Email Address</div>
-                    <div className="preview-val">{kycData.email || 'akash.verma@example.com'}</div>
+                    <div className="preview-val">{kycData.email || '—'}</div>
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Date of Birth</div>
-                    <div className="preview-val">{kycData.dob || '27/05/1995'}</div>
+                    <div className="preview-val">{kycData.dob || '—'}</div>
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Identity Document</div>
-                    <div className="preview-val">{kycData.idType || 'Aadhaar'}: {kycData.idNumber || kycData.aadhaar || 'XXXX XXXX 1234'}</div>
+                    <div className="preview-val">{kycData.idType || 'Aadhaar'}: {kycData.idNumber || kycData.aadhaar || '—'}</div>
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Registered Address</div>
-                    <div className="preview-val">{`${kycData.address1 || ''} ${kycData.city || ''} ${kycData.state || ''} ${kycData.pincode || ''}`.trim() || 'Sector 62, Noida, UP'}</div>
+                    <div className="preview-val">{`${kycData.address1 || ''} ${kycData.city || ''} ${kycData.state || ''} ${kycData.pincode || ''}`.trim() || '—'}</div>
                   </div>
                 </div>
               </div>
@@ -844,19 +885,19 @@ export default function ReviewPage() {
                 <div className="preview-grid-2">
                   <div className="preview-field">
                     <div className="preview-label">Plan Rental Rate</div>
-                    <div className="preview-val">₹{Number(rentalData?.plan_rate || 600).toFixed(2)}</div>
+                    <div className="preview-val">₹{planRateNum.toFixed(2)}</div>
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Security Deposit (Refundable)</div>
-                    <div className="preview-val">₹{Number(rentalData?.deposit_amount || 500).toFixed(2)}</div>
+                    <div className="preview-val">₹{depositNum.toFixed(2)}</div>
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Coupon Discount</div>
-                    <div className="preview-val">₹{Number(paymentData?.discount || 0).toFixed(2)}</div>
+                    <div className="preview-val">₹{discountNum.toFixed(2)}</div>
                   </div>
                   <div className="preview-field">
                     <div className="preview-label">Payment Mode</div>
-                    <div className="preview-val">{(paymentData?.pay_method || 'UPI').toUpperCase()}</div>
+                    <div className="preview-val">{(paymentData?.pay_method || 'PAYU').toUpperCase()}</div>
                   </div>
                   <div className="preview-field" style={{ gridColumn: 'span 2' }}>
                     <div className="preview-label">Total Amount Payable</div>

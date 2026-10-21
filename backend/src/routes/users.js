@@ -48,14 +48,17 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    // Allow login by email or 10-digit mobile number
+    const identifier = (email || req.body.identifier || req.body.mobile || '').trim();
+    const cleanId = identifier.toLowerCase();
+    const digitsOnly = identifier.replace(/\D/g, '');
 
-    // Query user by email from PostgreSQL
+    // Query user by email OR mobile from PostgreSQL
     const userResult = await db.query(
       `SELECT id, name, email, role, zone, status, password, mobile, avatar_url 
        FROM users 
-       WHERE LOWER(email) = $1`,
-      [cleanEmail]
+       WHERE LOWER(email) = $1 OR mobile = $1 OR ($2 != '' AND RIGHT(REPLACE(REPLACE(mobile, ' ', ''), '+91', ''), 10) = $2)`,
+      [cleanId, digitsOnly.length >= 10 ? digitsOnly.slice(-10) : '']
     );
 
     if (userResult.rows.length === 0) {
@@ -75,12 +78,26 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check password
-    if (user.password && user.password !== password) {
+    // Check password with bcrypt verification and auto-rehash for legacy passwords
+    const { verifyPassword, hashPassword } = require('../utils/passwords');
+    const { signToken } = require('../middleware/auth');
+
+    const pwCheck = await verifyPassword(password, user.password);
+    if (!pwCheck.isValid) {
       return res.status(401).json({
         status: 'error',
         message: 'Access Denied: Invalid credentials provided for this account.'
       });
+    }
+
+    // If legacy password matched, automatically re-hash and update in DB
+    if (pwCheck.needsRehash) {
+      try {
+        const upgradedHash = await hashPassword(password);
+        await db.query('UPDATE users SET password = $1 WHERE id = $2', [upgradedHash, user.id]);
+      } catch (rehashErr) {
+        console.warn('Could not re-hash legacy password:', rehashErr.message);
+      }
     }
 
     // Update last_login
@@ -144,11 +161,15 @@ router.post('/login', async (req, res) => {
       role: user.role,
       evegahRole,
       defaultDashboard,
+      franchise_id: user.franchise_id || null,
       zone: user.zone || 'Multiple Zones',
+      mobile: user.mobile || '',
       status: user.status,
       avatar_url: user.avatar_url || '/rohit_avatar.png'
     };
-    const secureToken = `EVG_SECURE_TOKEN_${Date.now()}`;
+
+    // Sign cryptographic JWT Bearer token
+    const jwtToken = signToken(userPayload);
 
     res.json({
       status: 'success',
@@ -158,13 +179,13 @@ router.post('/login', async (req, res) => {
       evegahRole,
       defaultDashboard,
       permissions,
-      token: secureToken,
+      token: jwtToken,
       data: {
         user: userPayload,
         evegahRole,
         defaultDashboard,
         permissions,
-        token: secureToken
+        token: jwtToken
       }
     });
   } catch (err) {
@@ -173,8 +194,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/users - List all users
-router.get('/', async (req, res) => {
+const { authenticate, requireRoles } = require('../middleware/auth');
+
+// GET /api/users - List all users (Protected)
+router.get('/', authenticate, async (req, res) => {
   try {
     const search = req.query.search || '';
     const role = req.query.role || '';
@@ -222,8 +245,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/users/:id - Get single user
-router.get('/:id', async (req, res) => {
+// GET /api/users/:id - Get single user (Protected)
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.query(
@@ -242,8 +265,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/users - Create a new user
-router.post('/', async (req, res) => {
+// POST /api/users - Create a new user (Admin/SuperAdmin only)
+router.post('/', authenticate, requireRoles('admin', 'superadmin'), async (req, res) => {
   try {
     const { name, email, role, mobile, zone, status, password, avatar_url } = req.body;
 
@@ -256,6 +279,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Email already registered' });
     }
 
+    const { hashPassword } = require('../utils/passwords');
+    const hashedPassword = await hashPassword(password || 'temp123');
+
     const result = await db.query(`
       INSERT INTO users (name, email, role, mobile, zone, status, password, avatar_url)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -267,7 +293,7 @@ router.post('/', async (req, res) => {
       mobile || '',
       zone || '',
       status || 'Active',
-      password || 'temp123',
+      hashedPassword,
       avatar_url || null
     ]);
 
@@ -286,8 +312,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/users/:id - Update user details
-router.put('/:id', async (req, res) => {
+// PUT /api/users/:id - Update user details (Admin/SuperAdmin only)
+router.put('/:id', authenticate, requireRoles('admin', 'superadmin'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, role, mobile, zone, status, password, avatar_url } = req.body;
@@ -308,8 +334,10 @@ router.put('/:id', async (req, res) => {
     let pIdx = 8;
 
     if (password) {
+      const { hashPassword } = require('../utils/passwords');
+      const hashedPassword = await hashPassword(password);
       updateQuery += `, password = $${pIdx}`;
-      params.push(password);
+      params.push(hashedPassword);
       pIdx++;
     }
 
@@ -339,8 +367,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// PATCH /api/users/:id/zone - Update user zone assignment
-router.patch('/:id/zone', async (req, res) => {
+// PATCH /api/users/:id/zone - Update user zone assignment (Admin/SuperAdmin only)
+router.patch('/:id/zone', authenticate, requireRoles('admin', 'superadmin'), async (req, res) => {
   const { id } = req.params;
   const { zone } = req.body;
   try {
@@ -362,8 +390,8 @@ router.patch('/:id/zone', async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id - Delete a user
-router.delete('/:id', async (req, res) => {
+// DELETE /api/users/:id - Delete a user (Admin/SuperAdmin only)
+router.delete('/:id', authenticate, requireRoles('admin', 'superadmin'), async (req, res) => {
   try {
     const { id } = req.params;
 

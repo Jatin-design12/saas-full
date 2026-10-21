@@ -2,6 +2,28 @@
 
 const getEnv = (key, fallback = '') => process.env[key] || fallback;
 
+// In-memory cache to prevent sending duplicate receipts within 30 minutes
+const RECENT_RECEIPTS = new Map();
+
+function isDuplicateReceipt(cleanMobile, invoiceNo) {
+  if (!invoiceNo) return false;
+  const key = `${cleanMobile}:${invoiceNo}`;
+  const now = Date.now();
+
+  // Cleanup old keys older than 30 mins
+  for (const [k, timestamp] of RECENT_RECEIPTS.entries()) {
+    if (now - timestamp > 30 * 60 * 1000) {
+      RECENT_RECEIPTS.delete(k);
+    }
+  }
+
+  if (RECENT_RECEIPTS.has(key)) {
+    return true;
+  }
+  RECENT_RECEIPTS.set(key, now);
+  return false;
+}
+
 /**
  * Send WhatsApp payment receipt to rider
  * Supports both signatures:
@@ -43,10 +65,16 @@ async function sendWhatsAppReceipt(firstArg, secondArg = {}) {
     return { status: 'skipped', message: 'Access token not configured' };
   }
 
-  // Format mobile to international format without plus (e.g. 919876543210)
+  // Format mobile to international format without plus (e.g. 911800 889 8791)
   let cleanMobile = String(mobile).replace(/\D/g, '');
   if (cleanMobile.length === 10) {
     cleanMobile = '91' + cleanMobile;
+  }
+
+  // Deduplication check: Suppress duplicate WhatsApp message if already dispatched recently
+  if (invoice_no && isDuplicateReceipt(cleanMobile, invoice_no)) {
+    console.warn(`[WhatsApp] Suppressed duplicate receipt for invoice: ${invoice_no} to ${cleanMobile}`);
+    return { status: 'skipped', message: 'Duplicate receipt suppressed' };
   }
 
   // Format date

@@ -841,7 +841,8 @@ class BatteryNotifier extends StateNotifier<BatteryState> {
         'V=${voltage}V I=${current}A T=$temperature°C '
         'Cycles=$cycles Cells=${cellVoltages.length}x '
         'ChargeON=$chargeMos DischargeON=$dischargeMos '
-        'Cap=$remainingCapacity/${designCapacity}Ah');
+        'Cap=$remainingCapacity/${designCapacity}Ah '
+        'Diff=${voltDiffMv}mV Power=${rawPowerWatts}W');
 
     // ── Voice Alert for 100% Fully Charged ─────────────────────────────────────
     if (soc >= 100.0) {
@@ -852,6 +853,32 @@ class BatteryNotifier extends StateNotifier<BatteryState> {
     } else {
       _voicedFullyCharged.remove(deviceId);
     }
+
+    // ── Hardware Fault Detection & Safety Thresholds ──────────────────────────
+    final List<String> detectedFaults = [];
+    if (temperature > 55.0) {
+      detectedFaults.add('High Temp Alert: ${temperature.toStringAsFixed(1)}°C (>55°C limit)');
+    } else if (temperature < -10.0) {
+      detectedFaults.add('Low Temp Alert: ${temperature.toStringAsFixed(1)}°C');
+    }
+    if (voltage > 58.8) {
+      detectedFaults.add('Over-Voltage Alert: ${voltage.toStringAsFixed(1)}V (>58.8V limit)');
+    } else if (voltage < 42.0 && voltage > 10.0) {
+      detectedFaults.add('Under-Voltage Alert: ${voltage.toStringAsFixed(1)}V (<42.0V limit)');
+    }
+    if (maxCellMv > 0 && minCellMv > 0 && (maxCellMv - minCellMv) > 150) {
+      detectedFaults.add('Cell Imbalance: ${(maxCellMv - minCellMv).toStringAsFixed(0)}mV delta (>150mV)');
+    }
+    if (soc <= 10.0 && soc > 0.0) {
+      detectedFaults.add('Critical Low Battery: ${soc.toStringAsFixed(1)}% SOC');
+    }
+
+    if (detectedFaults.isNotEmpty && b.faults.isEmpty) {
+      _addActivityLog('Fault on ${b.name}: ${detectedFaults.first}');
+      _appendRawLog(deviceId, '[FAULT] ${detectedFaults.join("; ")}');
+    }
+
+    final batteryStatus = detectedFaults.isNotEmpty ? BatteryStatus.faulty : BatteryStatus.connected;
 
     // ── Update telemetry histories ─────────────────────────────────────────────
     final socHistory = [...b.socHistory, soc];
@@ -872,6 +899,7 @@ class BatteryNotifier extends StateNotifier<BatteryState> {
       connectedBatteries: state.connectedBatteries.map((item) {
         if (item.id == deviceId) {
           updatedBattery = item.copyWith(
+            status: batteryStatus,
             soc: soc,
             voltage: voltage,
             current: current,
@@ -891,6 +919,8 @@ class BatteryNotifier extends StateNotifier<BatteryState> {
             tempHistory: tempHistory,
             voltHistory: voltHistory,
             currentHistory: currentHistory,
+            lastUpdatedAt: DateTime.now(),
+            faults: detectedFaults,
           );
           return updatedBattery!;
         }
@@ -991,6 +1021,7 @@ class BatteryNotifier extends StateNotifier<BatteryState> {
       tempHistory: [temp, temp, temp],
       voltHistory: [volt, volt, volt],
       currentHistory: [-5.0, -5.0, -5.0],
+      lastUpdatedAt: DateTime.now(),
     );
     
     state = state.copyWith(
@@ -1039,6 +1070,7 @@ class BatteryNotifier extends StateNotifier<BatteryState> {
         voltage: nextVolt,
         current: nextCurrent,
         cellVoltages: nextCells,
+        lastUpdatedAt: DateTime.now(),
       );
 
       state = state.copyWith(

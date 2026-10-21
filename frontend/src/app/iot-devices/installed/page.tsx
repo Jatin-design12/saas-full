@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
@@ -46,17 +46,64 @@ const CSS = `
 .dot-inactive { width: 7px; height: 7px; border-radius: 50%; background: #EF4444; }
 `;
 
+interface InstalledDevice {
+  id: string;
+  vehicle: string;
+  installDate: string;
+  zone: string;
+  status: 'active' | 'inactive';
+}
+
+const DEFAULT_DEVICES: InstalledDevice[] = [
+  { id: 'IOT-9182', vehicle: 'EVM1024011', installDate: 'May 10, 2024', zone: 'Gotri Zone', status: 'active' },
+  { id: 'IOT-4821', vehicle: 'EVM1024012', installDate: 'May 12, 2024', zone: 'Gotri Zone', status: 'active' },
+  { id: 'IOT-3011', vehicle: 'EVM1024023', installDate: 'May 14, 2024', zone: 'Manjalpur Zone', status: 'inactive' },
+  { id: 'IOT-8492', vehicle: 'EVM102501', installDate: 'May 15, 2024', zone: 'KPGU Zone', status: 'active' },
+  { id: 'IOT-2741', vehicle: 'EVM102502', installDate: 'May 18, 2024', zone: 'Aatapi Zone', status: 'active' }
+];
+
 export default function InstalledDevicesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
+  const [devices, setDevices] = useState<InstalledDevice[]>(DEFAULT_DEVICES);
+  const [kpis, setKpis] = useState({
+    totalInstalled: 1248,
+    activeSignals: 1220,
+    inStock: 18,
+    noSignal: 10
+  });
 
-  const devices = [
-    { id: 'IOT-9182', vehicle: 'EVM1024011', installDate: 'May 10, 2024', zone: 'Gotri Zone', status: 'active' },
-    { id: 'IOT-4821', vehicle: 'EVM1024012', installDate: 'May 12, 2024', zone: 'Gotri Zone', status: 'active' },
-    { id: 'IOT-3011', vehicle: 'EVM1024023', installDate: 'May 14, 2024', zone: 'Manjalpur Zone', status: 'inactive' },
-    { id: 'IOT-8492', vehicle: 'EVM102501', installDate: 'May 15, 2024', zone: 'KPGU Zone', status: 'active' },
-    { id: 'IOT-2741', vehicle: 'EVM102502', installDate: 'May 18, 2024', zone: 'Aatapi Zone', status: 'active' }
-  ];
+  useEffect(() => {
+    async function loadLiveDevices() {
+      try {
+        const res = await fetch('http://localhost:5000/api/iot/devices');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.kpis) {
+            setKpis({
+              totalInstalled: json.kpis.totalInstalled || 0,
+              activeSignals: json.kpis.activeSignals || 0,
+              inStock: json.kpis.inStock || 0,
+              noSignal: json.kpis.noSignal || 0
+            });
+          }
+          if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped: InstalledDevice[] = json.data.map((d: any) => ({
+              id: d.serial_number,
+              vehicle: d.assigned_vehicle_code || 'Unassigned',
+              installDate: d.installed_at ? new Date(d.installed_at).toLocaleDateString() : 'Pending',
+              zone: 'Vadodara Hub',
+              status: (d.status === 'Installed' && d.last_heartbeat) ? 'active' : 'inactive'
+            }));
+            setDevices(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch live IoT devices, retaining default view:', err);
+      }
+    }
+    loadLiveDevices();
+  }, []);
 
   const filtered = devices.filter(d => {
     const matchesSearch = d.id.toLowerCase().includes(search.toLowerCase()) || d.vehicle.toLowerCase().includes(search.toLowerCase());
@@ -78,28 +125,28 @@ export default function InstalledDevicesPage() {
                 <span className="io-stat-ic ic-purple">📡</span>
                 <div className="io-stat-info">
                   <span className="io-stat-lbl">Total Installed</span>
-                  <span className="io-stat-val">1,248</span>
+                  <span className="io-stat-val">{kpis.totalInstalled.toLocaleString()}</span>
                 </div>
               </div>
               <div className="io-stat-card">
                 <span className="io-stat-ic ic-green">✓</span>
                 <div className="io-stat-info">
                   <span className="io-stat-lbl">Active Signals</span>
-                  <span className="io-stat-val">1,220</span>
+                  <span className="io-stat-val">{kpis.activeSignals.toLocaleString()}</span>
                 </div>
               </div>
               <div className="io-stat-card">
                 <span className="io-stat-ic ic-red">✗</span>
                 <div className="io-stat-info">
                   <span className="io-stat-lbl">No Signal</span>
-                  <span className="io-stat-val">18</span>
+                  <span className="io-stat-val">{kpis.noSignal.toLocaleString()}</span>
                 </div>
               </div>
               <div className="io-stat-card">
-                <span className="io-stat-ic ic-yellow">⚠</span>
+                <span className="io-stat-ic ic-yellow">📦</span>
                 <div className="io-stat-info">
-                  <span className="io-stat-lbl">Low Battery</span>
-                  <span className="io-stat-val">10</span>
+                  <span className="io-stat-lbl">In Stock</span>
+                  <span className="io-stat-val">{kpis.inStock.toLocaleString()}</span>
                 </div>
               </div>
             </div>

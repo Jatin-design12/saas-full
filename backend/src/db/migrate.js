@@ -171,6 +171,7 @@ const migrate = async () => {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'Active';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS notifications_read_at TIMESTAMPTZ;
     ALTER TABLE zones ADD COLUMN IF NOT EXISTS address TEXT;
     ALTER TABLE zones ADD COLUMN IF NOT EXISTS image_url TEXT;
     ALTER TABLE zones ADD COLUMN IF NOT EXISTS pricing JSONB DEFAULT '{}'::jsonb;
@@ -255,7 +256,157 @@ const migrate = async () => {
       zone VARCHAR(150),
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS franchises (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      code VARCHAR(50) UNIQUE NOT NULL,
+      name VARCHAR(150) NOT NULL,
+      owner_name VARCHAR(100) NOT NULL,
+      email VARCHAR(150) UNIQUE,
+      mobile VARCHAR(20) NOT NULL,
+      hub_address TEXT NOT NULL,
+      city VARCHAR(100) DEFAULT 'Vadodara',
+      state VARCHAR(100) DEFAULT 'Gujarat',
+      zone VARCHAR(150) DEFAULT 'Gotri Zone',
+      revenue_share NUMERIC(5, 2) DEFAULT 80.00,
+      assigned_vehicles INT DEFAULT 0,
+      assigned_batteries INT DEFAULT 0,
+      status VARCHAR(30) DEFAULT 'Active',
+      operating_hours VARCHAR(100) DEFAULT '08:00 AM - 10:00 PM',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS franchise_expenses (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      franchise_id UUID REFERENCES franchises(id) ON DELETE CASCADE,
+      franchise_name VARCHAR(150) NOT NULL,
+      category VARCHAR(100) NOT NULL,
+      title VARCHAR(200) NOT NULL,
+      amount NUMERIC(12, 2) NOT NULL,
+      expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      payment_mode VARCHAR(50) DEFAULT 'UPI',
+      invoice_number VARCHAR(100),
+      notes TEXT,
+      status VARCHAR(30) DEFAULT 'Approved',
+      created_by VARCHAR(100) DEFAULT 'Admin',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS attendance_logs (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      employee_id VARCHAR(50),
+      employee_name VARCHAR(100) NOT NULL,
+      employee_role VARCHAR(100) DEFAULT 'Operations Staff',
+      zone VARCHAR(150) DEFAULT 'Gotri Zone Hub',
+      shift VARCHAR(100) DEFAULT 'Morning Shift',
+      clock_in_time TIMESTAMPTZ NOT NULL,
+      clock_out_time TIMESTAMPTZ,
+      elapsed_minutes INT DEFAULT 0,
+      status VARCHAR(30) DEFAULT 'clocked_in',
+      geofence_verified BOOLEAN DEFAULT true,
+      clock_in_lat NUMERIC(9, 6),
+      clock_in_lng NUMERIC(9, 6),
+      clock_out_lat NUMERIC(9, 6),
+      clock_out_lng NUMERIC(9, 6),
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_franchise_expenses_franchise ON franchise_expenses(franchise_id);
+    CREATE INDEX IF NOT EXISTS idx_attendance_user_status ON attendance_logs(user_id, status);
+
+    CREATE TABLE IF NOT EXISTS device_tokens (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      token TEXT UNIQUE NOT NULL,
+      user_id VARCHAR(100),
+      mobile VARCHAR(50),
+      role VARCHAR(50) DEFAULT 'rider',
+      app_type VARCHAR(50) DEFAULT 'rider',
+      tenant_id VARCHAR(100),
+      device_os VARCHAR(30) DEFAULT 'android',
+      is_active BOOLEAN DEFAULT true,
+      last_active_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_device_tokens_mobile ON device_tokens(mobile);
+    CREATE INDEX IF NOT EXISTS idx_device_tokens_role ON device_tokens(role);
+    CREATE INDEX IF NOT EXISTS idx_device_tokens_app ON device_tokens(app_type);
+
+    CREATE TABLE IF NOT EXISTS push_notifications_log (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      event_type VARCHAR(50) NOT NULL,
+      event_key VARCHAR(100),
+      recipient_mobile VARCHAR(50),
+      recipient_role VARCHAR(50),
+      title VARCHAR(255) NOT NULL,
+      body TEXT NOT NULL,
+      payload JSONB DEFAULT '{}'::jsonb,
+      tokens_targeted INT DEFAULT 0,
+      success_count INT DEFAULT 0,
+      failure_count INT DEFAULT 0,
+      status VARCHAR(30) DEFAULT 'dispatched',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_push_event_key ON push_notifications_log(event_key) WHERE event_key IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS iot_inward_batches (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      inward_no VARCHAR(50) UNIQUE NOT NULL,
+      invoice_no VARCHAR(100) NOT NULL,
+      invoice_date DATE DEFAULT CURRENT_DATE,
+      supplier VARCHAR(150) NOT NULL,
+      po_no VARCHAR(100),
+      device_type VARCHAR(100) NOT NULL,
+      device_model VARCHAR(100) NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      received_on TIMESTAMPTZ DEFAULT NOW(),
+      status VARCHAR(50) DEFAULT 'Completed',
+      qc_status VARCHAR(50) DEFAULT 'Accepted',
+      notes TEXT,
+      created_by VARCHAR(100) DEFAULT 'Admin',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS iot_devices (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      serial_number VARCHAR(100) UNIQUE NOT NULL,
+      device_type VARCHAR(100) NOT NULL,
+      device_model VARCHAR(100) NOT NULL,
+      supplier VARCHAR(150) NOT NULL,
+      invoice_no VARCHAR(100),
+      inward_batch_id UUID REFERENCES iot_inward_batches(id) ON DELETE SET NULL,
+      inward_no VARCHAR(50),
+      firmware_version VARCHAR(50) DEFAULT 'v1.0.4',
+      hardware_version VARCHAR(50) DEFAULT 'revB',
+      status VARCHAR(50) DEFAULT 'In Stock',
+      qc_status VARCHAR(50) DEFAULT 'Accepted',
+      assigned_vehicle_code VARCHAR(100),
+      assigned_battery_id VARCHAR(100),
+      installed_at TIMESTAMPTZ,
+      last_heartbeat TIMESTAMPTZ,
+      is_simulated BOOLEAN DEFAULT false,
+      received_on TIMESTAMPTZ DEFAULT NOW(),
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_iot_devices_serial ON iot_devices(serial_number);
+    CREATE INDEX IF NOT EXISTS idx_iot_devices_vehicle ON iot_devices(assigned_vehicle_code);
+    CREATE INDEX IF NOT EXISTS idx_iot_devices_status ON iot_devices(status);
   `);
+
+  // Seed default franchise if none exists
+  const existingFranchises = await db.query('SELECT COUNT(*) FROM franchises');
+  if (parseInt(existingFranchises.rows[0].count) === 0) {
+    await db.query(`
+      INSERT INTO franchises (code, name, owner_name, email, mobile, hub_address, zone, revenue_share, assigned_vehicles, assigned_batteries, status)
+      VALUES 
+        ('FR-ALKP-001', 'Alkapuri Evegah Hub', 'Vikram Desai', 'vikram@evegah.com', '+91 98250 11223', 'Shop 4, RC Dutt Road, Alkapuri', 'Alkapuri Zone', 80.00, 25, 50, 'Active'),
+        ('FR-GOTR-002', 'Gotri Central Hub', 'Ananya Verma', 'ananya@evegah.com', '+91 91234 56789', 'Gotri Main Road, Opp. Iscon Temple', 'Gotri Zone', 85.00, 40, 80, 'Active')
+      ON CONFLICT DO NOTHING
+    `);
+  }
 
   // Seed default coupons
   const existingCoupons = await db.query('SELECT COUNT(*) FROM coupons');
@@ -302,16 +453,34 @@ const migrate = async () => {
     WHERE permissions->'Dashboard' IS NULL OR permissions->'Dashboard'->>'access' = 'false';
   `);
 
+  // Ensure users table has franchise_id column for multi-tenant isolation
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS franchise_id UUID REFERENCES franchises(id) ON DELETE SET NULL`);
+
+  // Migrate legacy plaintext passwords to bcrypt
+  try {
+    const { hashPassword, isBcryptHash } = require('../utils/passwords');
+    const unhashedUsers = await db.query('SELECT id, password FROM users WHERE password IS NOT NULL');
+    for (const u of unhashedUsers.rows) {
+      if (u.password && !isBcryptHash(u.password)) {
+        const hashed = await hashPassword(u.password);
+        await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, u.id]);
+      }
+    }
+  } catch (pwErr) {
+    console.warn('Password migration warning:', pwErr.message);
+  }
+
   // Seed default predefined users
   const existingUsersCount = await db.query('SELECT COUNT(*) FROM users');
   if (parseInt(existingUsersCount.rows[0].count) === 0) {
+    const { hashPassword } = require('../utils/passwords');
+    const initialHashedPassword = await hashPassword('admin123');
     await db.query(`
       INSERT INTO users (name, email, role, mobile, zone, status, password)
       VALUES 
-        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 81282 51172', 'Multiple Zones', 'Active', 'admin123')
-       
+        ('Himanshu', 'himanshu@evegah.com', 'Super Admin', '+91 81282 51172', 'Multiple Zones', 'Active', $1)
       ON CONFLICT (email) DO NOTHING
-    `);
+    `, [initialHashedPassword]);
   }
 
   // Seed default audit logs

@@ -1,10 +1,11 @@
 "use client";
 import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 
 const CSS = `
 .ev-shell { display: flex; min-height: 100vh; background: #F3F4F9; font-family: 'Inter', sans-serif; }
-.ev-main { margin-left: 230px; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - 230px); }
+.ev-main { margin-left: var(--ev-sidebar-width, 240px); display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - var(--ev-sidebar-width, 240px)); }
 .ev-body { padding: 20px 22px 50px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
 
 /* Custom Super Admin Top Bar */
@@ -76,21 +77,10 @@ export default function WhiteLabelSettings() {
         <Sidebar activePath="/super-admin/white-label" />
         <div className="ev-main">
           
-          <header className="sa-tb">
-            <div className="sa-tb-left">
-              <h1 className="sa-tb-hello">White-Label Branding Settings</h1>
-              <p className="sa-tb-sub">Customize domains, themes, splashscreens and customer communications branding.</p>
-            </div>
-            <div className="sa-tb-right">
-              <div className="sa-tb-prof">
-                <div className="sa-tb-prof-av">SU</div>
-                <div className="sa-tb-prof-info">
-                  <span className="sa-tb-prof-name">Super Admin</span>
-                  <span className="sa-tb-prof-role">Platform Owner</span>
-                </div>
-              </div>
-            </div>
-          </header>
+          <TopBar 
+            title="White-Label Branding Settings" 
+            subtitle="Customize domains, themes, splashscreens and customer communications branding." 
+          />
 
           <div className="ev-body">
             

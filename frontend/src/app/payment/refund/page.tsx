@@ -617,7 +617,7 @@ export default function DepositRefundPage() {
                             title="Select / Deselect All"
                           />
                         </th>
-                        <th>RIDER / CUSTOMER</th>
+                        <th>RIDER NAME</th>
                         <th>VEHICLE</th>
                         <th>RETURN DATE &amp; TIME</th>
                         <th>ORIGINAL DEPOSIT</th>
@@ -776,8 +776,8 @@ export default function DepositRefundPage() {
                             title="Select / Deselect All"
                           />
                         </th>
-                        <th>RIDER / CUSTOMER</th>
-                        <th>REFUND DATE &amp; TIME</th>
+                        <th>RIDER NAME</th>
+                        <th>DATE &amp; TIME</th>
                         <th>REFUND TX ID</th>
                         <th>VEHICLE</th>
                         <th>ORIGINAL DEPOSIT</th>
@@ -855,7 +855,7 @@ export default function DepositRefundPage() {
 
                               <td>
                                 <span className="status-badge badge-successful">
-                                  ✓ Successful
+                                  Successful
                                 </span>
                               </td>
 

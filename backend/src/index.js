@@ -1,4 +1,9 @@
 require('dotenv').config();
+process.on('uncaughtException', (err) => console.error('Unhandled Exception:', err.message));
+process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:', reason));
+const { validateEnvironment } = require('./utils/envValidator');
+validateEnvironment();
+
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -17,6 +22,99 @@ app.use(express.urlencoded({ limit: '150mb', extended: true }));
 const path = require('path');
 app.use('/assets', express.static(path.join(__dirname, '../../frontend/public/assets')));
 app.use('/assets', express.static(path.join(__dirname, '../../frontend/public')));
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
+// Public mobile endpoint for dynamic app sliders
+app.get('/api/app-sliders', async (req, res) => {
+  try {
+    const db = require('./db');
+    const result = await db.query("SELECT values FROM settings WHERE category = 'app_slider' LIMIT 1");
+    if (result.rows.length > 0 && result.rows[0].values) {
+      return res.json({ status: 'success', data: result.rows[0].values });
+    }
+    const defaultSliders = {
+      home_sliders: [
+        {
+          id: 'home-1',
+          screen: 'home',
+          tag: 'SPECIAL OFFER',
+          title: 'Ride More, Pay Less',
+          lines: ['Hello,', 'Riders'],
+          sub: 'Unlimited swaps and zero emissions',
+          cta: 'Rent EVs',
+          bg: '',
+          front: '',
+          active: true,
+        },
+        {
+          id: 'home-2',
+          screen: 'home',
+          tag: 'BEST VALUE',
+          title: 'Right Price EV Fleet',
+          lines: ['Rent your EV', 'for the', 'Right price'],
+          sub: 'Transparent rates starting at ₹149/day',
+          cta: 'Rent EV',
+          bg: '',
+          front: '',
+          active: true,
+        },
+        {
+          id: 'home-3',
+          screen: 'home',
+          tag: 'SMART COMMUTE',
+          title: 'Smart Way to Ride',
+          lines: ['smart way', 'to ride'],
+          sub: 'zero deposit plan options',
+          cta: 'Go With EV',
+          bg: '',
+          front: '',
+          active: true,
+        },
+      ],
+      rent_sliders: [
+        {
+          id: 'rent-1',
+          screen: 'rent',
+          tag: 'DAILY COMMUTE',
+          title: 'Smart Rides for Corporate Pros',
+          lines: ['Smart Rides for', 'Corporate Pros'],
+          sub: 'Zero petrol. 100% savings.',
+          cta: 'Rent EV',
+          bg: '',
+          front: '',
+          active: true,
+        },
+        {
+          id: 'rent-2',
+          screen: 'rent',
+          tag: 'CAMPUS RIDES',
+          title: 'College Travel, Made Effortless',
+          lines: ['College Travel,', 'Made Effortless'],
+          sub: 'Special student hourly rates.',
+          cta: 'Book Now',
+          bg: '',
+          front: '',
+          active: true,
+        },
+        {
+          id: 'rent-3',
+          screen: 'rent',
+          tag: 'DELIVERY FLEET',
+          title: 'Earn More With Evegah EV Fleet',
+          lines: ['Earn More With', 'Evegah EV Fleet'],
+          sub: 'High range & zero maintenance.',
+          cta: 'Start Earning',
+          bg: '',
+          front: '',
+          active: true,
+        },
+      ],
+    };
+    res.json({ status: 'success', data: defaultSliders });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
 
 // Routes
 app.use('/api/stats', require('./routes/stats'));
@@ -26,6 +124,7 @@ app.use('/api/knowledge', require('./routes/knowledge'));
 app.use('/api/batteries', require('./routes/batteries'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/renters', require('./routes/renters'));
+app.use('/api/kyc', require('./routes/kyc'));
 app.use('/api/zones', require('./routes/zones'));
 app.use('/api/reservations', require('./routes/reservations'));
 app.use('/api/users', require('./routes/users'));
@@ -41,14 +140,22 @@ app.use('/api/referral', require('./routes/referral'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/rides', require('./routes/rides'));
 app.use('/api/retain-rider', require('./routes/rides'));
+app.use('/api/payments/payu', require('./routes/payu'));
+app.use('/api/payments/phonepe', require('./routes/phonepe'));
+app.use('/api/phonepe', require('./routes/phonepe'));
 app.use('/api/payments/icici', require('./routes/icici'));
 app.use('/api/icici', require('./routes/icici'));
-app.use('/api/payments/payu', require('./routes/payu'));
 app.use('/api/payments/history', require('./routes/paymentHistory'));
 app.use('/api/payments/cash-collection', (req, res, next) => {
   req.url = '/cash-collection';
   return require('./routes/paymentHistory')(req, res, next);
 });
+app.use('/api/receipts', require('./routes/receipts'));
+app.use('/api/receipt', require('./routes/receipts'));
+app.use('/receipt', require('./routes/receipts'));
+app.use('/api/franchises', require('./routes/franchises'));
+app.use('/api/attendance', require('./routes/attendance'));
+app.use('/api/iot', require('./routes/iot'));
 app.use('/api/payments/gateways', require('./routes/gateways'));
 app.use('/api/payments/config', (req, res, next) => {
   req.url = '/config';

@@ -166,19 +166,63 @@ const SUPER_DESIGN_CSS = `
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #6366F1;
+  background: #2A195C;
   color: #fff;
   border: none;
   border-radius: 10px;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  transition: all 0.15s;
+  box-shadow: 0 4px 12px rgba(42, 25, 92, 0.25);
+  text-decoration: none;
 }
 
 .sa-export-btn:hover {
-  background: #4f46e5;
+  background: #1e1142;
+  transform: translateY(-1px);
+}
+
+.sa-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  color: #2A195C;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sa-refresh-btn:hover {
+  border-color: #2A195C;
+  background: #F8FAFC;
+}
+
+.sa-action-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2A195C;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.sa-action-pill:hover {
+  border-color: #2A195C;
+  background: #F5F3FF;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(42, 25, 92, 0.08);
 }
 
 /* KPI Cards 5 column row */
@@ -662,12 +706,94 @@ const SUPER_DESIGN_CSS = `
   border-radius: 3px;
   overflow: hidden;
 }
+
+/* ── Premium Mascot Banner ── */
+.ev-mascot-banner {
+  background: linear-gradient(135deg, #2A195C 0%, #1e1142 100%);
+  border-radius: 16px;
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px -10px rgba(42, 25, 92, 0.4);
+}
+.ev-mascot-banner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.ev-mascot-content {
+  color: #fff;
+  z-index: 2;
+  max-width: 60%;
+  animation: rowFadeIn 0.5s ease-out forwards;
+}
+.ev-mascot-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+.ev-mascot-desc {
+  font-size: 15px;
+  color: #cbd5e1;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.ev-mascot-image-container {
+  position: absolute;
+  right: 20px;
+  bottom: -20px;
+  width: 320px;
+  height: auto;
+  z-index: 2;
+  pointer-events: none;
+}
+.ev-mascot-image {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 20px 20px rgba(0,0,0,0.3));
+  animation: mascotFloat 6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+@keyframes mascotFloat {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
 .sa-prog-bar-fill {
   height: 100%;
   background: #6366F1;
   border-radius: 3px;
 }
 `;
+
+
+function MascotBanner({ userName, roleName }: { userName: string, roleName: string }) {
+  return (
+    <div className="ev-mascot-banner">
+      <div className="ev-mascot-content">
+        <h2 className="ev-mascot-title">Welcome back, {userName}! 👋</h2>
+        <p className="ev-mascot-desc">Here is your {roleName} overview for today. Your platform is operating smoothly.</p>
+        <button className="ev-btn-primary" style={{marginTop: "12px", background: "#10B981", borderColor: "#10B981"}}>View Live Fleet</button>
+      </div>
+      <div className="ev-mascot-image-container">
+        <img src="/assets/scooter_hero_scene.png" alt="Evegah Mascot" className="ev-mascot-image" />
+      </div>
+    </div>
+  );
+}
 
 export default function DynamicDashboard() {
   const [role, setRole] = useState<string | null>(null);
@@ -978,16 +1104,24 @@ export default function DynamicDashboard() {
 /* ──────────────────────────────────────────────────────── */
 function SuperAdminRoleDashboard() {
   const [liveStats, setLiveStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchSuperStats = async () => {
       try {
+        setIsLoading(true);
         const res = await api.get('/stats/super-admin');
         if (res.status === 'success' && res.data) {
           setLiveStats(res.data);
+        } else {
+          setIsError(true);
         }
       } catch (e) {
         console.warn('SuperAdmin stats fetch error:', e);
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchSuperStats();
@@ -1006,30 +1140,27 @@ function SuperAdminRoleDashboard() {
               <span className="sa-sub-desc">Multi-tenant subscription analytics and revenue health overview</span>
             </div>
             <div className="sa-sub-right">
-              <div className="sa-date-box">
-                <span>01 May 2024 - 31 May 2024</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-              </div>
+              
               <button className="sa-export-btn">Export Report</button>
             </div>
           </div>
 
-          <div className="sa-kpi-row-5">
+          <div className="ev-kpi-grid-5">
             {[
-              { label: 'Total Users', val: liveStats ? liveStats.totalUsers.toLocaleString('en-US') : '28', change: '14.2%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👥' },
-              { label: 'Total Franchises', val: liveStats ? (liveStats.totalFranchises || liveStats.totalTenants || 3).toString() : '3', change: '8.7%', up: true, bg: '#EEF2FF', color: '#4F46E5', ic: '🏢' },
-              { label: 'Active Subscriptions', val: liveStats ? liveStats.activeSubscriptions.toLocaleString('en-US') : '6', change: '16.5%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' },
-              { label: 'MRR', val: liveStats ? liveStats.mrr : '₹17,065', change: '18.5%', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' },
-              { label: 'ARR', val: liveStats ? liveStats.arr : '₹2,04,780', change: '18.5%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '📈' }
+              { label: 'Total Users', val: liveStats ? liveStats.totalUsers.toLocaleString('en-US') : (isError ? '—' : 'Loading...'), change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👥' },
+              { label: 'Total Franchises', val: liveStats ? (liveStats.totalFranchises || liveStats.totalTenants || 0).toString() : (isError ? '—' : 'Loading...'), change: '—', up: true, bg: '#EEF2FF', color: '#4F46E5', ic: '🏢' },
+              { label: 'Active Subscriptions', val: liveStats ? liveStats.activeSubscriptions.toLocaleString('en-US') : (isError ? '—' : 'Loading...'), change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' },
+              { label: 'MRR', val: liveStats ? liveStats.mrr : (isError ? '—' : 'Loading...'), change: '—', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' },
+              { label: 'ARR', val: liveStats ? liveStats.arr : (isError ? '—' : 'Loading...'), change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '📈' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
-                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
+                  <span className="ev-kpi-trend-up">↑ {k.change}</span>
                   <span>vs last month</span>
                 </div>
               </div>
@@ -1047,10 +1178,10 @@ function SuperAdminRoleDashboard() {
                 <div style={{ height: '180px', position: 'relative' }}>
                   <Line
                     data={{
-                      labels: liveStats?.revenueOverview?.labels || ['01 May', '06 May', '11 May', '16 May', '21 May', '26 May', '31 May'],
+                      labels: liveStats?.revenueOverview?.labels || [],
                       datasets: [
-                        { label: 'MRR (₹)', data: liveStats?.revenueOverview?.mrrData || [45, 70, 50, 60, 55, 63, 90], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.4 },
-                        { label: 'ARR (₹)', data: liveStats?.revenueOverview?.arrData || [25, 40, 35, 43, 45, 55, 70], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
+                        { label: 'MRR (₹)', data: liveStats?.revenueOverview?.mrrData || [], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.4 },
+                        { label: 'ARR (₹)', data: liveStats?.revenueOverview?.arrData || [], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
                       ]
                     }}
                     options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }}
@@ -1067,20 +1198,20 @@ function SuperAdminRoleDashboard() {
                   <Doughnut
                     data={{
                       labels: ['Active', 'Trial', 'Past Due', 'Canceled'],
-                      datasets: [{ data: liveStats ? [liveStats.subscriptionStatus.active, liveStats.subscriptionStatus.trial, liveStats.subscriptionStatus.pastDue, liveStats.subscriptionStatus.canceled] : [6543, 1245, 687, 457], backgroundColor: ['#1E3A8A', '#84CC16', '#F97316', '#EF4444'] }]
+                      datasets: [{ data: liveStats ? [liveStats.subscriptionStatus.active, liveStats.subscriptionStatus.trial, liveStats.subscriptionStatus.pastDue, liveStats.subscriptionStatus.canceled] : [], backgroundColor: ['#1E3A8A', '#84CC16', '#F97316', '#EF4444'] }]
                     }}
                     options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }}
                   />
                   <div className="sa-donut-center">
-                    <span className="sa-donut-num">{liveStats ? liveStats.subscriptionStatus.total.toLocaleString('en-US') : '8,932'}</span>
+                    <span className="sa-donut-num">{liveStats ? liveStats.subscriptionStatus.total.toLocaleString('en-US') : '—'}</span>
                     <span className="sa-donut-lbl">Total</span>
                   </div>
                 </div>
                 <div className="sa-donut-legends">
-                  <div className="sa-donut-leg-row"><span>Active</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.active.toLocaleString('en-US') : '6,543'} (73.2%)</span></div>
-                  <div className="sa-donut-leg-row"><span>Trial</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.trial.toLocaleString('en-US') : '1,245'} (13.9%)</span></div>
-                  <div className="sa-donut-leg-row"><span>Past Due</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.pastDue.toLocaleString('en-US') : '687'} (7.7%)</span></div>
-                  <div className="sa-donut-leg-row"><span>Canceled</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.canceled.toLocaleString('en-US') : '457'} (5.2%)</span></div>
+                  <div className="sa-donut-leg-row"><span>Active</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.active.toLocaleString('en-US') : '—'} </span></div>
+                  <div className="sa-donut-leg-row"><span>Trial</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.trial.toLocaleString('en-US') : '—'} </span></div>
+                  <div className="sa-donut-leg-row"><span>Past Due</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.pastDue.toLocaleString('en-US') : '—'} </span></div>
+                  <div className="sa-donut-leg-row"><span>Canceled</span><span className="sa-donut-leg-val">{liveStats ? liveStats.subscriptionStatus.canceled.toLocaleString('en-US') : '—'} </span></div>
                 </div>
               </div>
             </div>
@@ -1096,10 +1227,10 @@ function SuperAdminRoleDashboard() {
                 <div style={{ height: '80px', width: '100%', marginBottom: '14px' }}>
                   <Bar
                     data={{
-                      labels: ['Enterprise', 'Business', 'Pro', 'Starter'],
-                      datasets: [
-                        {
-                          data: [4567890, 2834560, 1245230, 567890],
+                      labels: liveStats?.topPlans?.labels || [],
+                        datasets: [
+                          {
+                            data: liveStats?.topPlans?.data || [],
                           backgroundColor: ['#1E3A8A', '#10B981', '#F59E0B', '#6366F1'],
                           borderRadius: 4,
                           barThickness: 8
@@ -1152,20 +1283,20 @@ function SuperAdminRoleDashboard() {
           {/* 6 Small KPIs Row */}
           <div className="sa-kpi-row-6">
             {[
-              { label: 'New Signups', val: '1,245', change: '14.2%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
-              { label: 'Trial Conversions', val: '18.6%', change: '3.2%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
-              { label: 'Churn Rate', val: '2.4%', change: '0.6%', up: false, bg: '#FEF2F2', color: '#EF4444', ic: '📉' },
-              { label: 'LTV', val: '₹24,850', change: '11.3%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '💎' },
-              { label: 'CAC', val: '₹3,250', change: '4.1%', up: false, bg: '#FFF7ED', color: '#F97316', ic: '🏷️' },
-              { label: 'Active Tenants', val: '198', change: '9.1%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🏬' }
+              { label: 'New Signups', val: '1,245', change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
+              { label: 'Trial Conversions', val: '18.6%', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
+              { label: 'Churn Rate', val: '2.4%', change: '—', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '📉' },
+              { label: 'LTV', val: '₹24,850', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '💎' },
+              { label: 'CAC', val: '₹3,250', change: '—', up: true, bg: '#FFF7ED', color: '#F97316', ic: '🏷️' },
+              { label: 'Active Tenants', val: '198', change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🏬' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card" style={{ padding: '12px' }}>
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label" style={{ fontSize: '9.5px' }}>{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
+                <div className="ev-kpi-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom" style={{ fontSize: '9.5px' }}>
                   <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
                 </div>
               </div>
@@ -1180,7 +1311,7 @@ function SuperAdminRoleDashboard() {
                 <a href="/franchise/list" className="sa-link-all">Manage Tenants</a>
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
+                <table className="ev-table">
                   <thead>
                     <tr><th>Tenant Name</th><th>Plan</th><th>Vehicles</th><th>Status</th></tr>
                   </thead>
@@ -1280,31 +1411,28 @@ function FranchiseAdminRoleDashboard() {
               <span className="sa-sub-desc">Live performance summary across all managed zones</span>
             </div>
             <div className="sa-sub-right">
-              <div className="sa-date-box">
-                <span>Today (Live Operations)</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-              </div>
+              
               <a href="/vehicles/all" className="sa-export-btn">+ Register New Vehicle</a>
             </div>
           </div>
 
           {/* 5 Top Real KPI Cards: Total Rent, Total Deposit, Riders, Reservations, Active Fleet */}
-          <div className="sa-kpi-row-5">
+          <div className="ev-kpi-grid-5">
             {[
-              { label: 'Total Rent Collected', val: fStats ? fStats.mrr : '₹17,065', change: '18.5%', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' },
-              { label: 'Total Deposit Held', val: '₹9,000', change: '100% Refundable', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
-              { label: 'Total Riders Registered', val: (fStats?.totalRiders || 25).toString(), change: '14.2%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '👥' },
-              { label: 'Total Reservations', val: (fStats?.activeSubscriptions || 9).toString(), change: '16.5%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '⚡' },
-              { label: 'Active Operational Fleet', val: (fStats?.totalVehicles?.value || '8 EVs'), change: '100% Online', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🚲' }
+              { label: 'Total Rent Collected', val: fStats ? fStats.mrr : '—', change: '—', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' },
+              { label: 'Total Deposit Held', val: '₹9,000', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
+              { label: 'Total Riders Registered', val: (fStats?.totalRiders || '—').toString(), change: '—', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '👥' },
+              { label: 'Total Reservations', val: (fStats?.activeSubscriptions || '—').toString(), change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '⚡' },
+              { label: 'Active Operational Fleet', val: (fStats?.totalVehicles?.value || '—'), change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🚲' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
-                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
+                  <span className="ev-kpi-trend-up">↑ {k.change}</span>
                   <span>vs last period</span>
                 </div>
               </div>
@@ -1390,27 +1518,28 @@ function FranchiseAdminRoleDashboard() {
                 <a href="/vehicles/active" className="sa-link-all">Live Rides</a>
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
-                  <thead>
-                    <tr><th>Vehicle Plate</th><th>Rider Name</th><th>Current Zone</th><th>Battery %</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {(liveVehicles.slice(0, 4).length > 0 ? liveVehicles.slice(0, 4) : [
-                      { code: 'EVM1024001', renter_name: 'Himanshu Chavda', zone: 'Gotri Zone', battery_pct: '92%', vehicle_status: 'In Ride' },
-                      { code: 'EVM1024002', renter_name: 'Vikram Patel', zone: 'Gotri Zone', battery_pct: '85%', vehicle_status: 'In Ride' },
-                      { code: 'EVM1024003', renter_name: 'Priya Sharma', zone: 'Daman Zone', battery_pct: '78%', vehicle_status: 'In Ride' },
-                      { code: 'EVM1024004', renter_name: 'Amit Kumar', zone: 'Aatapi Zone', battery_pct: '90%', vehicle_status: 'Available' }
-                    ]).map((v: any) => (
-                      <tr key={v.code || v.plate}>
-                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{v.code || v.plate}</td>
-                        <td>{v.renter_name || v.rider || 'Available'}</td>
-                        <td>{v.zone || 'Gotri Zone'}</td>
-                        <td style={{ fontWeight: '700' }}>{v.battery_pct ? (v.battery_pct + (String(v.battery_pct).includes('%') ? '' : '%')) : '95%'}</td>
-                        <td><span className={`sa-badge ${v.vehicle_status === 'In Ride' ? 'sa-badge-blue' : 'sa-badge-green'}`}>{v.vehicle_status || 'Available'}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {liveVehicles.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                    No fleet vehicles registered in this franchise.
+                  </div>
+                ) : (
+                  <table className="ev-table">
+                    <thead>
+                      <tr><th>Vehicle Plate</th><th>Rider Name</th><th>Current Zone</th><th>Battery %</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {liveVehicles.map((v: any) => (
+                        <tr key={v.code || v.plate || v.id}>
+                          <td style={{ fontWeight: '800', fontFamily: 'Outfit', color: '#2A195C' }}>{v.code || v.plate}</td>
+                          <td style={{ fontWeight: '700' }}>{v.renter_name || v.rider || <span style={{ color: '#94A3B8', fontWeight: 500 }}>Available</span>}</td>
+                          <td>{v.zone || 'Gotri Zone'}</td>
+                          <td style={{ fontWeight: '700' }}>{v.battery_pct ? (v.battery_pct + (String(v.battery_pct).includes('%') ? '' : '%')) : '95%'}</td>
+                          <td><span className={`sa-badge ${v.vehicle_status === 'In Ride' ? 'sa-badge-blue' : 'sa-badge-green'}`}>{v.vehicle_status || 'Available'}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 
@@ -1420,7 +1549,7 @@ function FranchiseAdminRoleDashboard() {
                 <a href="/users" className="sa-link-all">Users & Roles</a>
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
+                <table className="ev-table">
                   <thead>
                     <tr><th>Staff Member</th><th>Role</th><th>Hub Assigned</th><th>Status</th></tr>
                   </thead>
@@ -1458,93 +1587,17 @@ function ZoneManagerRoleDashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Date Filter State
-  const [datePreset, setDatePreset] = useState<string>('this_month');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [customStart, setCustomStart] = useState<string>('');
-  const [customEnd, setCustomEnd] = useState<string>('');
-  const [isDateMenuOpen, setIsDateMenuOpen] = useState<boolean>(false);
-  const [dateRangeText, setDateRangeText] = useState<string>('This Month');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
+    const [dateRangeText, setDateRangeText] = useState<string>('This Month');
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+    const showToast = (msg: string) => {
+      setToastMessage(msg);
+      setTimeout(() => setToastMessage(null), 3500);
+    };
 
-  // Helper date formatting
-  const toYMD = (d: Date) => d.toISOString().split('T')[0];
-  const toDisplay = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-
-  // Handle Date Presets
-  const applyPreset = (preset: string) => {
-    const now = new Date();
-    let s = '';
-    let e = '';
-    let text = 'All Time';
-
-    if (preset === 'today') {
-      s = toYMD(now);
-      e = toYMD(now);
-      text = `Today (${toDisplay(now)})`;
-    } else if (preset === 'yesterday') {
-      const y = new Date(now);
-      y.setDate(y.getDate() - 1);
-      s = toYMD(y);
-      e = toYMD(y);
-      text = `Yesterday (${toDisplay(y)})`;
-    } else if (preset === 'last_7_days') {
-      const past = new Date(now);
-      past.setDate(past.getDate() - 7);
-      s = toYMD(past);
-      e = toYMD(now);
-      text = `${toDisplay(past)} - ${toDisplay(now)}`;
-    } else if (preset === 'this_month') {
-      const first = new Date(now.getFullYear(), now.getMonth(), 1);
-      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      s = toYMD(first);
-      e = toYMD(last);
-      text = `${toDisplay(first)} - ${toDisplay(last)}`;
-    } else if (preset === 'all_time') {
-      s = '';
-      e = '';
-      text = 'All Time (No Date Filter)';
-    }
-
-    setDatePreset(preset);
-    setStartDate(s);
-    setEndDate(e);
-    setDateRangeText(text);
-    setIsDateMenuOpen(false);
-  };
-
-  const applyCustomDates = () => {
-    if (!customStart || !customEnd) {
-      showToast('Please select both start and end dates');
-      return;
-    }
-    setDatePreset('custom');
-    setStartDate(customStart);
-    setEndDate(customEnd);
-    setDateRangeText(`${toDisplay(new Date(customStart))} - ${toDisplay(new Date(customEnd))}`);
-    setIsDateMenuOpen(false);
-  };
-
-  // Initialize Default Date: This Month
-  useEffect(() => {
-    const now = new Date();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const s = toYMD(first);
-    const e = toYMD(last);
-    setStartDate(s);
-    setEndDate(e);
-    setCustomStart(s);
-    setCustomEnd(e);
-    setDateRangeText(`${toDisplay(first)} - ${toDisplay(last)}`);
-  }, []);
-
-  // Fetch Stats from Backend API
-  const fetchZoneStats = async (zoneName: string, start?: string, end?: string) => {
+    // Fetch Stats from Backend API
+    const fetchZoneStats = async (zoneName: string, start?: string, end?: string) => {
     try {
       setLoading(true);
       let query = `/stats/zone-admin?zone=${encodeURIComponent(zoneName)}`;
@@ -1640,7 +1693,7 @@ function ZoneManagerRoleDashboard() {
     <div className="ev-shell">
       <Sidebar activePath="/" />
       <div className="ev-main">
-        <TopBar title="Zone Admin Dashboard" subtitle="Live Zone Monitoring, Battery Swap Cabinets, Fleet Telemetry & Zone Performance" hideZone={false} hideDateFilter={true} />
+        <TopBar title="Zone Admin Dashboard" subtitle="Live Zone Monitoring, Battery Swap Cabinets, Fleet Telemetry & Zone Performance" hideZone={false} onDateChange={(s, e, text) => { setStartDate(s); setEndDate(e); setDateRangeText(text); }} />
 
         {/* Toast alert notification */}
         {toastMessage && (
@@ -1673,117 +1726,6 @@ function ZoneManagerRoleDashboard() {
             </div>
 
             <div className="sa-sub-right" style={{ position: 'relative' }}>
-              {/* Clickable Interactive Date Box */}
-              <div
-                className="sa-date-box"
-                onClick={() => setIsDateMenuOpen(!isDateMenuOpen)}
-                style={{ position: 'relative', cursor: 'pointer', background: isDateMenuOpen ? '#F1F5F9' : '#fff' }}
-                title="Click to change date range"
-              >
-                <span style={{ fontWeight: 700, color: '#1E293B' }}>📅 {dateRangeText}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </div>
-
-              {/* Popover Date Picker Modal */}
-              {isDateMenuOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '110%',
-                  right: 0,
-                  width: '320px',
-                  background: '#ffffff',
-                  border: '1.5px solid #E2E8F0',
-                  borderRadius: '12px',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
-                  padding: '16px',
-                  zIndex: 1000,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filter by Date Range</span>
-                    <button
-                      onClick={() => setIsDateMenuOpen(false)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontWeight: 800, fontSize: '13px' }}
-                    >×</button>
-                  </div>
-
-                  {/* Preset quick buttons */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                    {[
-                      { id: 'today', label: 'Today' },
-                      { id: 'yesterday', label: 'Yesterday' },
-                      { id: 'last_7_days', label: 'Last 7 Days' },
-                      { id: 'this_month', label: 'This Month' },
-                      { id: 'all_time', label: 'All Time' }
-                    ].map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => applyPreset(p.id)}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          textAlign: 'center',
-                          border: '1px solid',
-                          borderColor: datePreset === p.id ? '#6366F1' : '#E2E8F0',
-                          background: datePreset === p.id ? '#EEF2FF' : '#fff',
-                          color: datePreset === p.id ? '#4F46E5' : '#334155',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom Date Inputs */}
-                  <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>CUSTOM DATE RANGE</span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600 }}>START</span>
-                        <input
-                          type="date"
-                          value={customStart}
-                          onChange={(e) => setCustomStart(e.target.value)}
-                          style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '11.5px', color: '#0F172A', outline: 'none' }}
-                        />
-                      </div>
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600 }}>END</span>
-                        <input
-                          type="date"
-                          value={customEnd}
-                          onChange={(e) => setCustomEnd(e.target.value)}
-                          style={{ width: '100%', padding: '6px 8px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '11.5px', color: '#0F172A', outline: 'none' }}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={applyCustomDates}
-                      style={{
-                        padding: '8px',
-                        background: '#6366F1',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        marginTop: '4px'
-                      }}
-                    >
-                      Apply Custom Filter
-                    </button>
-                  </div>
-                </div>
-              )}
 
               <button className="sa-export-btn" onClick={handleExport}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1797,7 +1739,7 @@ function ZoneManagerRoleDashboard() {
           </div>
 
           {/* 5 Top KPI Cards: Total Riders, Total Rentals, Revenue, Total Deposit, Active Rides */}
-          <div className="sa-kpi-row-5">
+          <div className="ev-kpi-grid-5">
             {[
               { label: 'Total Riders', val: kpis?.totalRiders?.value ?? 0, change: kpis?.totalRiders?.change ?? '+12.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
               { label: 'Total Rentals', val: kpis?.totalRentals?.value ?? 0, change: kpis?.totalRentals?.change ?? '+15.2%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '🛵' },
@@ -1805,14 +1747,14 @@ function ZoneManagerRoleDashboard() {
               { label: 'Total Deposit', val: kpis?.totalDeposit?.value ?? '₹0', change: kpis?.totalDeposit?.change ?? 'Secured', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
               { label: 'Active Rides', val: `${kpis?.activeRides?.value ?? 0} Rides`, change: kpis?.activeRides?.change ?? 'Active', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
-                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
+                  <span className="ev-kpi-trend-up">↑ {k.change}</span>
                   <span>vs last period</span>
                 </div>
               </div>
@@ -1925,7 +1867,7 @@ function ZoneManagerRoleDashboard() {
             </div>
             <div className="sa-card-body" style={{ padding: 0 }}>
               <div style={{ overflowX: 'auto' }}>
-                <table className="sa-table">
+                <table className="ev-table">
                   <thead>
                     <tr>
                       <th>Reservation ID</th>
@@ -2042,7 +1984,7 @@ function ZoneManagerRoleDashboard() {
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
                 <div style={{ overflowX: 'auto' }}>
-                  <table className="sa-table">
+                  <table className="ev-table">
                     <thead>
                       <tr>
                         <th>Rider Name</th>
@@ -2122,7 +2064,7 @@ function ZoneManagerRoleDashboard() {
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
                 <div style={{ overflowX: 'auto' }}>
-                  <table className="sa-table">
+                  <table className="ev-table">
                     <thead>
                       <tr>
                         <th>Applicant Name</th>
@@ -2194,7 +2136,7 @@ function ZoneManagerRoleDashboard() {
               <a href="/vehicles/all" className="sa-link-all">View All Fleet</a>
             </div>
             <div className="sa-card-body" style={{ padding: 0 }}>
-              <table className="sa-table">
+              <table className="ev-table">
                 <thead>
                   <tr>
                     <th>Vehicle Plate</th>
@@ -2260,36 +2202,77 @@ function ZoneManagerRoleDashboard() {
 /* ──────────────────────────────────────────────────────── */
 function GroundOperationsRoleDashboard() {
   const [opsStats, setOpsStats] = useState<any>(null);
+  const [todaySummary, setTodaySummary] = useState<any>(null);
+  const [co2Stats, setCo2Stats] = useState<any>(null);
+  const [fleetVehicles, setFleetVehicles] = useState<any[]>([]);
+  const [recentRequests, setRecentRequests] = useState<any[]>([]);
+  const [recentRidersList, setRecentRidersList] = useState<any[]>([]);
   const [currentZone, setCurrentZone] = useState<string>('All Zones');
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>('');
 
-  const fetchOpsStats = async (zoneName?: string) => {
+  const fetchDashboardData = async (zoneName?: string) => {
     try {
+      setIsRefreshing(true);
       const z = zoneName !== undefined ? zoneName : (typeof window !== 'undefined' ? (localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones') : 'All Zones');
       setCurrentZone(z);
       const queryParam = z && z !== 'All Zones' ? `?zone=${encodeURIComponent(z)}` : '';
-      const [opsRes, empRes] = await Promise.all([
+
+      const [opsRes, empRes, todayRes, co2Res, vehRes, reqRes, ridersRes] = await Promise.all([
         api.get(`/stats/operations${queryParam}`).catch(() => null),
-        api.get(`/stats/employee${queryParam}`).catch(() => null)
+        api.get(`/stats/employee${queryParam}`).catch(() => null),
+        api.get('/today-summary').catch(() => null),
+        api.get('/stats/co2').catch(() => null),
+        api.get('/vehicles').catch(() => null),
+        api.get('/requests?limit=6').catch(() => null),
+        api.get('/renters?limit=6').catch(() => null)
       ]);
 
-      let merged: any = {};
+      let mergedOps: any = {};
       if (opsRes && opsRes.status === 'success') {
-        merged = { ...opsRes.data };
+        mergedOps = { ...opsRes.data };
       }
       if (empRes && empRes.status === 'success') {
-        merged = { ...merged, ...empRes.data };
+        mergedOps = { ...mergedOps, ...empRes.data };
       }
-      setOpsStats(merged);
+      setOpsStats(mergedOps);
+
+      if (todayRes && (todayRes.requestsCreated !== undefined || todayRes.data)) {
+        setTodaySummary(todayRes.data || todayRes);
+      }
+
+      if (co2Res && (co2Res.co2_saved_kg !== undefined || co2Res.status === 'success')) {
+        setCo2Stats(co2Res);
+      }
+
+      if (vehRes && (Array.isArray(vehRes) || vehRes.data)) {
+        const list = Array.isArray(vehRes) ? vehRes : (vehRes.data || []);
+        setFleetVehicles(list);
+      }
+
+      if (reqRes && (Array.isArray(reqRes) || reqRes.data)) {
+        const reqList = Array.isArray(reqRes) ? reqRes : (reqRes.data || []);
+        setRecentRequests(reqList);
+      }
+
+      if (ridersRes && (Array.isArray(ridersRes) || ridersRes.data)) {
+        const rList = Array.isArray(ridersRes) ? ridersRes : (ridersRes.data || []);
+        setRecentRidersList(rList);
+      }
+
+      setLastRefreshedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
-      console.warn('Ops stats fetch error:', e);
+      console.warn('Dashboard live data fetch error:', e);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchOpsStats();
+    fetchDashboardData();
     const handleZoneChange = () => {
       const z = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_selected_zone') || 'All Zones';
-      fetchOpsStats(z);
+      fetchDashboardData(z);
     };
 
     if (typeof window !== 'undefined') {
@@ -2302,56 +2285,106 @@ function GroundOperationsRoleDashboard() {
     }
   }, []);
 
+  const totalFleetCount = fleetVehicles.length || opsStats?.totalFleet || 0;
+  const activeRentalsCount = fleetVehicles.filter(v => (v.vehicle_status || '').toLowerCase() === 'in ride').length || opsStats?.activeRides || 0;
+  const availableEvsCount = fleetVehicles.filter(v => (v.vehicle_status || '').toLowerCase() === 'available').length || 0;
+  const todaySwapsCount = todaySummary?.batterySwapRequests ?? opsStats?.swapsExecutedToday ?? 0;
+  const co2SavedValue = co2Stats?.co2_saved_kg !== undefined ? `${co2Stats.co2_saved_kg} kg` : (co2Stats?.data?.kpis?.totalCo2SavedKg !== undefined ? `${co2Stats.data.kpis.totalCo2SavedKg} kg` : '—');
+
   return (
     <div className="ev-shell">
       <Sidebar activePath="/" />
       <div className="ev-main">
-        <TopBar title="Operations Manager Dashboard" subtitle={`Real-time Fleet Dispatch, Active Rides, Driver Logistics & On-Field Telemetry (${currentZone})`} hideZone={false} />
+        <TopBar title="Fleet & Operations Dashboard" subtitle={`EV Rental Fleet Management, Battery Swapping & Dispatch Operations (${currentZone})`} hideZone={false} />
 
         <div className="ev-body">
+          {/* Sub Header with Live Status & Refresh Action */}
           <div className="sa-sub-header">
             <div className="sa-sub-title-group">
-              <h2 className="sa-sub-title">Fleet Dispatch & Daily Logistics</h2>
-              <span className="sa-sub-desc">Active ride tracking, vehicle dispatch health & field technician coordination</span>
+              <h2 className="sa-sub-title">EV Rental Fleet & Franchise Operations</h2>
+              <span className="sa-sub-desc">
+                Real-time telematics, fleet battery levels, dispatch logs, and environmental impact
+                {lastRefreshedAt && ` • Updated at ${lastRefreshedAt}`}
+              </span>
             </div>
             <div className="sa-sub-right">
-              <div className="sa-date-box">
-                <span>Today (Live Operations)</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-              </div>
+              <button 
+                type="button" 
+                onClick={() => fetchDashboardData()} 
+                disabled={isRefreshing}
+                className="sa-refresh-btn"
+                title="Refresh live operations data"
+              >
+                <svg 
+                  width="13" 
+                  height="13" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2.5"
+                  style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }}
+                >
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              
               <a href="/new-rider" className="sa-export-btn">+ Register New Dispatch</a>
             </div>
           </div>
 
-          {/* 5 Top KPI Cards */}
-          <div className="sa-kpi-row-5">
+          {/* Quick Operations Action Bar */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quick Actions:</span>
+            <a href="/new-rider" className="sa-action-pill">
+              <span style={{ fontSize: '14px' }}>⚡</span> Register Rider
+            </a>
+            <a href="/retain-rider" className="sa-action-pill">
+              <span style={{ fontSize: '14px' }}>🔄</span> Extend / Retain Rental
+            </a>
+            <a href="/ride-operations/return" className="sa-action-pill">
+              <span style={{ fontSize: '14px' }}>🛵</span> Process Return
+            </a>
+            <a href="/battery-swap" className="sa-action-pill">
+              <span style={{ fontSize: '14px' }}>🔋</span> Battery Swap Desk
+            </a>
+            <a href="/vehicles/all" className="sa-action-pill">
+              <span style={{ fontSize: '14px' }}>📋</span> Fleet Inventory
+            </a>
+            <a href="/reports" className="sa-action-pill">
+              <span style={{ fontSize: '14px' }}>📊</span> Reports & Analytics
+            </a>
+          </div>
+
+          {/* 5 Real KPI Cards */}
+          <div className="ev-kpi-grid-5">
             {[
-              { label: 'Total Operations Fleet', val: opsStats?.totalFleet !== undefined ? `${opsStats.totalFleet.toLocaleString('en-US')} EVs` : '0 EVs', change: '0.0%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛵' },
-              { label: 'Active Rides On-Road', val: opsStats?.activeRides !== undefined ? `${opsStats.activeRides.toLocaleString('en-US')} Rides` : '0 Rides', change: '0.0%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛣️' },
-              { label: 'Swaps Executed Today', val: opsStats?.swapsExecutedToday !== undefined ? `${opsStats.swapsExecutedToday.toLocaleString('en-US')} Swaps` : '0 Swaps', change: '0.0%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '⚡' },
-              { label: 'On-Field Technicians', val: opsStats?.onFieldTechnicians !== undefined ? `${opsStats.onFieldTechnicians} Active` : '0 Active', change: '100% On-Duty', up: true, bg: '#EEF2FF', color: '#2563EB', ic: '🛠️' },
-              { label: 'Daily Ops Revenue', val: opsStats?.dailyOpsRevenue ? opsStats.dailyOpsRevenue : '₹0', change: '0.0%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '₹' }
+              { label: 'Total Fleet', val: `${totalFleetCount} EVs`, sub: `${availableEvsCount} Available for Rent`, up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛵' },
+              { label: 'Active Rentals', val: `${activeRentalsCount} Rides`, sub: totalFleetCount > 0 ? `${Math.round((activeRentalsCount / totalFleetCount) * 100)}% Fleet Utilization` : 'Active on Road', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛣️' },
+              { label: 'Available EVs', val: `${availableEvsCount} Ready`, sub: 'Ready at Hubs', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '✅' },
+              { label: "Today's Swaps", val: `${todaySwapsCount} Swaps`, sub: 'Battery Exchanges Today', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '⚡' },
+              { label: 'CO₂ Saved', val: co2SavedValue, sub: `${co2Stats?.trees_equivalent || 1} Trees Equivalent`, up: true, bg: '#ECFDF5', color: '#059669', ic: '🌱' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
-                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
-                  <span>vs last week</span>
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
+                  <span className="ev-kpi-trend-up">●</span>
+                  <span>{k.sub}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Row 1 Grid */}
+          {/* Row 1 Grid: Operational Charts & Corridors */}
           <div className="sa-row-1-grid">
             <div className="sa-card">
               <div className="sa-card-hdr">
-                <span className="sa-card-title">Fleet Operations & Dispatch Telemetry</span>
-                <select className="sa-select-light"><option>Hourly View</option></select>
+                <span className="sa-card-title">Fleet Dispatch & Hourly Swaps</span>
+                <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Live Telemetry</span>
               </div>
               <div className="sa-card-body">
                 <div style={{ height: '180px', position: 'relative' }}>
@@ -2359,31 +2392,49 @@ function GroundOperationsRoleDashboard() {
                     data={{
                       labels: opsStats?.telemetry?.hours || ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'],
                       datasets: [
-                        { label: 'Dispatched Rides', data: opsStats?.telemetry?.dispatchedRides || [310, 520, 680, 750, 890, 820, 540], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.4 },
-                        { label: 'Swaps Processed', data: opsStats?.telemetry?.swapsProcessed || [120, 240, 310, 420, 510, 480, 290], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.4 }
+                        { 
+                          label: 'Dispatched Rides', 
+                          data: opsStats?.telemetry?.dispatchedRides || [0, 1, 2, 2, 2, 1, 0], 
+                          borderColor: '#2A195C', 
+                          backgroundColor: 'rgba(42, 25, 92, 0.08)', 
+                          fill: true, 
+                          tension: 0.4 
+                        },
+                        { 
+                          label: 'Swaps Processed', 
+                          data: opsStats?.telemetry?.swapsProcessed || [0, 1, 3, 3, 3, 2, 0], 
+                          borderColor: '#10B981', 
+                          backgroundColor: 'rgba(16, 185, 129, 0.08)', 
+                          fill: true, 
+                          tension: 0.4 
+                        }
                       ]
                     }}
-                    options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }}
+                    options={{ 
+                      responsive: true, 
+                      maintainAspectRatio: false, 
+                      plugins: { legend: { display: true, position: 'top' } } 
+                    }}
                   />
                 </div>
               </div>
             </div>
 
             <div className="sa-card">
-              <div className="sa-card-hdr"><span className="sa-card-title">Fleet Operational Status</span></div>
+              <div className="sa-card-hdr"><span className="sa-card-title">Fleet Utilization Status</span></div>
               <div className="sa-card-body" style={{ alignItems: 'center' }}>
                 <div className="sa-donut-wrap">
                   <Doughnut
                     data={{
-                      labels: ['On Active Ride', 'Available at Hub', 'In Swap/Charging', 'Under Maintenance'],
+                      labels: ['In Ride', 'Available', 'Charging', 'Maintenance'],
                       datasets: [{ 
-                        data: opsStats?.operationalStatus ? [
-                          opsStats.operationalStatus.activeRide, 
-                          opsStats.operationalStatus.available, 
-                          opsStats.operationalStatus.charging, 
-                          opsStats.operationalStatus.maintenance
-                        ] : [4, 4, 0, 0], 
-                        backgroundColor: ['#10B981', '#6366F1', '#F59E0B', '#EF4444'],
+                        data: [
+                          activeRentalsCount,
+                          availableEvsCount,
+                          fleetVehicles.filter(v => (v.vehicle_status || '').toLowerCase().includes('charg')).length,
+                          fleetVehicles.filter(v => (v.vehicle_status || '').toLowerCase().includes('maint')).length
+                        ], 
+                        backgroundColor: ['#2A195C', '#10B981', '#F59E0B', '#EF4444'],
                         borderWidth: 2,
                         borderColor: '#fff'
                       }]
@@ -2391,26 +2442,26 @@ function GroundOperationsRoleDashboard() {
                     options={{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }}
                   />
                   <div className="sa-donut-center">
-                    <span className="sa-donut-num">{opsStats?.totalFleet !== undefined ? opsStats.totalFleet : 8}</span>
-                    <span className="sa-donut-lbl">Total EVs</span>
+                    <span className="sa-donut-num">{totalFleetCount}</span>
+                    <span className="sa-donut-lbl">Fleet</span>
                   </div>
                 </div>
                 <div className="sa-donut-legends">
                   <div className="sa-donut-leg-row">
-                    <div className="sa-donut-leg-left"><span className="sa-donut-leg-dot" style={{ background: '#10B981' }} /><span>Active Ride</span></div>
-                    <span className="sa-donut-leg-val">{opsStats?.operationalStatus?.activeRide || 4} <span style={{ color: '#94A3B8' }}>({opsStats?.operationalStatus?.activePct || '50.0%'})</span></span>
+                    <div className="sa-donut-leg-left"><span className="sa-donut-leg-dot" style={{ background: '#2A195C' }} /><span>In Ride</span></div>
+                    <span className="sa-donut-leg-val">{activeRentalsCount}</span>
                   </div>
                   <div className="sa-donut-leg-row">
-                    <div className="sa-donut-leg-left"><span className="sa-donut-leg-dot" style={{ background: '#6366F1' }} /><span>Available</span></div>
-                    <span className="sa-donut-leg-val">{opsStats?.operationalStatus?.available || 4} <span style={{ color: '#94A3B8' }}>({opsStats?.operationalStatus?.availPct || '50.0%'})</span></span>
+                    <div className="sa-donut-leg-left"><span className="sa-donut-leg-dot" style={{ background: '#10B981' }} /><span>Available</span></div>
+                    <span className="sa-donut-leg-val">{availableEvsCount}</span>
                   </div>
                   <div className="sa-donut-leg-row">
                     <div className="sa-donut-leg-left"><span className="sa-donut-leg-dot" style={{ background: '#F59E0B' }} /><span>Charging</span></div>
-                    <span className="sa-donut-leg-val">{opsStats?.operationalStatus?.charging || 0} <span style={{ color: '#94A3B8' }}>(0.0%)</span></span>
+                    <span className="sa-donut-leg-val">{fleetVehicles.filter(v => (v.vehicle_status || '').toLowerCase().includes('charg')).length}</span>
                   </div>
                   <div className="sa-donut-leg-row">
                     <div className="sa-donut-leg-left"><span className="sa-donut-leg-dot" style={{ background: '#EF4444' }} /><span>Maintenance</span></div>
-                    <span className="sa-donut-leg-val">{opsStats?.operationalStatus?.maintenance || 0} <span style={{ color: '#94A3B8' }}>(0.0%)</span></span>
+                    <span className="sa-donut-leg-val">{fleetVehicles.filter(v => (v.vehicle_status || '').toLowerCase().includes('maint')).length}</span>
                   </div>
                 </div>
               </div>
@@ -2418,142 +2469,232 @@ function GroundOperationsRoleDashboard() {
 
             <div className="sa-card">
               <div className="sa-card-hdr">
-                <span className="sa-card-title">Top Operating Corridors</span>
-                <a href="/zones" className="sa-link-all">View All</a>
+                <span className="sa-card-title">Today's Operational Summary</span>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>{todaySummary?.date || 'Today'}</span>
               </div>
-              <div className="sa-card-body">
-                <div className="sa-rank-list">
-                  {(opsStats?.topCorridors || [
-                    { corridor: 'Gotri to Alkapuri Corridor', trips: '4 Trips' },
-                    { corridor: 'Aatapi Wonderland Transit', trips: '2 Trips' },
-                    { corridor: 'Moti Daman Coastal Line', trips: '1 Trip' }
-                  ]).map((c: any, idx: number) => (
-                    <div key={c.corridor || idx} className="sa-rank-row">
-                      <div className="sa-rank-left">
-                        <span className="sa-rank-circle" style={{ background: ['#6366F1', '#10B981', '#F59E0B', '#3B82F6'][idx % 4] }}>{idx + 1}</span>
-                        <span className="sa-rank-name">{c.corridor || c.name}</span>
-                      </div>
-                      <span className="sa-rank-val">{c.trips || c.val}</span>
+              <div className="sa-card-body" style={{ gap: '12px', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366F1' }} />
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>Requests Created</span>
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', fontFamily: 'Outfit' }}>{todaySummary?.requestsCreated ?? 0}</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>Requests Completed</span>
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#10B981', fontFamily: 'Outfit' }}>{todaySummary?.requestsCompleted ?? 0}</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>Pending Queue</span>
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#F59E0B', fontFamily: 'Outfit' }}>{todaySummary?.pendingRequests ?? 0}</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7E22CE' }} />
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>Battery Swap Desk</span>
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#7E22CE', fontFamily: 'Outfit' }}>{todaySummary?.batterySwapRequests ?? 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Live Operational Fleet Table & Recent Operational Requests */}
+          <div className="sa-row-2-grid">
+            {/* Live Fleet Telemetry Table */}
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Live Operational Fleet ({fleetVehicles.length} Vehicles)</span>
+                <a href="/vehicles/all" className="sa-link-all">View All Fleet →</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                {fleetVehicles.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                    No vehicles registered yet. <a href="/vehicles/all" style={{ color: '#2A195C', fontWeight: 'bold' }}>Register a Vehicle</a>
+                  </div>
+                ) : (
+                  <table className="ev-table">
+                    <thead>
+                      <tr>
+                        <th>Vehicle Code</th>
+                        <th>Model</th>
+                        <th>Assigned Rider</th>
+                        <th>Battery SOC</th>
+                        <th>Zone</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fleetVehicles.map((v: any) => {
+                        const batteryNum = typeof v.battery_pct === 'number' ? v.battery_pct : parseInt(String(v.battery_pct || '0'), 10) || 0;
+                        const batteryColor = batteryNum >= 60 ? '#10B981' : batteryNum >= 30 ? '#F59E0B' : '#EF4444';
+                        const isRide = (v.vehicle_status || '').toLowerCase() === 'in ride';
+                        return (
+                          <tr key={v.id || v.code}>
+                            <td style={{ fontWeight: '800', fontFamily: 'Outfit', color: '#2A195C' }}>{v.code}</td>
+                            <td style={{ fontWeight: '600', color: '#475569' }}>{v.evegah_model_name || v.vehicle_model || 'Evegah EV'}</td>
+                            <td style={{ fontWeight: '700' }}>{v.renter_name && v.renter_name !== 'None (Available)' ? v.renter_name : <span style={{ color: '#94A3B8', fontWeight: 500 }}>Unassigned</span>}</td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ width: '45px', height: '6px', background: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${Math.min(batteryNum, 100)}%`, height: '100%', background: batteryColor }} />
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: '11px', color: batteryColor }}>{batteryNum}%</span>
+                              </div>
+                            </td>
+                            <td><span style={{ fontSize: '11.5px', color: '#64748B' }}>{v.zone || 'Gotri Zone'}</span></td>
+                            <td>
+                              <span className={`sa-badge ${isRide ? 'sa-badge-blue' : 'sa-badge-green'}`}>
+                                {v.vehicle_status || 'Available'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Requests & Activities */}
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Recent Activity & Operations Requests</span>
+                <a href="/attendance" className="sa-link-all">View All →</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                {recentRequests.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>📥</div>
+                    No pending operational requests at this moment.
+                    <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>All dispatch and return queues are clear.</div>
+                  </div>
+                ) : (
+                  <table className="ev-table">
+                    <thead>
+                      <tr>
+                        <th>Request Type</th>
+                        <th>Requester / Rider</th>
+                        <th>Created At</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentRequests.map((req: any, idx: number) => (
+                        <tr key={req.id || idx}>
+                          <td style={{ fontWeight: '700' }}>{req.type || req.request_type || 'Operations Request'}</td>
+                          <td>{req.requester_name || req.rider_name || 'System'}</td>
+                          <td style={{ fontSize: '11px', color: '#64748B' }}>{req.created_at ? new Date(req.created_at).toLocaleDateString() : '—'}</td>
+                          <td>
+                            <span className={`sa-badge ${req.status === 'Completed' ? 'sa-badge-green' : req.status === 'Pending' ? 'sa-badge-orange' : 'sa-badge-blue'}`}>
+                              {req.status || 'Active'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Active Riders & Rental Packages Overview */}
+          <div className="sa-row-2-grid">
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Active Fleet Riders ({recentRidersList.length})</span>
+                <a href="/renters" className="sa-link-all">All Riders & Rentals →</a>
+              </div>
+              <div className="sa-card-body" style={{ padding: 0 }}>
+                {recentRidersList.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                    No active renters found.
+                  </div>
+                ) : (
+                  <table className="ev-table">
+                    <thead>
+                      <tr>
+                        <th>Rider Name</th>
+                        <th>Contact</th>
+                        <th>Assigned EV</th>
+                        <th>Plan</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentRidersList.slice(0, 5).map((r: any) => (
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: '700', color: '#0F172A' }}>{r.rider_name}</td>
+                          <td style={{ fontSize: '11.5px', color: '#64748B' }}>{r.mobile}</td>
+                          <td style={{ fontWeight: '800', fontFamily: 'Outfit', color: '#2A195C' }}>{r.vehicle_id && r.vehicle_id !== '—' ? r.vehicle_id : '—'}</td>
+                          <td><span style={{ fontSize: '11.5px', fontWeight: 600 }}>{r.package_name || 'Standard'}</span></td>
+                          <td>
+                            <span className={`sa-badge ${r.status === 'Active Ride' ? 'sa-badge-green' : r.status === 'Return' ? 'sa-badge-blue' : 'sa-badge-orange'}`}>
+                              {r.status || 'Active'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            <div className="sa-card">
+              <div className="sa-card-hdr">
+                <span className="sa-card-title">Environmental Impact & Green Fleet Metrics</span>
+                <a href="/co2-saving" className="sa-link-all">CO₂ Analytics →</a>
+              </div>
+              <div className="sa-card-body" style={{ gap: '14px', justifyContent: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ padding: '14px', background: '#ECFDF5', borderRadius: '12px', border: '1px solid #A7F3D0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#065F46', textTransform: 'uppercase' }}>CO₂ Emissions Offset</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#047857', fontFamily: 'Outfit', margin: '4px 0' }}>
+                      {co2Stats?.co2_saved_kg ?? 20} kg
                     </div>
-                  ))}
+                    <div style={{ fontSize: '10.5px', color: '#065F46' }}>Based on ARAI / BEE EV standard</div>
+                  </div>
+
+                  <div style={{ padding: '14px', background: '#EFF6FF', borderRadius: '12px', border: '1px solid #BFDBFE' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>Petrol Fuel Avoided</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#1D4ED8', fontFamily: 'Outfit', margin: '4px 0' }}>
+                      {co2Stats?.fuel_saved_litres ?? 5} Litres
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: '#1E40AF' }}>Direct fossil fuel reduction</div>
+                  </div>
+
+                  <div style={{ padding: '14px', background: '#FAF5FF', borderRadius: '12px', border: '1px solid #E9D5FF' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#6B21A8', textTransform: 'uppercase' }}>Trees Equivalent</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#7E22CE', fontFamily: 'Outfit', margin: '4px 0' }}>
+                      {co2Stats?.trees_equivalent ?? 1} Trees
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: '#6B21A8' }}>Annual tree absorption</div>
+                  </div>
+
+                  <div style={{ padding: '14px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Total Clean Distance</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', fontFamily: 'Outfit', margin: '4px 0' }}>
+                      {co2Stats?.total_km ?? 210} km
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: '#64748B' }}>Verified telemetry reading</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 6 Small KPIs Row */}
-          <div className="sa-kpi-row-6">
-            {[
-              { label: 'Avg Speed', val: opsStats?.kpis?.avgSpeed || '28 km/h', change: 'Safe driving', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '💨' },
-              { label: 'Critical Telemetry Alerts', val: opsStats?.kpis?.criticalAlerts || '0 Alerts', change: 'All systems normal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
-              { label: 'Low Battery Bikes', val: opsStats?.kpis?.lowBatteryBikes || '0 Bikes', change: 'Fully charged', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🔋' },
-              { label: 'Dispatch Efficiency', val: opsStats?.kpis?.dispatchEfficiency || '100%', change: 'High performance', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
-              { label: 'Breakdown Response', val: opsStats?.kpis?.breakdownResponse || '0.0 min', change: 'Instant readiness', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⏱️' },
-              { label: 'Daily Distance Covered', val: opsStats?.kpis?.dailyDistanceCovered || '2,940 km', change: '+12.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🛣️' }
-            ].map(k => (
-              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
-                </div>
-                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
-                  <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Table Grid: Recent Riders, Reserved Rides, Overdue Rides */}
-          <div className="sa-row-3-grid">
-            {/* Recent Riders Table */}
-            <div className="sa-card">
-              <div className="sa-card-hdr">
-                <span className="sa-card-title">Recent Riders List</span>
-                <a href="/renters" className="sa-link-all">View All Riders</a>
-              </div>
-              <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
-                  <thead>
-                    <tr><th>Rider ID</th><th>Rider Name</th><th>Mobile Number</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {(opsStats?.recentRiders || [
-                      { id: 'RIDER-101', name: 'Himanshu Chavda', mobile: '+91 81282 51172', status: 'Active Ride' },
-                      { id: 'RIDER-102', name: 'Amit Kumar', mobile: '+91 98765 43210', status: 'Active Ride' },
-                      { id: 'RIDER-103', name: 'Neha Gupta', mobile: '+91 91254 56789', status: 'Active Ride' }
-                    ]).map((r: any) => (
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{r.id}</td>
-                        <td style={{ fontWeight: '700' }}>{r.name}</td>
-                        <td>{r.mobile}</td>
-                        <td><span className={`sa-badge ${r.status === 'Active Ride' || r.status === 'Confirmed' ? 'sa-badge-green' : r.status === 'Payment Due' ? 'sa-badge-orange' : 'sa-badge-red'}`}>{r.status}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Reserved Rides Table */}
-            <div className="sa-card">
-              <div className="sa-card-hdr">
-                <span className="sa-card-title">Reserved Rides Table</span>
-                <a href="/renters" className="sa-link-all">View All Rides</a>
-              </div>
-              <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
-                  <thead>
-                    <tr><th>Res ID</th><th>Rider</th><th>Vehicle</th><th>Plan</th><th>Rent</th><th>Deposit</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {(opsStats?.reservedRides || [
-                      { id: 'RID-2026-901101', rider: 'Himanshu Chavda', vehicle: 'EVM1024001', plan: 'Weekly Package', rent: '₹1,500', deposit: '₹2,000', status: 'Active Ride' },
-                      { id: 'RID-2026-901102', rider: 'Amit Kumar', vehicle: 'EVM1024004', plan: 'Daily Package', rent: '₹450', deposit: '₹1,000', status: 'Active Ride' }
-                    ]).map((b: any) => (
-                      <tr key={b.id}>
-                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{b.id}</td>
-                        <td style={{ fontWeight: '700' }}>{b.rider}</td>
-                        <td>{b.vehicle}</td>
-                        <td>{b.plan}</td>
-                        <td style={{ fontWeight: '700', color: '#10B981' }}>{b.rent}</td>
-                        <td style={{ fontWeight: '700' }}>{b.deposit}</td>
-                        <td><span className={`sa-badge ${b.status === 'Active Ride' || b.status === 'Confirmed' ? 'sa-badge-green' : b.status === 'Payment Due' ? 'sa-badge-orange' : 'sa-badge-blue'}`}>{b.status}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Overdue / Payment Due Rides Table */}
-            <div className="sa-card">
-              <div className="sa-card-hdr">
-                <span className="sa-card-title">Payment Due & Overdue Rides</span>
-                <a href="/alerts" className="sa-link-all">View Alerts</a>
-              </div>
-              <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
-                  <thead>
-                    <tr><th>Res ID</th><th>Rider</th><th>Vehicle</th><th>Overdue Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {(opsStats?.overdueRides || [
-                      { id: 'RID-2026-901107', rider: 'Suresh Mehta', vehicle: 'EVM1024024', status: 'Overdue' },
-                      { id: 'RID-2026-901104', rider: 'Rohit Singh', vehicle: 'EVM1024006', status: 'Payment Due' }
-                    ]).map((o: any) => (
-                      <tr key={o.id}>
-                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{o.id}</td>
-                        <td style={{ fontWeight: '700' }}>{o.rider}</td>
-                        <td>{o.vehicle}</td>
-                        <td><span className={`sa-badge ${o.status === 'Payment Due' ? 'sa-badge-orange' : 'sa-badge-red'}`}>{o.status}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -2577,31 +2718,28 @@ function SupportExecutiveRoleDashboard() {
               <span className="sa-sub-desc">Real-time rider tickets, complaint resolution status & reservation desk</span>
             </div>
             <div className="sa-sub-right">
-              <div className="sa-date-box">
-                <span>Today (Support Shift)</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-              </div>
+              
               <button className="sa-export-btn">+ Create Support Ticket</button>
             </div>
           </div>
 
           {/* 5 Top KPI Cards */}
-          <div className="sa-kpi-row-5">
+          <div className="ev-kpi-grid-5">
             {[
-              { label: 'Open Support Tickets', val: '14 Open', change: '18.5%', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '🎧' },
-              { label: 'Resolved Today', val: '142 Tickets', change: '12.3%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '✅' },
-              { label: 'Avg First Response', val: '1.4 min', change: '0.3m faster', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '⏱️' },
-              { label: 'Customer Satisfaction', val: '98.4%', change: '2.1%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '⭐' },
-              { label: 'Active Reservations', val: '320 Active', change: '8.7%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '📅' }
+              { label: 'Open Support Tickets', val: '—', change: '—', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '🎧' },
+              { label: 'Resolved Today', val: '—', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '✅' },
+              { label: 'Avg First Response', val: '—', change: '—', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '⏱️' },
+              { label: 'Customer Satisfaction', val: '—', change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '⭐' },
+              { label: 'Active Reservations', val: '—', change: '—', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '📅' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
-                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
+                  <span className="ev-kpi-trend-up">↑ {k.change}</span>
                   <span>vs last shift</span>
                 </div>
               </div>
@@ -2685,20 +2823,20 @@ function SupportExecutiveRoleDashboard() {
           {/* 6 Small KPIs Row */}
           <div className="sa-kpi-row-6">
             {[
-              { label: 'SLA Adherence', val: '99.1%', change: 'Optimal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
-              { label: 'Live Chat Queue', val: '3 Waiting', change: 'In queue', up: false, bg: '#FFF7ED', color: '#F97316', ic: '💬' },
-              { label: 'Pending Refunds', val: '₹4,200', change: '2 claims', up: false, bg: '#EEF2FF', color: '#2563EB', ic: '💳' },
-              { label: 'Call Volume', val: '86 Calls', change: '9.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '📞' },
-              { label: 'Escalated Tickets', val: '1 Escalated', change: 'Level 2', up: false, bg: '#FEF2F2', color: '#EF4444', ic: '🚨' },
-              { label: 'App Feedback Score', val: '4.9 / 5', change: 'High rating', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⭐' }
+              { label: 'SLA Adherence', val: '99.1%', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🎯' },
+              { label: 'Live Chat Queue', val: '3 Waiting', change: '—', up: true, bg: '#FFF7ED', color: '#F97316', ic: '💬' },
+              { label: 'Pending Refunds', val: '₹4,200', change: '—', up: true, bg: '#EEF2FF', color: '#2563EB', ic: '💳' },
+              { label: 'Call Volume', val: '86 Calls', change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '📞' },
+              { label: 'Escalated Tickets', val: '1 Escalated', change: '—', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '🚨' },
+              { label: 'App Feedback Score', val: '4.9 / 5', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⭐' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card" style={{ padding: '12px' }}>
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl" style={{ fontSize: '9.5px' }}>{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card" style={{ padding: '12px' }}>
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label" style={{ fontSize: '9.5px' }}>{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ width: '28px', height: '28px', background: k.bg, color: k.color }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot" style={{ fontSize: '9.5px' }}>
+                <div className="ev-kpi-val" style={{ fontSize: '18px', margin: '6px 0 2px' }}><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom" style={{ fontSize: '9.5px' }}>
                   <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.up ? '↑' : '↓'} {k.change}</span>
                 </div>
               </div>
@@ -2713,7 +2851,7 @@ function SupportExecutiveRoleDashboard() {
                 <a href="/alerts" className="sa-link-all">View All Tickets</a>
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
+                <table className="ev-table">
                   <thead>
                     <tr><th>Ticket ID</th><th>Rider Name</th><th>Issue Category</th><th>Priority</th><th>Status</th></tr>
                   </thead>
@@ -2743,23 +2881,16 @@ function SupportExecutiveRoleDashboard() {
                 <a href="/renters/reserved" className="sa-link-all">View Desk</a>
               </div>
               <div className="sa-card-body" style={{ padding: 0 }}>
-                <table className="sa-table">
+                <table className="ev-table">
                   <thead>
                     <tr><th>Reservation ID</th><th>Customer Name</th><th>Vehicle Type</th><th>Status</th></tr>
                   </thead>
                   <tbody>
-                    {[
-                      { id: 'RES-2024-098', name: 'Kunal Shah', type: 'Evegah City E-Scooter', st: 'Confirmed', bg: 'sa-badge-green' },
-                      { id: 'RES-2024-097', name: 'Deepak Malhotra', type: 'Evegah Pro Delivery', st: 'Pending Deposit', bg: 'sa-badge-orange' },
-                      { id: 'RES-2024-096', name: 'Sunita Sharma', type: 'Evegah Mink Express', st: 'Confirmed', bg: 'sa-badge-green' }
-                    ].map(r => (
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{r.id}</td>
-                        <td style={{ fontWeight: '700' }}>{r.name}</td>
-                        <td>{r.type}</td>
-                        <td><span className={`sa-badge ${r.bg}`}>{r.st}</span></td>
-                      </tr>
-                    ))}
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', padding: '24px', color: '#64748B' }}>
+                        No reservations found
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -2792,21 +2923,21 @@ function MaintenanceTechnicianRoleDashboard() {
             </div>
           </div>
 
-          <div className="sa-kpi-row-5">
+          <div className="ev-kpi-grid-5">
             {[
-              { label: 'In Workshop', val: '14', change: '3 urgent', up: false, bg: '#FEF2F2', color: '#EF4444', ic: '🔧' },
-              { label: 'Critical IoT Alerts', val: '3', change: 'Requires attention', up: false, bg: '#FEF2F2', color: '#EF4444', ic: '🚨' },
-              { label: 'Resolved Today', val: '86', change: '94% SLA', up: true, bg: '#ECFDF5', color: '#10B981', ic: '✓' },
-              { label: 'Active Sensors', val: '1,280', change: '99.8% Online', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '📡' },
-              { label: 'Battery Health', val: '98.2%', change: 'Optimal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🔋' }
+              { label: 'In Workshop', val: '—', change: '—', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '🔧' },
+              { label: 'Critical IoT Alerts', val: '—', change: '—', up: true, bg: '#FEF2F2', color: '#EF4444', ic: '🚨' },
+              { label: 'Resolved Today', val: '—', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '✓' },
+              { label: 'Active Sensors', val: '—', change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '📡' },
+              { label: 'Battery Health', val: '—', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🔋' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
                   <span className={k.up ? 'sa-kpi-card-trend-up' : 'sa-kpi-card-trend-dn'}>{k.change}</span>
                 </div>
               </div>
@@ -2819,26 +2950,17 @@ function MaintenanceTechnicianRoleDashboard() {
               <a href="/maintenance" className="sa-link-all">View All Orders</a>
             </div>
             <div className="sa-card-body" style={{ padding: 0 }}>
-              <table className="sa-table">
+              <table className="ev-table">
                 <thead>
                   <tr><th>Ticket ID</th><th>Vehicle Plate</th><th>Diagnostic Issue</th><th>Priority</th><th>Assigned Engineer</th><th>Status</th></tr>
                 </thead>
-                <tbody>
-                  {[
-                    { id: '#WO-9841', plate: 'EVM-402', issue: 'BMS Voltage Unbalance', priority: 'High', tech: 'Vikram Singh', st: 'In Workshop', bg: 'sa-badge-red' },
-                    { id: '#WO-9840', plate: 'EVM-319', issue: 'Tire Pressure Sensor Offline', priority: 'Medium', tech: 'Rahul Verma', st: 'Inspecting', bg: 'sa-badge-orange' },
-                    { id: '#WO-9839', plate: 'EVM-112', issue: 'Motor Controller Firmware Update', priority: 'Low', tech: 'Vikram Singh', st: 'Completed', bg: 'sa-badge-green' }
-                  ].map(w => (
-                    <tr key={w.id}>
-                      <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{w.id}</td>
-                      <td style={{ fontWeight: '700' }}>{w.plate}</td>
-                      <td>{w.issue}</td>
-                      <td><span className={w.priority === 'High' ? 'sa-badge sa-badge-red' : 'sa-badge sa-badge-orange'}>{w.priority}</span></td>
-                      <td>{w.tech}</td>
-                      <td><span className={`sa-badge ${w.bg}`}>{w.st}</span></td>
+                  <tbody>
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#64748B' }}>
+                        No active work orders
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
+                  </tbody>
               </table>
             </div>
           </div>
@@ -2869,22 +2991,22 @@ function FinanceAccountsRoleDashboard() {
             </div>
           </div>
 
-          <div className="sa-kpi-row-5">
+          <div className="ev-kpi-grid-5">
             {[
-              { label: 'Total Revenue', val: '₹28,45,900', change: '14.2%', up: true, bg: '#ECFDF5', color: '#10B981', ic: '₹' },
-              { label: 'Monthly Collections', val: '₹12,40,000', change: '11.8%', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '💳' },
-              { label: 'Pending Invoices', val: '₹1,15,000', change: '3 Pending', up: false, bg: '#FFF7ED', color: '#F97316', ic: '📜' },
-              { label: 'Franchise Payouts', val: '₹8,90,000', change: 'Processed', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🏦' },
-              { label: 'Net Margin', val: '34.2%', change: 'Optimal', up: true, bg: '#ECFDF5', color: '#10B981', ic: '📊' }
+              { label: 'Total Revenue', val: '₹28,45,900', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '₹' },
+              { label: 'Monthly Collections', val: '₹12,40,000', change: '—', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '💳' },
+              { label: 'Pending Invoices', val: '₹1,15,000', change: '—', up: true, bg: '#FFF7ED', color: '#F97316', ic: '📜' },
+              { label: 'Franchise Payouts', val: '₹8,90,000', change: '—', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '🏦' },
+              { label: 'Net Margin', val: '—', change: '—', up: true, bg: '#ECFDF5', color: '#10B981', ic: '📊' }
             ].map(k => (
-              <div key={k.label} className="sa-kpi-card">
-                <div className="sa-kpi-card-top">
-                  <span className="sa-kpi-card-lbl">{k.label}</span>
-                  <span className="sa-kpi-card-ic" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ev-kpi-card">
+                <div className="ev-kpi-top">
+                  <span className="ev-kpi-label">{k.label}</span>
+                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
                 </div>
-                <div className="sa-kpi-card-val"><AnimatedCount value={k.val} /></div>
-                <div className="sa-kpi-card-bot">
-                  <span className="sa-kpi-card-trend-up">↑ {k.change}</span>
+                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
+                <div className="ev-kpi-bottom">
+                  <span className="ev-kpi-trend-up">↑ {k.change}</span>
                 </div>
               </div>
             ))}
@@ -2896,25 +3018,17 @@ function FinanceAccountsRoleDashboard() {
               <a href="/franchise/expenses" className="sa-link-all">View All</a>
             </div>
             <div className="sa-card-body" style={{ padding: 0 }}>
-              <table className="sa-table">
+              <table className="ev-table">
                 <thead>
                   <tr><th>Invoice No</th><th>Tenant / Customer</th><th>Payment Mode</th><th>Amount</th><th>Status</th></tr>
                 </thead>
-                <tbody>
-                  {[
-                    { id: '#INV-2024-089', tenant: 'Gotri Mobility Hub', mode: 'UPI Direct', amt: '₹1,45,000', st: 'Success', bg: 'sa-badge-green' },
-                    { id: '#INV-2024-088', tenant: 'Manjalpur Hub', mode: 'Corporate Card', amt: '₹98,500', st: 'Success', bg: 'sa-badge-green' },
-                    { id: '#INV-2024-087', tenant: 'Aatapi Eco Mobility', mode: 'Net Banking', amt: '₹62,000', st: 'Processing', bg: 'sa-badge-blue' }
-                  ].map(inv => (
-                    <tr key={inv.id}>
-                      <td style={{ fontWeight: '800', fontFamily: 'Outfit' }}>{inv.id}</td>
-                      <td style={{ fontWeight: '700' }}>{inv.tenant}</td>
-                      <td>{inv.mode}</td>
-                      <td style={{ fontWeight: '800' }}>{inv.amt}</td>
-                      <td><span className={`sa-badge ${inv.bg}`}>{inv.st}</span></td>
+                  <tbody>
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#64748B' }}>
+                        No recent invoices found
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
+                  </tbody>
               </table>
             </div>
           </div>

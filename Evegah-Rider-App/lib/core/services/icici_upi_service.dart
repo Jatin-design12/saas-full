@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:qr/qr.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_constants.dart';
 import 'session_service.dart';
@@ -32,10 +34,12 @@ class IciciUpiService {
     if (kDebugMode) {
       if (kIsWeb) {
         list.add('http://localhost:5000/api$path');
+        list.add('http://localhost:5050/api$path');
       } else {
         list.add('http://192.168.1.4:5000/api$path');
         list.add('http://10.0.2.2:5000/api$path');
         list.add('http://localhost:5000/api$path');
+        list.add('http://localhost:5050/api$path');
       }
     }
     return list;
@@ -63,12 +67,18 @@ class IciciUpiService {
     final txId = '$prefix${DateTime.now().millisecondsSinceEpoch}';
     final noteText = notes ?? (purpose == 'ride' ? 'Evegah EV Ride Booking' : 'Evegah Wallet Top-Up');
 
-    // Official NPCI UPI URI string format as specified in ICICI Bank QR API spec (Page 9)
-    // upi://pay?pa=<merchant VPA>&pn=<merchant name>&tr=<Refid>&am=<amount>&cu=INR&mc=<MCC code>&tn=<note>
-    final localUpiString =
-        'upi://pay?pa=${Uri.encodeComponent(AppConstants.iciciVpa)}&pn=${Uri.encodeComponent(AppConstants.iciciPayeeName)}&tr=$txId&am=${amount.toStringAsFixed(2)}&cu=INR&mc=5411&tn=${Uri.encodeComponent(noteText)}';
+    final String cleanVpa = AppConstants.iciciVpa.trim();
+    final String cleanPayee = AppConstants.iciciPayeeName.trim();
 
-    final endpoints = _getEndpoints('/payments/icici/initiate');
+    // Standard NPCI UPI URI string format matching evegah-rider
+    // Note: pa must contain raw '@' without %40 URL encoding for QR scanners and UPI apps
+    final localUpiString =
+        'upi://pay?pa=$cleanVpa&pn=${Uri.encodeQueryComponent(cleanPayee)}&tr=$txId&am=${amount.toStringAsFixed(2)}&cu=INR&mc=5411';
+
+    final endpoints = [
+      ..._getEndpoints('/payments/icici/qr'),
+      ..._getEndpoints('/payments/icici/initiate'),
+    ];
 
     for (final url in endpoints) {
       try {
@@ -77,6 +87,8 @@ class IciciUpiService {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
             'amount': amount,
+            'merchantTranId': txId,
+            'billNumber': txId,
             'rider_name': riderName,
             'mobile': userMobile,
             'notes': noteText,
@@ -87,18 +99,18 @@ class IciciUpiService {
 
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body);
-          if (data['status'] == 'success' && data['data'] != null) {
-            return {
-              'tx_id': data['data']['tx_id'] ?? txId,
-              'upi_string': data['data']['upi_string'] ?? localUpiString,
-              'amount': amount,
-              'vpa': AppConstants.iciciVpa,
-              'rider_name': riderName,
-              'mobile': userMobile,
-              'purpose': purpose,
-              'reservation_id': reservationId,
-            };
-          }
+          final qrStr = data['qrString'] ?? data['data']?['upi_string'] ?? localUpiString;
+          final transactionId = data['merchantTranId'] ?? data['refId'] ?? data['data']?['tx_id'] ?? txId;
+          return {
+            'tx_id': transactionId,
+            'upi_string': qrStr,
+            'amount': amount,
+            'vpa': data['vpa'] ?? cleanVpa,
+            'rider_name': riderName,
+            'mobile': userMobile,
+            'purpose': purpose,
+            'reservation_id': reservationId,
+          };
         }
       } catch (e) {
         debugPrint('ICICI initiate notice: $e');
@@ -110,7 +122,7 @@ class IciciUpiService {
       'tx_id': txId,
       'upi_string': localUpiString,
       'amount': amount,
-      'vpa': AppConstants.iciciVpa,
+      'vpa': cleanVpa,
       'rider_name': riderName,
       'mobile': userMobile,
       'purpose': purpose,
@@ -288,17 +300,68 @@ class _IciciUpiModalSheet extends StatefulWidget {
 
 class _IciciUpiModalSheetState extends State<_IciciUpiModalSheet> {
   bool _isProcessing = false;
-  bool _isUpiLaunched = false;
+  int _selectedTab = 0; // 0: Scan QR Code, 1: Pay via UPI App
+  Timer? _statusPollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startStatusPolling();
+  }
+
+  @override
+  void dispose() {
+    _statusPollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startStatusPolling() {
+    _statusPollTimer?.cancel();
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      if (!mounted || _isProcessing) return;
+      final endpoints = [
+        ...IciciUpiService()._getEndpoints('/payments/icici/status'),
+      ];
+
+      for (final url in endpoints) {
+        try {
+          final res = await http.post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'tx_id': widget.txId,
+              'merchantTranId': widget.txId,
+            }),
+          ).timeout(const Duration(seconds: 3));
+
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
+            final rawStatus = (data['status'] ?? data['payment_status'] ?? '').toString().toUpperCase();
+            if (rawStatus == 'SUCCESS' && mounted) {
+              timer.cancel();
+              Navigator.pop(
+                context,
+                IciciPaymentResult(
+                  success: true,
+                  txId: widget.txId,
+                  message: 'Payment verified successfully via ICICI UPI',
+                ),
+              );
+              return;
+            }
+          }
+        } catch (_) {}
+      }
+    });
+  }
 
   Future<void> _handlePayWithApp([String? appKey]) async {
-    setState(() => _isUpiLaunched = true);
     final launched = await IciciUpiService().launchUpiIntent(
       widget.upiString,
       targetApp: appKey,
     );
 
     if (!launched && mounted) {
-      // If launching specific app scheme failed, try generic upi://
       await IciciUpiService().launchUpiIntent(widget.upiString);
     }
   }
@@ -319,6 +382,7 @@ class _IciciUpiModalSheetState extends State<_IciciUpiModalSheet> {
     setState(() => _isProcessing = false);
 
     if (success) {
+      _statusPollTimer?.cancel();
       Navigator.pop(
         context,
         IciciPaymentResult(
@@ -350,250 +414,370 @@ class _IciciUpiModalSheetState extends State<_IciciUpiModalSheet> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
-                borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Header with ICICI Merchant badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
+            // Header with ICICI Merchant badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
+                    const SizedBox(height: 3),
+                    Text(
+                      widget.subtitle,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    widget.subtitle,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.verified, color: Color(0xFF16A34A), size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'ICICI Verified',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Amount Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2A195C), Color(0xFF4313B8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4313B8).withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.verified, color: Color(0xFF16A34A), size: 14),
-                    SizedBox(width: 4),
-                    Text(
-                      'ICICI Verified',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Amount to Pay',
+                        style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        'Txn: ${widget.txId}',
+                        style: const TextStyle(color: Color(0xFFDDD6FE), fontSize: 11, fontFamily: 'monospace'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '₹${widget.amount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.shield_outlined, color: Color(0xFF4ADE80), size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Payee: ${AppConstants.iciciPayeeName} (${widget.vpa})',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Segmented Switch: Scan QR Code vs Pay via UPI App
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _selectedTab = 0),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _selectedTab == 0 ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: _selectedTab == 0
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 16,
+                              color: _selectedTab == 0 ? const Color(0xFF4313B8) : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Scan QR Code',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _selectedTab == 0 ? const Color(0xFF4313B8) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => _selectedTab = 1),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _selectedTab == 1 ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: _selectedTab == 1
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.bolt_rounded,
+                              size: 16,
+                              color: _selectedTab == 1 ? const Color(0xFF4313B8) : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Pay via UPI App',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _selectedTab == 1 ? const Color(0xFF4313B8) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Tab 0: QR Code View
+            if (_selectedTab == 0) ...[
+              Center(
+                child: Column(
+                  children: [
+                    _IciciQrWidget(
+                      data: widget.upiString,
+                      size: 190,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Scan using any UPI App (GPay, PhonePe, Paytm, BHIM)',
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF16A34A),
+                        fontSize: 11.5,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 18),
 
-          // Amount Card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2A195C), Color(0xFF4313B8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            // Tab 1: UPI App Buttons View
+            if (_selectedTab == 1) ...[
+              const Text(
+                'Select Installed UPI App',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334155),
+                ),
               ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4313B8).withValues(alpha: 0.25),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Amount to Pay',
-                      style: TextStyle(color: Color(0xFFDDD6FE), fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'Ref: ${widget.txId.substring(widget.txId.length - 8)}',
-                      style: const TextStyle(color: Color(0xFFDDD6FE), fontSize: 11, fontFamily: 'monospace'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '₹${widget.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _buildAppButton(
+                    name: 'GPay',
+                    label: 'Google Pay',
+                    icon: Icons.account_balance,
+                    color: const Color(0xFF1A73E8),
+                    onTap: () => _handlePayWithApp('gpay'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildAppButton(
+                    name: 'PhonePe',
+                    label: 'PhonePe',
+                    icon: Icons.payment,
+                    color: const Color(0xFF5F259F),
+                    onTap: () => _handlePayWithApp('phonepe'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildAppButton(
+                    name: 'Paytm',
+                    label: 'Paytm',
+                    icon: Icons.account_balance_wallet,
+                    color: const Color(0xFF00BAF2),
+                    onTap: () => _handlePayWithApp('paytm'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildAppButton(
+                    name: 'BHIM',
+                    label: 'BHIM / Any',
+                    icon: Icons.electric_bolt,
+                    color: const Color(0xFF059669),
+                    onTap: () => _handlePayWithApp(null),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isProcessing ? null : () => _handlePayWithApp(null),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4313B8),
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.bolt, color: Colors.white, size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        '⚡ Open Any UPI App',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.shield_outlined, color: Color(0xFF4ADE80), size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Payee: ${AppConstants.iciciPayeeName} (${widget.vpa})',
-                      style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Section Title: Quick 1-Tap UPI App Options
-          const Text(
-            'Select UPI App',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF334155),
-              letterSpacing: 0.02,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 4 Quick UPI App Buttons (GPay, PhonePe, Paytm, BHIM)
-          Row(
-            children: [
-              _buildAppButton(
-                name: 'GPay',
-                label: 'Google Pay',
-                icon: Icons.account_balance,
-                color: const Color(0xFF1A73E8),
-                onTap: () => _handlePayWithApp('gpay'),
-              ),
-              const SizedBox(width: 8),
-              _buildAppButton(
-                name: 'PhonePe',
-                label: 'PhonePe',
-                icon: Icons.payment,
-                color: const Color(0xFF5F259F),
-                onTap: () => _handlePayWithApp('phonepe'),
-              ),
-              const SizedBox(width: 8),
-              _buildAppButton(
-                name: 'Paytm',
-                label: 'Paytm',
-                icon: Icons.account_balance_wallet,
-                color: const Color(0xFF00BAF2),
-                onTap: () => _handlePayWithApp('paytm'),
-              ),
-              const SizedBox(width: 8),
-              _buildAppButton(
-                name: 'BHIM',
-                label: 'BHIM / Any',
-                icon: Icons.electric_bolt,
-                color: const Color(0xFF059669),
-                onTap: () => _handlePayWithApp(null),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
 
-          // Primary Big Action Button: Pay via UPI
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: _isProcessing ? null : () => _handlePayWithApp(null),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4313B8),
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.bolt, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    '⚡ Pay via UPI App',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+            const SizedBox(height: 12),
+
+            // Copy VPA Option
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: widget.vpa));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('UPI ID ${widget.vpa} copied to clipboard!'),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: const Color(0xFF16A34A),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Copy VPA option
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: widget.vpa));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('UPI ID ${widget.vpa} copied to clipboard!'),
-                  duration: const Duration(seconds: 2),
-                  backgroundColor: const Color(0xFF16A34A),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.copy_rounded, size: 15, color: Color(0xFF64748B)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Copy UPI ID: ${widget.vpa}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF64748B)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'UPI ID: ${widget.vpa}',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                      ),
                     ),
-                  ),
-                  const Text(
-                    'COPY',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF4313B8)),
-                  ),
-                ],
+                    const Text(
+                      'COPY',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF4313B8)),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-          // After launching UPI: Confirmation button
-          if (_isUpiLaunched)
+            // Confirmation button
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -617,13 +801,14 @@ class _IciciUpiModalSheetState extends State<_IciciUpiModalSheet> {
                           SizedBox(width: 8),
                           Text(
                             'I Have Completed Payment',
-                            style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w800, fontSize: 13.5),
+                            style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w800, fontSize: 13),
                           ),
                         ],
                       ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -638,31 +823,31 @@ class _IciciUpiModalSheetState extends State<_IciciUpiModalSheet> {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: color, size: 18),
+                child: Icon(icon, color: color, size: 17),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 5),
               Text(
                 name,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E293B),
                 ),
@@ -673,4 +858,92 @@ class _IciciUpiModalSheetState extends State<_IciciUpiModalSheet> {
       ),
     );
   }
+}
+
+class _IciciQrWidget extends StatelessWidget {
+  final String data;
+  final double size;
+
+  const _IciciQrWidget({required this.data, this.size = 180});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.isEmpty) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF4313B8)),
+        ),
+      );
+    }
+
+    try {
+      final qrCode = QrCode.fromData(
+        data: data,
+        errorCorrectLevel: QrErrorCorrectLevel.M,
+      );
+      final qrImage = QrImage(qrCode);
+
+      return Container(
+        width: size,
+        height: size,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: CustomPaint(
+          size: Size(size - 20, size - 20),
+          painter: _QrCanvasPainter(qrImage: qrImage, color: const Color(0xFF0F172A)),
+        ),
+      );
+    } catch (e) {
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        child: const Text('Could not generate QR code', style: TextStyle(fontSize: 12, color: Colors.red)),
+      );
+    }
+  }
+}
+
+class _QrCanvasPainter extends CustomPainter {
+  final QrImage qrImage;
+  final Color color;
+
+  _QrCanvasPainter({required this.qrImage, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final moduleCount = qrImage.moduleCount;
+    final pixelSize = size.width / moduleCount;
+
+    for (int x = 0; x < moduleCount; x++) {
+      for (int y = 0; y < moduleCount; y++) {
+        if (qrImage.isDark(y, x)) {
+          canvas.drawRect(
+            Rect.fromLTWH(x * pixelSize, y * pixelSize, pixelSize, pixelSize),
+            paint,
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _QrCanvasPainter oldDelegate) => oldDelegate.qrImage != qrImage;
 }

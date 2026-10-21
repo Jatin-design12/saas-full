@@ -116,4 +116,62 @@ class NotificationService {
   int get unreadCount {
     return notifications.where((n) => n['isRead'] == false).length;
   }
+
+  Future<bool> registerDeviceToken(String token, {String appType = 'rider', String deviceOs = 'android'}) async {
+    final savedMobile = await SessionService().getUserMobile() ?? SessionService().userMobileSync ?? '';
+    final cleanMobile = savedMobile.replaceAll(RegExp(r'\D'), '').trim();
+
+    final urls = [
+      '${AppConstants.apiBaseUrl}/notifications/register-token',
+      if (kDebugMode) ...[
+        'http://localhost:5000/api/notifications/register-token',
+      ]
+    ];
+
+    for (final url in urls) {
+      try {
+        final res = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'token': token,
+            'mobile': cleanMobile,
+            'role': 'rider',
+            'app_type': appType,
+            'device_os': deviceOs,
+          }),
+        ).timeout(const Duration(seconds: 4));
+
+        if (res.statusCode == 200) {
+          debugPrint('Device token registered with backend successfully');
+          return true;
+        }
+      } catch (e) {
+        debugPrint('Failed to register device token at $url: $e');
+      }
+    }
+    return false;
+  }
+
+  Future<bool> unregisterDeviceToken(String token) async {
+    final urls = [
+      '${AppConstants.apiBaseUrl}/notifications/unregister-token',
+      if (kDebugMode) ...[
+        'http://localhost:5000/api/notifications/unregister-token',
+      ]
+    ];
+
+    for (final url in urls) {
+      try {
+        final res = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({'token': token}),
+        ).timeout(const Duration(seconds: 4));
+
+        if (res.statusCode == 200) return true;
+      } catch (_) {}
+    }
+    return false;
+  }
 }

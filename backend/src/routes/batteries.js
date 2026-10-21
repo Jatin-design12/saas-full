@@ -242,6 +242,20 @@ router.post('/swap', async (req, res) => {
       await delByPattern('renters:*');
     } catch (e) {}
 
+    // Dispatch push notification to rider
+    try {
+      const { sendBatterySwapNotification } = require('./notifications');
+      await sendBatterySwapNotification({
+        mobile: rider_mobile,
+        riderName: rider_name,
+        vehicleId: vehicle_number,
+        newBatteryId: new_battery_id,
+        oldBatterySoc: old_battery_soc,
+        newBatterySoc: new_battery_soc,
+        amount
+      }).catch(notifErr => console.warn('Battery swap push notification notice:', notifErr.message));
+    } catch (_) {}
+
     res.status(201).json({
       status: 'success',
       message: 'Battery swap processed and recorded successfully',

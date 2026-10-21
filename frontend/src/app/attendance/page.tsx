@@ -4,6 +4,29 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
+const ATTENDANCE_CSS = `
+.att-clock-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+@media (max-width: 1024px) {
+  .att-clock-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.att-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.att-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+`;
+
 export default function AttendancePage() {
   // Employee profile
   const [employeeName, setEmployeeName] = useState('Priyansh Shah');
@@ -49,18 +72,149 @@ export default function AttendancePage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Clock Actions
-  const handleClockIn = () => {
-    const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    setClockInTime(now);
-    setClockStatus('clocked_in');
-    setElapsedHours('00h 01m');
+  // Live attendance logs from backend
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [loadingAction, setLoadingAction] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiSuccess, setApiSuccess] = useState<string | null>(null);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+  // Load session from localStorage & fetch live attendance
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const name = localStorage.getItem('evegah_user_name');
+      const zone = localStorage.getItem('evegah_user_zone');
+      const role = localStorage.getItem('evegah_user_role_name');
+      const activeName = name || 'Priyansh Shah';
+      if (name) setEmployeeName(name);
+      if (zone) setEmployeeZone(zone);
+      if (role) setEmployeeRole(role);
+
+      fetchCurrentAttendance(activeName);
+      fetchAttendanceLogs(activeName);
+    }
+  }, []);
+
+  const fetchCurrentAttendance = async (empName: string) => {
+    try {
+      const res = await fetch(`${apiUrl}/attendance/current?employee_name=${encodeURIComponent(empName)}`);
+      const json = await res.json();
+      if (json.status === 'success' && json.activeSession) {
+        const s = json.activeSession;
+        setCurrentSessionId(s.id);
+        setClockStatus('clocked_in');
+        const inDate = new Date(s.clock_in_time);
+        setClockInTime(inDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
+        const diffMins = Math.max(0, Math.round((Date.now() - inDate.getTime()) / (1000 * 60)));
+        const hrs = Math.floor(diffMins / 60).toString().padStart(2, '0');
+        const mins = (diffMins % 60).toString().padStart(2, '0');
+        setElapsedHours(`${hrs}h ${mins}m`);
+      } else {
+        setClockStatus('clocked_out');
+        setClockInTime('--:--');
+        setClockOutTime('--:--');
+      }
+    } catch (e) {
+      console.warn('Failed to load current attendance:', e);
+    }
   };
 
-  const handleClockOut = () => {
-    const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    setClockOutTime(now);
-    setClockStatus('clocked_out');
+  const fetchAttendanceLogs = async (empName: string) => {
+    try {
+      const res = await fetch(`${apiUrl}/attendance/logs?employee_name=${encodeURIComponent(empName)}`);
+      const json = await res.json();
+      if (json.status === 'success' && Array.isArray(json.data) && json.data.length > 0) {
+        const formatted = json.data.map((r: any) => {
+          const inD = new Date(r.clock_in_time);
+          const outD = r.clock_out_time ? new Date(r.clock_out_time) : null;
+          const mins = r.elapsed_minutes || (outD ? Math.round((outD.getTime() - inD.getTime()) / (1000 * 60)) : 0);
+          const hrsStr = mins > 0 ? `${(mins / 60).toFixed(1)} hrs` : '--';
+          return {
+            date: inD.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
+            shift: r.shift || 'Morning (08:00 - 16:00)',
+            in: inD.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            out: outD ? outD.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--',
+            hours: hrsStr,
+            status: r.status === 'clocked_in' ? 'Present' : 'Present',
+            geofence: `${r.zone || 'Gotri Hub'} (Verified)`,
+            score: '100%',
+          };
+        });
+        setAttendanceRecords(formatted);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch attendance logs:', e);
+    }
+  };
+
+  // Clock Actions connected to Backend
+  const handleClockIn = async () => {
+    setLoadingAction(true);
+    setApiError(null);
+    setApiSuccess(null);
+    try {
+      const res = await fetch(`${apiUrl}/attendance/clock-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: employeeId,
+          employee_name: employeeName,
+          employee_role: employeeRole,
+          zone: employeeZone,
+          shift: selectedShift,
+          geofence_verified: true,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        const inDate = new Date(data.data?.clock_in_time || Date.now());
+        setClockInTime(inDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
+        setClockStatus('clocked_in');
+        setElapsedHours('00h 01m');
+        setCurrentSessionId(data.data?.id || null);
+        setApiSuccess(data.message || 'Clock-in recorded successfully!');
+        fetchAttendanceLogs(employeeName);
+      } else {
+        setApiError(data.message || 'Failed to clock in');
+      }
+    } catch (err: any) {
+      setApiError('Network error recording clock-in: ' + err.message);
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleClockOut = async () => {
+    setLoadingAction(true);
+    setApiError(null);
+    setApiSuccess(null);
+    try {
+      const res = await fetch(`${apiUrl}/attendance/clock-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: currentSessionId,
+          employee_name: employeeName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        const outDate = new Date(data.data?.clock_out_time || Date.now());
+        setClockOutTime(outDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
+        setClockStatus('clocked_out');
+        setCurrentSessionId(null);
+        setApiSuccess('Clock-out recorded successfully! Shift logged.');
+        fetchAttendanceLogs(employeeName);
+      } else {
+        setApiError(data.message || 'Failed to clock out');
+      }
+    } catch (err: any) {
+      setApiError('Network error recording clock-out: ' + err.message);
+    } finally {
+      setLoadingAction(false);
+    }
   };
 
   const handleToggleBreak = () => {
@@ -90,25 +244,16 @@ export default function AttendancePage() {
     reviewsCount: 96
   };
 
-  // Past attendance records
-  const attendanceRecords = [
-    { date: 'Today (09 Sep)', shift: 'Morning (08:00 - 16:00)', in: '08:32 AM', out: '--:--', hours: '4.5 hrs', status: 'Present', geofence: 'Gotri Hub (5m)', score: '100%' },
-    { date: '08 Sep 2026', shift: 'Morning (08:00 - 16:00)', in: '08:14 AM', out: '04:10 PM', hours: '7.9 hrs', status: 'Present', geofence: 'Gotri Hub (8m)', score: '100%' },
-    { date: '07 Sep 2026', shift: 'Morning (08:00 - 16:00)', in: '08:05 AM', out: '04:15 PM', hours: '8.2 hrs', status: 'Present', geofence: 'Gotri Hub (3m)', score: '100%' },
-    { date: '06 Sep 2026', shift: 'Weekly Off', in: '--:--', out: '--:--', hours: '0.0 hrs', status: 'Weekly Off', geofence: 'N/A', score: 'N/A' },
-    { date: '05 Sep 2026', shift: 'Morning (08:00 - 16:00)', in: '08:28 AM', out: '04:02 PM', hours: '7.6 hrs', status: 'Present', geofence: 'Gotri Hub (6m)', score: '100%' },
-    { date: '04 Sep 2026', shift: 'Morning (08:00 - 16:00)', in: '08:44 AM', out: '04:30 PM', hours: '7.8 hrs', status: 'Late (Grace)', geofence: 'Gotri Hub (12m)', score: '92%' },
-    { date: '03 Sep 2026', shift: 'Morning (08:00 - 16:00)', in: '08:10 AM', out: '04:05 PM', hours: '7.9 hrs', status: 'Present', geofence: 'Gotri Hub (4m)', score: '100%' },
-  ];
-
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <Sidebar />
+    <>
+      <style dangerouslySetInnerHTML={{ __html: ATTENDANCE_CSS }} />
+      <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <Sidebar />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <TopBar />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <TopBar />
 
-        <main style={{ padding: '24px 32px 60px', flex: 1 }}>
+          <main style={{ padding: '24px 32px 60px', flex: 1 }}>
           {/* Breadcrumb & Navigation */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748B' }}>
@@ -205,7 +350,7 @@ export default function AttendancePage() {
 
           {/* TAB 1: CLOCK-IN TERMINAL */}
           {activeTab === 'attendance' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', marginBottom: '32px' }}>
+            <div className="att-clock-grid">
               {/* Main Clock Card */}
               <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '20px', padding: '28px', boxShadow: '0 2px 8px rgba(15,23,42,0.03)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -576,5 +721,6 @@ export default function AttendancePage() {
         </main>
       </div>
     </div>
+    </>
   );
 }

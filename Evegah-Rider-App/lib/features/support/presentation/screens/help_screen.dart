@@ -565,7 +565,7 @@ class _HelpScreenState extends State<HelpScreen> {
                   subtitle: "24/7 support",
                   iconColor: const Color(0xFF059669),
                   bgColor: const Color(0xFFECFDF5),
-                  onTap: () => _makePhoneCall("+919876543210"),
+                  onTap: () => _makePhoneCall("+911800 889 8791"),
                 ),
               ),
 
@@ -742,7 +742,7 @@ class _HelpScreenState extends State<HelpScreen> {
             ),
 
             GestureDetector(
-              onTap: () => _makePhoneCall("+919876543210"),
+              onTap: () => _makePhoneCall("+911800 889 8791"),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,

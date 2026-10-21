@@ -112,6 +112,17 @@ const CHECKLIST = ['Aadhaar Card', 'Driving License', 'PAN Card', 'Address Proof
 
 export default function RetainRiderDocumentsPage() {
   const [photos, setPhotos] = useState(VEHICLE_PHOTOS.map(p => p.uploaded));
+  const [rider] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('evegah_retain_rider') || '{}');
+      } catch (_) {}
+    }
+    return {};
+  });
+  const riderName = rider?.name || rider?.fullName || 'Returning Rider';
+  const riderId = rider?.id || rider?.riderId || '—';
+  const initials = riderName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || 'RR';
   const togglePhoto = (i: number) => setPhotos(p => { const a = [...p]; a[i] = !a[i]; return a; });
   const uploadedCount = photos.filter(Boolean).length;
   return (
@@ -150,9 +161,9 @@ export default function RetainRiderDocumentsPage() {
                       <div className="rr-kyc-ic-wrap"><IShield /></div>
                       <div>
                         <div className="rr-kyc-title">KYC Verified — Documents on File</div>
-                        <div className="rr-kyc-sub">All KYC documents for Akash Verma are verified. No re-upload required.</div>
+                        <div className="rr-kyc-sub">All KYC documents for {riderName} are verified. No re-upload required.</div>
                         <div className="rr-kyc-meta-row">
-                          <div className="rr-kyc-meta"><ICal /> Verified: 12 Mar 2024</div>
+                          <div className="rr-kyc-meta"><ICal /> Verified on File</div>
                           <span className="rr-kyc-detail-badge"><ICheck s={11} /> 5 Documents Verified</span>
                         </div>
                       </div>
@@ -197,10 +208,10 @@ export default function RetainRiderDocumentsPage() {
                   <div className="nr-rp-hdr"><div style={{ color: '#2A195C', display: 'flex' }}><IUser /></div><div className="nr-rp-title">Rider Info</div></div>
                   <div className="nr-rp-body">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #F3F4F6' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#2A195C,#2A195C)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff' }}>AV</div>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg,#2A195C,#2A195C)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff' }}>{initials}</div>
                       <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#111827' }}>Akash Verma</div>
-                        <div style={{ fontSize: 12, color: '#6B7280' }}>RDR00124</div>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#111827' }}>{riderName}</div>
+                        <div style={{ fontSize: 12, color: '#6B7280' }}>{riderId}</div>
                       </div>
                     </div>
                     {[{ l: 'KYC Status', v: <span style={{ background: '#DCFCE7', color: '#16A34A', borderRadius: 5, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>Verified</span> }, { l: 'Last Ride', v: '18 May 2024' }].map(r => (

@@ -187,6 +187,88 @@ const CSS = `
   color: #065F46;
 }
 
+/* ── PayU (Primary Gateway) QR & PG Card ── */
+.payu-qr-card {
+  background: #F0FDF4;
+  border: 1.5px solid #86EFAC;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.payu-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #059669;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 0.4px;
+}
+.payu-vpa-txt { font-size: 12.5px; font-weight: 700; color: #047857; margin-top: 10px; }
+.payu-ref-txt { font-size: 11px; color: #64748B; margin-top: 2px; }
+.payu-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #059669;
+  box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7);
+  animation: payuPulse 1.8s infinite;
+}
+@keyframes payuPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+}
+
+/* ── PhonePe QR & PG Card ── */
+.phonepe-qr-card {
+  background: #FAF5FF;
+  border: 1.5px solid #D8B4FE;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.phonepe-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #5F259F;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
+}
+.phonepe-vpa-txt { font-size: 12.5px; font-weight: 700; color: #5F259F; margin-top: 10px; }
+.phonepe-ref-txt { font-size: 11px; color: #64748B; margin-top: 2px; }
+.phonepe-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5F259F;
+  box-shadow: 0 0 0 0 rgba(95, 37, 159, 0.7);
+  animation: phonepePulse 1.8s infinite;
+}
+@keyframes phonepePulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(95, 37, 159, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(95, 37, 159, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(95, 37, 159, 0); }
+}
+
 /* ── Split Payment Box ── */
 .pm-split-box {
   background: #F8FAFC;
@@ -376,6 +458,20 @@ const CSS = `
   cursor: pointer; border: none; font-family: inherit; transition: background .15s;
 }
 .nr-help-btn:hover { background: #4338CA; }
+.nr-continue-btn:disabled {
+  background: #CBD5E1 !important;
+  color: #64748B !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  opacity: 0.75 !important;
+}
+@keyframes nrFadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.nr-card, .nr-rp-card, .nr-stepper {
+  animation: nrFadeSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 `;
 
 /* ── SVG Helpers ── */
@@ -431,6 +527,13 @@ const STEPS = [
   { n: 5, label: 'Review & Confirm', stat: 'Pending', state: 'pend' },
 ];
 
+const IPayuIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4h7a4 4 0 0 1 4 4 4 4 0 0 1-4 4H4V4z" />
+    <path d="M12 12l5 8" />
+  </svg>
+);
+
 const ISplitIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="6" cy="6" r="3" />
@@ -441,14 +544,18 @@ const ISplitIcon = () => (
   </svg>
 );
 
-type PayMethod = 'upi' | 'split' | 'cash' | 'card' | 'wallet';
+const IPhonePeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+
+type PayMethod = 'payu' | 'split' | 'cash';
 
 const PAY_TABS: { id: PayMethod; label: string; icon: React.ReactNode }[] = [
-  { id: 'upi', label: 'ICICI UPI QR', icon: <IUPIIcon /> },
-  { id: 'split', label: 'Split Payment', icon: <ISplitIcon /> },
+  { id: 'payu', label: 'PayU (Primary Gateway)', icon: <IPayuIcon /> },
+  { id: 'split', label: 'Split Payment (Cash + PayU)', icon: <ISplitIcon /> },
   { id: 'cash', label: 'Cash Only', icon: <ICashIcon /> },
-  { id: 'card', label: 'Card', icon: <ICardIcon /> },
-  { id: 'wallet', label: 'Wallet', icon: <IWalletIcon /> },
 ];
 
 const IZap = ({ s = 13 }: { s?: number }) => (
@@ -477,8 +584,6 @@ const WALLETS = [
 /* ── Conditional method input area ── */
 function MethodDetail({
   method,
-  wallet,
-  setWallet,
   totalPayable,
   cashAmount,
   setCashAmount,
@@ -487,19 +592,14 @@ function MethodDetail({
   setStaffCollector,
   cashReceipt,
   setCashReceipt,
-  iciciQrString,
-  iciciMerchantTranId,
-  iciciRefId,
+  payuQrString,
+  payuTxId,
+  payuVerified,
+  isCheckingPayU,
   splitQrString,
   splitMerchantTranId,
-  splitRefId,
-  upiVerified,
-  isCheckingStatus,
-  onManualVerify,
 }: {
   method: PayMethod;
-  wallet: string;
-  setWallet: (w: string) => void;
   totalPayable: number;
   cashAmount: number;
   setCashAmount: (v: number) => void;
@@ -508,90 +608,63 @@ function MethodDetail({
   setStaffCollector: (v: string) => void;
   cashReceipt: string;
   setCashReceipt: (v: string) => void;
-  iciciQrString: string;
-  iciciMerchantTranId: string;
-  iciciRefId: string;
-  splitQrString: string;
-  splitMerchantTranId: string;
-  splitRefId: string;
-  upiVerified: boolean;
-  isCheckingStatus: boolean;
-  onManualVerify?: () => void;
+  payuQrString?: string;
+  payuTxId?: string;
+  payuVerified?: boolean;
+  isCheckingPayU?: boolean;
+  splitQrString?: string;
+  splitMerchantTranId?: string;
 }) {
-  if (method === 'upi') return (
+  if (method === 'payu') return (
     <>
-      <div className="icici-qr-card">
-        <div className="icici-badge">
-          <span style={{ display: 'flex', alignItems: 'center' }}><IZap s={13} /></span> ICICI BANK DYNAMIC UPI QR
+      <div className="payu-qr-card">
+        <div className="payu-badge">
+          <span style={{ display: 'flex', alignItems: 'center' }}><IPayuIcon /></span> PAYU INDIA (PRIMARY GATEWAY)
         </div>
         <div className="icici-qr-frame">
-          {iciciQrString ? (
+          {payuQrString ? (
             <QRCodeSVG
-              value={iciciQrString}
+              value={payuQrString}
               size={164}
               level="M"
               includeMargin={false}
             />
           ) : (
             <div style={{ width: 164, height: 164, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12, fontWeight: 600 }}>
-              Generating ICICI QR...
+              Generating PayU QR...
             </div>
           )}
         </div>
-        <div className="icici-vpa-txt">UPI VPA: EVEGAHUAT@icici</div>
+        <div className="payu-vpa-txt">PayU Smart Dynamic UPI QR</div>
         <div style={{ fontSize: 14.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
           Scan to Pay: ₹{totalPayable.toFixed(2)}
         </div>
-        <div className="icici-ref-txt">
-          Payee: Evegah | Txn ID: {iciciMerchantTranId || 'EVG-GENERATING...'}
+        <div className="payu-ref-txt">
+          Payee: Evegah | Txn ID: {payuTxId || 'EVG-GENERATING...'}
         </div>
         <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>
-          Works with GPay, PhonePe, Paytm, BHIM, ICICI iMobile &amp; all UPI apps
+          Works with Google Pay, PhonePe, Paytm, BHIM, Cards, NetBanking &amp; UPI
         </div>
 
         <div className="icici-status-box">
-          {upiVerified ? (
-            <div className="icici-verified-badge">
-              <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Payment Verified via ICICI Bank
+          {payuVerified ? (
+            <div className="icici-verified-badge" style={{ borderColor: '#059669', color: '#047857' }}>
+              <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Payment Verified via PayU
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', width: '100%' }}>
-              <div className="icici-pulse-badge">
-                <span className="icici-pulse-dot" />
-                <span>{isCheckingStatus ? 'Verifying with ICICI Bank...' : 'Awaiting customer UPI payment...'}</span>
+              <div className="icici-pulse-badge" style={{ background: '#F0FDF4', borderColor: '#BBF7D0', color: '#047857' }}>
+                <span className="payu-pulse-dot" />
+                <span>{isCheckingPayU ? 'Verifying with PayU...' : 'Awaiting customer PayU payment...'}</span>
               </div>
-              {onManualVerify && (
-                <button
-                  type="button"
-                  onClick={onManualVerify}
-                  disabled={isCheckingStatus}
-                  style={{
-                    background: '#200F54',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    cursor: isCheckingStatus ? 'not-allowed' : 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 6px rgba(32, 15, 84, 0.25)',
-                    marginTop: 4,
-                  }}
-                >
-                  <ICheck s={13} /> Confirm Payment Received (ICICI Approved)
-                </button>
-              )}
             </div>
           )}
         </div>
       </div>
-      {upiVerified && (
+      {payuVerified && (
         <div className="pm-ok-banner">
           <span style={{ display: 'flex', color: '#16A34A' }}><ICheck s={14} /></span>
-          ICICI Bank UPI payment verified successfully for ₹{totalPayable.toFixed(2)}. Ref: {iciciRefId || iciciMerchantTranId}
+          PayU payment verified successfully for ₹{totalPayable.toFixed(2)}. Ref: {payuTxId}
         </div>
       )}
     </>
@@ -601,7 +674,7 @@ function MethodDetail({
     <>
       <div className="pm-split-box">
         <div style={{ fontSize: 13, fontWeight: 700, color: '#1E293B', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ display: 'flex', alignItems: 'center', color: '#2A195C' }}><IScale s={14} /></span> Split Payment (Cash + ICICI QR)
+          <span style={{ display: 'flex', alignItems: 'center', color: '#2A195C' }}><IScale s={14} /></span> Split Payment (Cash + PayU Online)
         </div>
         <div className="pm-split-grid">
           <div className="pm-fld" style={{ marginBottom: 0 }}>
@@ -655,9 +728,9 @@ function MethodDetail({
       </div>
 
       {onlineAmount > 0 ? (
-        <div className="icici-qr-card">
-          <div className="icici-badge">
-            <span style={{ display: 'flex', alignItems: 'center' }}><IZap s={13} /></span> ICICI QR FOR ONLINE BALANCE
+        <div className="payu-qr-card">
+          <div className="payu-badge">
+            <span style={{ display: 'flex', alignItems: 'center' }}><IPayuIcon /></span> PAYU QR FOR ONLINE BALANCE
           </div>
           <div className="icici-qr-frame">
             {splitQrString ? (
@@ -669,53 +742,29 @@ function MethodDetail({
               />
             ) : (
               <div style={{ width: 164, height: 164, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12, fontWeight: 600 }}>
-                Generating ICICI QR...
+                Generating PayU QR...
               </div>
             )}
           </div>
-          <div className="icici-vpa-txt">UPI VPA: EVEGAHUAT@icici</div>
+          <div className="payu-vpa-txt">PayU Smart Dynamic UPI QR</div>
           <div style={{ fontSize: 13.5, fontWeight: 800, color: '#111827', marginTop: 4 }}>
             Scan to pay Online Portion: ₹{onlineAmount.toFixed(2)}
           </div>
-          <div className="icici-ref-txt">
+          <div className="payu-ref-txt">
             Payee: Evegah | Txn ID: {splitMerchantTranId || 'EVG-SPLIT'}
           </div>
 
           <div className="icici-status-box">
-            {upiVerified ? (
-              <div className="icici-verified-badge">
-                <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Online Portion Verified via ICICI
+            {payuVerified ? (
+              <div className="icici-verified-badge" style={{ borderColor: '#059669', color: '#047857' }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}><ICheck s={13} /></span> Online Portion Verified via PayU
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', width: '100%' }}>
-                <div className="icici-pulse-badge">
-                  <span className="icici-pulse-dot" />
-                  <span>{isCheckingStatus ? 'Verifying Online Portion...' : 'Awaiting online portion payment...'}</span>
+                <div className="icici-pulse-badge" style={{ background: '#F0FDF4', borderColor: '#BBF7D0', color: '#047857' }}>
+                  <span className="payu-pulse-dot" />
+                  <span>{isCheckingPayU ? 'Verifying Online Portion...' : 'Awaiting online portion payment...'}</span>
                 </div>
-                {onManualVerify && (
-                  <button
-                    type="button"
-                    onClick={onManualVerify}
-                    disabled={isCheckingStatus}
-                    style={{
-                      background: '#200F54',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '8px 16px',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: isCheckingStatus ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 2px 6px rgba(32, 15, 84, 0.25)',
-                      marginTop: 4,
-                    }}
-                  >
-                    <ICheck s={13} /> Confirm Online Payment (ICICI Approved)
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -757,50 +806,6 @@ function MethodDetail({
           value={cashReceipt}
           onChange={(e) => setCashReceipt(e.target.value)}
         />
-      </div>
-    </>
-  );
-
-  if (method === 'card') return (
-    <>
-      <div className="pm-fld">
-        <label>Cardholder Name<span className="req"> *</span></label>
-        <input className="nr-inp" placeholder="Name as on card" />
-      </div>
-      <div className="pm-fld">
-        <label>Card Number<span className="req"> *</span></label>
-        <input className="nr-inp" placeholder="•••• •••• •••• ••••" maxLength={19} />
-      </div>
-      <div className="pm-row-2">
-        <div className="pm-fld">
-          <label>Expiry<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="MM / YY" />
-        </div>
-        <div className="pm-fld">
-          <label>CVV<span className="req"> *</span></label>
-          <input className="nr-inp" placeholder="•••" maxLength={4} type="password" />
-        </div>
-      </div>
-    </>
-  );
-
-  if (method === 'wallet') return (
-    <>
-      <div className="pm-sec-hd" style={{ marginBottom: 10 }}>Select Wallet</div>
-      <div className="pm-wallet-row">
-        {WALLETS.map(w => (
-          <button key={w.id} className={`pm-wallet-pill ${wallet === w.id ? 'sel' : ''}`} onClick={() => setWallet(w.id)}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: w.color, display: 'inline-block', marginRight: 6 }} />{w.label}
-          </button>
-        ))}
-      </div>
-      <div className="pm-fld">
-        <label>Registered Mobile<span className="req"> *</span></label>
-        <input className="nr-inp" placeholder="Mobile linked to wallet" />
-      </div>
-      <div className="pm-fld">
-        <label>Transaction ID<span className="opt"> (After payment)</span></label>
-        <input className="nr-inp" placeholder="Enter transaction ID" />
       </div>
     </>
   );
@@ -858,7 +863,7 @@ function RightPanel({ rentalData, discount, totalPayable }: { rentalData: any; d
           {[
             'Zero GST & zero hidden taxes applied. All rates are net.',
             'Security Deposit is 100% refundable upon vehicle return.',
-            'ICICI UPI QR payments reflect instantly upon confirmation.',
+            'PayU Dynamic UPI QR payments reflect automatically upon server confirmation.',
             'Instant payment receipt is generated and dispatched via WhatsApp.',
           ].map((n, i) => (
             <div key={i} className="nr-imp-item">
@@ -889,8 +894,7 @@ function RightPanel({ rentalData, discount, totalPayable }: { rentalData: any; d
 ═══════════════════════════════════════════════════════════════ */
 export default function PaymentPage() {
   const router = useRouter();
-  const [payMethod, setPayMethod] = useState<PayMethod>('upi');
-  const [wallet, setWallet] = useState('paytm');
+  const [payMethod, setPayMethod] = useState<PayMethod>('payu');
   const [coupon, setCoupon] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponError, setCouponError] = useState('');
@@ -902,19 +906,39 @@ export default function PaymentPage() {
   const [staffCollector, setStaffCollector] = useState('Himanshu (Super Admin)');
   const [cashReceipt, setCashReceipt] = useState('');
 
-  // ICICI QR & Polling fields
-  const [iciciQrString, setIciciQrString] = useState('');
-  const [iciciMerchantTranId, setIciciMerchantTranId] = useState('');
-  const [iciciRefId, setIciciRefId] = useState('');
+  // PayU (Primary Gateway) fields
+  const [payuQrString, setPayuQrString] = useState('');
+  const [payuTxId, setPayuTxId] = useState('');
+  const [payuCheckoutUrl, setPayuCheckoutUrl] = useState('');
+  const [payuVerified, setPayuVerified] = useState(false);
+  const [isCheckingPayU, setIsCheckingPayU] = useState(false);
+
+  // Split Payment PayU fields
   const [splitQrString, setSplitQrString] = useState('');
   const [splitMerchantTranId, setSplitMerchantTranId] = useState('');
-  const [splitRefId, setSplitRefId] = useState('');
-  const [upiVerified, setUpiVerified] = useState(false);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [splitCheckoutUrl, setSplitCheckoutUrl] = useState('');
 
-  // Form data from previous steps
-  const [rentalData, setRentalData] = useState<any>(null);
-  const [kycData, setKycData] = useState<any>(null);
+  // In-page PayU Popup Modal state
+  const [showPayuPopup, setShowPayuPopup] = useState(false);
+  const [popupCheckoutUrl, setPopupCheckoutUrl] = useState('');
+
+  // Form data from previous steps (loaded synchronously so first PayU initiate call has actual rider details)
+  const [rentalData, setRentalData] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('evegah_new_ride_rental') || '{}');
+      } catch (_) {}
+    }
+    return null;
+  });
+  const [kycData, setKycData] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
+      } catch (_) {}
+    }
+    return null;
+  });
 
   useEffect(() => {
     try {
@@ -949,134 +973,229 @@ export default function PaymentPage() {
   const clampedCash = Math.min(totalPayable, Math.max(0, cashAmount));
   const onlineAmount = Math.max(0, totalPayable - clampedCash);
 
-  // Real Dynamic ICICI QR generation for full UPI
+  // Single authoritative PayU Initiation + Official S2S Dynamic QR for full PayU
   useEffect(() => {
-    if (payMethod !== 'upi' || totalPayable <= 0) return;
-    setUpiVerified(false);
+    if (payMethod !== 'payu' || totalPayable <= 0) return;
+    setPayuVerified(false);
+    setPayuQrString('');
     let isMounted = true;
 
-    api.post('/payments/icici/qr', {
+    api.post('/payments/payu/initiate', {
       amount: totalPayable,
       rider_name: kycData?.fullName || 'Rider',
       mobile: kycData?.mobile || '',
+      email: kycData?.email || '',
       notes: `EV Ride ${rentalData?.vehicle_code || 'Rental'}`,
       purpose: 'ride'
     })
       .then((res: any) => {
         if (!isMounted) return;
         const data = res?.data || res;
-        const qrStr = res?.qrString || data?.upi_string || data?.qrString || '';
-        const mTranId = res?.merchantTranId || data?.tx_id || '';
-        const rId = res?.refId || data?.ref_id || mTranId;
-        setIciciQrString(qrStr);
-        setIciciMerchantTranId(mTranId);
-        setIciciRefId(rId);
+        const txId = data?.txnid || data?.tx_id || '';
+        const chkUrl = data?.checkout_url || '';
+        const qrStr = data?.qrString || data?.upi_string || '';
+        setPayuTxId(txId);
+        setPayuCheckoutUrl(chkUrl);
+        if (qrStr) {
+          setPayuQrString(qrStr);
+          return null;
+        }
+        return api.post('/payments/payu/qr', {
+          txnid: txId,
+          amount: totalPayable,
+          rider_name: kycData?.fullName || 'Rider',
+          mobile: kycData?.mobile || '',
+          email: kycData?.email || '',
+          notes: `PayU EV Ride ${rentalData?.vehicle_code || 'Rental'}`,
+          purpose: 'ride'
+        });
+      })
+      .then((qrRes: any) => {
+        if (!isMounted || !qrRes) return;
+        const qrData = qrRes?.data || qrRes;
+        const qrStr = qrData?.qrString || qrData?.upi_string || '';
+        if (qrStr) setPayuQrString(qrStr);
       })
       .catch((err) => {
-        console.error('ICICI QR generation error:', err);
+        console.error('PayU initiation error:', err);
       });
 
     return () => { isMounted = false; };
-  }, [payMethod, totalPayable, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+  }, [payMethod, totalPayable, kycData?.fullName, kycData?.mobile, kycData?.email, rentalData?.vehicle_code]);
 
-  // Real Dynamic ICICI QR generation for Split Online portion
+  // Single authoritative PayU Initiation + Official S2S Dynamic QR for Split Online portion
   useEffect(() => {
     if (payMethod !== 'split' || onlineAmount <= 0) {
       setSplitQrString('');
       setSplitMerchantTranId('');
-      setSplitRefId('');
+      setSplitCheckoutUrl('');
       return;
     }
-    setUpiVerified(false);
+    setPayuVerified(false);
+    setSplitQrString('');
     let isMounted = true;
 
-    api.post('/payments/icici/qr', {
+    api.post('/payments/payu/initiate', {
       amount: onlineAmount,
       rider_name: kycData?.fullName || 'Rider',
       mobile: kycData?.mobile || '',
-      notes: `Split Online - ${rentalData?.vehicle_code || 'Rental'}`,
+      email: kycData?.email || '',
+      notes: `Split Online PayU - ${rentalData?.vehicle_code || 'Rental'}`,
       purpose: 'ride'
     })
       .then((res: any) => {
         if (!isMounted) return;
         const data = res?.data || res;
-        const qrStr = res?.qrString || data?.upi_string || data?.qrString || '';
-        const mTranId = res?.merchantTranId || data?.tx_id || '';
-        const rId = res?.refId || data?.ref_id || mTranId;
-        setSplitQrString(qrStr);
-        setSplitMerchantTranId(mTranId);
-        setSplitRefId(rId);
+        const txId = data?.txnid || data?.tx_id || '';
+        const chkUrl = data?.checkout_url || '';
+        const qrStr = data?.qrString || data?.upi_string || '';
+        setSplitMerchantTranId(txId);
+        setSplitCheckoutUrl(chkUrl);
+        if (qrStr) {
+          setSplitQrString(qrStr);
+          return null;
+        }
+        return api.post('/payments/payu/qr', {
+          txnid: txId,
+          amount: onlineAmount,
+          rider_name: kycData?.fullName || 'Rider',
+          mobile: kycData?.mobile || '',
+          email: kycData?.email || '',
+          notes: `Split PayU QR - ${rentalData?.vehicle_code || 'Rental'}`,
+          purpose: 'ride'
+        });
+      })
+      .then((qrRes: any) => {
+        if (!isMounted || !qrRes) return;
+        const qrData = qrRes?.data || qrRes;
+        const qrStr = qrData?.qrString || qrData?.upi_string || '';
+        if (qrStr) setSplitQrString(qrStr);
       })
       .catch((err) => {
-        console.error('Split ICICI QR generation error:', err);
+        console.error('Split PayU QR generation error:', err);
       });
 
     return () => { isMounted = false; };
-  }, [payMethod, onlineAmount, kycData?.fullName, kycData?.mobile, rentalData?.vehicle_code]);
+  }, [payMethod, onlineAmount, kycData?.fullName, kycData?.mobile, kycData?.email, rentalData?.vehicle_code]);
 
-  // Manual payment verification helper (for instant validation when approved by bank / ICICI team)
-  const handleManualVerify = async () => {
-    const activeTxId = payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId;
-    if (!activeTxId) return;
-    try {
-      setIsCheckingStatus(true);
-      const res: any = await api.post('/payments/icici/verify', {
-        tx_id: activeTxId,
-        amount: payMethod === 'split' ? onlineAmount : totalPayable,
-        mobile: kycData?.mobile || '',
-        rider_name: kycData?.fullName || '',
-        status: 'SUCCESS'
-      });
-      if (res?.status === 'success' || res?.payment_status === 'SUCCESS') {
-        setUpiVerified(true);
-      }
-    } catch (e: any) {
-      alert('Verification error: ' + (e?.message || 'Could not verify payment'));
-    } finally {
-      setIsCheckingStatus(false);
-    }
-  };
-
-  // Automated real-time ICICI payment status polling
+  // Listen for PayU callback postMessage from popup/iframe and verify with backend
   useEffect(() => {
-    const activeTxId = payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId;
-    const isOnlineActive = payMethod === 'upi' || (payMethod === 'split' && onlineAmount > 0);
+    const onMessage = async (event: MessageEvent) => {
+      if (!event?.data || event.data.type !== 'PAYU_PAYMENT_RESPONSE') return;
+      const activeTxId = event.data.txnid || (payMethod === 'split' ? splitMerchantTranId : payuTxId);
+      if (!activeTxId) return;
+      try {
+        setIsCheckingPayU(true);
+        const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
+        const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS') {
+          setPayuVerified(true);
+          setShowPayuPopup(false);
+        }
+      } catch (_) {
+      } finally {
+        setIsCheckingPayU(false);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [payMethod, payuTxId, splitMerchantTranId]);
 
-    if (!isOnlineActive || !activeTxId || upiVerified) return;
+  // Automated real-time authoritative PayU payment status polling
+  useEffect(() => {
+    const activeTxId = payMethod === 'split' ? splitMerchantTranId : payuTxId;
+    if (!activeTxId || payuVerified) return;
 
     let isMounted = true;
-    let pollCount = 0;
 
-    const checkStatus = async () => {
-      if (!isMounted || upiVerified) return;
-      pollCount++;
+    const checkPayUStatus = async () => {
+      if (!isMounted || payuVerified) return;
       try {
-        setIsCheckingStatus(true);
-        const res: any = await api.post('/payments/icici/status', {
-          merchantTranId: activeTxId
-        });
+        setIsCheckingPayU(true);
+        const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
         if (!isMounted) return;
-        const rawStatus = (res?.status || res?.Status || res?.data?.payment_status || '').toUpperCase();
+        const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
         if (rawStatus === 'SUCCESS') {
-          setUpiVerified(true);
+          setPayuVerified(true);
+          setShowPayuPopup(false);
         }
       } catch (e) {
-        // Continue polling quietly
+        // Continue quietly
       } finally {
-        if (isMounted) setIsCheckingStatus(false);
+        if (isMounted) setIsCheckingPayU(false);
       }
     };
 
-    // Initial check after 1.5 seconds, then poll every 2.5 seconds
-    const timeout = setTimeout(checkStatus, 1500);
-    const interval = setInterval(checkStatus, 2500);
+    const timeout = setTimeout(checkPayUStatus, 1500);
+    const interval = setInterval(checkPayUStatus, 2500);
 
     return () => {
       isMounted = false;
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [payMethod, iciciMerchantTranId, splitMerchantTranId, onlineAmount, upiVerified]);
+  }, [payMethod, payuTxId, splitMerchantTranId, payuVerified]);
+
+  // Open PayU Checkout in centered Popup Window + In-Page Popup Modal
+  const openPayuCheckoutPopup = (url: string) => {
+    setPopupCheckoutUrl(url);
+    setShowPayuPopup(true);
+    const width = 520;
+    const height = 680;
+    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+    window.open(
+      url,
+      'PayUCheckoutPopup',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
+    );
+  };
+
+  // Authoritative PayU Checkout Launcher via primary CTA
+  const handleInitiatePayUCheckout = async () => {
+    const targetAmount = payMethod === 'split' ? onlineAmount : totalPayable;
+    if (targetAmount <= 0) return;
+
+    try {
+      setIsCheckingPayU(true);
+      const existingUrl = payMethod === 'split' ? splitCheckoutUrl : payuCheckoutUrl;
+      if (existingUrl) {
+        openPayuCheckoutPopup(existingUrl);
+        return;
+      }
+
+      const res: any = await api.post('/payments/payu/initiate', {
+        amount: targetAmount,
+        rider_name: kycData?.fullName || 'Rider',
+        mobile: kycData?.mobile || '',
+        email: kycData?.email || '',
+        notes: `EV Ride ${rentalData?.vehicle_code || 'Rental'}`,
+        purpose: 'ride'
+      });
+      const data = res?.data || res;
+      const txId = data?.txnid || data?.tx_id || '';
+      const chkUrl = data?.checkout_url || '';
+      const qrStr = data?.qrString || data?.upi_string || '';
+      if (txId) {
+        if (payMethod === 'split') {
+          setSplitMerchantTranId(txId);
+          if (qrStr) setSplitQrString(qrStr);
+        } else {
+          setPayuTxId(txId);
+          if (qrStr) setPayuQrString(qrStr);
+        }
+      }
+      if (chkUrl) {
+        if (payMethod === 'split') setSplitCheckoutUrl(chkUrl);
+        else setPayuCheckoutUrl(chkUrl);
+        openPayuCheckoutPopup(chkUrl);
+      }
+    } catch (e: any) {
+      alert('PayU payment initiation failed: ' + (e?.message || 'Network error'));
+    } finally {
+      setIsCheckingPayU(false);
+    }
+  };
 
   // Coupon validation against backend coupons
   const applyCode = (codeToApply?: string) => {
@@ -1092,7 +1211,7 @@ export default function PaymentPage() {
       return;
     }
 
-    const minAmount = Number(found.min_order_amount || found.min_amount || 0);
+    const minAmount = Number(found.min_order_amount || found.min_order || found.min_amount || 0);
     if (baseRent < minAmount) {
       setCouponError(`Coupon "${clean}" requires a minimum rental of ₹${minAmount}. Current rent is ₹${baseRent}.`);
       setCouponApplied(false);
@@ -1126,9 +1245,10 @@ export default function PaymentPage() {
   };
 
   const canContinue = () => {
-    if (payMethod === 'upi') return upiVerified;
-    if (payMethod === 'split') return onlineAmount === 0 || upiVerified;
-    return true;
+    if (payMethod === 'payu') return payuVerified;
+    if (payMethod === 'split') return onlineAmount === 0 || payuVerified;
+    if (payMethod === 'cash') return true;
+    return false;
   };
 
   const handleNextStep = () => {
@@ -1143,13 +1263,11 @@ export default function PaymentPage() {
       subtotal: baseRent,
       total_payable: totalPayable,
       cash_amount: payMethod === 'split' ? clampedCash : (payMethod === 'cash' ? totalPayable : 0),
-      online_amount: payMethod === 'split' ? onlineAmount : (payMethod === 'upi' ? totalPayable : 0),
+      online_amount: payMethod === 'split' ? onlineAmount : (payMethod === 'payu' ? totalPayable : 0),
       staff_collector: staffCollector,
       cash_receipt: cashReceipt,
-      icici_tx_id: payMethod === 'split' ? splitMerchantTranId : iciciMerchantTranId,
-      icici_ref_id: payMethod === 'split' ? splitRefId : iciciRefId,
-      icici_vpa: 'EVEGAHUAT@icici',
-      upi_verified: upiVerified,
+      payu_tx_id: payMethod === 'split' ? splitMerchantTranId : payuTxId,
+      payu_verified: payuVerified,
     };
     localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));
     router.push('/new-rider/documents');
@@ -1232,7 +1350,7 @@ export default function PaymentPage() {
                             className={`pm-tab ${payMethod === t.id ? 'sel' : ''}`}
                             onClick={() => {
                               setPayMethod(t.id);
-                              setUpiVerified(false);
+                              setPayuVerified(false);
                             }}
                           >
                             <span className="pm-tab-ic">{t.icon}</span>
@@ -1244,8 +1362,6 @@ export default function PaymentPage() {
                       {/* Conditional input */}
                       <MethodDetail
                         method={payMethod}
-                        wallet={wallet}
-                        setWallet={setWallet}
                         totalPayable={totalPayable}
                         cashAmount={cashAmount}
                         setCashAmount={setCashAmount}
@@ -1254,15 +1370,12 @@ export default function PaymentPage() {
                         setStaffCollector={setStaffCollector}
                         cashReceipt={cashReceipt}
                         setCashReceipt={setCashReceipt}
-                        iciciQrString={iciciQrString}
-                        iciciMerchantTranId={iciciMerchantTranId}
-                        iciciRefId={iciciRefId}
+                        payuQrString={payuQrString}
+                        payuTxId={payuTxId}
+                        payuVerified={payuVerified}
+                        isCheckingPayU={isCheckingPayU}
                         splitQrString={splitQrString}
                         splitMerchantTranId={splitMerchantTranId}
-                        splitRefId={splitRefId}
-                        upiVerified={upiVerified}
-                        isCheckingStatus={isCheckingStatus}
-                        onManualVerify={handleManualVerify}
                       />
 
                       {/* 2. Payment Summary */}
@@ -1326,26 +1439,6 @@ export default function PaymentPage() {
                             <button className="pm-coupon-btn" onClick={() => applyCode()}>Apply</button>
                           </div>
                           {couponError && <div className="pm-coupon-err">{couponError}</div>}
-                          {couponsList.length > 0 && (
-                            <div style={{ marginTop: 8, marginBottom: 12 }}>
-                              <div style={{ fontSize: 11, color: '#64748B', marginBottom: 5, fontWeight: 600 }}>Available system coupons:</div>
-                              <div className="pm-coupon-chips">
-                                {couponsList.map((c: any) => (
-                                  <button
-                                    key={c.code}
-                                    type="button"
-                                    className="pm-coupon-chip"
-                                    onClick={() => {
-                                      setCoupon(c.code);
-                                      applyCode(c.code);
-                                    }}
-                                  >
-                                    🏷️ {c.code} ({c.discount_type === 'percent' ? `${c.discount_value || c.discount}% OFF` : `₹${c.discount_value || c.discount} OFF`})
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </>
                       ) : (
                         <div className="pm-coupon-ok">
@@ -1391,22 +1484,37 @@ export default function PaymentPage() {
                 {/* Footer Actions */}
                 <div className="nr-footer-actions">
                   <Link href="/new-rider/rental" className="nr-prev-btn"><ILeft /> Previous</Link>
-                  <button
-                    className="nr-continue-btn"
-                    onClick={handleNextStep}
-                    disabled={!canContinue()}
-                    style={{
-                      opacity: canContinue() ? 1 : 0.55,
-                      cursor: canContinue() ? 'pointer' : 'not-allowed',
-                    }}
-                  >
-                    {payMethod === 'upi' && !upiVerified
-                      ? 'Awaiting ICICI Payment...'
-                      : payMethod === 'split' && onlineAmount > 0 && !upiVerified
-                      ? 'Awaiting Online Portion...'
-                      : 'Continue to Documents'}
-                    <IArr s={12} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {!canContinue() && (payMethod === 'payu' || payMethod === 'split') && (
+                      <button
+                        type="button"
+                        className="nr-continue-btn"
+                        onClick={handleInitiatePayUCheckout}
+                        disabled={isCheckingPayU || totalPayable <= 0}
+                        style={{
+                          background: '#2A195C',
+                          opacity: isCheckingPayU ? 0.75 : 1,
+                          cursor: isCheckingPayU ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {isCheckingPayU
+                          ? 'Verifying with PayU...'
+                          : payMethod === 'split'
+                          ? `Pay ₹${onlineAmount.toFixed(2)} via PayU Popup`
+                          : `Pay ₹${totalPayable.toFixed(2)} via PayU Popup`}
+                        <IArr s={12} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="nr-continue-btn"
+                      disabled={!canContinue()}
+                      onClick={handleNextStep}
+                    >
+                      Continue to Documents
+                      <IArr s={12} />
+                    </button>
+                  </div>
                 </div>
 
               </div>{/* end left col */}
@@ -1418,6 +1526,183 @@ export default function PaymentPage() {
           </div>
         </div>
       </div>
+
+      {/* PayU Popup Checkout Overlay Modal */}
+      {showPayuPopup && popupCheckoutUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              width: '100%',
+              maxWidth: 480,
+              borderRadius: 18,
+              boxShadow: '0 24px 60px rgba(0,0,0,0.28)',
+              overflow: 'hidden',
+              border: '1px solid #E2E8F0',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Popup Header */}
+            <div
+              style={{
+                background: '#2A195C',
+                color: '#fff',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: 'rgba(255,255,255,0.16)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: 13,
+                  }}
+                >
+                  P
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>PayU India Secure Checkout</div>
+                  <div style={{ fontSize: 11, color: '#DDD6FE' }}>
+                    Txn: {payMethod === 'split' ? splitMerchantTranId : payuTxId} • ₹{(payMethod === 'split' ? onlineAmount : totalPayable).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPayuPopup(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.14)',
+                  border: 'none',
+                  color: '#fff',
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 15,
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Popup Body */}
+            <div style={{ padding: '22px 24px', textAlign: 'center' }}>
+              {(payMethod === 'split' ? splitQrString : payuQrString) && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    padding: 12,
+                    background: '#fff',
+                    borderRadius: 12,
+                    border: '1.5px solid #86EFAC',
+                    boxShadow: '0 4px 14px rgba(5,150,105,0.1)',
+                    marginBottom: 12,
+                  }}
+                >
+                  <QRCodeSVG
+                    value={payMethod === 'split' ? splitQrString : payuQrString}
+                    size={180}
+                    level="M"
+                  />
+                </div>
+              )}
+
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
+                Pay ₹{(payMethod === 'split' ? onlineAmount : totalPayable).toFixed(2)}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748B', marginTop: 4, marginBottom: 16 }}>
+                Complete payment in the PayU popup window or scan the official PayU Dynamic UPI QR above.
+              </div>
+
+              <div
+                className="icici-pulse-badge"
+                style={{
+                  background: '#F0FDF4',
+                  borderColor: '#BBF7D0',
+                  color: '#047857',
+                  marginBottom: 16,
+                }}
+              >
+                <span className="payu-pulse-dot" />
+                <span>
+                  {isCheckingPayU
+                    ? 'Checking authoritative status with PayU Server...'
+                    : 'Waiting for PayU payment confirmation...'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const width = 520;
+                    const height = 680;
+                    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+                    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+                    window.open(
+                      popupCheckoutUrl,
+                      'PayUCheckoutPopup',
+                      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                    );
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '11px 14px',
+                    background: '#2A195C',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Re-open PayU Popup ↗
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPayuPopup(false)}
+                  style={{
+                    padding: '11px 16px',
+                    background: '#F1F5F9',
+                    color: '#475569',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 export default function AuditLogsRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace('/super-admin/audit-logs');
+    router.replace('/settings?tab=Security');
   }, [router]);
   return null;
 }

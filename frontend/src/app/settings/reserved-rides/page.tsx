@@ -211,21 +211,11 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
       if (res.ok) {
         const body = await res.json();
         // Sync generic "Evegah Rider" & "Guest Rider" entries with actual registered rider profile details
-        const realRiderProfiles = [
-          
-          { name: 'Himanshu', phone: '+91 81282 51172' }
-          
-        ];
-
-        const sampleTimes = ['10:48 AM', '10:24 AM', '10:22 AM', '02:35 PM', '08:53 PM', '01:41 AM', '01:32 PM', '11:25 PM', '10:59 PM'];
-
         const mapped = (body.data || [])
           .filter((r: any) => !deletedIds.includes(r.id) && !deletedIds.includes(r.reservation_id))
+          .filter((r: any) => (r.booking_source || 'Rider App') !== 'Form' && (r.gov_id || '') !== 'GOV-ON-FILE')
           .filter((r: any) => (r.payment_status || '').toLowerCase() === 'paid' && (r.status || '').toLowerCase() !== 'pending')
-          .map((r: any, idx: number) => {
-            const isGenericName = !r.customer_name || r.customer_name.trim() === '' || r.customer_name === 'Guest Rider' || r.customer_name === 'Evegah Rider' || r.customer_name.toLowerCase() === 'customer';
-            const matchedProfile = realRiderProfiles[idx % realRiderProfiles.length];
-            
+          .map((r: any) => {
             let formattedTime = r.reservation_time;
             if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
               if (r.created_at) {
@@ -234,19 +224,16 @@ export function ReservedRidesPageContent({ activePath = "/settings/reserved-ride
                   formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 }
               }
-              if (!formattedTime || formattedTime === '00:00:00' || formattedTime === '00:00') {
-                formattedTime = sampleTimes[idx % sampleTimes.length];
-              }
             }
 
-            let fareAmount = r.fare !== null && r.fare !== undefined ? parseFloat(r.fare) : 0;
-            let depositAmount = r.deposit !== null && r.deposit !== undefined ? parseFloat(r.deposit) : 0;
+            const fareAmount = r.fare !== null && r.fare !== undefined ? parseFloat(r.fare) : 0;
+            const depositAmount = r.deposit !== null && r.deposit !== undefined ? parseFloat(r.deposit) : 0;
 
             return {
               ...r,
-              customer_name: isGenericName ? matchedProfile.name : r.customer_name,
-              mobile: isGenericName ? matchedProfile.phone : (r.mobile || matchedProfile.phone),
-              reservation_time: formattedTime,
+              customer_name: r.customer_name || 'Evegah Rider',
+              mobile: r.mobile || '—',
+              reservation_time: formattedTime || '—',
               fare: fareAmount.toFixed(2),
               deposit: depositAmount.toFixed(2),
               total_payable: (fareAmount + depositAmount).toFixed(2)
