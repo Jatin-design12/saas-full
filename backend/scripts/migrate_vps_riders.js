@@ -257,12 +257,14 @@ async function run() {
       // Target reservations check
       const targetResvRes = await targetPool.query('SELECT id, reservation_id, mobile FROM reservations');
       const existingResvIds = new Set(targetResvRes.rows.map((r) => String(r.id)));
+      const existingReservationCodes = new Set(targetResvRes.rows.map((r) => String(r.reservation_id)));
 
       // Target wallet transactions check
       const targetTxRes = await targetPool.query('SELECT transaction_id FROM wallet_transactions WHERE transaction_id IS NOT NULL');
       const existingTxIds = new Set(targetTxRes.rows.map((r) => String(r.transaction_id)));
 
-      for (const r of rentalsRes.rows) {
+      for (let i = 0; i < rentalsRes.rows.length; i++) {
+        const r = rentalsRes.rows[i];
         // Resolve Rider
         const rider = sourceRidersById.get(String(r.rider_id)) || {
           rider_name: 'Evegah Rider',
@@ -283,7 +285,12 @@ async function run() {
         const startTime = r.start_time ? new Date(r.start_time) : new Date(r.created_at || Date.now());
         const endTime = ret?.returned_at ? new Date(ret.returned_at) : (r.end_time ? new Date(r.end_time) : null);
 
-        const resvId = `RID-${startTime.getFullYear()}-${String(r.id).replace(/\D/g, '').slice(0, 6) || Math.floor(100000 + Math.random() * 900000)}`;
+        let resvId = `RID-${startTime.getFullYear()}-${String(i + 1).padStart(5, '0')}-${String(r.id).slice(0, 6).toUpperCase()}`;
+        let collisionCounter = 1;
+        while (existingReservationCodes.has(resvId)) {
+          resvId = `RID-${startTime.getFullYear()}-${String(i + 1).padStart(5, '0')}-${String(r.id).slice(0, 6).toUpperCase()}-${collisionCounter++}`;
+        }
+        existingReservationCodes.add(resvId);
 
         const rentalData = {
           rental_id: r.id,
@@ -310,37 +317,50 @@ async function run() {
         // A. Insert into reservations table
         if (!existingResvIds.has(String(r.id))) {
           if (!isDryRun) {
-            await targetPool.query(
-              `INSERT INTO reservations (
-                id, reservation_id, customer_name, mobile, package_type,
-                vehicle_category, vehicle_number, battery_id, fare, deposit,
-                total_payable, payment_mode, payment_status, status,
-                deposit_status, refund_amount, pickup_datetime, drop_datetime,
-                returned_at, return_notes, booking_source, created_at,
-                reservation_date, reservation_time
-              ) VALUES (
-                $1, $2, $3, $4, $5,
-                'E-Vehicle', $6, $7, $8, $9,
-                $10, $11, 'Paid', $12,
-                $13, $14, $15, $16,
-                $17, $18, 'Migrated', $19,
-                $20, $21
-              ) ON CONFLICT (id) DO NOTHING`,
-              [
-                r.id, resvId, rider.rider_name, rider.mobile, pkgName,
-                vehicleNum, batteryId, rentAmount, depAmount,
-                totAmount, paymentMode, rentalData.status,
-                rentalData.deposit_status, rentalData.refund_amount,
-                rentalData.start_time, rentalData.end_time,
-                rentalData.returned_at, rentalData.condition_notes,
-                startTime,
-                startTime.toISOString().split('T')[0],
-                startTime.toTimeString().split(' ')[0]
-              ]
-            );
+            try {
+              await targetPool.query(
+                `INSERT INTO reservations (
+                  id, reservation_id, customer_name, mobile, package_type,
+                  vehicle_category, vehicle_number, battery_id, fare, deposit,
+                  total_payable, payment_mode, payment_status, status,
+                  deposit_status, refund_amount, pickup_datetime, drop_datetime,
+                  returned_at, return_notes, booking_source, created_at,
+                  reservation_date, reservation_time
+                ) VALUES (
+                  $1, $2, $3, $4, $5,
+                  'E-Vehicle', $6, $7, $8, $9,
+                  $10, $11, 'Paid', $12,
+                  $13, $14, $15, $16,
+                  $17, $18, 'Migrated', $19,
+                  $20, $21
+                ) ON CONFLICT (id) DO UPDATE SET
+                  fare = EXCLUDED.fare,
+                  deposit = EXCLUDED.deposit,
+                  total_payable = EXCLUDED.total_payable,
+                  status = EXCLUDED.status,
+                  deposit_status = EXCLUDED.deposit_status,
+                  returned_at = EXCLUDED.returned_at`,
+                [
+                  r.id, resvId, rider.rider_name, rider.mobile, pkgName,
+                  vehicleNum, batteryId, rentAmount, depAmount,
+                  totAmount, paymentMode, rentalData.status,
+                  rentalData.deposit_status, rentalData.refund_amount,
+                  rentalData.start_time, rentalData.end_time,
+                  rentalData.returned_at, rentalData.condition_notes,
+                  startTime,
+                  startTime.toISOString().split('T')[0],
+                  startTime.toTimeString().split(' ')[0]
+                ]
+              );
+              existingResvIds.add(String(r.id));
+              reservationsInserted++;
+            } catch (resvErr) {
+              console.warn(`[Reservations] Notice on rental ${r.id}:`, resvErr.message);
+            }
+          } else {
+            existingResvIds.add(String(r.id));
+            reservationsInserted++;
           }
-          existingResvIds.add(String(r.id));
-          reservationsInserted++;
         }
 
         // B. Insert Wallet Transactions (Deposit Credit, Rent Credit, Deposit Refund Debit)
