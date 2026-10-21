@@ -235,6 +235,8 @@ async function run() {
     // =========================================================================
     console.log('\n--- [PART 2/3] MIGRATING RENTALS, DEPOSITS & RETURNS ---');
 
+    let rentalsCsvPath = null;
+    let txCsvPath = null;
     let allExtractedRentals = [];
     let reservationsInserted = 0;
     let walletTxInserted = 0;
@@ -473,7 +475,7 @@ async function run() {
 
       // Export Rentals to JSON & CSV
       const rentalsJsonPath = path.join(exportDir, `rentals_export_${timestamp}.json`);
-      const rentalsCsvPath = path.join(exportDir, `rentals_export_${timestamp}.csv`);
+      rentalsCsvPath = path.join(exportDir, `rentals_export_${timestamp}.csv`);
       fs.writeFileSync(rentalsJsonPath, JSON.stringify(allExtractedRentals, null, 2), 'utf8');
       if (allExtractedRentals.length > 0) {
         const keys = Object.keys(allExtractedRentals[0]);
@@ -494,6 +496,11 @@ async function run() {
     let allExtractedPayments = [];
     let iciciPaymentsInserted = 0;
 
+    const rentalsById = new Map();
+    for (const r of allExtractedRentals) {
+      if (r.rental_id) rentalsById.set(String(r.rental_id), r);
+    }
+
     const paymentTables = ['payment_transactions', 'payment_notifications'].filter((t) => sourceTables.includes(t));
 
     for (const pTable of paymentTables) {
@@ -502,16 +509,20 @@ async function run() {
       console.log(`Found ${pRows.rows.length} rows in '${pTable}'.`);
 
       for (const row of pRows.rows) {
-        const txId = row.merchant_tran_id || row.transaction_id || row.ref_id;
+        const txId = row.merchant_tran_id || row.transaction_id || row.ref_id || row.reference || (row.id ? `NOTIF-${String(row.id).slice(0, 8)}` : null);
         if (!txId) continue;
 
         let rider = null;
         if (row.rider_id) rider = sourceRidersById.get(String(row.rider_id));
+        if (!rider && row.rental_id) {
+          const rental = rentalsById.get(String(row.rental_id));
+          if (rental) rider = { rider_name: rental.rider_name, mobile: rental.mobile };
+        }
 
         const amount = Number(row.amount || 0);
         const status = (row.status || 'SUCCESS').toUpperCase();
         const rrn = row.bank_rrn || row.reference || null;
-        const pType = row.transaction_type || 'NEW_RIDER';
+        const pType = row.transaction_type || row.payment_method || 'NEW_RIDER';
         const createdAt = row.created_at ? new Date(row.created_at) : new Date();
 
         allExtractedPayments.push({
@@ -546,7 +557,7 @@ async function run() {
 
     // Export Transactions to JSON & CSV
     const txJsonPath = path.join(exportDir, `transactions_export_${timestamp}.json`);
-    const txCsvPath = path.join(exportDir, `transactions_export_${timestamp}.csv`);
+    txCsvPath = path.join(exportDir, `transactions_export_${timestamp}.csv`);
     fs.writeFileSync(txJsonPath, JSON.stringify(allExtractedPayments, null, 2), 'utf8');
     if (allExtractedPayments.length > 0) {
       const keys = Object.keys(allExtractedPayments[0]);
@@ -571,9 +582,9 @@ async function run() {
     console.log(`- Total Reservations in evegah.cloud: ${finalResv.rows[0].count}`);
     console.log(`- Total Wallet/Deposit Transactions: ${finalTx.rows[0].count}`);
     console.log(`- Export Directory: ${exportDir}`);
-    console.log(`  * ${ridersCsvPath}`);
-    console.log(`  * ${rentalsCsvPath}`);
-    console.log(`  * ${txCsvPath}`);
+    if (ridersCsvPath) console.log(`  * ${ridersCsvPath}`);
+    if (rentalsCsvPath) console.log(`  * ${rentalsCsvPath}`);
+    if (txCsvPath) console.log(`  * ${txCsvPath}`);
     console.log('=====================================================\n');
   } catch (err) {
     console.error('❌ Migration Error:', err);
