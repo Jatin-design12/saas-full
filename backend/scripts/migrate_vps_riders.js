@@ -804,6 +804,83 @@ async function run() {
       }
     }
 
+    // Also scan source returns table for vehicle return inspection photos
+    if (sourceTables.includes('returns')) {
+      console.log("Scanning source 'returns' table for return inspection media...");
+      try {
+        const retRes = await sourcePool.query('SELECT * FROM returns');
+        for (const retRow of retRes.rows) {
+          const rentalId = retRow.rental_id || null;
+          let phone10 = null;
+          if (rentalId && rentalsById.has(String(rentalId))) {
+            phone10 = cleanPhone(rentalsById.get(String(rentalId)).mobile);
+          }
+          if (!phone10 && retRow.rider_id && sourceRidersById.has(String(retRow.rider_id))) {
+            phone10 = sourceRidersById.get(String(retRow.rider_id)).mobile_raw;
+          }
+
+          const possiblePhotos = [];
+          if (retRow.photo_url) possiblePhotos.push(retRow.photo_url);
+          if (retRow.image_url) possiblePhotos.push(retRow.image_url);
+          if (retRow.meter_reading_photo) possiblePhotos.push(retRow.meter_reading_photo);
+          if (retRow.inspection_photo) possiblePhotos.push(retRow.inspection_photo);
+          if (retRow.vehicle_photo) possiblePhotos.push(retRow.vehicle_photo);
+
+          if (retRow.meta) {
+            let meta = retRow.meta;
+            if (typeof meta === 'string') { try { meta = JSON.parse(meta); } catch (_) {} }
+            if (typeof meta === 'object' && meta !== null) {
+              if (meta.photos && Array.isArray(meta.photos)) possiblePhotos.push(...meta.photos);
+              if (meta.images && Array.isArray(meta.images)) possiblePhotos.push(...meta.images);
+              if (meta.photo_url) possiblePhotos.push(meta.photo_url);
+              if (meta.inspection_photo) possiblePhotos.push(meta.inspection_photo);
+            }
+          }
+
+          for (let pIdx = 0; pIdx < possiblePhotos.length; pIdx++) {
+            const rawPhoto = possiblePhotos[pIdx];
+            if (!rawPhoto || typeof rawPhoto !== 'string' || rawPhoto.trim() === '') continue;
+            const photoUrl = rawPhoto.trim();
+
+            allExtractedDocs.push({
+              doc_id: crypto.randomUUID(),
+              rental_id: rentalId,
+              rider_id: retRow.rider_id || null,
+              mobile: formatPhoneDisplay(phone10),
+              mobile_raw: phone10,
+              kind: 'return_inspection',
+              file_name: `return_inspection_${pIdx + 1}.jpg`,
+              url: photoUrl,
+              mime_type: 'image/jpeg',
+              created_at: retRow.returned_at || retRow.created_at || new Date().toISOString()
+            });
+
+            if (!isDryRun) {
+              await targetPool.query(`
+                INSERT INTO documents (
+                  id, rider_id, rental_id, return_id, mobile, kind, file_name, mime_type, url, status, created_at
+                ) VALUES ($1, $2, $3, $4, $5, 'return_inspection', $6, 'image/jpeg', $7, 'Verified', $8)
+              `, [
+                crypto.randomUUID(), retRow.rider_id || null, rentalId, retRow.id || null,
+                formatPhoneDisplay(phone10), `return_inspection_${pIdx + 1}.jpg`, photoUrl, retRow.returned_at || retRow.created_at || new Date()
+              ]).catch(() => {});
+              docsMigrated++;
+
+              if (rentalId) {
+                await targetPool.query(`
+                  UPDATE reservations 
+                  SET inspection_media_url = $1 
+                  WHERE id = $2 AND (inspection_media_url IS NULL OR inspection_media_url = '')
+                `, [photoUrl, rentalId]).catch(() => {});
+              }
+            }
+          }
+        }
+      } catch (retErr) {
+        console.warn('Notice scanning returns table for media:', retErr.message);
+      }
+    }
+
     // Export Documents to JSON & CSV
     const docsJsonPath = path.join(exportDir, `documents_export_${timestamp}.json`);
     docsCsvPath = path.join(exportDir, `documents_export_${timestamp}.csv`);

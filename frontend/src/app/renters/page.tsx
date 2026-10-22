@@ -919,25 +919,35 @@ function getAvatarColor(name: string): { bg: string; color: string; border: stri
   return palettes[idx];
 }
 
+function getPaginationItems(current: number, total: number) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, '...', total];
+  }
+  if (current >= total - 3) {
+    return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+}
+
 function RiderAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
-  const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
   const initials = getRiderInitials(name);
   const color = getAvatarColor(name);
 
-  if (avatarUrl && !imgError) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name}
-        className="re-avatar"
-        onError={() => setImgError(true)}
-      />
-    );
-  }
+  const cleanUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '' && avatarUrl !== 'null' && avatarUrl !== 'undefined'
+    ? (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://') || avatarUrl.startsWith('data:') || avatarUrl.startsWith('/')
+        ? avatarUrl
+        : `/uploads/${avatarUrl}`)
+    : null;
 
   return (
     <div
       style={{
+        position: 'relative',
         width: 38,
         height: 38,
         borderRadius: 10,
@@ -951,10 +961,32 @@ function RiderAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | n
         fontSize: 12.5,
         flexShrink: 0,
         letterSpacing: '0.4px',
-        boxShadow: '0 1px 2px rgba(15, 17, 41, 0.04)'
+        boxShadow: '0 1px 2px rgba(15, 17, 41, 0.04)',
+        overflow: 'hidden',
+        userSelect: 'none'
       }}
     >
-      {initials}
+      <span>{initials}</span>
+
+      {cleanUrl && !imgFailed && (
+        <img
+          src={cleanUrl}
+          alt={name}
+          onLoad={() => setImgLoaded(true)}
+          onError={() => setImgFailed(true)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            borderRadius: 8,
+            opacity: imgLoaded ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out'
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -996,6 +1028,7 @@ export default function RentersPage() {
   const [zoneFilter, setZoneFilter] = useState('All Zones');
   const [selectedZone, setSelectedZone] = useState('All Zones');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 10 });
   const [summary, setSummary] = useState<any>(null);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
@@ -1235,7 +1268,7 @@ export default function RentersPage() {
     const isAllZones = !selectedZone || selectedZone === 'All Zones' || selectedZone === 'All Zones (Multi-Zone)';
     const queryParams = new URLSearchParams({
       page: page.toString(),
-      limit: '10',
+      limit: pageSize.toString(),
       search: search,
       status: statusFilter,
       ...(!isAllZones ? { zone: selectedZone } : {}),
@@ -1269,7 +1302,7 @@ export default function RentersPage() {
 
   useEffect(() => {
     fetchRenters();
-  }, [search, statusFilter, packageFilter, modeFilter, page, selectedZone]);
+  }, [search, statusFilter, packageFilter, modeFilter, page, pageSize, selectedZone]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedMobiles(renters.map(r => r.mobile));
@@ -1696,13 +1729,14 @@ export default function RentersPage() {
                       <th>RENTAL START</th>
                       <th>RETURN</th>
                       <th>STATUS</th>
+                      <th style={{ textAlign: 'center', width: '160px' }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       Array.from({ length: 6 }).map((_, sIdx) => (
                         <tr key={`skel-${sIdx}`}>
-                          {Array.from({ length: 10 }).map((_, cIdx) => (
+                          {Array.from({ length: 11 }).map((_, cIdx) => (
                             <td key={cIdx}>
                               <div style={{
                                 height: 14,
@@ -1718,7 +1752,7 @@ export default function RentersPage() {
                       ))
                     ) : renters.length === 0 ? (
                       <tr>
-                        <td colSpan={10} style={{ padding: '70px 20px', textAlign: 'center' }}>
+                        <td colSpan={11} style={{ padding: '70px 20px', textAlign: 'center' }}>
                           <div style={{
                             width: 64, height: 64, borderRadius: 20,
                             background: '#F1F5F9',
@@ -1829,6 +1863,62 @@ export default function RentersPage() {
                                 {statusLabel}
                               </span>
                             </td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <div className="re-action-cell">
+                                <button
+                                  className="re-action-btn"
+                                  title="View Rider Profile"
+                                  onClick={() => router.push(profileUrl)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="12" cy="7" r="4"/>
+                                  </svg>
+                                </button>
+                                <button
+                                  className="re-action-btn"
+                                  title="Payment & Deposit History"
+                                  onClick={() => router.push(`${profileUrl}&tab=financials`)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="2" y="5" width="20" height="14" rx="2"/>
+                                    <line x1="2" y1="10" x2="22" y2="10"/>
+                                  </svg>
+                                </button>
+                                <button
+                                  className="re-action-btn"
+                                  title="Allocate Vehicle / Battery"
+                                  onClick={() => openAllocationModal(r, displayName, displayMobile)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="7" cy="17" r="2"/>
+                                    <circle cx="17" cy="17" r="2"/>
+                                    <path d="M5 17h-2v-4l2-5h9l4 5h1a2 2 0 0 1 2 2v2h-2"/>
+                                  </svg>
+                                </button>
+                                <button
+                                  className="re-action-btn"
+                                  title="Download Booking Receipt"
+                                  onClick={() => handleDownloadReceipt(r)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                  </svg>
+                                </button>
+                                <button
+                                  className="re-action-btn danger"
+                                  title="Delete Rider"
+                                  onClick={() => openDeleteModalForSingle(r.mobile)}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         );
                       })
@@ -1840,24 +1930,62 @@ export default function RentersPage() {
               {/* Pagination Footer */}
               <div className="re-card-ft">
                 <span className="re-card-ft-lbl">
-                  Showing <strong>{(page - 1) * pagination.limit + 1}</strong> to <strong>{Math.min(page * pagination.limit, pagination.total)}</strong> of <strong>{pagination.total}</strong> entries
+                  Showing <strong>{pagination.total > 0 ? (page - 1) * pagination.limit + 1 : 0}</strong> to <strong>{Math.min(page * pagination.limit, pagination.total)}</strong> of <strong>{pagination.total}</strong> entries
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <select className="re-select" style={{ minWidth: 120 }} value={pagination.limit} disabled>
+                  <select
+                    className="re-select"
+                    style={{ minWidth: 130 }}
+                    value={pageSize}
+                    onChange={(e) => {
+                      const newSize = Number(e.target.value);
+                      setPageSize(newSize);
+                      setPage(1);
+                    }}
+                  >
                     <option value="10">10 per page</option>
+                    <option value="25">25 per page</option>
+                    <option value="50">50 per page</option>
+                    <option value="100">100 per page</option>
                   </select>
                   <div className="re-pg">
-                    <button className="re-pgb" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                    <button
+                      className="re-pgb"
+                      disabled={page === 1}
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      title="Previous Page"
+                    >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="15 18 9 12 15 6"/>
                       </svg>
                     </button>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((p) => (
-                      <button key={p} className={`re-pgb ${p === page ? 'cur' : ''}`} onClick={() => setPage(p)}>
-                        {p}
-                      </button>
-                    ))}
-                    <button className="re-pgb" disabled={page === pagination.totalPages} onClick={() => setPage(p => p + 1)}>
+
+                    {getPaginationItems(page, pagination.totalPages).map((item, idx) => {
+                      if (item === '...') {
+                        return (
+                          <span key={`ellipsis-${idx}`} style={{ padding: '0 6px', color: '#94A3B8', fontWeight: 700, fontSize: 13 }}>
+                            •••
+                          </span>
+                        );
+                      }
+                      const pNum = Number(item);
+                      return (
+                        <button
+                          key={`page-${pNum}`}
+                          className={`re-pgb ${pNum === page ? 'cur' : ''}`}
+                          onClick={() => setPage(pNum)}
+                        >
+                          {pNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      className="re-pgb"
+                      disabled={page >= pagination.totalPages}
+                      onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                      title="Next Page"
+                    >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="9 18 15 12 9 6"/>
                       </svg>

@@ -22,7 +22,43 @@ app.use(express.urlencoded({ limit: '150mb', extended: true }));
 const path = require('path');
 app.use('/assets', express.static(path.join(__dirname, '../../frontend/public/assets')));
 app.use('/assets', express.static(path.join(__dirname, '../../frontend/public')));
+// Multi-path static uploads resolution (VPS, root, local dev)
+const candidateUploadDirs = [
+  path.join(__dirname, '../uploads'),
+  path.join(__dirname, '../public/uploads'),
+  path.join(process.cwd(), 'uploads'),
+  path.join(process.cwd(), 'backend/uploads'),
+  '/home/evegah/saas-full/backend/uploads',
+  '/home/evegah/saas-full/backend/public/uploads',
+];
+
+candidateUploadDirs.forEach(dir => {
+  try {
+    if (fs.existsSync(dir)) {
+      app.use('/uploads', express.static(dir));
+      app.use('/api/uploads', express.static(dir));
+    }
+  } catch (_) {}
+});
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
+// Direct filename resolver for media requested without /uploads/ prefix
+app.get('/:filename([a-zA-Z0-9_.-]+\.(?:jpg|jpeg|png|webp|gif|pdf|svg))', (req, res, next) => {
+  const filename = req.params.filename;
+  for (const dir of candidateUploadDirs) {
+    try {
+      const filePath = path.join(dir, filename);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    } catch (_) {}
+  }
+  next();
+});
 
 // Public mobile endpoint for dynamic app sliders
 app.get('/api/app-sliders', async (req, res) => {

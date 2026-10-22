@@ -3,6 +3,20 @@ const router = express.Router();
 const db = require('../db');
 const { getCache, setCache, delByPattern } = require('../redis');
 
+// Helper: normalize media and upload URLs
+function normalizeMediaUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/uploads/')) return trimmed;
+  if (trimmed.startsWith('/')) return trimmed;
+  return `/uploads/${trimmed}`;
+}
+
+
 // Ensure renters profile columns exist in Postgres and allow mobile app registration
 (async () => {
   try {
@@ -820,33 +834,56 @@ router.get('/', async (req, res) => {
     const isAllZones = !rawZone || rawZone === 'All Zones' || rawZone === 'All Zones (Multi-Zone)' || rawZone === 'All' || rawZone.toLowerCase().includes('all zone');
     const zoneFilter = isAllZones ? null : rawZone;
 
-    // Check Redis / In-Memory cache
-    const cacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}`;
+    // Cache key for page/filter combo
+    const pageCacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}:${req.query.mode || ''}`;
     const skipCache = req.query.forceRefresh === 'true' || req.query.refresh === 'true';
-    const cachedData = skipCache ? null : await getCache(cacheKey);
-    if (cachedData) {
-      return res.json(cachedData);
+    if (!skipCache) {
+      const pageCached = await getCache(pageCacheKey);
+      if (pageCached) {
+        return res.json(pageCached);
+      }
     }
 
-    // 1. Fetch all renters records and all reservations records
-    const [rentersDb, resvDb] = await Promise.all([
-      db.query(`
-        SELECT id, rider_name, mobile, email, date_of_birth, address, gender,
-               vehicle_id, battery_id, package_name, rental_start_date, return_date,
-               status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, created_at
-        FROM renters
-        ORDER BY created_at DESC
-      `).catch(() => ({ rows: [] })),
-      db.query(`
-        SELECT id, reservation_id, customer_name, mobile, package_type,
-               vehicle_number, battery_id, fare, deposit, status,
-               pickup_zone, drop_zone, created_at,
-               reservation_date, reservation_time, pickup_datetime, drop_datetime, returned_at
-        FROM reservations
-        WHERE status != 'Cancelled'
-        ORDER BY created_at DESC
-      `).catch(() => ({ rows: [] }))
-    ]);
+    const masterCacheKey = 'renters:master_unified_list';
+    let allRiders = skipCache ? null : await getCache(masterCacheKey);
+
+    if (!allRiders || !Array.isArray(allRiders)) {
+      // 1. Fetch all renters, reservations, and document photos from database
+      const [rentersDb, resvDb, docsDb] = await Promise.all([
+        db.query(`
+          SELECT id, rider_name, mobile, email, date_of_birth, address, gender,
+                 vehicle_id, battery_id, package_name, rental_start_date, return_date,
+                 status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, created_at
+          FROM renters
+          ORDER BY created_at DESC
+        `).catch(() => ({ rows: [] })),
+        db.query(`
+          SELECT id, reservation_id, customer_name, mobile, package_type,
+                 vehicle_number, battery_id, fare, deposit, status,
+                 pickup_zone, drop_zone, created_at,
+                 reservation_date, reservation_time, pickup_datetime, drop_datetime, returned_at
+          FROM reservations
+          WHERE status != 'Cancelled'
+          ORDER BY created_at DESC
+        `).catch(() => ({ rows: [] })),
+        db.query(`
+          SELECT rider_id, mobile, kind, url FROM documents
+          WHERE kind IN ('rider_photo', 'selfie', 'avatar', 'profile_photo')
+          ORDER BY created_at DESC
+        `).catch(() => ({ rows: [] }))
+      ]);
+
+      const docPhotosByMobile = new Map();
+      const docPhotosByRiderId = new Map();
+      for (const d of docsDb.rows) {
+        const cMob = (d.mobile || '').replace(/\D/g, '').slice(-10);
+        if (cMob && d.url && !docPhotosByMobile.has(cMob)) {
+          docPhotosByMobile.set(cMob, normalizeMediaUrl(d.url));
+        }
+        if (d.rider_id && d.url && !docPhotosByRiderId.has(String(d.rider_id))) {
+          docPhotosByRiderId.set(String(d.rider_id), normalizeMediaUrl(d.url));
+        }
+      }
 
     
     // Helper to compute actual booking start date & time
@@ -939,7 +976,7 @@ router.get('/', async (req, res) => {
           rent: rentVal.toFixed(2),
           deposit: depVal.toFixed(2),
           total: totVal.toFixed(2),
-          avatar_url: r.avatar_url,
+          avatar_url: normalizeMediaUrl(r.avatar_url) || docPhotosByMobile.get(key) || docPhotosByRiderId.get(String(r.id)) || null,
           wallet_balance: r.wallet_balance || 0,
           kyc_status: r.kyc_status || 'Verified',
           booking_source: r.booking_source || 'Migrated',
@@ -1097,68 +1134,76 @@ router.get('/', async (req, res) => {
 
     // Master list includes all registered & migrated renters from database
 
-    // 4. Filter by Booking Mode / Source
-    const modeFilter = req.query.mode || req.query.booking_source;
-    if (modeFilter) {
-      const mTarget = modeFilter.toLowerCase();
-      allRiders = allRiders.filter(r => r.booking_source.toLowerCase() === mTarget);
+    // Save unified master riders array into Redis cache (180s TTL)
+    if (!skipCache) {
+      await setCache(masterCacheKey, allRiders, 180);
     }
+  } // End of (!allRiders) DB compute block
 
-    // 4. Filter by Zone (rider must have booked in this zone)
-    if (zoneFilter) {
-      const zTarget = zoneFilter.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
-      allRiders = allRiders.filter(r => {
-        return r.zones.some(z => {
-          const zClean = z.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
-          return zClean.includes(zTarget) || zTarget.includes(zClean);
-        }) || (r.zone && r.zone.toLowerCase().includes(zTarget));
-      });
+  // 4. Filter by Booking Mode / Source
+  const modeFilter = req.query.mode || req.query.booking_source;
+  let filteredRiders = allRiders;
+  if (modeFilter) {
+    const mTarget = modeFilter.toLowerCase();
+    filteredRiders = filteredRiders.filter(r => (r.booking_source || '').toLowerCase() === mTarget);
+  }
+
+  // 4. Filter by Zone
+  if (zoneFilter) {
+    const zTarget = zoneFilter.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
+    filteredRiders = filteredRiders.filter(r => {
+      return (r.zones || []).some(z => {
+        const zClean = z.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
+        return zClean.includes(zTarget) || zTarget.includes(zClean);
+      }) || (r.zone && r.zone.toLowerCase().includes(zTarget));
+    });
+  }
+
+  // 5. Filter by Search
+  if (search) {
+    const s = search.toLowerCase();
+    filteredRiders = filteredRiders.filter(r =>
+      (r.rider_name || '').toLowerCase().includes(s) ||
+      (r.mobile || '').toLowerCase().includes(s) ||
+      (r.vehicle_id || '').toLowerCase().includes(s) ||
+      (r.battery_id || '').toLowerCase().includes(s)
+    );
+  }
+
+  // Global KPI summary across filtered riders
+  const summary = {
+    total: filteredRiders.length,
+    activeRides: filteredRiders.filter(r => r.status === 'Active Ride').length,
+    retainRides: filteredRiders.filter(r => r.status === 'Retain Ride').length,
+    returnedRides: filteredRiders.filter(r => r.status === 'Return').length,
+    extendedRides: filteredRiders.filter(r => r.status === 'Extend').length,
+    upcomingRides: filteredRiders.filter(r => r.status === 'Upcoming').length,
+    noActiveRides: filteredRiders.filter(r => r.status === 'No Active Ride').length,
+  };
+
+  // 6. Filter by Status
+  if (status) {
+    filteredRiders = filteredRiders.filter(r => (r.status || '').toLowerCase() === status.toLowerCase());
+  }
+
+  const total = filteredRiders.length;
+  const paginated = filteredRiders.slice(offset, offset + limit);
+
+  const responsePayload = {
+    status: 'success',
+    data: paginated,
+    summary,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1
     }
+  };
 
-    // 5. Filter by Search
-    if (search) {
-      const s = search.toLowerCase();
-      allRiders = allRiders.filter(r =>
-        (r.rider_name || '').toLowerCase().includes(s) ||
-        (r.mobile || '').toLowerCase().includes(s) ||
-        (r.vehicle_id || '').toLowerCase().includes(s) ||
-        (r.battery_id || '').toLowerCase().includes(s)
-      );
-    }
+  await setCache(pageCacheKey, responsePayload, 60);
+  return res.json(responsePayload);
 
-    // Global KPI summary across all riders (before pagination and status filters)
-    const summary = {
-      total: allRiders.length,
-      activeRides: allRiders.filter(r => r.status === 'Active Ride').length,
-      retainRides: allRiders.filter(r => r.status === 'Retain Ride').length,
-      returnedRides: allRiders.filter(r => r.status === 'Return').length,
-      extendedRides: allRiders.filter(r => r.status === 'Extend').length,
-      upcomingRides: allRiders.filter(r => r.status === 'Upcoming').length,
-      noActiveRides: allRiders.filter(r => r.status === 'No Active Ride').length,
-    };
-
-    // 6. Filter by Status
-    if (status) {
-      allRiders = allRiders.filter(r => r.status.toLowerCase() === status.toLowerCase());
-    }
-
-    const total = allRiders.length;
-    const paginated = allRiders.slice(offset, offset + limit);
-
-    const responsePayload = {
-      status: 'success',
-      data: paginated,
-      summary,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1
-      }
-    };
-
-    await setCache(cacheKey, responsePayload, 30);
-    res.json(responsePayload);
   } catch (err) {
     console.error('Error fetching renters:', err);
     res.status(500).json({ status: 'error', message: err.message });
@@ -1789,7 +1834,7 @@ router.get('/documents', async (req, res) => {
       status: doc.status || 'Verified',
       date: docDate,
       type: docType,
-      file_path: doc.url,
+      file_path: normalizeMediaUrl(doc.url),
       ocr_number: doc.meta?.ocr_number || (kind.includes('aadhaar') ? aadhaarDisplay : null)
     };
 
@@ -1813,7 +1858,7 @@ router.get('/documents', async (req, res) => {
       status: 'Verified',
       date: renter.created_at ? new Date(renter.created_at).toISOString().split('T')[0] : today,
       type: 'Live Photo',
-      file_path: renter.avatar_url
+      file_path: normalizeMediaUrl(renter.avatar_url)
     });
   }
 
@@ -1827,7 +1872,7 @@ router.get('/documents', async (req, res) => {
         status: 'Verified',
         date: resvDate,
         type: 'Identity Proof',
-        file_path: resv.id_card_url,
+        file_path: normalizeMediaUrl(resv.id_card_url),
         ocr_number: aadhaarDisplay
       });
     }
@@ -1838,7 +1883,7 @@ router.get('/documents', async (req, res) => {
         status: 'Verified',
         date: resvDate,
         type: 'Inspection Photo',
-        file_path: resv.inspection_media_url
+        file_path: normalizeMediaUrl(resv.inspection_media_url)
       });
     } else {
       // Add official ride inspection certificate record

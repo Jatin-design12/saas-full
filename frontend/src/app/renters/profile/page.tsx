@@ -1,4 +1,16 @@
 "use client";
+
+function getSafeMediaUrl(url?: string | null): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/uploads/')) return trimmed;
+  if (trimmed.startsWith('/')) return trimmed;
+  return `/uploads/${trimmed}`;
+}
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
@@ -1093,7 +1105,7 @@ function RiderProfileContent() {
 
   const [userWalletTxs, setUserWalletTxs] = useState<any[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
-  const riderAvatar = profileData?.avatar_url || profileData?.avatar || (riderName.toLowerCase().includes('priya') ? '/priya_avatar.png' : '/rohit_avatar.png');
+  const riderAvatar = getSafeMediaUrl(profileData?.avatar_url || profileData?.avatar || null);
 
   const triggerToast = (msg: string) => {
     setToast({ show: true, msg });
@@ -2492,8 +2504,7 @@ function RiderProfileContent() {
                             <div key={dIdx} className="doc-card">
                               <div className="doc-card-thumb">
                                 {doc.file_path && !failedThumbnails.has(doc.doc_name + dIdx) ? (
-                                  <img
-                                    src={doc.file_path}
+                                  <img src={getSafeMediaUrl(doc.file_path) || doc.file_path}
                                     alt={doc.doc_name}
                                     onError={() => setFailedThumbnails(prev => new Set(prev).add(doc.doc_name + dIdx))}
                                   />
@@ -3035,7 +3046,7 @@ function RiderProfileContent() {
             <div className="rp-modal-body">
               <div style={{ maxHeight: '400px', minHeight: '240px', background: '#0F1129', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {previewDoc.file_path ? (
-                  <img src={previewDoc.file_path} alt={previewDoc.doc_name} style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }} />
+                  <img src={getSafeMediaUrl(previewDoc.file_path) || previewDoc.file_path} alt={previewDoc.doc_name} style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }} />
                 ) : (
                   <div style={{ color: '#fff', textAlign: 'center', padding: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>

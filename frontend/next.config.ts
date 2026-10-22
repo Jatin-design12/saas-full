@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         source: '/uploads/:path*',
         destination: `${backendBase}/uploads/:path*`,
       },
+      {
+        source: '/:filename((?!_next|assets|favicon|icon).*\\.(?:jpg|jpeg|png|webp|gif|pdf|svg))',
+        destination: `${backendBase}/uploads/:filename`,
+      },
     ];
   },
 };
