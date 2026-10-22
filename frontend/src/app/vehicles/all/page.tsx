@@ -35,14 +35,15 @@ const CSS = `
 .vl-hdr-btn.danger{background:#EF4444;color:#fff;border-color:#EF4444;box-shadow:0 4px 12px rgba(239,68,68,0.25);}
 .vl-hdr-btn.danger:hover{background:#dc2626;border-color:#dc2626;}
 
-/* Stats cards (5 in a row) */
-.vl-stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:20px;}
-.vl-stat-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 3px rgba(0,0,0,.02);transition:all .15s;}
-.vl-stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,0.04);border-color:#CBD5E1;}
-.vl-stat-ic{width:38px;height:38px;border-radius:10px;background:#EEF2FF;color:#6366F1;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;}
-.vl-stat-info{min-width:0;flex:1;}
-.vl-stat-lbl{font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-bottom:2px;}
-.vl-stat-val{font-size:24px;font-weight:800;color:#0F172A;line-height:1;font-family:'Outfit',sans-serif;}
+/* Stats cards (5 in a row, matching Active Ride Page KPI Card Design) */
+.vl-stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+.vl-stat-card{background:#fff;border:1.5px solid #E2E8F0;border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 2px rgba(0,0,0,.02);box-sizing:border-box;transition:all .15s;}
+.vl-stat-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.04);border-color:#CBD5E1;}
+.vl-stat-ic{width:40px;height:40px;border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:800;}
+.vl-stat-info{min-width:0;flex:1;display:flex;flex-direction:column;}
+.vl-stat-lbl{font-size:9.5px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;}
+.vl-stat-val{font-size:19px;font-weight:800;color:#0F172A;line-height:1.2;margin-bottom:2px;font-family:'Outfit',sans-serif;}
+.vl-stat-trend{font-size:10px;font-weight:600;display:flex;align-items:center;gap:2px;}
 
 /* Search & filter panel */
 .vl-filter-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:16px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.02);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
@@ -433,22 +434,25 @@ export default function VehicleListPage() {
               </div>
             </div>
 
-            {/* Metric KPI cards */}
+            {/* Metric KPI cards matching Active Ride Page Card Design */}
             <div className="vl-stats-row">
               {[
-                { lbl: 'Total Vehicles', val: filtered.length, ic: <IScooter s={18}/>, bg: '#EEF2FF', clr: '#6366F1' },
-                { lbl: 'Available', val: filtered.filter(v => v.status === 'Available').length, ic: <ICheckCircle s={18}/>, bg: '#DCFCE7', clr: '#16A34A' },
-                { lbl: 'In Ride', val: filtered.filter(v => v.status === 'In Ride').length, ic: <IRide s={18}/>, bg: '#DBEAFE', clr: '#2563EB' },
-                { lbl: 'Offline', val: filtered.filter(v => v.status === 'Offline').length, ic: <IOffline s={18}/>, bg: '#F1F5F9', clr: '#64748B' },
-                { lbl: 'Maintenance', val: filtered.filter(v => v.status === 'Maintenance').length, ic: <IWrench s={18}/>, bg: '#FEF9C3', clr: '#D97706' }
+                { lbl: 'TOTAL VEHICLES', val: filtered.length, trend: 'Fleet In Inventory', ic: <IScooter s={20}/>, bg: '#2A195C', clr: '#16A34A' },
+                { lbl: 'AVAILABLE', val: filtered.filter(v => v.status === 'Available').length, trend: 'Ready For Ride', ic: <ICheckCircle s={20}/>, bg: '#10B981', clr: '#16A34A' },
+                { lbl: 'IN RIDE', val: filtered.filter(v => v.status === 'In Ride').length, trend: 'On Road Trips', ic: <IRide s={20}/>, bg: '#3B82F6', clr: '#16A34A' },
+                { lbl: 'OFFLINE', val: filtered.filter(v => v.status === 'Offline').length, trend: 'Depot Idle', ic: <IOffline s={20}/>, bg: '#64748B', clr: '#64748B' },
+                { lbl: 'MAINTENANCE', val: filtered.filter(v => v.status === 'Maintenance').length, trend: 'Under Inspection', ic: <IWrench s={20}/>, bg: '#F59E0B', clr: '#D97706' }
               ].map(s => (
                 <div className="vl-stat-card" key={s.lbl}>
-                  <div className="vl-stat-ic" style={{ background: s.bg, color: s.clr }}>
+                  <div className="vl-stat-ic" style={{ background: s.bg, color: '#fff' }}>
                     {s.ic}
                   </div>
                   <div className="vl-stat-info">
                     <div className="vl-stat-lbl">{s.lbl}</div>
                     <div className="vl-stat-val">{s.val}</div>
+                    <div className="vl-stat-trend" style={{ color: s.clr }}>
+                      <span style={{ fontSize: 8 }}>▲</span> {s.trend}
+                    </div>
                   </div>
                 </div>
               ))}

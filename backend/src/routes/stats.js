@@ -589,7 +589,13 @@ router.get('/employee', async (req, res) => {
 // GET /api/stats/zone-admin — Dedicated Zone Admin Dashboard with real data & date filter
 router.get('/zone-admin', async (req, res) => {
   try {
-    const zone = req.query.zone && req.query.zone !== 'All Zones' ? req.query.zone : null;
+    const rawZone = (req.query.zone || '').trim();
+    const isAllZones = !rawZone || 
+      rawZone.toLowerCase() === 'all zones' || 
+      rawZone.toLowerCase() === 'all zones (multi-zone)' || 
+      rawZone.toLowerCase() === 'all' || 
+      rawZone.toLowerCase() === 'all zone';
+    const zone = isAllZones ? null : rawZone;
     const { startDate, endDate } = req.query;
 
     let dateResvClause = '';
@@ -604,12 +610,13 @@ router.get('/zone-admin', async (req, res) => {
     let zoneBatClause = '';
 
     if (zone) {
-      zoneResvClause = ` AND (pickup_zone = $${pIdx} OR drop_zone = $${pIdx})`;
-      zoneRenterClause = ` AND (zone = $${pIdx} OR zone = 'Multiple Zones')`;
-      zoneVehClause = ` WHERE zone = $${pIdx}`;
-      zoneBatClause = ` WHERE zone = $${pIdx}`;
-      zoneParams.push(zone);
-      pIdx++;
+      const zoneClean = zone.replace(/zone/i, '').trim();
+      zoneResvClause = ` AND (pickup_zone ILIKE $${pIdx} OR drop_zone ILIKE $${pIdx} OR pickup_zone ILIKE $${pIdx + 1} OR drop_zone ILIKE $${pIdx + 1})`;
+      zoneRenterClause = ` AND (zone ILIKE $${pIdx} OR zone ILIKE $${pIdx + 1} OR zone = 'Multiple Zones')`;
+      zoneVehClause = ` WHERE (zone ILIKE $${pIdx} OR zone ILIKE $${pIdx + 1})`;
+      zoneBatClause = ` WHERE (zone ILIKE $${pIdx} OR zone ILIKE $${pIdx + 1})`;
+      zoneParams.push(zone, `%${zoneClean}%`);
+      pIdx += 2;
     }
 
     if (startDate && endDate) {
@@ -628,6 +635,8 @@ router.get('/zone-admin', async (req, res) => {
       revenueRes,
       depositRes,
       activeVehRes,
+      activeResvRes,
+      activeRentersRes,
       fleetVehRes,
       batRes,
       recentResvRes,
@@ -644,12 +653,16 @@ router.get('/zone-admin', async (req, res) => {
       db.query(`SELECT COALESCE(SUM(fare::numeric), 0) as total FROM reservations WHERE status != 'Cancelled' ${zoneResvClause} ${dateResvClause}`, combinedParams),
       // Total deposits collected
       db.query(`SELECT COALESCE(SUM(deposit::numeric), 0) as total FROM reservations WHERE status != 'Cancelled' ${zoneResvClause} ${dateResvClause}`, combinedParams),
-      // Active rides (vehicles currently in ride)
-      db.query(zone ? `SELECT COUNT(*) as total FROM vehicles WHERE zone = $1 AND vehicle_status = 'In Ride'` : `SELECT COUNT(*) as total FROM vehicles WHERE vehicle_status = 'In Ride'`, zoneParams),
+      // Active vehicles in ride
+      db.query(`SELECT COUNT(*) as total FROM vehicles ${zoneVehClause ? zoneVehClause + " AND vehicle_status = 'In Ride'" : "WHERE vehicle_status = 'In Ride'"}`, zoneParams),
+      // Active reservations in ride
+      db.query(`SELECT COUNT(*) as total FROM reservations WHERE status IN ('Active', 'In Ride', 'Active Ride', 'Ongoing') ${zoneResvClause} ${dateResvClause}`, combinedParams),
+      // Active renters in ride
+      db.query(`SELECT COUNT(*) as total FROM renters WHERE status IN ('Active', 'In Ride', 'Active Ride', 'Ongoing') ${zoneRenterClause} ${dateRenterClause}`, combinedParams),
       // Total Fleet EVs
       db.query(`SELECT COUNT(*) as total FROM vehicles ${zoneVehClause}`, zoneParams),
       // Available Batteries
-      db.query(zone ? `SELECT COUNT(*) as total FROM batteries WHERE zone = $1 AND status = 'Available'` : `SELECT COUNT(*) as total FROM batteries WHERE status = 'Available'`, zoneParams),
+      db.query(`SELECT COUNT(*) as total FROM batteries ${zoneBatClause ? zoneBatClause + " AND status = 'Available'" : "WHERE status = 'Available'"}`, zoneParams),
       // Recent Reservations Table
       db.query(`
         SELECT id, reservation_id, customer_name, mobile, vehicle_number, package_type, fare, deposit, reservation_date, reservation_time, payment_mode, payment_status, status, created_at
@@ -686,7 +699,10 @@ router.get('/zone-admin', async (req, res) => {
     const totalRentals = parseInt(rentalsRes.rows[0]?.total || 0);
     const totalRevenue = parseFloat(revenueRes.rows[0]?.total || 0);
     const totalDeposit = parseFloat(depositRes.rows[0]?.total || 0);
-    const activeRides = parseInt(activeVehRes.rows[0]?.total || 0);
+    const activeVeh = parseInt(activeVehRes.rows[0]?.total || 0);
+    const activeResv = parseInt(activeResvRes.rows[0]?.total || 0);
+    const activeRent = parseInt(activeRentersRes.rows[0]?.total || 0);
+    const activeRides = Math.max(activeVeh, activeResv, activeRent);
     const zoneFleet = parseInt(fleetVehRes.rows[0]?.total || 0);
     const availableBatteries = parseInt(batRes.rows[0]?.total || 0);
 
@@ -756,15 +772,22 @@ router.get('/zone-admin', async (req, res) => {
 // GET /api/stats/reports — Zone-based live data for Reports page
 router.get('/reports', async (req, res) => {
   try {
-    const zone = req.query.zone && req.query.zone !== 'All Zones' ? req.query.zone : null;
+    const rawZone = (req.query.zone || '').trim();
+    const isAllZones = !rawZone || 
+      rawZone.toLowerCase() === 'all zones' || 
+      rawZone.toLowerCase() === 'all zones (multi-zone)' || 
+      rawZone.toLowerCase() === 'all' || 
+      rawZone.toLowerCase() === 'all zone';
+    const zone = isAllZones ? null : rawZone;
     const tab = req.query.tab || 'Franchise Report';
     const { startDate, endDate } = req.query;
 
     const resvParams = [];
     let zoneResvClause = '';
     if (zone) {
-      zoneResvClause = `WHERE (pickup_zone = $1 OR drop_zone = $1)`;
-      resvParams.push(zone);
+      const zoneClean = zone.replace(/zone/i, '').trim();
+      zoneResvClause = `WHERE (pickup_zone ILIKE $1 OR drop_zone ILIKE $1 OR pickup_zone ILIKE $2 OR drop_zone ILIKE $2)`;
+      resvParams.push(zone, `%${zoneClean}%`);
     }
     if (startDate && endDate) {
       const p1 = resvParams.length + 1;
@@ -776,8 +799,9 @@ router.get('/reports', async (req, res) => {
     const renterParams = [];
     let zoneRenterClause = '';
     if (zone) {
-      zoneRenterClause = `WHERE (zone = $1 OR zone = 'Multiple Zones')`;
-      renterParams.push(zone);
+      const zoneClean = zone.replace(/zone/i, '').trim();
+      zoneRenterClause = `WHERE (zone ILIKE $1 OR zone ILIKE $2 OR zone = 'Multiple Zones')`;
+      renterParams.push(zone, `%${zoneClean}%`);
     }
     if (startDate && endDate) {
       const p1 = renterParams.length + 1;
@@ -786,11 +810,12 @@ router.get('/reports', async (req, res) => {
       renterParams.push(startDate, endDate);
     }
 
-    const batParams = zone ? [zone] : [];
-    const zoneBatClause = zone ? 'WHERE zone = $1' : '';
+    const zoneClean = zone ? zone.replace(/zone/i, '').trim() : '';
+    const batParams = zone ? [zone, `%${zoneClean}%`] : [];
+    const zoneBatClause = zone ? 'WHERE (zone ILIKE $1 OR zone ILIKE $2)' : '';
 
-    const vehParams = zone ? [zone] : [];
-    const zoneVehClause = zone ? 'WHERE zone = $1' : '';
+    const vehParams = zone ? [zone, `%${zoneClean}%`] : [];
+    const zoneVehClause = zone ? 'WHERE (zone ILIKE $1 OR zone ILIKE $2)' : '';
 
     // Fetch real metrics from DB
     const [
@@ -814,8 +839,8 @@ router.get('/reports', async (req, res) => {
           COALESCE(SUM(res.fare::numeric), 0) as total_rev,
           COUNT(DISTINCT CASE WHEN res.status = 'Payment Due' THEN res.id END) as overdue_count
         FROM zones z
-        LEFT JOIN vehicles v ON v.zone = z.name
-        LEFT JOIN reservations res ON (res.pickup_zone = z.name OR res.drop_zone = z.name) AND res.status != 'Cancelled'
+        LEFT JOIN vehicles v ON (v.zone = z.name OR v.zone ILIKE '%' || REPLACE(z.name, ' Zone', '') || '%')
+        LEFT JOIN reservations res ON (res.pickup_zone = z.name OR res.drop_zone = z.name OR res.pickup_zone ILIKE '%' || REPLACE(z.name, ' Zone', '') || '%') AND res.status != 'Cancelled'
         GROUP BY z.name
         ORDER BY total_rev DESC
       `)

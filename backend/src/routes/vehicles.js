@@ -474,6 +474,19 @@ router.get('/sample-excel', (req, res) => {
 // BULK IMPORT VEHICLES
 // POST /api/vehicles/bulk-import
 // ============================================================
+function parseExcelOrStrDate(val) {
+  if (!val || val === 'NA' || val === 'N/A' || val === '-') return null;
+  if (typeof val === 'number') {
+    const utcDays = val - 25569;
+    const date = new Date(Math.round(utcDays * 86400 * 1000));
+    return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+  }
+  const s = String(val).trim();
+  if (!s || s.toLowerCase() === 'na') return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+}
+
 router.post('/bulk-import', async (req, res) => {
   try {
     const { vehicles } = req.body || {};
@@ -485,10 +498,23 @@ router.post('/bulk-import', async (req, res) => {
     let updated = 0;
     const errors = [];
 
+    // Query active renters to link status accurately
+    let activeRenterMap = new Map();
+    try {
+      const activeRes = await db.query(`
+        SELECT rider_name, vehicle_id FROM renters
+        WHERE status IN ('Active', 'In Ride', 'Active Ride', 'Ongoing') AND vehicle_id IS NOT NULL AND vehicle_id != ''
+      `);
+      for (const row of activeRes.rows) {
+        activeRenterMap.set(row.vehicle_id.trim().toUpperCase(), row.rider_name || 'Active Rider');
+      }
+    } catch (_) {}
+
     for (let i = 0; i < vehicles.length; i++) {
       const v = vehicles[i];
       const code = String(
         v.code ||
+        v['Vehicle Code*'] ||
         v['Vehicle Code *'] ||
         v['Vehicle Code'] ||
         v['vehicle_code'] ||
@@ -500,41 +526,74 @@ router.post('/bulk-import', async (req, res) => {
         continue;
       }
 
-      const modelName = String(v.evegah_model_name || v['Model Name *'] || v['Model Name'] || v['model_name'] || 'Evegah City').trim();
-      const category = String(v.vehicle_category || v['Category'] || v['category'] || 'E-Scooter').trim();
+      let rawModel = String(v.evegah_model_name || v['Model Name *'] || v['Model Name'] || v['model_name'] || 'Mink').trim();
+      let modelName = rawModel;
+      if (!modelName.toLowerCase().startsWith('evegah') && !modelName.toLowerCase().startsWith('evg')) {
+        modelName = `Evegah ${modelName}`;
+      }
+
+      let image = '/assets/v1.webp';
+      const mLower = modelName.toLowerCase();
+      if (mLower.includes('mink')) image = '/assets/mink.png';
+      else if (mLower.includes('city')) image = '/assets/city.png';
+      else if (mLower.includes('pro')) image = '/assets/Pro_Banner.png';
+      else if (mLower.includes('fly')) image = '/assets/fly-1.png';
+
+      const category = String(v.vehicle_category || v['Category'] || v['category'] || 'E-Vehicle').trim();
       const vehicleType = String(v.vehicle_type || v['Vehicle Type'] || v['vehicle_type'] || 'Rental').trim();
       const regNo = String(v.registration_number || v['Registration Number'] || v['registration_number'] || '').trim();
       const chassisNo = String(v.chassis_number || v['Chassis Number'] || v['chassis_number'] || '').trim();
       const motorNo = String(v.motor_number || v['Motor Number'] || v['motor_number'] || '').trim();
+      const motorCapacity = String(v.motor_capacity || v['Motor Capacity'] || '350 Watt').trim();
+      const motorMfr = String(v.motor_manufacturer || v['Motor Manufacturer'] || 'XERO').trim();
       const ctlNo = String(v.controller_number || v['Controller Number'] || v['controller_number'] || '').trim();
-      const color = String(v.color || v['Color'] || v['color'] || 'White').trim();
+      const ctlMfr = String(v.controller_manufacturer || v['Controller Manufacturer'] || 'XERO').trim();
+      const color = String(v.color || v['Color'] || v['color'] || 'Purple').trim();
+      const city = String(v.inventory_city || v['Inventory City'] || 'Vadodara').trim();
       const zone = String(v.zone || v['Zone'] || v['zone'] || 'Gotri Zone').trim();
-      const status = String(v.vehicle_status || v['Vehicle Status'] || v['vehicle_status'] || v['status'] || 'Available').trim();
-      const batteryPct = parseInt(v.battery_pct ?? v['Battery Pct'] ?? v['battery_pct'] ?? 100, 10) || 100;
+      const franchise = String(v.franchise_name || v['Franchise Name'] || 'EVEGAH').trim();
+      const depDate = parseExcelOrStrDate(v.deployment_date || v['Deployment Date']);
+      const iotInstalled = String(v.iot_installed || v['IOT Installed'] || 'Yes').trim();
+      const iotNumber = String(v.iot_number || v['IOT Number'] || `IOT-${code}`).trim();
+      const batteryType = String(v.battery_type || v['Battery Type'] || 'Swappable').trim();
+      const batteryPct = parseInt(v.battery_pct ?? v['Battery Pct'] ?? 100, 10) || 100;
+      const voltage = parseFloat(v.voltage ?? v['Voltage (V)'] ?? 48) || 48;
+      const currentAmp = parseFloat(v.current_amp ?? v['Current (A)'] ?? 31) || 31;
+      const kmRange = parseFloat(v.km_range ?? v['KM Range'] ?? 80) || 80;
       const currentKm = parseFloat(v.current_km_reading ?? v['Current KM'] ?? v['current_km'] ?? 0) || 0;
       const totalKm = parseFloat(v.total_km_covered ?? v['Total KM'] ?? v['total_km'] ?? currentKm) || currentKm;
-      const manufacturer = String(v.vehicle_manufacturer || v['Manufacturer'] || v['manufacturer'] || 'Evegah Motors').trim();
-      const purchaseDate = v.purchase_date || v['Purchase Date (YYYY-MM-DD)'] || v['Purchase Date'] || null;
-      const warrantyDate = v.vehicle_warranty_expiry_date || v['Warranty Expiry (YYYY-MM-DD)'] || v['Warranty Expiry'] || null;
-      const insPolicy = String(v.insurance_policy_number || v['Insurance Policy Number'] || v['insurance_policy'] || '').trim();
-      const insProvider = String(v.insurance_provider || v['Insurance Provider'] || v['insurance_provider'] || '').trim();
-      const insExpiry = v.insurance_expiry_date || v['Insurance Expiry (YYYY-MM-DD)'] || v['Insurance Expiry'] || null;
+      const manufacturer = String(v.vehicle_manufacturer || v['Manufacturer_1'] || v['Manufacturer'] || v['manufacturer'] || 'Evegah Motors').trim();
+      const purchaseDate = parseExcelOrStrDate(v.purchase_date || v['Purchase Date (YYYY-MM-DD)'] || v['Purchase Date']);
+      const warrantyMonths = parseInt(v.warranty_months ?? v['Warranty in Months'] ?? 12, 10) || 12;
+      const warrantyDate = parseExcelOrStrDate(v.vehicle_warranty_expiry_date || v['Warranty Expiry (YYYY-MM-DD)'] || v['Warranty Expiry']);
+      const insPolicyRaw = String(v.insurance_policy_number || v['Insurance Policy Number'] || v['insurance_policy'] || '').trim();
+      const insPolicy = insPolicyRaw.toUpperCase() !== 'NA' ? insPolicyRaw : null;
+      const insProviderRaw = String(v.insurance_provider || v['Insurance Provider'] || v['insurance_provider'] || '').trim();
+      const insProvider = insProviderRaw.toUpperCase() !== 'NA' ? insProviderRaw : null;
+      const insExpiry = parseExcelOrStrDate(v.insurance_expiry_date || v['Insurance Expiry (YYYY-MM-DD)'] || v['Insurance Expiry']);
+
+      const activeRider = activeRenterMap.get(code.toUpperCase());
+      const isRideActive = !!activeRider;
+      const status = isRideActive ? 'In Ride' : String(v.vehicle_status || v['Vehicle Status'] || v['status'] || 'Available').trim();
+      const renterName = isRideActive ? activeRider : null;
 
       try {
-        const check = await db.query('SELECT id FROM vehicles WHERE code = $1', [code]);
+        const check = await db.query('SELECT id, vehicle_image FROM vehicles WHERE code = $1', [code]);
         if (check.rows.length > 0) {
           await db.query(`
             UPDATE vehicles SET
               evegah_model_name = $1,
+              vehicle_model = $1,
               vehicle_category = $2,
               vehicle_type = $3,
-              registration_number = $4,
-              chassis_number = $5,
-              motor_number = $6,
-              controller_number = $7,
+              registration_number = COALESCE(NULLIF($4, ''), registration_number),
+              chassis_number = COALESCE(NULLIF($5, ''), chassis_number),
+              motor_number = COALESCE(NULLIF($6, ''), motor_number),
+              controller_number = COALESCE(NULLIF($7, ''), controller_number),
               color = $8,
               zone = $9,
               vehicle_status = $10,
+              status = $10,
               battery_pct = $11,
               current_km_reading = $12,
               total_km_covered = $13,
@@ -543,35 +602,68 @@ router.post('/bulk-import', async (req, res) => {
               vehicle_warranty_expiry_date = COALESCE($16, vehicle_warranty_expiry_date),
               insurance_policy_number = COALESCE($17, insurance_policy_number),
               insurance_provider = COALESCE($18, insurance_provider),
-              insurance_expiry_date = COALESCE($19, insurance_expiry_date)
-            WHERE code = $20
+              insurance_expiry_date = COALESCE($19, insurance_expiry_date),
+              battery_type = $20,
+              motor_capacity = $21,
+              motor_manufacturer = $22,
+              controller_manufacturer = $23,
+              inventory_city = $24,
+              franchise_name = $25,
+              deployment_date = COALESCE($26, deployment_date),
+              iot_installed = $27,
+              iot_number = $28,
+              voltage = $29,
+              current_amp = $30,
+              km_range = $31,
+              warranty_months = $32,
+              renter_name = COALESCE($33, renter_name),
+              vehicle_image = COALESCE(vehicle_image, $34)
+            WHERE code = $35
           `, [
             modelName, category, vehicleType, regNo, chassisNo, motorNo, ctlNo, color, zone,
             status, batteryPct, currentKm, totalKm, manufacturer,
-            purchaseDate || null, warrantyDate || null, insPolicy || null, insProvider || null, insExpiry || null,
-            code
+            purchaseDate, warrantyDate, insPolicy, insProvider, insExpiry,
+            batteryType, motorCapacity, motorMfr, ctlMfr, city, franchise,
+            depDate, iotInstalled, iotNumber, voltage, currentAmp, kmRange, warrantyMonths,
+            renterName, image, code
           ]);
           updated++;
         } else {
           await db.query(`
             INSERT INTO vehicles (
-              code, evegah_model_name, vehicle_category, vehicle_type,
+              code, evegah_model_name, vehicle_model, vehicle_category, vehicle_type,
               registration_number, chassis_number, motor_number, controller_number,
               color, zone, vehicle_status, battery_pct,
               current_km_reading, total_km_covered, vehicle_manufacturer,
               purchase_date, vehicle_warranty_expiry_date,
               insurance_policy_number, insurance_provider, insurance_expiry_date,
+              battery_type, motor_capacity, motor_manufacturer, controller_manufacturer,
+              inventory_city, franchise_name, deployment_date, iot_installed, iot_number,
+              voltage, current_amp, km_range, warranty_months, renter_name, vehicle_image,
               status, created_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW())
+            VALUES (
+              $1, $2, $2, $3, $4,
+              $5, $6, $7, $8,
+              $9, $10, $11, $12,
+              $13, $14, $15,
+              $16, $17,
+              $18, $19, $20,
+              $21, $22, $23, $24,
+              $25, $26, $27, $28, $29,
+              $30, $31, $32, $33, $34, $35,
+              $11, NOW()
+            )
           `, [
             code, modelName, category, vehicleType,
             regNo, chassisNo, motorNo, ctlNo,
             color, zone, status, batteryPct,
             currentKm, totalKm, manufacturer,
-            purchaseDate || null, warrantyDate || null,
-            insPolicy || null, insProvider || null, insExpiry || null,
-            status
+            purchaseDate, warrantyDate,
+            insPolicy, insProvider, insExpiry,
+            batteryType, motorCapacity, motorMfr, ctlMfr,
+            city, franchise, depDate, iotInstalled, iotNumber,
+            voltage, currentAmp, kmRange, warrantyMonths, renterName, image
           ]);
           inserted++;
         }

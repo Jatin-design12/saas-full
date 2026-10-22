@@ -108,6 +108,65 @@ const SUPER_DESIGN_CSS = `
   gap: 20px;
 }
 
+/* Metric KPI cards matching Active Ride Page Design */
+.ar-stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.ar-stat-card {
+  background: #fff;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.02);
+  box-sizing: border-box;
+  transition: all .15s;
+}
+.ar-stat-card:hover {
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+}
+.ar-stat-ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ar-stat-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.ar-stat-lbl {
+  font-size: 9.5px;
+  color: #64748B;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.ar-stat-val {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.2;
+  margin-bottom: 2px;
+  font-family: 'Outfit', sans-serif;
+}
+.ar-stat-trend {
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* Sub header Date selection & export */
 .sa-sub-header {
   display: flex;
@@ -1619,7 +1678,7 @@ function ZoneManagerRoleDashboard() {
   useEffect(() => {
     const update = () => {
       if (typeof window !== 'undefined') {
-        const storedZone = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_user_zone') || 'Manjalpur Zone';
+        const storedZone = localStorage.getItem('evegah_active_zone') || localStorage.getItem('evegah_user_zone') || 'All Zones';
         setActiveZone(storedZone);
         fetchZoneStats(storedZone, startDate, endDate);
       }
@@ -1738,24 +1797,87 @@ function ZoneManagerRoleDashboard() {
             </div>
           </div>
 
-          {/* 5 Top KPI Cards: Total Riders, Total Rentals, Revenue, Total Deposit, Active Rides */}
-          <div className="ev-kpi-grid-5">
+          {/* 5 Top KPI Cards matching Active Ride Page Card Design */}
+          <div className="ar-stats-row" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: '16px' }}>
             {[
-              { label: 'Total Riders', val: kpis?.totalRiders?.value ?? 0, change: kpis?.totalRiders?.change ?? '+12.4%', up: true, bg: '#EEF2FF', color: '#6366F1', ic: '👤' },
-              { label: 'Total Rentals', val: kpis?.totalRentals?.value ?? 0, change: kpis?.totalRentals?.change ?? '+15.2%', up: true, bg: '#F3E8FF', color: '#7E22CE', ic: '🛵' },
-              { label: 'Revenue', val: kpis?.revenue?.value ?? '₹0', change: kpis?.revenue?.change ?? '+18.5%', up: true, bg: '#EFF6FF', color: '#2563EB', ic: '₹' },
-              { label: 'Total Deposit', val: kpis?.totalDeposit?.value ?? '₹0', change: kpis?.totalDeposit?.change ?? 'Secured', up: true, bg: '#ECFDF5', color: '#10B981', ic: '🛡️' },
-              { label: 'Active Rides', val: `${kpis?.activeRides?.value ?? 0} Rides`, change: kpis?.activeRides?.change ?? 'Active', up: true, bg: '#ECFDF5', color: '#10B981', ic: '⚡' }
+              {
+                label: 'TOTAL RIDERS',
+                val: kpis?.totalRiders?.value ?? 0,
+                change: kpis?.totalRiders?.change ?? '12.4% vs last period',
+                bg: '#2A195C',
+                trendColor: '#16A34A',
+                ic: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                )
+              },
+              {
+                label: 'TOTAL RENTALS',
+                val: kpis?.totalRentals?.value ?? 0,
+                change: kpis?.totalRentals?.change ?? '15.2% vs last period',
+                bg: '#10B981',
+                trendColor: '#16A34A',
+                ic: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="5.5" cy="17.5" r="3.5" />
+                    <circle cx="18.5" cy="17.5" r="3.5" />
+                    <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
+                    <path d="M5.5 17.5l4-8h4l2.5 8" />
+                    <path d="M8.5 12h5" />
+                  </svg>
+                )
+              },
+              {
+                label: 'REVENUE',
+                val: kpis?.revenue?.value ?? '₹0',
+                change: kpis?.revenue?.change ?? '18.5% vs last period',
+                bg: '#2563EB',
+                trendColor: '#16A34A',
+                ic: (
+                  <span style={{ fontSize: '18px', fontWeight: 800 }}>₹</span>
+                )
+              },
+              {
+                label: 'TOTAL DEPOSIT',
+                val: kpis?.totalDeposit?.value ?? '₹0',
+                change: kpis?.totalDeposit?.change ?? 'Secured',
+                bg: '#059669',
+                trendColor: '#16A34A',
+                ic: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                )
+              },
+              {
+                label: 'ACTIVE RIDES',
+                val: `${kpis?.activeRides?.value ?? 0} Rides`,
+                change: kpis?.activeRides?.change ?? 'On road now',
+                bg: '#F97316',
+                trendColor: '#16A34A',
+                ic: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                )
+              }
             ].map(k => (
-              <div key={k.label} className="ev-kpi-card">
-                <div className="ev-kpi-top">
-                  <span className="ev-kpi-label">{k.label}</span>
-                  <span className="ev-kpi-icon" style={{ background: k.bg, color: k.color, fontWeight: 'bold' }}>{k.ic}</span>
+              <div key={k.label} className="ar-stat-card">
+                <div className="ar-stat-ic" style={{ background: k.bg }}>
+                  {k.ic}
                 </div>
-                <div className="ev-kpi-val"><AnimatedCount value={k.val} /></div>
-                <div className="ev-kpi-bottom">
-                  <span className="ev-kpi-trend-up">↑ {k.change}</span>
-                  <span>vs last period</span>
+                <div className="ar-stat-info">
+                  <div className="ar-stat-lbl">{k.label}</div>
+                  <div className="ar-stat-val">
+                    <AnimatedCount value={k.val} />
+                  </div>
+                  <div className="ar-stat-trend" style={{ color: k.trendColor }}>
+                    <span style={{ fontSize: 8 }}>▲</span> {k.change}
+                  </div>
                 </div>
               </div>
             ))}

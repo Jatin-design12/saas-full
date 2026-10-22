@@ -130,24 +130,24 @@ const CSS = `
 .rep-apply-btn { padding: 8px 16px; background: #6366F1; border: 1.5px solid #6366F1; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer; transition: all .15s; }
 .rep-apply-btn:hover { background: #4f46e5; border-color: #4f46e5; }
 
-/* KPI indicator row */
-.rep-kpis-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-.rep-kpi-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.02); transition: all .15s; }
-.rep-kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.04); border-color: #CBD5E1; }
-.rep-kpi-ic { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; }
-.ic-purple { background: #EEF2FF; color: #6366F1; }
-.ic-green { background: #ECFDF5; color: #10B981; }
-.ic-blue { background: #EFF6FF; color: #2563EB; }
-.ic-orange { background: #FFF7ED; color: #F97316; }
-.ic-red { background: #FEF2F2; color: #EF4444; }
+/* KPI indicator row (matching Active Ride Page KPI Card Design) */
+.rep-kpis-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.rep-kpi-card { background: #fff; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.02); transition: all .15s; }
+.rep-kpi-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.04); border-color: #CBD5E1; }
+.rep-kpi-ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 800; color: #fff; }
+.ic-purple { background: #2A195C; color: #fff; }
+.ic-green { background: #10B981; color: #fff; }
+.ic-blue { background: #2563EB; color: #fff; }
+.ic-orange { background: #F97316; color: #fff; }
+.ic-red { background: #EF4444; color: #fff; }
 
 .rep-kpi-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.rep-kpi-lbl { font-size: 10.5px; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
-.rep-kpi-val { font-size: 24px; font-weight: 800; color: #0F172A; line-height: 1.1; font-family: 'Outfit', sans-serif; }
-.rep-kpi-delta { font-size: 11px; margin-top: 4px; font-weight: 700; display: flex; align-items: center; gap: 3px; }
-.delta-up { color: #10B981; }
+.rep-kpi-lbl { font-size: 9.5px; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+.rep-kpi-val { font-size: 19px; font-weight: 800; color: #0F172A; line-height: 1.2; margin-bottom: 2px; font-family: 'Outfit', sans-serif; }
+.rep-kpi-delta { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 2px; }
+.delta-up { color: #16A34A; }
 .delta-down { color: #EF4444; }
-.delta-lbl { color: #94A3B8; font-weight: 400; margin-left: 2px; }
+.delta-lbl { color: #94A3B8; font-weight: 500; margin-left: 2px; }
 
 /* Charts Layout Grid */
 .rep-charts-grid { display: grid; grid-template-columns: 2fr 1.2fr 1fr; gap: 16px; }

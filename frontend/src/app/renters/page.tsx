@@ -123,86 +123,65 @@ const CSS = `
   50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08); }
 }
 
-/* ═══════════ STATS GRID ═══════════ */
-.re-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-.re-sc {
-  position: relative;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 20px 20px 18px;
-  box-shadow: var(--shadow-sm);
-  transition: all .28s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+/* ═══════════ STATS GRID (Matching Active Ride Page KPI Card Design) ═══════════ */
+.re-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.re-stat-card {
+  background: #fff;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.02);
+  box-sizing: border-box;
   cursor: pointer;
+  transition: all .15s;
 }
-.re-sc::before {
-  content: ''; position: absolute;
-  top: 0; left: 0; right: 0; height: 4px;
-  opacity: 0;
-  transition: opacity .28s;
+.re-stat-card:hover {
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
 }
-.re-sc::after {
-  content: ''; position: absolute;
-  top: -40px; right: -40px;
-  width: 120px; height: 120px;
-  border-radius: 50%;
-  opacity: 0.35;
-  transition: all .28s;
+.re-stat-ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-.re-sc:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: transparent;
+.re-stat-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
-.re-sc:hover::before { opacity: 1; }
-.re-sc:hover::after { opacity: 0.6; transform: scale(1.15); }
-
-.re-sc.total::before { background: linear-gradient(90deg, var(--brand), var(--brand-600)); }
-.re-sc.total::after { background: radial-gradient(circle, rgba(109, 40, 217, 0.18), transparent 70%); }
-.re-sc.active::before { background: linear-gradient(90deg, var(--green), #4DD9A5); }
-.re-sc.active::after { background: radial-gradient(circle, rgba(16, 185, 129, 0.18), transparent 70%); }
-.re-sc.retain::before { background: linear-gradient(90deg, var(--amber), #FBBF24); }
-.re-sc.retain::after { background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 70%); }
-.re-sc.return::before { background: linear-gradient(90deg, var(--sky), #60A5FA); }
-.re-sc.return::after { background: radial-gradient(circle, rgba(59, 130, 246, 0.18), transparent 70%); }
-.re-sc.extended::before { background: linear-gradient(90deg, var(--purple), #A78BFA); }
-.re-sc.extended::after { background: radial-gradient(circle, rgba(139, 92, 246, 0.18), transparent 70%); }
-
-.re-sc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; position: relative; z-index: 1; }
-.re-sc-tit {
-  font-size: 10.5px; font-weight: 800; color: var(--ink-lo);
-  text-transform: uppercase; letter-spacing: 0.7px;
-  margin-bottom: 12px;
+.re-stat-lbl {
+  font-size: 9.5px;
+  color: #64748B;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
 }
-.re-sc-val {
-  font-size: 30px; font-weight: 900; color: var(--ink);
-  line-height: 1; letter-spacing: -1px;
+.re-stat-val {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.2;
+  margin-bottom: 2px;
   font-family: 'Outfit', sans-serif;
 }
-.re-sc-per {
-  font-size: 10.5px; color: var(--ink-lo);
-  margin-top: 10px; font-weight: 700;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 9px; border-radius: 20px;
-  letter-spacing: 0.2px;
+.re-stat-trend {
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
-.re-sc-per.up { color: var(--green-dark); background: var(--green-soft); }
-.re-sc-per.down { color: #B45309; background: var(--amber-soft); }
-.re-sc-per.brand { color: var(--brand); background: var(--brand-50); }
-
-.re-sc-ic {
-  width: 44px; height: 44px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  transition: all .28s;
-  position: relative; z-index: 1;
-}
-.re-sc:hover .re-sc-ic { transform: scale(1.1) rotate(-4deg); }
-.ic-purple { background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); color: var(--brand); box-shadow: 0 4px 12px rgba(67, 56, 202, 0.14); }
-.ic-green { background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); color: var(--green-dark); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.14); }
-.ic-orange { background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%); color: #EA580C; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.14); }
-.ic-blue { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); color: var(--sky); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.14); }
 .ic-violet { background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%); color: var(--purple); box-shadow: 0 4px 12px rgba(139, 92, 246, 0.14); }
 
 /* ═══════════ MAIN CARD ═══════════ */
@@ -1466,97 +1445,92 @@ export default function RentersPage() {
               <div className="re-live-pill">Real-time Sync Active</div>
             </div>
 
-            {/* Stats */}
+            {/* 5 KPI Metric Cards matching Active Ride Page Card Design */}
             <div className="re-stats">
-              <div className="re-sc total">
-                <div className="re-sc-top">
-                  <div>
-                    <div className="re-sc-tit">Total Rides</div>
-                    <div className="re-sc-val">{totalRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per up">↑ +14.2% MoM</div>
-                  </div>
-                  <div className="re-sc-ic ic-purple">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="3"/>
-                      <circle cx="5" cy="5" r="3"/>
-                      <circle cx="19" cy="5" r="3"/>
-                      <line x1="5" y1="5" x2="12" y2="12"/>
-                      <line x1="19" y1="5" x2="12" y2="12"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="re-sc active">
-                <div className="re-sc-top">
-                  <div>
-                    <div className="re-sc-tit">Active Rides</div>
-                    <div className="re-sc-val">{activeRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per up">↑ +8.5% in progress</div>
-                  </div>
-                  <div className="re-sc-ic ic-green">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="5.5" cy="17.5" r="3.5" />
-                      <circle cx="18.5" cy="17.5" r="3.5" />
-                      <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 5.5l3-5.5h3" />
-                      <path d="M5.5 17.5l4-8h4l2.5 8" />
-                      <path d="M8.5 12h5" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="re-sc retain">
-                <div className="re-sc-top">
-                  <div>
-                    <div className="re-sc-tit">Retain Rides</div>
-                    <div className="re-sc-val">{retainRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per down">↓ -2.4% retained</div>
-                  </div>
-                  <div className="re-sc-ic ic-orange">
+              {[
+                {
+                  lbl: 'TOTAL RIDES',
+                  val: totalRidesCount.toLocaleString(),
+                  trend: '14.2% vs last 7 days',
+                  bg: '#2A195C',
+                  trendColor: '#16A34A',
+                  ic: (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                       <circle cx="9" cy="7" r="4"/>
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
                       <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                     </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="re-sc return">
-                <div className="re-sc-top">
-                  <div>
-                    <div className="re-sc-tit">Returned</div>
-                    <div className="re-sc-val">{returnedRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per up">↑ +12.0% completed</div>
-                  </div>
-                  <div className="re-sc-ic ic-blue">
+                  )
+                },
+                {
+                  lbl: 'ACTIVE RIDES',
+                  val: activeRidesCount.toLocaleString(),
+                  trend: '8.5% in progress',
+                  bg: '#10B981',
+                  trendColor: '#16A34A',
+                  ic: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                  )
+                },
+                {
+                  lbl: 'RETAIN RIDES',
+                  val: retainRidesCount.toLocaleString(),
+                  trend: '0.0% retained',
+                  bg: '#F59E0B',
+                  trendColor: '#F59E0B',
+                  ic: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="1 4 1 10 7 10"/>
+                      <polyline points="23 20 23 14 17 14"/>
+                      <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                    </svg>
+                  )
+                },
+                {
+                  lbl: 'RETURNED',
+                  val: returnedRidesCount.toLocaleString(),
+                  trend: '12.0% completed',
+                  bg: '#3B82F6',
+                  trendColor: '#16A34A',
+                  ic: (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                       <polyline points="22 4 12 14.01 9 11.01"/>
                     </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="re-sc extended">
-                <div className="re-sc-top">
-                  <div>
-                    <div className="re-sc-tit">Extended</div>
-                    <div className="re-sc-val">{extendedRidesCount.toLocaleString()}</div>
-                    <div className="re-sc-per brand">↑ +5.1% extended</div>
-                  </div>
-                  <div className="re-sc-ic ic-violet">
+                  )
+                },
+                {
+                  lbl: 'EXTENDED',
+                  val: extendedRidesCount.toLocaleString(),
+                  trend: '5.1% extended',
+                  bg: '#8B5CF6',
+                  trendColor: '#8B5CF6',
+                  ic: (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="4" width="18" height="18" rx="2"/>
                       <line x1="16" y1="2" x2="16" y2="6"/>
                       <line x1="8" y1="2" x2="8" y2="6"/>
                       <line x1="3" y1="10" x2="21" y2="10"/>
                     </svg>
+                  )
+                }
+              ].map(s => (
+                <div className="re-stat-card" key={s.lbl}>
+                  <div className="re-stat-ic" style={{ background: s.bg }}>
+                    {s.ic}
+                  </div>
+                  <div className="re-stat-info">
+                    <div className="re-stat-lbl">{s.lbl}</div>
+                    <div className="re-stat-val">{s.val}</div>
+                    <div className="re-stat-trend" style={{ color: s.trendColor }}>
+                      <span style={{ fontSize: 8 }}>▲</span> {s.trend}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
 
             {/* Directory Card */}
