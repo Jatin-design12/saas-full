@@ -261,6 +261,12 @@ async function run() {
       const existingResvIds = new Set(targetResvRes.rows.map((r) => String(r.id)));
       const existingReservationCodes = new Set(targetResvRes.rows.map((r) => String(r.reservation_id)));
 
+      // Clean up legacy split DEP-% and RENT-% duplicates
+      if (!isDryRun) {
+        console.log('Cleaning up duplicate split DEP-% and RENT-% wallet transactions...');
+        await targetPool.query("DELETE FROM wallet_transactions WHERE transaction_id LIKE 'DEP-%' OR transaction_id LIKE 'RENT-%'").catch(() => {});
+      }
+
       // Target wallet transactions check
       const targetTxRes = await targetPool.query('SELECT transaction_id FROM wallet_transactions WHERE transaction_id IS NOT NULL');
       const existingTxIds = new Set(targetTxRes.rows.map((r) => String(r.transaction_id)));
@@ -365,58 +371,9 @@ async function run() {
           }
         }
 
-        // B. Insert Wallet Transactions (Deposit Credit, Rent Credit, Deposit Refund Debit)
-        const depTxId = `DEP-${String(r.id).slice(0, 8).toUpperCase()}`;
-        const rentTxId = `RENT-${String(r.id).slice(0, 8).toUpperCase()}`;
+        // B. Note: Consolidated booking is recorded in reservations table (rent + deposit + total in 1 single transaction).
+        // Avoid inserting separate DEP- and RENT- duplicates so each rental has exactly 1 unified transaction entry.
         const refTxId = `REF-${String(r.id).slice(0, 8).toUpperCase()}`;
-
-        // 1) Security Deposit Transaction
-        if (depAmount > 0 && !existingTxIds.has(depTxId)) {
-          if (!isDryRun) {
-            await targetPool.query(
-              `INSERT INTO wallet_transactions (
-                mobile, title, subtitle, amount, type, status, payment_method, transaction_id, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-              [
-                rider.mobile_raw,
-                'Security Deposit',
-                `Security Deposit for ${pkgName} (${vehicleNum})`,
-                depAmount,
-                'Credit',
-                'Success',
-                paymentMode,
-                depTxId,
-                startTime
-              ]
-            );
-          }
-          existingTxIds.add(depTxId);
-          walletTxInserted++;
-        }
-
-        // 2) Rental Fare Transaction
-        if (rentAmount > 0 && !existingTxIds.has(rentTxId)) {
-          if (!isDryRun) {
-            await targetPool.query(
-              `INSERT INTO wallet_transactions (
-                mobile, title, subtitle, amount, type, status, payment_method, transaction_id, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-              [
-                rider.mobile_raw,
-                'Rental Fare',
-                `Rental fee: ${pkgName} (${vehicleNum})`,
-                rentAmount,
-                'Credit',
-                'Success',
-                paymentMode,
-                rentTxId,
-                startTime
-              ]
-            );
-          }
-          existingTxIds.add(rentTxId);
-          walletTxInserted++;
-        }
 
         // 3) Security Deposit Refund Transaction (if return exists)
         if (isReturned && depAmount > 0 && !existingTxIds.has(refTxId)) {

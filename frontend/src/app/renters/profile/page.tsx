@@ -2,13 +2,15 @@
 
 function getSafeMediaUrl(url?: string | null): string | null {
   if (!url || typeof url !== 'string') return null;
-  const trimmed = url.trim();
+  let trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
     return trimmed;
   }
-  if (trimmed.startsWith('/uploads/')) return trimmed;
-  if (trimmed.startsWith('/')) return trimmed;
+  trimmed = trimmed.replace(/^\/+/, '');
+  if (trimmed.startsWith('uploads/')) {
+    return `/${trimmed}`;
+  }
   return `/uploads/${trimmed}`;
 }
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -2504,7 +2506,7 @@ function RiderProfileContent() {
                             <div key={dIdx} className="doc-card">
                               <div className="doc-card-thumb">
                                 {doc.file_path && !failedThumbnails.has(doc.doc_name + dIdx) ? (
-                                  <img src={getSafeMediaUrl(doc.file_path) || doc.file_path}
+                                  <img loading="lazy" src={getSafeMediaUrl(doc.file_path) || doc.file_path}
                                     alt={doc.doc_name}
                                     onError={() => setFailedThumbnails(prev => new Set(prev).add(doc.doc_name + dIdx))}
                                   />

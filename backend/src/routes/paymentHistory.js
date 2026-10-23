@@ -120,7 +120,9 @@ router.get('/', async (req, res) => {
           COALESCE(wt.title, wt.subtitle, 'Wallet Transaction') AS purpose,
           wt.created_at
         FROM wallet_transactions wt
-        WHERE wt.title NOT ILIKE '%deposit refund%' AND wt.subtitle NOT ILIKE '%deposit refund%'
+        WHERE wt.title NOT ILIKE '%deposit refund%' 
+          AND wt.subtitle NOT ILIKE '%deposit refund%'
+          AND (wt.transaction_id IS NULL OR (wt.transaction_id NOT LIKE 'DEP-%' AND wt.transaction_id NOT LIKE 'RENT-%' AND wt.transaction_id NOT LIKE 'REF-%'))
 
         UNION ALL
 
@@ -565,7 +567,9 @@ router.get('/export', async (req, res) => {
           COALESCE(wt.title, wt.subtitle, 'Wallet Transaction') AS purpose,
           wt.created_at
         FROM wallet_transactions wt
-        WHERE wt.title NOT ILIKE '%deposit refund%' AND wt.subtitle NOT ILIKE '%deposit refund%'
+        WHERE wt.title NOT ILIKE '%deposit refund%' 
+          AND wt.subtitle NOT ILIKE '%deposit refund%'
+          AND (wt.transaction_id IS NULL OR (wt.transaction_id NOT LIKE 'DEP-%' AND wt.transaction_id NOT LIKE 'RENT-%' AND wt.transaction_id NOT LIKE 'REF-%'))
 
         UNION ALL
 

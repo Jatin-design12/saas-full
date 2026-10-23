@@ -6,13 +6,15 @@ const { getCache, setCache, delByPattern } = require('../redis');
 // Helper: normalize media and upload URLs
 function normalizeMediaUrl(url) {
   if (!url || typeof url !== 'string') return null;
-  const trimmed = url.trim();
+  let trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
     return trimmed;
   }
-  if (trimmed.startsWith('/uploads/')) return trimmed;
-  if (trimmed.startsWith('/')) return trimmed;
+  trimmed = trimmed.replace(/^\/+/, '');
+  if (trimmed.startsWith('uploads/')) {
+    return `/${trimmed}`;
+  }
   return `/uploads/${trimmed}`;
 }
 
@@ -29,6 +31,14 @@ function normalizeMediaUrl(url) {
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS emergency_contact_name VARCHAR(150)');
     await db.query('ALTER TABLE renters ADD COLUMN IF NOT EXISTS emergency_contact_phone VARCHAR(50)');
     await db.query("ALTER TABLE renters ADD COLUMN IF NOT EXISTS booking_source VARCHAR(50) DEFAULT 'App'");
+    // Create indexes for instant querying
+    await db.query('CREATE INDEX IF NOT EXISTS idx_renters_mobile ON renters (mobile)').catch(() => {});
+    await db.query('CREATE INDEX IF NOT EXISTS idx_reservations_mobile ON reservations (mobile)').catch(() => {});
+    await db.query('CREATE INDEX IF NOT EXISTS idx_reservations_created_at ON reservations (created_at)').catch(() => {});
+    await db.query('CREATE INDEX IF NOT EXISTS idx_documents_mobile ON documents (mobile)').catch(() => {});
+    await db.query('CREATE INDEX IF NOT EXISTS idx_documents_rider_id ON documents (rider_id)').catch(() => {});
+    await db.query('CREATE INDEX IF NOT EXISTS idx_wallet_tx_mobile ON wallet_transactions (mobile)').catch(() => {});
+    await db.query('CREATE INDEX IF NOT EXISTS idx_wallet_tx_txid ON wallet_transactions (transaction_id)').catch(() => {});
 
     // Allow user registration before selecting a package/vehicle
     await db.query('ALTER TABLE renters ALTER COLUMN package_name DROP NOT NULL').catch(() => {});
@@ -399,6 +409,13 @@ router.get('/profile', async (req, res) => {
     const effectiveCleanMobile = effectiveMobile.replace(/\D/g, '');
     const effectiveLast10 = effectiveCleanMobile.slice(-10);
 
+    const profileCacheKey = `renters:profile:${effectiveLast10 || riderId || riderNameQuery}`;
+    const skipCache = req.query.forceRefresh === 'true' || req.query.refresh === 'true';
+    if (!skipCache) {
+      const cached = await getCache(profileCacheKey);
+      if (cached) return res.json(cached);
+    }
+
     // 2. Fetch all reservations for this rider
     let reservations = [];
     if (effectiveLast10) {
@@ -636,7 +653,7 @@ router.get('/profile', async (req, res) => {
       }
     }
 
-    res.json({
+    const profilePayload = {
       status: 'success',
       data: {
         rider_id: renter?.id || riderId || 'RID-2026-001',
@@ -682,7 +699,9 @@ router.get('/profile', async (req, res) => {
         rides: reservations,
         transactions: txQ.rows
       }
-    });
+    };
+    await setCache(profileCacheKey, profilePayload, 60);
+    return res.json(profilePayload);
   } catch (err) {
     console.error('Error fetching rider profile:', err);
     res.status(500).json({ status: 'error', message: err.message });
@@ -1710,6 +1729,13 @@ router.get('/documents', async (req, res) => {
   const cleanMobile = (mobile || '').replace(/\D/g, '');
   let last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : '';
 
+  const docsCacheKey = `renters:docs:${last10 || riderId || riderNameQuery}`;
+  const skipDocsCache = req.query.forceRefresh === 'true' || req.query.refresh === 'true';
+  if (!skipDocsCache) {
+    const cachedDocs = await getCache(docsCacheKey);
+    if (cachedDocs) return res.json(cachedDocs);
+  }
+
   // 1. Fetch renter from DB by mobile, id, or name
   let renter = null;
   if (last10) {
@@ -2009,7 +2035,9 @@ router.get('/documents', async (req, res) => {
     folders
   };
 
-  res.json({ status: 'success', data: docData });
+  const docsPayload = { status: 'success', data: docData };
+  await setCache(docsCacheKey, docsPayload, 60);
+  res.json(docsPayload);
 });
 
 // GET /api/renters/export-riders - Export all renters data as JSON or CSV

@@ -46,6 +46,14 @@ app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
+// Fast 404 handler for missing uploads so browser never hangs
+app.use('/uploads', (req, res) => {
+  res.status(404).send('Upload not found');
+});
+app.use('/api/uploads', (req, res) => {
+  res.status(404).send('Upload not found');
+});
+
 // Direct filename resolver for media requested without /uploads/ prefix
 app.get('/:filename([a-zA-Z0-9_.-]+\.(?:jpg|jpeg|png|webp|gif|pdf|svg))', (req, res, next) => {
   const filename = req.params.filename;

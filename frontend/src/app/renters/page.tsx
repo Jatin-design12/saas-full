@@ -939,9 +939,13 @@ function RiderAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | n
   const color = getAvatarColor(name);
 
   const cleanUrl = avatarUrl && typeof avatarUrl === 'string' && avatarUrl.trim() !== '' && avatarUrl !== 'null' && avatarUrl !== 'undefined'
-    ? (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://') || avatarUrl.startsWith('data:') || avatarUrl.startsWith('/')
-        ? avatarUrl
-        : `/uploads/${avatarUrl}`)
+    ? (() => {
+        let trimmed = avatarUrl.trim();
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) return trimmed;
+        trimmed = trimmed.replace(/^\/+/, '');
+        if (trimmed.startsWith('uploads/')) return `/${trimmed}`;
+        return `/uploads/${trimmed}`;
+      })()
     : null;
 
   return (
