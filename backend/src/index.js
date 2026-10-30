@@ -74,7 +74,21 @@ app.get('/api/app-sliders', async (req, res) => {
     const db = require('./db');
     const result = await db.query("SELECT values FROM settings WHERE category = 'app_slider' LIMIT 1");
     if (result.rows.length > 0 && result.rows[0].values) {
-      return res.json({ status: 'success', data: result.rows[0].values });
+      let d = result.rows[0].values;
+      if (d && d.value && typeof d.value === 'object') {
+        d = { ...d, ...d.value };
+      }
+      const home_sliders = Array.isArray(d.home_sliders) ? d.home_sliders : [];
+      const rent_sliders = Array.isArray(d.rent_sliders) ? d.rent_sliders : [];
+      return res.json({
+        status: 'success',
+        data: {
+          ...d,
+          home_sliders,
+          rent_sliders,
+          value: { home_sliders, rent_sliders }
+        }
+      });
     }
     const defaultSliders = {
       home_sliders: [

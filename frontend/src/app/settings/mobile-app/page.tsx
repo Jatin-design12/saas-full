@@ -192,6 +192,36 @@ export default function MobileAppSettingsPage() {
     return () => clearInterval(interval);
   }, [sliders]);
 
+  // Load settings on mount
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/settings/mobile_app')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!mounted || !json || !json.data) return;
+        const d = json.data.value || json.data;
+        if (Array.isArray(d.sliders) && d.sliders.length > 0) setSliders(d.sliders);
+        if (Array.isArray(d.quickActions) && d.quickActions.length > 0) setQuickActions(d.quickActions);
+        if (Array.isArray(d.rentalCards) && d.rentalCards.length > 0) setRentalCards(d.rentalCards);
+        if (d.announcements) {
+          if (d.announcements.topSlogan !== undefined) setTopSlogan(d.announcements.topSlogan);
+          if (d.announcements.requireKyc !== undefined) setRequireKyc(d.announcements.requireKyc);
+          if (d.announcements.hostBannerText !== undefined) setHostBannerText(d.announcements.hostBannerText);
+          if (d.announcements.enable3DTilt !== undefined) setEnable3DTilt(d.announcements.enable3DTilt);
+        }
+        if (d.system) {
+          if (d.system.minAndroidVersion) setMinAndroidVersion(d.system.minAndroidVersion);
+          if (d.system.minIosVersion) setMinIosVersion(d.system.minIosVersion);
+          if (d.system.forceUpdate !== undefined) setForceUpdate(d.system.forceUpdate);
+          if (d.system.maintenanceMode !== undefined) setMaintenanceMode(d.system.maintenanceMode);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -208,7 +238,7 @@ export default function MobileAppSettingsPage() {
         system: { minAndroidVersion, minIosVersion, forceUpdate, maintenanceMode },
       };
 
-      const res = await fetch('http://localhost:5000/api/settings/mobile_app', {
+      const res = await fetch('/api/settings/mobile_app', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

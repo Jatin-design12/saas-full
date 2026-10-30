@@ -409,15 +409,24 @@ router.post('/upload-asset', async (req, res) => {
     const targetPath = path.join(targetDir, fileName);
     fs.writeFileSync(targetPath, buffer);
 
+    // Also replicate to backend/uploads if folder exists for direct uploads route fallback
+    try {
+      const altTargetDir = path.join(__dirname, '../uploads');
+      if (!fs.existsSync(altTargetDir)) {
+        fs.mkdirSync(altTargetDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(altTargetDir, fileName), buffer);
+    } catch (_) {}
+
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
     const host = req.get('host') || 'localhost:5000';
-    const fullUrl = `${protocol}://${host}/uploads/${fileName}`;
+    const fullUrl = `${protocol}://${host}/api/uploads/${fileName}`;
 
     res.json({
       status: 'success',
       success: true,
       fileName,
-      url: `/uploads/${fileName}`,
+      url: `/api/uploads/${fileName}`,
       fullUrl,
     });
   } catch (err) {
@@ -439,20 +448,25 @@ router.get('/app_slider', async (req, res) => {
       sliderData = { ...sliderData, ...sliderData.value };
     }
 
-    // Ensure structure is always present
     if (!sliderData || typeof sliderData !== 'object') {
       sliderData = DEFAULT_SETTINGS.app_slider;
     }
-    if (!Array.isArray(sliderData.home_sliders)) {
-      sliderData.home_sliders = DEFAULT_SETTINGS.app_slider.home_sliders || [];
-    }
-    if (!Array.isArray(sliderData.rent_sliders)) {
-      sliderData.rent_sliders = DEFAULT_SETTINGS.app_slider.rent_sliders || [];
-    }
+    const home_sliders = Array.isArray(sliderData.home_sliders) ? sliderData.home_sliders : (DEFAULT_SETTINGS.app_slider.home_sliders || []);
+    const rent_sliders = Array.isArray(sliderData.rent_sliders) ? sliderData.rent_sliders : (DEFAULT_SETTINGS.app_slider.rent_sliders || []);
+
+    const responsePayload = {
+      ...sliderData,
+      home_sliders,
+      rent_sliders,
+      value: {
+        home_sliders,
+        rent_sliders
+      }
+    };
 
     res.json({
       status: 'success',
-      data: sliderData
+      data: responsePayload
     });
   } catch (err) {
     console.error('Error fetching app_slider settings:', err);
@@ -463,21 +477,34 @@ router.get('/app_slider', async (req, res) => {
   }
 });
 
-router.post('/app_slider', async (req, res) => {
+const handleSaveSliderSettings = async (req, res) => {
   try {
     const payload = req.body || {};
+    const val = (payload.value && typeof payload.value === 'object') ? payload.value : payload;
+
     // Fetch current settings to merge
     const currentRes = await db.query('SELECT values FROM settings WHERE category = $1 LIMIT 1', ['app_slider']);
     let existing = currentRes.rows.length > 0 && currentRes.rows[0].values ? currentRes.rows[0].values : DEFAULT_SETTINGS.app_slider;
-
-    if (!existing || typeof existing !== 'object') {
-      existing = { ...DEFAULT_SETTINGS.app_slider };
+    if (existing && existing.value && typeof existing.value === 'object') {
+      existing = { ...existing, ...existing.value };
     }
 
+    const home_sliders = Array.isArray(val.home_sliders)
+      ? val.home_sliders
+      : (Array.isArray(payload.home_sliders) ? payload.home_sliders : (existing.home_sliders || []));
+    const rent_sliders = Array.isArray(val.rent_sliders)
+      ? val.rent_sliders
+      : (Array.isArray(payload.rent_sliders) ? payload.rent_sliders : (existing.rent_sliders || []));
+
     const updated = {
-      home_sliders: Array.isArray(payload.home_sliders) ? payload.home_sliders : existing.home_sliders,
-      rent_sliders: Array.isArray(payload.rent_sliders) ? payload.rent_sliders : existing.rent_sliders,
-      ...payload
+      ...existing,
+      ...payload,
+      home_sliders,
+      rent_sliders,
+      value: {
+        home_sliders,
+        rent_sliders
+      }
     };
 
     await db.query(`
@@ -495,7 +522,10 @@ router.post('/app_slider', async (req, res) => {
     console.error('Error updating app_slider settings:', err);
     res.status(500).json({ status: 'error', message: err.message });
   }
-});
+};
+
+router.post('/app_slider', handleSaveSliderSettings);
+router.put('/app_slider', handleSaveSliderSettings);
 
 // GET settings for a specific category
 router.get('/:category', async (req, res) => {
@@ -518,12 +548,27 @@ router.get('/:category', async (req, res) => {
 // PUT settings for a specific category
 router.put('/:category', async (req, res) => {
   const { category } = req.params;
-  const newValues = req.body;
+  let newValues = req.body;
 
   try {
     const validCategories = ['general', 'ride_rental', 'payments', 'notifications', 'system', 'battery_swapping', 'documents', 'security', 'mobile_app', 'app_slider', 'mobile_app_settings'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({ status: 'error', message: `Invalid settings category: ${category}` });
+    }
+
+    if (category === 'app_slider') {
+      const val = (newValues.value && typeof newValues.value === 'object') ? newValues.value : newValues;
+      const home_sliders = Array.isArray(val.home_sliders) ? val.home_sliders : (Array.isArray(newValues.home_sliders) ? newValues.home_sliders : []);
+      const rent_sliders = Array.isArray(val.rent_sliders) ? val.rent_sliders : (Array.isArray(newValues.rent_sliders) ? newValues.rent_sliders : []);
+      newValues = {
+        ...newValues,
+        home_sliders,
+        rent_sliders,
+        value: {
+          home_sliders,
+          rent_sliders
+        }
+      };
     }
 
     // Insert or update settings in database
