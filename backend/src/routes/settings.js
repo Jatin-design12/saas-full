@@ -451,8 +451,26 @@ router.get('/app_slider', async (req, res) => {
     if (!sliderData || typeof sliderData !== 'object') {
       sliderData = DEFAULT_SETTINGS.app_slider;
     }
-    const home_sliders = Array.isArray(sliderData.home_sliders) ? sliderData.home_sliders : (DEFAULT_SETTINGS.app_slider.home_sliders || []);
-    const rent_sliders = Array.isArray(sliderData.rent_sliders) ? sliderData.rent_sliders : (DEFAULT_SETTINGS.app_slider.rent_sliders || []);
+
+    const normalizeUrl = (url) => {
+      if (!url || typeof url !== 'string') return url;
+      let s = url.trim();
+      if (s.startsWith('/uploads/')) return `/api${s}`;
+      if (s.includes('evegah.cloud/uploads/')) return s.replace('evegah.cloud/uploads/', 'evegah.cloud/api/uploads/');
+      return s;
+    };
+
+    const normalizeSlideUrls = (slides) => {
+      if (!Array.isArray(slides)) return [];
+      return slides.map((s) => ({
+        ...s,
+        bg: normalizeUrl(s.bg),
+        front: normalizeUrl(s.front),
+      }));
+    };
+
+    const home_sliders = normalizeSlideUrls(Array.isArray(sliderData.home_sliders) ? sliderData.home_sliders : (DEFAULT_SETTINGS.app_slider.home_sliders || []));
+    const rent_sliders = normalizeSlideUrls(Array.isArray(sliderData.rent_sliders) ? sliderData.rent_sliders : (DEFAULT_SETTINGS.app_slider.rent_sliders || []));
 
     const responsePayload = {
       ...sliderData,

@@ -163,6 +163,63 @@ const CSS = `
 .phone-dot.act { width: 14px; border-radius: 4px; background: #1E1B4B; }
 `;
 
+function normalizeImageUrl(url?: string): string {
+  if (!url) return '';
+  const s = String(url).trim();
+  if (!s) return '';
+  if (s.startsWith('/uploads/')) return `/api${s}`;
+  if (s.includes('evegah.cloud/uploads/')) return s.replace('evegah.cloud/uploads/', 'evegah.cloud/api/uploads/');
+  return s;
+}
+
+const compressImageForUpload = (file: File, isCutout: boolean): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      const rawDataUrl = (re.target?.result as string) || '';
+      if (!rawDataUrl) return resolve('');
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = isCutout ? 900 : 1440;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(rawDataUrl);
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // For cutout, preserve PNG alpha; for banner background, encode as JPEG 0.85
+          const mime = isCutout ? 'image/png' : 'image/jpeg';
+          const quality = isCutout ? 0.9 : 0.85;
+          const compressed = canvas.toDataURL(mime, quality);
+          resolve(compressed);
+        } catch (_) {
+          resolve(rawDataUrl);
+        }
+      };
+      img.onerror = () => resolve(rawDataUrl);
+      img.src = rawDataUrl;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function WhiteLabelManagement() {
   const [activeTab, setActiveTab] = useState('brand');
   
@@ -295,10 +352,18 @@ export default function WhiteLabelManagement() {
           if (json && (json.success || json.status === 'success') && json.data) {
             const val = json.data.value || json.data;
             if (Array.isArray(val.home_sliders) && val.home_sliders.length > 0) {
-              setHomeSliders(val.home_sliders);
+              setHomeSliders(val.home_sliders.map((s: any) => ({
+                ...s,
+                bg: normalizeImageUrl(s.bg),
+                front: normalizeImageUrl(s.front),
+              })));
             }
             if (Array.isArray(val.rent_sliders) && val.rent_sliders.length > 0) {
-              setRentSliders(val.rent_sliders);
+              setRentSliders(val.rent_sliders.map((s: any) => ({
+                ...s,
+                bg: normalizeImageUrl(s.bg),
+                front: normalizeImageUrl(s.front),
+              })));
             }
           }
         }
@@ -353,38 +418,38 @@ export default function WhiteLabelManagement() {
     }
   };
 
-  const handleUploadSliderFile = (slideIdx: number, field: 'bg' | 'front', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadSliderFile = async (slideIdx: number, field: 'bg' | 'front', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingField(`${slideIdx}-${field}`);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const dataUrl = reader.result as string;
-        const res = await fetch('/api/settings/upload-asset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            data: dataUrl,
-            dataUrl,
-            name: file.name,
-            filename: file.name
-          })
-        });
-        const resJson = await res.json();
-        if ((resJson.success || resJson.status === 'success') && resJson.url) {
-          handleUpdateSlide(slideIdx, field, resJson.url);
-        } else {
-          alert('Asset upload failed: ' + (resJson.message || resJson.error || 'Server error'));
-        }
-      } catch (err: any) {
-        alert('Upload error: ' + err.message);
-      } finally {
-        setUploadingField(null);
+    try {
+      const isCutout = field === 'front';
+      const compressedDataUrl = await compressImageForUpload(file, isCutout);
+      if (!compressedDataUrl) throw new Error('Could not read image file');
+
+      const res = await fetch('/api/settings/upload-asset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: compressedDataUrl,
+          dataUrl: compressedDataUrl,
+          name: file.name,
+          filename: file.name
+        })
+      });
+      const resJson = await res.json();
+      if ((resJson.success || resJson.status === 'success') && resJson.url) {
+        const cleanUrl = normalizeImageUrl(resJson.url);
+        handleUpdateSlide(slideIdx, field, cleanUrl);
+      } else {
+        alert('Asset upload failed: ' + (resJson.message || resJson.error || 'Server error'));
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert('Upload error: ' + err.message);
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   const handleSaveSliders = async () => {
@@ -1379,7 +1444,7 @@ export default function WhiteLabelManagement() {
                               <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
                                 {slide.bg ? (
                                   <img
-                                    src={slide.bg}
+                                    src={normalizeImageUrl(slide.bg)}
                                     alt="Background preview"
                                     className="slider-asset-thumb"
                                     onError={(e: any) => { e.target.style.display = 'none'; }}
@@ -1422,7 +1487,7 @@ export default function WhiteLabelManagement() {
                               <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
                                 {slide.front ? (
                                   <img
-                                    src={slide.front}
+                                    src={normalizeImageUrl(slide.front)}
                                     alt="Front preview"
                                     className="slider-asset-thumb"
                                     style={{ objectFit: 'contain' }}
@@ -1582,7 +1647,7 @@ export default function WhiteLabelManagement() {
                                   {/* Background Image */}
                                   {activeSlide.bg ? (
                                     <img
-                                      src={activeSlide.bg}
+                                      src={normalizeImageUrl(activeSlide.bg)}
                                       alt="Slide BG"
                                       className="phone-slide-bg"
                                     />
@@ -1619,7 +1684,7 @@ export default function WhiteLabelManagement() {
                                   {/* Front Asset Cutout */}
                                   {activeSlide.front ? (
                                     <img
-                                      src={activeSlide.front}
+                                      src={normalizeImageUrl(activeSlide.front)}
                                       alt="Slide Front"
                                       className="phone-slide-front"
                                     />
