@@ -398,10 +398,13 @@ router.post('/upload-asset', async (req, res) => {
       buffer = Buffer.from(data, 'base64');
     }
 
-    const cleanBaseName = (name || 'asset')
+    const parsedPath = path.parse(name || 'asset');
+    const rawName = parsedPath.name || 'asset';
+    const cleanBaseName = rawName
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 40);
-    const fileName = `slider_${Date.now()}_${cleanBaseName}.${ext}`;
+    const requestedFileName = req.body.exactFileName || req.body.fileName;
+    const fileName = requestedFileName || `slider_${Date.now()}_${cleanBaseName}.${ext}`;
     const targetDir = path.join(__dirname, '../../public/uploads');
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
@@ -416,6 +419,18 @@ router.post('/upload-asset', async (req, res) => {
         fs.mkdirSync(altTargetDir, { recursive: true });
       }
       fs.writeFileSync(path.join(altTargetDir, fileName), buffer);
+    } catch (_) {}
+
+    // Also replicate to production cloud server so physical mobile devices on 4G/remote can load it immediately
+    try {
+      fetch('https://evegah.cloud/api/settings/upload-asset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data,
+          name: cleanBaseName
+        })
+      }).catch(() => {});
     } catch (_) {}
 
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';

@@ -867,10 +867,10 @@ router.get('/', async (req, res) => {
     let allRiders = skipCache ? null : await getCache(masterCacheKey);
 
     if (!allRiders || !Array.isArray(allRiders)) {
-      // 1. Fetch all renters, reservations, and document photos from database
-      const [rentersDb, resvDb, docsDb] = await Promise.all([
+      // 1. Fetch all renters, reservations, document photos, and vehicle zone mapping from database
+      const [rentersDb, resvDb, docsDb, vehiclesDb] = await Promise.all([
         db.query(`
-          SELECT id, rider_name, mobile, email, date_of_birth, address, gender,
+          SELECT id, rider_name, mobile, email, date_of_birth, address, present_address, gender,
                  vehicle_id, battery_id, package_name, rental_start_date, return_date,
                  status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, created_at
           FROM renters
@@ -889,8 +889,17 @@ router.get('/', async (req, res) => {
           SELECT rider_id, mobile, kind, url FROM documents
           WHERE kind IN ('rider_photo', 'selfie', 'avatar', 'profile_photo')
           ORDER BY created_at DESC
+        `).catch(() => ({ rows: [] })),
+        db.query(`
+          SELECT code, id, zone FROM vehicles
         `).catch(() => ({ rows: [] }))
       ]);
+
+      const vehicleZoneByCode = new Map();
+      for (const v of vehiclesDb.rows) {
+        if (v.code && v.zone) vehicleZoneByCode.set(String(v.code).trim().toUpperCase(), v.zone.trim());
+        if (v.id && v.zone) vehicleZoneByCode.set(String(v.id).trim().toUpperCase(), v.zone.trim());
+      }
 
       const docPhotosByMobile = new Map();
       const docPhotosByRiderId = new Map();
@@ -979,6 +988,22 @@ router.get('/', async (req, res) => {
         displayStatus = 'No Active Ride';
       }
 
+      let vZone = null;
+      if (r.vehicle_id) {
+        vZone = vehicleZoneByCode.get(String(r.vehicle_id).trim().toUpperCase()) || null;
+      }
+      const initialZones = new Set();
+      if (r.zone) initialZones.add(r.zone);
+      if (vZone) initialZones.add(vZone);
+      if (r.address || r.present_address) {
+        const addrLower = `${r.address || ''} ${r.present_address || ''}`.toLowerCase();
+        if (addrLower.includes('manjalpur') || addrLower.includes('makarpura')) initialZones.add('Manjalpur Zone');
+        else if (addrLower.includes('daman')) initialZones.add('Moti Daman');
+        else if (addrLower.includes('aatapi') || addrLower.includes('ajwa') || addrLower.includes('karelibaug')) initialZones.add('Aatapi Zone');
+      }
+
+      const effectiveZone = vZone || r.zone || Array.from(initialZones)[0] || null;
+
       if (!ridersMap.has(key)) {
         ridersMap.set(key, {
           id: r.id,
@@ -999,14 +1024,20 @@ router.get('/', async (req, res) => {
           wallet_balance: r.wallet_balance || 0,
           kyc_status: r.kyc_status || 'Verified',
           booking_source: r.booking_source || 'Migrated',
-          booked_zones: new Set(r.zone ? [r.zone] : []),
-          latest_zone: r.zone || null,
+          booked_zones: initialZones,
+          latest_zone: effectiveZone,
           has_active_ride: displayStatus === 'Active Ride' || displayStatus === 'Retain Ride' || displayStatus === 'Extend',
           is_direct_renter: true
         });
       } else {
         const existing = ridersMap.get(key);
         if (r.zone) existing.booked_zones.add(r.zone);
+        if (vZone) {
+          existing.booked_zones.add(vZone);
+          if (!existing.latest_zone || existing.latest_zone === 'Gotri Zone') {
+            existing.latest_zone = vZone;
+          }
+        }
         if ((!existing.rider_name || existing.rider_name === 'Rider') && r.rider_name && r.rider_name !== 'Rider') {
           existing.rider_name = r.rider_name;
         }
@@ -1118,7 +1149,7 @@ router.get('/', async (req, res) => {
     }
 
     // 3. Convert Map to Array of unique riders
-    let allRiders = Array.from(ridersMap.values()).map(r => {
+    allRiders = Array.from(ridersMap.values()).map(r => {
       let pkg = r.package_name || 'Custom';
       if (pkg === 'Rider Plan' || pkg === 'Standard Plan' || !pkg) {
         pkg = 'Custom';
@@ -1127,12 +1158,19 @@ router.get('/', async (req, res) => {
       let modeStr = (r.booking_source || '').toLowerCase();
       const finalMode = modeStr === 'form' ? 'Form' : ((modeStr.includes('app') || r.has_updated_from_resv) ? 'App' : 'Form');
 
-      let riderZone = r.latest_zone || Array.from(r.booked_zones)[0] || r.zone;
-      if (!riderZone && r.address) {
-        const addrLower = (r.address + ' ' + (r.present_address || '')).toLowerCase();
+      let riderZone = r.latest_zone;
+      if (!riderZone || riderZone === 'Gotri Zone') {
+        if (r.booked_zones && r.booked_zones.size > 0) {
+          const nonGotri = Array.from(r.booked_zones).find(z => z && !z.toLowerCase().includes('gotri'));
+          if (nonGotri) riderZone = nonGotri;
+        }
+      }
+      if ((!riderZone || riderZone === 'Gotri Zone') && (r.address || r.present_address)) {
+        const addrLower = `${r.address || ''} ${r.present_address || ''}`.toLowerCase();
         if (addrLower.includes('manjalpur') || addrLower.includes('makarpura')) riderZone = 'Manjalpur Zone';
-        else if (addrLower.includes('gotri') || addrLower.includes('alkapuri') || addrLower.includes('akota')) riderZone = 'Gotri Zone';
+        else if (addrLower.includes('daman')) riderZone = 'Moti Daman';
         else if (addrLower.includes('aatapi') || addrLower.includes('ajwa') || addrLower.includes('karelibaug') || addrLower.includes('fatehgunj')) riderZone = 'Aatapi Zone';
+        else if (addrLower.includes('gotri') || addrLower.includes('alkapuri') || addrLower.includes('akota')) riderZone = 'Gotri Zone';
       }
       if (!riderZone) {
         riderZone = 'Gotri Zone';
