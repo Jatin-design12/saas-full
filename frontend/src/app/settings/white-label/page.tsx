@@ -652,7 +652,11 @@ export default function WhiteLabelManagement() {
   };
 
   const handleSave = () => {
-    alert('White-label portal configuration details successfully saved and deployed!');
+    if (activeTab === 'mobile' || activeTab === 'sliders') {
+      handleSaveSliders();
+    } else {
+      alert('White-label portal configuration details successfully saved and deployed!');
+    }
   };
 
   return (
@@ -1539,6 +1543,21 @@ export default function WhiteLabelManagement() {
                         <line x1="5" y1="12" x2="19" y2="12" />
                       </svg>
                       <span>Add New Slide to {sliderScreen === 'home' ? 'HomeScreen' : 'RentScreen'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="wl-btn wl-btn-primary"
+                      style={{ padding: '14px 20px', marginTop: '10px', justifyContent: 'center', fontWeight: 800, background: '#4F46E5', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
+                      onClick={handleSaveSliders}
+                      disabled={isSavingSliders}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                      </svg>
+                      <span>{isSavingSliders ? 'Publishing Changes...' : 'Save & Publish All Sliders'}</span>
                     </button>
                   </div>
 
