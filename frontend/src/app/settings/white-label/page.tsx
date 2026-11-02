@@ -184,7 +184,8 @@ const compressImageForUpload = (file: File, isCutout: boolean): Promise<string> 
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = isCutout ? 900 : 1440;
+          // Mobile screens are 390-430px wide, so 960px is already crisp 2.5x Retina
+          const maxDim = isCutout ? 480 : 960;
 
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -203,10 +204,25 @@ const compressImageForUpload = (file: File, isCutout: boolean): Promise<string> 
 
           ctx.drawImage(img, 0, 0, width, height);
 
-          // For cutout, preserve PNG alpha; for banner background, encode as JPEG 0.85
-          const mime = isCutout ? 'image/png' : 'image/jpeg';
-          const quality = isCutout ? 0.9 : 0.85;
-          const compressed = canvas.toDataURL(mime, quality);
+          let mime = isCutout ? 'image/png' : 'image/jpeg';
+          let quality = isCutout ? 0.8 : 0.78;
+          let compressed = canvas.toDataURL(mime, quality);
+
+          // Guarantee payload is strictly under 600 KB to never trigger Nginx 1MB 413 error
+          const MAX_BASE64_LEN = 600 * 1024;
+          let attempts = 0;
+          while (compressed.length > MAX_BASE64_LEN && attempts < 5 && width > 240) {
+            attempts++;
+            width = Math.round(width * 0.78);
+            height = Math.round(height * 0.78);
+            canvas.width = width;
+            canvas.height = height;
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            if (!isCutout && quality > 0.45) quality -= 0.12;
+            compressed = canvas.toDataURL(mime, quality);
+          }
+
           resolve(compressed);
         } catch (_) {
           resolve(rawDataUrl);
