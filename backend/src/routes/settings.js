@@ -421,18 +421,6 @@ router.post('/upload-asset', async (req, res) => {
       fs.writeFileSync(path.join(altTargetDir, fileName), buffer);
     } catch (_) {}
 
-    // Also replicate to production cloud server so physical mobile devices on 4G/remote can load it immediately
-    try {
-      fetch('https://evegah.cloud/api/settings/upload-asset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data,
-          name: cleanBaseName
-        })
-      }).catch(() => {});
-    } catch (_) {}
-
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
     const host = req.get('host') || 'localhost:5000';
     const fullUrl = `${protocol}://${host}/api/uploads/${fileName}`;
