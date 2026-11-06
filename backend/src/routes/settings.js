@@ -375,6 +375,55 @@ router.post('/refund-auth/verify', async (req, res) => {
 });
 
 // POST /api/settings/upload-asset - Upload image asset for sliders / branding
+function safeDeleteUploadFile(fileUrlOrName) {
+  if (!fileUrlOrName || typeof fileUrlOrName !== 'string') return;
+  const trimmed = fileUrlOrName.trim();
+  if (!trimmed) return;
+  const filename = path.basename(trimmed);
+  if (!filename || filename === '.' || filename === '..' || filename.length < 4) return;
+  if (!/\.(jpe?g|png|webp|gif|svg)$/i.test(filename)) return;
+
+  const candidateDirs = [
+    path.join(__dirname, '../../public/uploads'),
+    path.join(__dirname, '../uploads'),
+    path.join(process.cwd(), 'uploads'),
+    path.join(process.cwd(), 'backend/uploads'),
+    path.join(process.cwd(), 'backend/public/uploads'),
+    '/home/evegah/saas-full/backend/public/uploads',
+    '/home/evegah/saas-full/backend/uploads',
+  ];
+
+  let deleted = false;
+  for (const dir of candidateDirs) {
+    try {
+      const fullPath = path.join(dir, filename);
+      if (fs.existsSync(fullPath)) {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile()) {
+          fs.unlinkSync(fullPath);
+          deleted = true;
+          console.log(`[Storage Cleanup] Deleted replaced upload file: ${fullPath}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[Storage Cleanup] Could not delete ${filename} from ${dir}:`, err.message);
+    }
+  }
+  return deleted;
+}
+
+router.post('/delete-asset', (req, res) => {
+  try {
+    const targetUrl = req.body.url || req.body.previousUrl || req.body.fileName;
+    if (targetUrl) {
+      safeDeleteUploadFile(targetUrl);
+    }
+    res.json({ status: 'success', message: 'Asset deleted if found' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 router.post('/upload-asset', async (req, res) => {
   try {
     const fs = require('fs');
@@ -409,6 +458,12 @@ router.post('/upload-asset', async (req, res) => {
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
+    // Automatically delete replaced previous file to prevent VPS disk fill-up
+    const previousUrl = req.body.previousUrl || req.body.replaceUrl || req.body.oldUrl;
+    if (previousUrl && typeof previousUrl === 'string') {
+      safeDeleteUploadFile(previousUrl);
+    }
+
     const targetPath = path.join(targetDir, fileName);
     fs.writeFileSync(targetPath, buffer);
 
@@ -535,6 +590,42 @@ const handleSaveSliderSettings = async (req, res) => {
       VALUES ($1, $2)
       ON CONFLICT (category) DO UPDATE SET values = EXCLUDED.values
     `, ['app_slider', JSON.stringify(updated)]);
+
+    // Prune orphaned slider upload files to free up disk storage
+    try {
+      const activeFiles = new Set();
+      [...home_sliders, ...rent_sliders].forEach((s) => {
+        if (s.bg && typeof s.bg === 'string') activeFiles.add(path.basename(s.bg.trim()));
+        if (s.front && typeof s.front === 'string') activeFiles.add(path.basename(s.front.trim()));
+      });
+
+      const checkDirs = [
+        path.join(__dirname, '../../public/uploads'),
+        path.join(__dirname, '../uploads'),
+        path.join(process.cwd(), 'uploads'),
+        path.join(process.cwd(), 'backend/uploads'),
+        path.join(process.cwd(), 'backend/public/uploads'),
+        '/home/evegah/saas-full/backend/public/uploads',
+        '/home/evegah/saas-full/backend/uploads',
+      ];
+      checkDirs.forEach((dir) => {
+        if (fs.existsSync(dir)) {
+          const files = fs.readdirSync(dir);
+          files.forEach((f) => {
+            if (f.startsWith('slider_') && !activeFiles.has(f)) {
+              try {
+                const fullP = path.join(dir, f);
+                const stat = fs.statSync(fullP);
+                if (Date.now() - stat.mtimeMs > 5 * 60 * 1000) {
+                  fs.unlinkSync(fullP);
+                  console.log(`[Storage Auto-Prune] Deleted unreferenced slider file: ${f}`);
+                }
+              } catch (_) {}
+            }
+          });
+        }
+      });
+    } catch (_) {}
 
     res.json({
       status: 'success',

@@ -157,7 +157,7 @@ const CSS = `
 .phone-slide-h1 { font-size: 14.5px; font-weight: 900; color: #0F172A; line-height: 1.22; margin: 0 0 3px 0; letter-spacing: -0.3px; }
 .phone-slide-p { font-size: 9px; font-weight: 700; color: #475569; margin: 0 0 8px 0; line-height: 1.3; }
 .phone-slide-cta { display: inline-block; padding: 5px 12px; border-radius: 12px; background: #1E1B4B; color: #fff; font-size: 9px; font-weight: 800; border: none; }
-.phone-slide-front { position: absolute; right: 4px; bottom: 8px; height: 175px; max-width: 145px; object-fit: contain; z-index: 8; }
+.phone-slide-front { position: absolute; right: 2px; bottom: 4px; height: 180px; max-width: 165px; object-fit: contain; z-index: 8; }
 .phone-dots { position: absolute; right: 12px; bottom: 8px; z-index: 15; display: flex; gap: 4px; align-items: center; }
 .phone-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(15,23,42,0.22); }
 .phone-dot.act { width: 14px; border-radius: 4px; background: #1E1B4B; }
@@ -435,9 +435,25 @@ export default function WhiteLabelManagement() {
     }
   };
 
+  const handleRemoveSliderFile = async (slideIdx: number, field: 'bg' | 'front') => {
+    const previousUrl = currentSliderList[slideIdx]?.[field];
+    handleUpdateSlide(slideIdx, field, '');
+    if (previousUrl) {
+      try {
+        await fetch('/api/settings/delete-asset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: previousUrl })
+        });
+      } catch (_) {}
+    }
+  };
+
   const handleUploadSliderFile = async (slideIdx: number, field: 'bg' | 'front', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const previousUrl = currentSliderList[slideIdx]?.[field] || '';
 
     setUploadingField(`${slideIdx}-${field}`);
     try {
@@ -452,7 +468,8 @@ export default function WhiteLabelManagement() {
           data: compressedDataUrl,
           dataUrl: compressedDataUrl,
           name: file.name,
-          filename: file.name
+          filename: file.name,
+          previousUrl: previousUrl
         })
       });
       const resJson = await res.json();
@@ -1476,20 +1493,32 @@ export default function WhiteLabelManagement() {
                                   </div>
                                 )}
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                      <polyline points="17 8 12 3 7 8"/>
-                                      <line x1="12" y1="3" x2="12" y2="15"/>
-                                    </svg>
-                                    <span>{uploadingField === `${idx}-bg` ? 'Uploading...' : 'Upload BG Photo'}</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      style={{ display: 'none' }}
-                                      onChange={e => handleUploadSliderFile(idx, 'bg', e)}
-                                    />
-                                  </label>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                      </svg>
+                                      <span>{uploadingField === `${idx}-bg` ? 'Uploading...' : 'Upload BG Photo'}</span>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => handleUploadSliderFile(idx, 'bg', e)}
+                                      />
+                                    </label>
+                                    {slide.bg ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveSliderFile(idx, 'bg')}
+                                        style={{ fontSize: '10.5px', color: '#EF4444', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px' }}
+                                        title="Clear image and free storage"
+                                      >
+                                        Clear
+                                      </button>
+                                    ) : null}
+                                  </div>
                                   <input
                                     type="text"
                                     className="wl-inp"
@@ -1520,20 +1549,32 @@ export default function WhiteLabelManagement() {
                                   </div>
                                 )}
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                      <polyline points="17 8 12 3 7 8"/>
-                                      <line x1="12" y1="3" x2="12" y2="15"/>
-                                    </svg>
-                                    <span>{uploadingField === `${idx}-front` ? 'Uploading...' : 'Upload Cutout PNG'}</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      style={{ display: 'none' }}
-                                      onChange={e => handleUploadSliderFile(idx, 'front', e)}
-                                    />
-                                  </label>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="17 8 12 3 7 8"/>
+                                        <line x1="12" y1="3" x2="12" y2="15"/>
+                                      </svg>
+                                      <span>{uploadingField === `${idx}-front` ? 'Uploading...' : 'Upload Cutout PNG'}</span>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => handleUploadSliderFile(idx, 'front', e)}
+                                      />
+                                    </label>
+                                    {slide.front ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveSliderFile(idx, 'front')}
+                                        style={{ fontSize: '10.5px', color: '#EF4444', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px' }}
+                                        title="Clear cutout and free storage"
+                                      >
+                                        Clear
+                                      </button>
+                                    ) : null}
+                                  </div>
                                   <input
                                     type="text"
                                     className="wl-inp"
