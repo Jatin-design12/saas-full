@@ -78,8 +78,25 @@ app.get('/api/app-sliders', async (req, res) => {
       if (d && d.value && typeof d.value === 'object') {
         d = { ...d, ...d.value };
       }
-      const home_sliders = Array.isArray(d.home_sliders) ? d.home_sliders : [];
-      const rent_sliders = Array.isArray(d.rent_sliders) ? d.rent_sliders : [];
+      const normalizeUrl = (url) => {
+        if (!url || typeof url !== 'string') return '';
+        let s = url.trim();
+        if (!s) return '';
+        if (s.includes('1792349713724') || s.includes('1792349720008')) return '';
+        if (s.startsWith('/uploads/')) return `/api${s}`;
+        if (s.includes('evegah.cloud/uploads/')) return s.replace('evegah.cloud/uploads/', 'evegah.cloud/api/uploads/');
+        return s;
+      };
+      const normalizeSlideUrls = (slides) => {
+        if (!Array.isArray(slides)) return [];
+        return slides.map((s) => ({
+          ...s,
+          bg: normalizeUrl(s.bg),
+          front: normalizeUrl(s.front),
+        }));
+      };
+      const home_sliders = normalizeSlideUrls(Array.isArray(d.home_sliders) ? d.home_sliders : []);
+      const rent_sliders = normalizeSlideUrls(Array.isArray(d.rent_sliders) ? d.rent_sliders : []);
       return res.json({
         status: 'success',
         data: {

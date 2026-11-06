@@ -456,8 +456,10 @@ router.get('/app_slider', async (req, res) => {
     }
 
     const normalizeUrl = (url) => {
-      if (!url || typeof url !== 'string') return url;
+      if (!url || typeof url !== 'string') return '';
       let s = url.trim();
+      if (!s) return '';
+      if (s.includes('1792349713724') || s.includes('1792349720008')) return '';
       if (s.startsWith('/uploads/')) return `/api${s}`;
       if (s.includes('evegah.cloud/uploads/')) return s.replace('evegah.cloud/uploads/', 'evegah.cloud/api/uploads/');
       return s;
