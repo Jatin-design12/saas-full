@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -157,7 +158,7 @@ const CSS = `
 .phone-slide-h1 { font-size: 14.5px; font-weight: 900; color: #0F172A; line-height: 1.22; margin: 0 0 3px 0; letter-spacing: -0.3px; }
 .phone-slide-p { font-size: 9px; font-weight: 700; color: #475569; margin: 0 0 8px 0; line-height: 1.3; }
 .phone-slide-cta { display: inline-block; padding: 5px 12px; border-radius: 12px; background: #1E1B4B; color: #fff; font-size: 9px; font-weight: 800; border: none; }
-.phone-slide-front { position: absolute; right: 2px; bottom: 4px; height: 180px; max-width: 165px; object-fit: contain; z-index: 8; }
+.phone-slide-front { position: absolute; right: 2px; bottom: 0px; height: 155px; max-width: 150px; object-fit: contain; z-index: 8; }
 .phone-dots { position: absolute; right: 12px; bottom: 8px; z-index: 15; display: flex; gap: 4px; align-items: center; }
 .phone-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(15,23,42,0.22); }
 .phone-dot.act { width: 14px; border-radius: 4px; background: #1E1B4B; }
