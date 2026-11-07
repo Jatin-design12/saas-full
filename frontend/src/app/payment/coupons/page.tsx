@@ -209,7 +209,11 @@ export default function CouponsListPage() {
   const totalCouponsCount = coupons.length;
   const activeCouponsCount = coupons.filter(c => c.status === 'Active').length;
   const totalRedemptions = coupons.reduce((sum, c) => sum + (parseInt(c.current_usage || '0') || 0), 0);
-  const totalDiscountGiven = coupons.reduce((sum, c) => sum + (parseFloat(c.current_usage || '0') * parseFloat(c.discount_value || '0')), 0);
+  const totalDiscountGiven = coupons.reduce((sum, c) => {
+    const given = parseFloat(c.total_discount_given);
+    if (!isNaN(given) && given > 0) return sum + given;
+    return sum + (parseFloat(c.current_usage || '0') * parseFloat(c.discount_value || '0'));
+  }, 0);
 
   // Expiring Soon — coupons expiring within 7 days from now
   const now = new Date();

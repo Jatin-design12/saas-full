@@ -528,7 +528,6 @@ export default function VehicleListPage() {
                       <th>Model Name</th>
                       <th>Zone</th>
                       <th>Status</th>
-                      <th>Battery</th>
                       <th>Speed</th>
                       <th>Hub Location / Renter</th>
                       <th>Last Seen</th>
@@ -537,7 +536,6 @@ export default function VehicleListPage() {
                   </thead>
                   <tbody>
                     {filtered.map(v => {
-                      const barColor = v.battery < 20 ? '#EF4444' : v.battery < 50 ? '#F59E0B' : '#10B981';
                       const isSelected = selectedCodes.includes(v.code);
                       return (
                         <tr key={v.code} style={isSelected ? { background: '#F8FAFC' } : undefined}>
@@ -570,14 +568,6 @@ export default function VehicleListPage() {
                           </td>
                           <td>
                             <span className={`vl-badge ${v.badgeCls}`}>{v.status}</span>
-                          </td>
-                          <td>
-                            <div className="vl-bat-bar-wrap">
-                              <span className="vl-bat-pct">{v.battery}%</span>
-                              <div className="vl-bat-bar">
-                                <div className="vl-bat-bar-fill" style={{ width: `${v.battery}%`, background: barColor }} />
-                              </div>
-                            </div>
                           </td>
                           <td>
                             <span style={{ fontWeight: 600 }}>{v.speed} km/h</span>

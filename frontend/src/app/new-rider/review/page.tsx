@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
 
 /* ──────────────────────────────────────────────────────────────
    STEP 5 · REVIEW & CONFIRM — Evegah Smart Mobility
@@ -437,30 +438,18 @@ export default function ReviewPage() {
         cash_receipt: paymentData.cash_receipt || null,
       };
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-      const res = await fetch(`${apiUrl}/rides/new`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const resJson = await res.json().catch(() => ({}));
+      const resJson: any = await api.post('/rides/new', payload);
 
       if (payload.payu_tx_id) {
-        fetch(`${apiUrl}/payments/payu/verify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tx_id: payload.payu_tx_id,
-            amount: payload.total,
-            mobile: payload.mobile,
-            rider_name: payload.rider_name
-          })
+        api.post('/payments/payu/verify', {
+          tx_id: payload.payu_tx_id,
+          amount: payload.total,
+          mobile: payload.mobile,
+          rider_name: payload.rider_name
         }).catch(() => {});
       }
 
-      const bookingId = resJson?.data?.id || `RIDE-${Date.now().toString().slice(-6)}`;
+      const bookingId = resJson?.data?.id || resJson?.id || `RIDE-${Date.now().toString().slice(-6)}`;
 
       setSuccessBooking({
         id: bookingId,

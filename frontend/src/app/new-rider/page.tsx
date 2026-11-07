@@ -1284,8 +1284,8 @@ export default function NewRiderPage() {
   const [formData, setFormData] = useState<any>(() => {
     const defaults = {
       fullName: '',
-      dob: '2000-01-01',
-      gender: 'Male',
+      dob: '',
+      gender: '',
       mobile: '',
       email: '',
       fatherName: '',
@@ -1294,14 +1294,14 @@ export default function NewRiderPage() {
       altMobile: '',
       address1: '',
       address2: '',
-      city: 'Vadodara',
-      state: 'Gujarat',
+      city: '',
+      state: '',
       pincode: '',
       sameAsPresent: true,
       permAddress1: '',
       permAddress2: '',
-      permCity: 'Vadodara',
-      permState: 'Gujarat',
+      permCity: '',
+      permState: '',
       permPincode: '',
       idType: 'Aadhaar Card',
       idNumber: ''
@@ -1309,12 +1309,12 @@ export default function NewRiderPage() {
     if (typeof window !== 'undefined') {
       try {
         const saved = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
-        if (saved && typeof saved === 'object') {
+        if (saved && typeof saved === 'object' && saved.fullName) {
           if (saved.fullName === 'Akash Verma') {
             localStorage.removeItem('evegah_new_ride_kyc');
             return defaults;
           }
-          const validDob = saved.dob && /^\d{4}-\d{2}-\d{2}$/.test(saved.dob) ? saved.dob : defaults.dob;
+          const validDob = saved.dob && /^\d{4}-\d{2}-\d{2}$/.test(saved.dob) ? saved.dob : '';
           return { ...defaults, ...saved, dob: validDob };
         }
       } catch (_) {}

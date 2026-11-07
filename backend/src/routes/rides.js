@@ -95,9 +95,21 @@ router.post('/new', async (req, res) => {
         `, [battery_id]);
       }
 
+      // Increment coupon usage if applied
+      if (req.body.coupon_code) {
+        db.query(
+          `UPDATE coupons 
+           SET current_usage = COALESCE(current_usage, 0) + 1,
+               status = CASE WHEN redemption_limit > 0 AND (COALESCE(current_usage, 0) + 1) >= redemption_limit THEN 'Utilized' ELSE status END
+           WHERE LOWER(code) = LOWER($1)`,
+          [String(req.body.coupon_code).trim()]
+        ).catch(e => console.warn('Could not increment coupon usage:', e.message));
+      }
+
       await delByPattern('vehicles:*');
       await delByPattern('batteries:*');
       await delByPattern('renters:*');
+      await delByPattern('coupons:*');
       await delByPattern('stats:*');
     } catch (dbErr) {
       console.warn('DB insert fallback for new ride:', dbErr.message);

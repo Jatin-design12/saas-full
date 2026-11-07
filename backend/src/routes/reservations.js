@@ -788,6 +788,16 @@ router.post('/', async (req, res) => {
       req.body.booking_source || 'Rider App'
     ]);
 
+    if (coupon_code) {
+      db.query(
+        `UPDATE coupons 
+         SET current_usage = COALESCE(current_usage, 0) + 1,
+             status = CASE WHEN redemption_limit > 0 AND (COALESCE(current_usage, 0) + 1) >= redemption_limit THEN 'Utilized' ELSE status END
+         WHERE LOWER(code) = LOWER($1)`,
+        [String(coupon_code).trim()]
+      ).catch(e => console.warn('Could not increment coupon usage:', e.message));
+    }
+
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
 

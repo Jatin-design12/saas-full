@@ -140,8 +140,18 @@ function EditVehicleForm() {
     zone: 'Unassigned'
   });
 
+  const [zonesList, setZonesList] = useState<string[]>([]);
   const [qrGenerated, setQrGenerated] = useState(false);
   const [vehicleImage, setVehicleImage] = useState('/City-1.png');
+
+  useEffect(() => {
+    api.get('/zones').then((res: any) => {
+      if (res && res.data) {
+        const names = res.data.map((z: any) => z.name || z.locality).filter(Boolean);
+        setZonesList([...new Set<string>(names)]);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!code) return;
@@ -634,11 +644,9 @@ function EditVehicleForm() {
                       onChange={handleInputChange}
                     >
                       <option value="Unassigned">Unassigned (None)</option>
-                      <option value="Gotri Zone">Gotri Zone</option>
-                      <option value="Manjalpur Zone">Manjalpur Zone</option>
-                      <option value="KPGU Zone">KPGU Zone</option>
-                      <option value="Aatapi Zone">Aatapi Zone</option>
-                      <option value="Moti Daman Zone">Moti Daman Zone</option>
+                      {zonesList.map(z => (
+                        <option key={z} value={z}>{z}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

@@ -8,8 +8,11 @@ router.get('/', async (req, res) => {
     const result = await db.query(`
       SELECT 
         c.*,
-        COALESCE(u.used_count, c.current_usage, 0)::int as current_usage,
-        COALESCE(u.total_discount, 0)::numeric as total_discount_given
+        GREATEST(COALESCE(u.used_count, 0), COALESCE(c.current_usage, 0))::int as current_usage,
+        CASE 
+          WHEN COALESCE(u.total_discount, 0) > 0 THEN u.total_discount::numeric
+          ELSE (GREATEST(COALESCE(u.used_count, 0), COALESCE(c.current_usage, 0)) * COALESCE(c.discount_value, 0))::numeric
+        END as total_discount_given
       FROM coupons c
       LEFT JOIN (
         SELECT 
@@ -173,6 +176,91 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Error deleting coupon:', err);
     res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/coupons/validate - Validate a coupon for checkout
+router.post('/validate', async (req, res) => {
+  try {
+    const { code, amount, zone } = req.body;
+    if (!code) {
+      return res.status(400).json({ status: 'error', message: 'Coupon code is required' });
+    }
+    const result = await db.query(
+      'SELECT * FROM coupons WHERE LOWER(code) = LOWER($1)',
+      [code.trim()]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Invalid coupon code' });
+    }
+    const coupon = result.rows[0];
+    const now = new Date();
+    if (coupon.status !== 'Active') {
+      return res.status(400).json({ status: 'error', message: `Coupon is ${coupon.status.toLowerCase()}` });
+    }
+    if (coupon.start_date && new Date(coupon.start_date) > now) {
+      return res.status(400).json({ status: 'error', message: 'Coupon is not yet active' });
+    }
+    if (coupon.end_date && new Date(coupon.end_date) < now) {
+      return res.status(400).json({ status: 'error', message: 'Coupon has expired' });
+    }
+    const orderAmt = parseFloat(amount || 0);
+    const minOrder = parseFloat(coupon.min_order || 0);
+    if (minOrder > 0 && orderAmt < minOrder) {
+      return res.status(400).json({ status: 'error', message: `Minimum order amount of ₹${minOrder} required` });
+    }
+    const curUsage = parseInt(coupon.current_usage || 0);
+    const redLimit = parseInt(coupon.redemption_limit || 0);
+    if (redLimit > 0 && curUsage >= redLimit) {
+      return res.status(400).json({ status: 'error', message: 'Coupon redemption limit has been reached' });
+    }
+
+    let discount = 0;
+    const discVal = parseFloat(coupon.discount_value || 0);
+    if (coupon.discount_type === 'Percentage') {
+      discount = (orderAmt * discVal) / 100;
+    } else {
+      discount = discVal;
+    }
+    if (discount > orderAmt && orderAmt > 0) discount = orderAmt;
+
+    return res.json({
+      status: 'success',
+      valid: true,
+      data: {
+        code: coupon.code,
+        discount: parseFloat(discount.toFixed(2)),
+        discount_type: coupon.discount_type,
+        discount_value: discVal,
+        title: coupon.title
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+// POST /api/coupons/redeem - Mark coupon as used & increment usage count
+router.post('/redeem', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ status: 'error', message: 'Coupon code is required' });
+    }
+    const result = await db.query(
+      `UPDATE coupons 
+       SET current_usage = COALESCE(current_usage, 0) + 1,
+           status = CASE WHEN redemption_limit > 0 AND (COALESCE(current_usage, 0) + 1) >= redemption_limit THEN 'Utilized' ELSE status END
+       WHERE LOWER(code) = LOWER($1)
+       RETURNING *`,
+      [code.trim()]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'Coupon not found' });
+    }
+    return res.json({ status: 'success', message: 'Coupon redeemed successfully', data: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ status: 'error', message: err.message });
   }
 });
 

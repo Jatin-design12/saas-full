@@ -351,7 +351,7 @@ router.post('/verify-otp', async (req, res) => {
       const defaultEmail = `${last10}@evegah.com`;
       const insertRes = await db.query(
         `INSERT INTO renters (rider_name, mobile, email, status, kyc_status, booking_source, package_name, rent, deposit, total, created_at)
-         VALUES ($1, $2, $3, 'Active', 'Pending', 'App', 'Daily Pass', 0, 0, 0, NOW())
+         VALUES ($1, $2, $3, 'Pending', 'Pending', 'App_Auth', 'Daily Pass', 0, 0, 0, NOW())
          RETURNING *`,
         ['Evegah Rider', `+91 ${last10}`, defaultEmail]
       );
@@ -853,8 +853,12 @@ router.get('/', async (req, res) => {
     const isAllZones = !rawZone || rawZone === 'All Zones' || rawZone === 'All Zones (Multi-Zone)' || rawZone === 'All' || rawZone.toLowerCase().includes('all zone');
     const zoneFilter = isAllZones ? null : rawZone;
 
+    const packageQuery = (req.query.package || req.query.plan || '').trim().toLowerCase();
+    const fromDate = req.query.from_date || req.query.startDate;
+    const toDate = req.query.to_date || req.query.endDate;
+
     // Cache key for page/filter combo
-    const pageCacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}:${req.query.mode || ''}`;
+    const pageCacheKey = `renters:list:${page}:${limit}:${search}:${status}:${zoneFilter || 'all'}:${req.query.mode || ''}:${packageQuery}:${fromDate || ''}:${toDate || ''}`;
     const skipCache = req.query.forceRefresh === 'true' || req.query.refresh === 'true';
     if (!skipCache) {
       const pageCached = await getCache(pageCacheKey);
@@ -874,6 +878,11 @@ router.get('/', async (req, res) => {
                  vehicle_id, battery_id, package_name, rental_start_date, return_date,
                  status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, created_at
           FROM renters
+          WHERE NOT (
+            (rider_name ILIKE '%evegah rider%' OR rider_name = 'Rider')
+            AND COALESCE(total, 0) <= 0
+            AND (vehicle_id IS NULL OR vehicle_id IN ('', 'EV-DEFAULT', '—'))
+          )
           ORDER BY created_at DESC
         `).catch(() => ({ rows: [] })),
         db.query(`
@@ -1149,7 +1158,16 @@ router.get('/', async (req, res) => {
     }
 
     // 3. Convert Map to Array of unique riders
-    allRiders = Array.from(ridersMap.values()).map(r => {
+    allRiders = Array.from(ridersMap.values())
+      .filter(r => {
+        // Exclude dummy placeholder riders with no actual booking/ride
+        const isPhantom = (r.rider_name === 'Evegah Rider' || r.rider_name === 'Rider') &&
+          parseFloat(r.total || 0) <= 0 &&
+          !r.has_active_ride &&
+          (!r.vehicle_id || r.vehicle_id === '—' || r.vehicle_id === 'EV-DEFAULT');
+        return !isPhantom;
+      })
+      .map(r => {
       let pkg = r.package_name || 'Custom';
       if (pkg === 'Rider Plan' || pkg === 'Standard Plan' || !pkg) {
         pkg = 'Custom';
@@ -1189,8 +1207,6 @@ router.get('/', async (req, res) => {
       };
     });
 
-    // Master list includes all registered & migrated renters from database
-
     // Save unified master riders array into Redis cache (180s TTL)
     if (!skipCache) {
       await setCache(masterCacheKey, allRiders, 180);
@@ -1205,7 +1221,38 @@ router.get('/', async (req, res) => {
     filteredRiders = filteredRiders.filter(r => (r.booking_source || '').toLowerCase() === mTarget);
   }
 
-  // 4. Filter by Zone
+  // 4b. Filter by Package
+  if (packageQuery) {
+    filteredRiders = filteredRiders.filter(r => {
+      const p = (r.package_name || '').toLowerCase();
+      if (packageQuery === 'custom') {
+        return !p || p.includes('custom') || p.includes('standard') || p.includes('rider');
+      }
+      return p.includes(packageQuery);
+    });
+  }
+
+  // 4c. Filter by Date
+  if (fromDate) {
+    const fTime = new Date(fromDate).getTime();
+    if (!isNaN(fTime)) {
+      filteredRiders = filteredRiders.filter(r => {
+        const t = r.rental_start_date ? new Date(r.rental_start_date).getTime() : (r.created_at ? new Date(r.created_at).getTime() : 0);
+        return t >= fTime;
+      });
+    }
+  }
+  if (toDate) {
+    const tTime = new Date(toDate).getTime() + 86400000;
+    if (!isNaN(tTime)) {
+      filteredRiders = filteredRiders.filter(r => {
+        const t = r.rental_start_date ? new Date(r.rental_start_date).getTime() : (r.created_at ? new Date(r.created_at).getTime() : 0);
+        return t <= tTime;
+      });
+    }
+  }
+
+  // 4d. Filter by Zone
   if (zoneFilter) {
     const zTarget = zoneFilter.toLowerCase().replace(/zone|vadodara|-/g, '').trim();
     filteredRiders = filteredRiders.filter(r => {

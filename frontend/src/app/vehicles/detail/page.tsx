@@ -1682,18 +1682,10 @@ function VehicleDetailContent() {
                     outline: 'none'
                   }}
                 >
-                  {availableZones.length > 0 ? (
-                    availableZones.map(z => (
-                      <option key={z} value={z}>{z}</option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Gotri Zone">Gotri Zone</option>
-                      <option value="Manjalpur Zone">Manjalpur Zone</option>
-                      <option value="KPGU Zone">KPGU Zone</option>
-                      <option value="Aatapi Zone">Aatapi Zone</option>
-                    </>
-                  )}
+                  <option value="Unassigned">Unassigned (None)</option>
+                  {availableZones.map(z => (
+                    <option key={z} value={z}>{z}</option>
+                  ))}
                 </select>
               </div>
             </div>

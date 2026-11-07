@@ -297,12 +297,26 @@ router.post('/initiate', async (req, res) => {
       clientIp
     });
 
-    // Save pending transaction to payu_payments (including PayU mihpayid if generated)
+    // Save pending transaction to payu_payments (updating any recent pending attempt for this user to prevent duplicates)
     try {
-      await db.query(`
-        INSERT INTO payu_payments (tx_id, payu_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
-        VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7, $8)
-      `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanMobile, cleanEmail, purpose || 'wallet', reservation_id || null]);
+      const existingPending = await db.query(`
+        SELECT id FROM payu_payments 
+        WHERE mobile = $1 AND purpose = $2 AND status = 'Pending' AND created_at > NOW() - INTERVAL '30 minutes'
+        ORDER BY created_at DESC LIMIT 1
+      `, [cleanMobile, purpose || 'wallet']);
+
+      if (existingPending.rows.length > 0) {
+        await db.query(`
+          UPDATE payu_payments 
+          SET tx_id = $1, payu_id = $2, amount = $3, rider_name = $4, email = $5, reservation_id = $6, updated_at = NOW()
+          WHERE id = $7
+        `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanEmail, reservation_id || null, existingPending.rows[0].id]);
+      } else {
+        await db.query(`
+          INSERT INTO payu_payments (tx_id, payu_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
+          VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7, $8)
+        `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanMobile, cleanEmail, purpose || 'wallet', reservation_id || null]);
+      }
     } catch (dbErr) {
       console.warn('Could not record PayU payment in DB:', dbErr.message);
     }
@@ -937,11 +951,25 @@ router.post('/qr', async (req, res) => {
     }
 
     try {
-      await db.query(`
-        INSERT INTO payu_payments (tx_id, payu_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
-        VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7, $8)
-        ON CONFLICT (tx_id) DO UPDATE SET payu_id = COALESCE(EXCLUDED.payu_id, payu_payments.payu_id), updated_at = NOW()
-      `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanMobile, cleanEmail, purpose, reservation_id || null]);
+      const existingPending = await db.query(`
+        SELECT id FROM payu_payments 
+        WHERE mobile = $1 AND purpose = $2 AND status = 'Pending' AND created_at > NOW() - INTERVAL '30 minutes'
+        ORDER BY created_at DESC LIMIT 1
+      `, [cleanMobile, purpose || 'ride']);
+
+      if (existingPending.rows.length > 0) {
+        await db.query(`
+          UPDATE payu_payments 
+          SET tx_id = $1, payu_id = $2, amount = $3, rider_name = $4, email = $5, reservation_id = $6, updated_at = NOW()
+          WHERE id = $7
+        `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanEmail, reservation_id || null, existingPending.rows[0].id]);
+      } else {
+        await db.query(`
+          INSERT INTO payu_payments (tx_id, payu_id, amount, rider_name, mobile, email, status, purpose, reservation_id)
+          VALUES ($1, $2, $3, $4, $5, $6, 'Pending', $7, $8)
+          ON CONFLICT (tx_id) DO UPDATE SET payu_id = COALESCE(EXCLUDED.payu_id, payu_payments.payu_id), updated_at = NOW()
+        `, [txnid, s2sQr.paymentId || null, numAmount, cleanName, cleanMobile, cleanEmail, purpose, reservation_id || null]);
+      }
     } catch (dbErr) {
       console.warn('PayU QR DB insert warning:', dbErr.message);
     }

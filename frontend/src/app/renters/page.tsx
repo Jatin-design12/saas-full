@@ -1031,6 +1031,16 @@ export default function RentersPage() {
   const [modeFilter, setModeFilter] = useState('');
   const [zoneFilter, setZoneFilter] = useState('All Zones');
   const [selectedZone, setSelectedZone] = useState('All Zones');
+  const [zonesList, setZonesList] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.get('/zones').then((res: any) => {
+      if (res && res.data) {
+        const names = res.data.map((z: any) => z.name || z.locality).filter(Boolean);
+        setZonesList([...new Set<string>(names)]);
+      }
+    }).catch(() => {});
+  }, []);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 10 });
@@ -1269,13 +1279,15 @@ export default function RentersPage() {
 
   const fetchRenters = () => {
     setLoading(true);
-    const isAllZones = !selectedZone || selectedZone === 'All Zones' || selectedZone === 'All Zones (Multi-Zone)';
+    const activeZoneToUse = zoneFilter !== 'All Zones' ? zoneFilter : selectedZone;
+    const isAllZones = !activeZoneToUse || activeZoneToUse === 'All Zones' || activeZoneToUse === 'All Zones (Multi-Zone)';
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: pageSize.toString(),
       search: search,
       status: statusFilter,
-      ...(!isAllZones ? { zone: selectedZone } : {}),
+      ...(!isAllZones ? { zone: activeZoneToUse } : {}),
+      ...(packageFilter ? { package: packageFilter } : {}),
       ...(modeFilter ? { mode: modeFilter } : {})
     });
 
@@ -1306,7 +1318,7 @@ export default function RentersPage() {
 
   useEffect(() => {
     fetchRenters();
-  }, [search, statusFilter, packageFilter, modeFilter, page, pageSize, selectedZone]);
+  }, [search, statusFilter, packageFilter, modeFilter, page, pageSize, selectedZone, zoneFilter]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedMobiles(renters.map(r => r.mobile));
@@ -1689,10 +1701,9 @@ export default function RentersPage() {
                       onChange={(e) => setZoneFilter(e.target.value)}
                     >
                       <option value="All Zones">All Zones</option>
-                      <option value="Gotri Zone">Gotri Zone</option>
-                      <option value="Aatapi Zone">Aatapi Zone</option>
-                      <option value="Alkapuri Zone">Alkapuri Zone</option>
-                      <option value="Daman Zone">Daman Zone</option>
+                      {zonesList.map(z => (
+                        <option key={z} value={z}>{z}</option>
+                      ))}
                     </select>
                   </div>
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
@@ -134,11 +134,22 @@ export default function AddVehiclePage() {
     totalKmCovered: '',
     vehicleStatus: 'Available',
     vehicleDocument: '',
-    vehicleQrCode: ''
+    vehicleQrCode: '',
+    zone: 'Unassigned'
   });
 
+  const [zonesList, setZonesList] = useState<string[]>([]);
   const [qrGenerated, setQrGenerated] = useState(false);
   const [vehicleImage, setVehicleImage] = useState('/City-1.png');
+
+  useEffect(() => {
+    api.get('/zones').then((res: any) => {
+      if (res && res.data) {
+        const names = res.data.map((z: any) => z.name || z.locality).filter(Boolean);
+        setZonesList([...new Set<string>(names)]);
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -403,6 +414,20 @@ export default function AddVehiclePage() {
                         onChange={handleInputChange}
                       />
                     </div>
+                    <div className="add-veh-field add-veh-form-grid-span2">
+                      <label className="add-veh-label">Assign Zone</label>
+                      <select 
+                        name="zone" 
+                        className="add-veh-select"
+                        value={formData.zone}
+                        onChange={handleInputChange}
+                      >
+                        <option value="Unassigned">Unassigned (None)</option>
+                        {zonesList.map(z => (
+                          <option key={z} value={z}>{z}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -653,6 +678,12 @@ export default function AddVehiclePage() {
                     <div className="add-veh-preview-tr">
                       <span className="add-veh-preview-td-lbl">Category</span>
                       <span className="add-veh-preview-td-val">{formData.vehicleCategory}</span>
+                    </div>
+                    <div className="add-veh-preview-tr">
+                      <span className="add-veh-preview-td-lbl">Assigned Zone</span>
+                      <span className="add-veh-preview-td-val" style={{ color: formData.zone === 'Unassigned' ? '#94A3B8' : '#2A195C' }}>
+                        {formData.zone || 'Unassigned'}
+                      </span>
                     </div>
                     <div className="add-veh-preview-tr">
                       <span className="add-veh-preview-td-lbl">Status</span>

@@ -90,6 +90,20 @@ router.get('/', async (req, res) => {
         WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
+          AND pp.mobile NOT LIKE '%1800%'
+          AND NOT (
+            UPPER(pp.status) = 'PENDING'
+            AND pp.rider_name IN ('Rider', 'Evegah Rider')
+            AND r.id IS NULL
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM payu_payments p_newer 
+            WHERE p_newer.mobile = pp.mobile 
+              AND p_newer.purpose = pp.purpose 
+              AND UPPER(p_newer.status) = 'PENDING' 
+              AND UPPER(pp.status) = 'PENDING' 
+              AND p_newer.created_at > pp.created_at
+          )
 
         UNION ALL
 
@@ -537,6 +551,20 @@ router.get('/export', async (req, res) => {
         WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
+          AND pp.mobile NOT LIKE '%1800%'
+          AND NOT (
+            UPPER(pp.status) = 'PENDING'
+            AND pp.rider_name IN ('Rider', 'Evegah Rider')
+            AND r.id IS NULL
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM payu_payments p_newer 
+            WHERE p_newer.mobile = pp.mobile 
+              AND p_newer.purpose = pp.purpose 
+              AND UPPER(p_newer.status) = 'PENDING' 
+              AND UPPER(pp.status) = 'PENDING' 
+              AND p_newer.created_at > pp.created_at
+          )
 
         UNION ALL
 
