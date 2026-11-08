@@ -1308,14 +1308,17 @@ export default function NewRiderPage() {
     };
     if (typeof window !== 'undefined') {
       try {
-        const saved = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
-        if (saved && typeof saved === 'object' && saved.fullName) {
-          if (saved.fullName === 'Akash Verma') {
-            localStorage.removeItem('evegah_new_ride_kyc');
-            return defaults;
+        const urlParams = new URLSearchParams(window.location.search);
+        const shouldResume = urlParams.get('resume') === 'true' || urlParams.get('edit') === 'true';
+        if (shouldResume) {
+          const saved = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
+          if (saved && typeof saved === 'object' && saved.fullName) {
+            const validDob = saved.dob && /^\d{4}-\d{2}-\d{2}$/.test(saved.dob) ? saved.dob : '';
+            return { ...defaults, ...saved, dob: validDob };
           }
-          const validDob = saved.dob && /^\d{4}-\d{2}-\d{2}$/.test(saved.dob) ? saved.dob : '';
-          return { ...defaults, ...saved, dob: validDob };
+        } else {
+          // Fresh registration: clear any lingering cached form data
+          localStorage.removeItem('evegah_new_ride_kyc');
         }
       } catch (_) {}
     }
@@ -1333,6 +1336,38 @@ export default function NewRiderPage() {
   }, [formData, mode]);
 
   const goManual = () => { setMethod('manual'); setMode('manual'); };
+
+  const handleResetForm = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('evegah_new_ride_kyc');
+    }
+    setFormData({
+      fullName: '',
+      dob: '',
+      gender: '',
+      mobile: '',
+      email: '',
+      fatherName: '',
+      refName: '',
+      refNumber: '',
+      altMobile: '',
+      address1: '',
+      address2: '',
+      city: '',
+      state: '',
+      pincode: '',
+      sameAsPresent: true,
+      permAddress1: '',
+      permAddress2: '',
+      permCity: '',
+      permState: '',
+      permPincode: '',
+      idType: 'Aadhaar Card',
+      idNumber: ''
+    });
+    setTouched({});
+    setMobileRegistered(false);
+  };
 
   // Calculate age & required field completion
   const getAge = (dobString: string) => {
@@ -1472,6 +1507,26 @@ export default function NewRiderPage() {
                       </p>
                     </div>
                     <div className="nr-pow-row">
+                      <button
+                        type="button"
+                        onClick={handleResetForm}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px solid #E2E8F0',
+                          background: '#FFFFFF',
+                          color: '#64748B',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                        title="Clear all fields"
+                      >
+                        ✕ Clear Form
+                      </button>
                       <button
                         type="button"
                         onClick={() => setMode(mode === 'manual' ? 'select' : 'manual')}

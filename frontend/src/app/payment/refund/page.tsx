@@ -26,40 +26,45 @@ const CSS = `
 .action-delete-btn:hover { background: #DC2626; color: #fff; border-color: #DC2626; }
 
 
-/* KPI Cards Grid */
-.rh-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+/* KPI Cards Grid (matches .vl-stat-card) */
+.rh-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 2px; }
+@media (max-width: 1024px) { .rh-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 .rh-kpi-card {
   background: #fff;
-  border: 1px solid #E2E8F0;
+  border: 1.5px solid #F1F5F9;
   border-radius: 14px;
-  padding: 16px 18px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.02);
-  transition: all .15s;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  transition: transform .15s, box-shadow .15s;
+  min-width: 0;
 }
 .rh-kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
-  border-color: #CBD5E1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.06);
 }
 
-.rh-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2px; }
-.rh-kpi-label { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.03em; }
 .rh-kpi-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: #fff;
 }
-.rh-kpi-val { font-size: 24px; font-weight: 800; color: #0F172A; line-height: 1; margin: 8px 0 4px; font-family: 'Outfit', sans-serif; }
-.rh-kpi-sub { font-size: 10.5px; color: #64748B; margin-top: 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.rh-kpi-info { min-width: 0; flex: 1; }
+.rh-kpi-label { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+.rh-kpi-val { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #0F172A; line-height: 1.1; margin: 0; white-space: nowrap; }
+.rh-kpi-sub { font-size: 10.5px; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
 
-.ic-purple { background: #EEF2FF; color: #6366F1; }
-.ic-green { background: #ECFDF5; color: #10B981; }
-.ic-orange { background: #FFF7ED; color: #F97316; }
-.ic-blue { background: #EFF6FF; color: #2563EB; }
+.ic-purple { background: #2A195C; color: #fff; }
+.ic-green { background: #10B981; color: #fff; }
+.ic-orange { background: #F59E0B; color: #fff; }
+.ic-blue { background: #3B82F6; color: #fff; }
 
 /* Tabs bar */
 .rh-tabs { display: flex; border-bottom: 1.5px solid #E2E8F0; gap: 28px; margin-bottom: 4px; }
@@ -463,87 +468,79 @@ export default function DepositRefundPage() {
               </div>
             )}
 
-            {/* KPI Cards Grid (Matches Renters/Vehicles UI) */}
+            {/* KPI Cards Grid (Matches .vl-stat-card) */}
             <div className="rh-kpi-grid">
               {/* 1. Active Deposits Held */}
               <div className="rh-kpi-card">
-                <div className="rh-kpi-top">
-                  <div>
-                    <div className="rh-kpi-label">Active Deposits Held</div>
-                    <div className="rh-kpi-val" style={{ color: '#0F172A' }}>
-                      ₹{(kpis.total_held || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="rh-kpi-sub" style={{ color: '#10B981' }}>
-                      ↑ Active rides pool
-                    </div>
+                <div className="rh-kpi-icon ic-green">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+                <div className="rh-kpi-info">
+                  <div className="rh-kpi-label">ACTIVE DEPOSITS HELD</div>
+                  <div className="rh-kpi-val">
+                    ₹{(kpis.total_held || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="rh-kpi-icon ic-green">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
+                  <div className="rh-kpi-sub" style={{ color: '#16A34A' }}>
+                    <span style={{ fontSize: 8 }}>▲</span> Active rides pool
                   </div>
                 </div>
               </div>
 
               {/* 2. Pending Deposit Refunds */}
               <div className="rh-kpi-card">
-                <div className="rh-kpi-top">
-                  <div>
-                    <div className="rh-kpi-label">Pending Deposit Refunds</div>
-                    <div className="rh-kpi-val" style={{ color: '#0F172A' }}>
-                      ₹{(kpis.pending_refunds_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="rh-kpi-sub" style={{ color: '#F97316' }}>
-                      ↓ {kpis.pending_refunds_count} returned rides awaiting payout
-                    </div>
+                <div className="rh-kpi-icon ic-orange">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <div className="rh-kpi-info">
+                  <div className="rh-kpi-label">PENDING REFUNDS</div>
+                  <div className="rh-kpi-val">
+                    ₹{(kpis.pending_refunds_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="rh-kpi-icon ic-orange">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
+                  <div className="rh-kpi-sub" style={{ color: '#D97706' }}>
+                    <span style={{ fontSize: 8 }}>▼</span> {kpis.pending_refunds_count} rides awaiting payout
                   </div>
                 </div>
               </div>
 
               {/* 3. Total Deposits Refunded */}
               <div className="rh-kpi-card">
-                <div className="rh-kpi-top">
-                  <div>
-                    <div className="rh-kpi-label">Total Deposits Refunded</div>
-                    <div className="rh-kpi-val" style={{ color: '#0F172A' }}>
-                      ₹{(kpis.total_refunded_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="rh-kpi-sub" style={{ color: '#6366F1' }}>
-                      ↑ credited back to rider accounts
-                    </div>
+                <div className="rh-kpi-icon ic-purple">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                </div>
+                <div className="rh-kpi-info">
+                  <div className="rh-kpi-label">TOTAL REFUNDED</div>
+                  <div className="rh-kpi-val">
+                    ₹{(kpis.total_refunded_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="rh-kpi-icon ic-purple">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
+                  <div className="rh-kpi-sub" style={{ color: '#16A34A' }}>
+                    <span style={{ fontSize: 8 }}>▲</span> returned to riders
                   </div>
                 </div>
               </div>
 
               {/* 4. Total Retained Deductions */}
               <div className="rh-kpi-card">
-                <div className="rh-kpi-top">
-                  <div>
-                    <div className="rh-kpi-label">Retained Deductions</div>
-                    <div className="rh-kpi-val" style={{ color: '#0F172A' }}>
-                      ₹{(kpis.total_deductions_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="rh-kpi-sub" style={{ color: '#2563EB' }}>
-                      damage repairs &amp; penalty fees
-                    </div>
+                <div className="rh-kpi-icon ic-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                  </svg>
+                </div>
+                <div className="rh-kpi-info">
+                  <div className="rh-kpi-label">RETAINED DEDUCTIONS</div>
+                  <div className="rh-kpi-val">
+                    ₹{(kpis.total_deductions_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="rh-kpi-icon ic-blue">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                    </svg>
+                  <div className="rh-kpi-sub" style={{ color: '#3B82F6' }}>
+                    <span style={{ fontSize: 8 }}>▲</span> damage &amp; penalties
                   </div>
                 </div>
               </div>

@@ -97,16 +97,19 @@ const CSS = `
 .cp-btn-create { background: #2A195C; border: 1.5px solid #2A195C; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
 .cp-btn-create:hover { background: #6D28D9; border-color: #6D28D9; }
 
-/* Stats grid */
-.cp-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
-.cp-stat-card { background: #fff; border: 1.5px solid #F1F5F9; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-.cp-stat-icon-wrapper { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.cp-stat-info { display: flex; flex-direction: column; gap: 2px; }
-.cp-stat-lbl { font-size: 11.5px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
-.cp-stat-val { font-size: 18px; font-weight: 800; color: #0F172A; }
-.cp-stat-trend { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 2px; margin-top: 2px; }
-.cp-trend-up { color: #10B981; }
-.cp-trend-down { color: #EF4444; }
+/* Stats grid (matches .vl-stat-card) */
+.cp-stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+@media (max-width: 1200px) { .cp-stats-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 768px) { .cp-stats-grid { grid-template-columns: 1fr; } }
+.cp-stat-card { background: #fff; border: 1.5px solid #F1F5F9; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: transform .15s, box-shadow .15s; }
+.cp-stat-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.cp-stat-icon-wrapper { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.cp-stat-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cp-stat-lbl { font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+.cp-stat-val { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #0F172A; line-height: 1.1; }
+.cp-stat-trend { font-size: 10.5px; font-weight: 600; display: flex; align-items: center; gap: 3px; margin-top: 3px; }
+.cp-trend-up { color: #16A34A; }
+.cp-trend-down { color: #DC2626; }
 .cp-trend-neutral { color: #64748B; }
 
 /* Filter row */

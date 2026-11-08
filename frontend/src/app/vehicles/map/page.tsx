@@ -18,7 +18,7 @@ declare global {
 declare var L: any;
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
 .vm-shell{display:flex;min-height:100vh;background:#F3F4F9;font-family:Inter,sans-serif;}
 .vm-main{margin-left:240px;display:flex;flex-direction:column;min-height:100vh;width:calc(100% - 240px);}
 .vm-page{flex:1;padding:0 28px 60px; background-color:#FFF;}
@@ -40,19 +40,17 @@ const CSS = `
 .vm-hdr-btn{display:flex;align-items:center;gap:7px;padding:9px 16px;background:#fff;border:1.5px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;font-family:inherit;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;}
 .vm-hdr-btn:hover{border-color:#2A195C;color:#2A195C;}
 
-/* Stats cards (6 in a row) */
-.vm-stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
-.vm-stat-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
-.vm-stat-ic{width:36px;height:36px;border-radius:8px;background:#F5F3FF;color:#2A195C;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.vm-stat-info{min-width:0;flex:1;}
-.vm-stat-lbl{font-size:10.5px;color:#9CA3AF;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:5px;}
-.vm-stat-val{font-size:18px;font-weight:800;color:#111827;line-height:1;}
-.vm-dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
-.vm-dot.online{background:#10B981;}
-.vm-dot.in_ride{background:#2A195C;}
-.vm-dot.offline{background:#9CA3AF;}
-.vm-dot.low_bat{background:#F59E0B;}
-.vm-dot.locked{background:#EF4444;}
+/* Stats cards (matches .vl-stat-card) */
+.vm-stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
+@media (max-width: 1200px) { .vm-stats-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 768px) { .vm-stats-row { grid-template-columns: 1fr; } }
+.vm-stat-card { background: #fff; border: 1.5px solid #F1F5F9; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.03); transition: transform .15s, box-shadow .15s; }
+.vm-stat-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.06); }
+.vm-stat-ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vm-stat-info { min-width: 0; flex: 1; }
+.vm-stat-lbl { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+.vm-stat-val { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #0F172A; line-height: 1.1; }
+.vm-stat-trend { font-size: 10.5px; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 3px; }
 
 /* Main Map + Panel Layout grid */
 .vm-layout-grid{display:grid;grid-template-columns:1fr 310px;gap:20px;margin-bottom:20px;align-items:start;}
@@ -360,6 +358,11 @@ const IVolumeX  = () => <Sv><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/
 const IDots     = () => <Sv><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></Sv>;
 const IShield   = () => <Sv><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></Sv>;
 const IBarChart = ({ s = 14 }: { s?: number }) => <Sv s={s}><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></Sv>;
+const ICheckCircle = ({ s = 18 }: { s?: number }) => <Sv s={s}><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></Sv>;
+const IRide        = ({ s = 18 }: { s?: number }) => <Sv s={s}><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></Sv>;
+const IBattery     = ({ s = 18 }: { s?: number }) => <Sv s={s}><rect x="2" y="7" width="16" height="10" rx="2" /><line x1="22" y1="11" x2="22" y2="13" /></Sv>;
+const IWrench      = ({ s = 18 }: { s?: number }) => <Sv s={s}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></Sv>;
+const IOffline     = ({ s = 18 }: { s?: number }) => <Sv s={s}><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><circle cx="12" cy="20" r="1"/></Sv>;
 
 const formatElapsed = (secs: number) => {
   const m = String(Math.floor(secs / 60)).padStart(2, '0');
@@ -426,12 +429,12 @@ export default function VehicleMapPage() {
     const maintenance = list.filter(v => v.status === 'Maintenance').length;
     const offline = list.filter(v => v.status === 'Offline').length;
     return [
-      { lbl: 'Total Vehicles', val: total, ic: <IScooter s={16}/> },
-      { lbl: 'Available', val: available, dot: 'online' },
-      { lbl: 'In Ride', val: inRide, dot: 'in_ride' },
-      { lbl: 'Low Battery', val: lowBat, dot: 'low_bat' },
-      { lbl: 'Maintenance', val: maintenance, dot: 'locked' },
-      { lbl: 'Offline', val: offline, dot: 'offline' }
+      { lbl: 'TOTAL VEHICLES', val: total, trend: 'Tracked on Map', ic: <IScooter s={18}/>, bg: '#2A195C', clr: '#16A34A' },
+      { lbl: 'AVAILABLE', val: available, trend: 'Ready For Ride', ic: <ICheckCircle s={18}/>, bg: '#10B981', clr: '#16A34A' },
+      { lbl: 'IN RIDE', val: inRide, trend: 'Live Road Trips', ic: <IRide s={18}/>, bg: '#3B82F6', clr: '#16A34A' },
+      { lbl: 'LOW BATTERY', val: lowBat, trend: '<20% Charge', ic: <IBattery s={18}/>, bg: '#F59E0B', clr: '#D97706' },
+      { lbl: 'MAINTENANCE', val: maintenance, trend: 'Under Inspection', ic: <IWrench s={18}/>, bg: '#EF4444', clr: '#DC2626' },
+      { lbl: 'OFFLINE', val: offline, trend: 'Depot Idle', ic: <IOffline s={18}/>, bg: '#64748B', clr: '#64748B' }
     ];
   }, [activeEvList]);
 
@@ -952,12 +955,15 @@ export default function VehicleMapPage() {
             <div className="vm-stats-row">
               {stats.map(s => (
                 <div className="vm-stat-card" key={s.lbl}>
-                  <div className="vm-stat-ic">
-                    {s.ic ? s.ic : <div className={`vm-dot ${s.dot}`}/>}
+                  <div className="vm-stat-ic" style={{ background: s.bg, color: '#fff' }}>
+                    {s.ic}
                   </div>
                   <div className="vm-stat-info">
                     <div className="vm-stat-lbl">{s.lbl}</div>
                     <div className="vm-stat-val">{s.val}</div>
+                    <div className="vm-stat-trend" style={{ color: s.clr }}>
+                      <span style={{ fontSize: 8 }}>▲</span> {s.trend}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -198,7 +198,6 @@ const SUPER_ADMIN_NAV: NavGroup[] = [
       { label: 'Map', href: '/vehicles/map' },
       { label: 'Active Rides', href: '/vehicles/active' },
       { label: 'History', href: '/vehicles/history' },
-      { label: 'Vehicle Details', href: '/vehicles/detail' },
     ]
   },
   {

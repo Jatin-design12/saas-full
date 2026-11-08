@@ -23,20 +23,21 @@ const CSS = `
 .pw-btn-primary { background: #6366F1; color: #fff; border-color: #6366F1; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
 .pw-btn-primary:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
 
-/* Stat Cards Grid */
-.pw-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.pw-sc { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.02); transition: all .15s; }
-.pw-sc:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.04); border-color: #CBD5E1; }
-.pw-sc-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
-.pw-sc-ic { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.pw-sc-tit { font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.04em; }
-.pw-sc-val { font-size: 26px; font-weight: 800; color: #0F172A; line-height: 1.1; margin: 10px 0 4px; font-family: 'Outfit', sans-serif; }
-.pw-sc-sub { font-size: 11px; color: #64748B; font-weight: 600; }
+/* Stat Cards Grid (matches .vl-stat-card) */
+.pw-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 4px; }
+@media (max-width: 1024px) { .pw-stats { grid-template-columns: repeat(2, 1fr); } }
+.pw-sc { background: #fff; border: 1.5px solid #F1F5F9; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.03); transition: transform .15s, box-shadow .15s; }
+.pw-sc:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.06); }
+.pw-sc-ic { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.pw-sc-info { min-width: 0; flex: 1; }
+.pw-sc-tit { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+.pw-sc-val { font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 800; color: #0F172A; line-height: 1.1; }
+.pw-sc-sub { font-size: 10.5px; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 3px; }
 
-.ic-purple { background: #EEF2FF; color: #6366F1; }
-.ic-green { background: #ECFDF5; color: #10B981; }
-.ic-orange { background: #FFF7ED; color: #F97316; }
-.ic-blue { background: #EFF6FF; color: #2563EB; }
+.ic-purple { background: #2A195C; color: #fff; }
+.ic-green { background: #10B981; color: #fff; }
+.ic-orange { background: #F59E0B; color: #fff; }
+.ic-blue { background: #3B82F6; color: #fff; }
 
 /* Tabs & Container Card */
 .pw-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.02); overflow: hidden; display: flex; flex-direction: column; }
@@ -185,50 +186,50 @@ export default function PaymentWalletPage() {
             </div>
           </div>
 
-          {/* Stat Cards */}
+          {/* Stat Cards (matches .vl-stat-card) */}
           <div className="pw-stats">
             <div className="pw-sc">
-              <div className="pw-sc-top">
-                <span className="pw-sc-tit">Total Wallet Balance</span>
-                <div className="pw-sc-ic ic-purple">
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                </div>
+              <div className="pw-sc-ic ic-purple">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
               </div>
-              <div className="pw-sc-val">₹{totalMainBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-              <div className="pw-sc-sub">User deposited wallet float</div>
+              <div className="pw-sc-info">
+                <div className="pw-sc-tit">TOTAL WALLET BALANCE</div>
+                <div className="pw-sc-val">₹{totalMainBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                <div className="pw-sc-sub" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> Deposited Float</div>
+              </div>
             </div>
 
             <div className="pw-sc">
-              <div className="pw-sc-top">
-                <span className="pw-sc-tit">Total Bonus Distributed</span>
-                <div className="pw-sc-ic ic-green">
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
+              <div className="pw-sc-ic ic-green">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <div className="pw-sc-val">₹{totalBonusBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-              <div className="pw-sc-sub">Promotional bonus pool</div>
+              <div className="pw-sc-info">
+                <div className="pw-sc-tit">BONUS DISTRIBUTED</div>
+                <div className="pw-sc-val">₹{totalBonusBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                <div className="pw-sc-sub" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> Promotional Pool</div>
+              </div>
             </div>
 
             <div className="pw-sc">
-              <div className="pw-sc-top">
-                <span className="pw-sc-tit">Active Wallet Users</span>
-                <div className="pw-sc-ic ic-orange">
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                </div>
+              <div className="pw-sc-ic ic-orange">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               </div>
-              <div className="pw-sc-val">{users.length}</div>
-              <div className="pw-sc-sub">Registered EV riders with wallet</div>
+              <div className="pw-sc-info">
+                <div className="pw-sc-tit">ACTIVE WALLET USERS</div>
+                <div className="pw-sc-val">{users.length}</div>
+                <div className="pw-sc-sub" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> Registered EV Riders</div>
+              </div>
             </div>
 
             <div className="pw-sc">
-              <div className="pw-sc-top">
-                <span className="pw-sc-tit">Total Transactions</span>
-                <div className="pw-sc-ic ic-blue">
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                </div>
+              <div className="pw-sc-ic ic-blue">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
               </div>
-              <div className="pw-sc-val">{transactions.length}</div>
-              <div className="pw-sc-sub">Live credit/debit transaction records</div>
+              <div className="pw-sc-info">
+                <div className="pw-sc-tit">TOTAL TRANSACTIONS</div>
+                <div className="pw-sc-val">{transactions.length}</div>
+                <div className="pw-sc-sub" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> Platform Records</div>
+              </div>
             </div>
           </div>
 

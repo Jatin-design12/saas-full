@@ -498,11 +498,12 @@ export default function BatteryListPage() {
           background: #3B2382;
         }
 
-        /* KPI Cards */
+        /* KPI Cards (matches .vl-stat-card) */
         .kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 14px;
+          gap: 12px;
+          margin-bottom: 20px;
         }
 
         @media (max-width: 1200px) {
@@ -519,29 +520,30 @@ export default function BatteryListPage() {
 
         .kpi-card {
           background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 12px;
+          border: 1.5px solid #F1F5F9;
+          border-radius: 14px;
           padding: 14px 16px;
           display: flex;
           align-items: center;
           gap: 14px;
-          box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
           transition: transform 0.15s, box-shadow 0.15s;
         }
 
         .kpi-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
         .kpi-icon-wrap {
-          width: 44px;
-          height: 44px;
+          width: 40px;
+          height: 40px;
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          color: #fff;
         }
 
         .kpi-content {
@@ -550,26 +552,30 @@ export default function BatteryListPage() {
         }
 
         .kpi-label {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           color: #64748B;
           text-transform: uppercase;
-          letter-spacing: 0.03em;
+          letter-spacing: .06em;
+          margin-bottom: 2px;
         }
 
         .kpi-value {
           font-family: 'Outfit', sans-serif;
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 800;
           color: #0F172A;
           line-height: 1.1;
-          margin: 2px 0 1px;
         }
 
         .kpi-hint {
-          font-size: 11px;
-          color: #94A3B8;
-          font-weight: 500;
+          font-size: 10.5px;
+          color: #16A34A;
+          font-weight: 600;
+          margin-top: 3px;
+          display: flex;
+          align-items: center;
+          gap: 3px;
         }
 
         /* Filter Panel */
@@ -860,72 +866,72 @@ export default function BatteryListPage() {
               </div>
             </div>
 
-            {/* Top KPI Cards */}
+            {/* Top KPI Cards (matches .vl-stat-card) */}
             <div className="kpi-grid">
               <div className="kpi-card">
-                <div className="kpi-icon-wrap" style={{ background: '#FAF5FF', color: '#7C3AED', border: '1px solid #E9D5FF' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <div className="kpi-icon-wrap" style={{ background: '#2A195C', color: '#fff' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <rect x="2" y="7" width="16" height="10" rx="2" />
                     <line x1="22" y1="11" x2="22" y2="13" />
                   </svg>
                 </div>
                 <div className="kpi-content">
-                  <div className="kpi-label">Total Inventory</div>
+                  <div className="kpi-label">TOTAL INVENTORY</div>
                   <div className="kpi-value">{dbStats.total}</div>
-                  <div className="kpi-hint">Monitored BMS Packs</div>
+                  <div className="kpi-hint" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> Monitored Packs</div>
                 </div>
               </div>
 
               <div className="kpi-card">
-                <div className="kpi-icon-wrap" style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <div className="kpi-icon-wrap" style={{ background: '#10B981', color: '#fff' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
                 <div className="kpi-content">
-                  <div className="kpi-label">Available for Swap</div>
+                  <div className="kpi-label">READY FOR SWAP</div>
                   <div className="kpi-value">{dbStats.available}</div>
-                  <div className="kpi-hint">&gt; 90% SoC Ready</div>
+                  <div className="kpi-hint" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> &gt; 90% SoC Ready</div>
                 </div>
               </div>
 
               <div className="kpi-card">
-                <div className="kpi-icon-wrap" style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <div className="kpi-icon-wrap" style={{ background: '#3B82F6', color: '#fff' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
                 </div>
                 <div className="kpi-content">
-                  <div className="kpi-label">In Active Use</div>
+                  <div className="kpi-label">IN ACTIVE USE</div>
                   <div className="kpi-value">{dbStats.in_use}</div>
-                  <div className="kpi-hint">In Fleet Scooters</div>
+                  <div className="kpi-hint" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> On Road Fleet</div>
                 </div>
               </div>
 
               <div className="kpi-card">
-                <div className="kpi-icon-wrap" style={{ background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <div className="kpi-icon-wrap" style={{ background: '#F59E0B', color: '#fff' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
                 </div>
                 <div className="kpi-content">
-                  <div className="kpi-label">Dock Charging</div>
+                  <div className="kpi-label">DOCK CHARGING</div>
                   <div className="kpi-value">{dbStats.charging}</div>
-                  <div className="kpi-hint">Fast Charging Bays</div>
+                  <div className="kpi-hint" style={{ color: '#D97706' }}><span style={{ fontSize: 8 }}>▲</span> Charging Bays</div>
                 </div>
               </div>
 
               <div className="kpi-card">
-                <div className="kpi-icon-wrap" style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <div className="kpi-icon-wrap" style={{ background: '#059669', color: '#fff' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                   </svg>
                 </div>
                 <div className="kpi-content">
-                  <div className="kpi-label">Average Health (SOH)</div>
+                  <div className="kpi-label">AVG HEALTH (SOH)</div>
                   <div className="kpi-value">{dbStats.avg_soh}%</div>
-                  <div className="kpi-hint">Fleet SOH Score</div>
+                  <div className="kpi-hint" style={{ color: '#16A34A' }}><span style={{ fontSize: 8 }}>▲</span> Fleet SOH Score</div>
                 </div>
               </div>
             </div>
