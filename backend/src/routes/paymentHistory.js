@@ -12,6 +12,17 @@ const cleanMob = (m) => (m || '').replace(/\D/g, '').slice(-10);
  */
 router.get('/', async (req, res) => {
   try {
+    // Background purge of abandoned pending transactions older than 30 minutes without booking
+    db.query(`
+      DELETE FROM payu_payments
+      WHERE UPPER(status) = 'PENDING'
+        AND created_at < NOW() - INTERVAL '30 minutes'
+        AND NOT EXISTS (SELECT 1 FROM reservations r WHERE r.transaction_id = payu_payments.tx_id OR r.reservation_id = payu_payments.reservation_id)
+        AND NOT EXISTS (SELECT 1 FROM renters rn WHERE rn.transaction_id = payu_payments.tx_id OR rn.id::text = payu_payments.reservation_id);
+      DELETE FROM payu_payments WHERE mobile LIKE '%1800%' OR mobile LIKE '%1820%';
+      DELETE FROM icici_payments WHERE mobile LIKE '%1800%' OR mobile LIKE '%1820%';
+    `).catch(() => {});
+
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const offset = (page - 1) * limit;
@@ -54,11 +65,13 @@ router.get('/', async (req, res) => {
           ip.created_at
         FROM icici_payments ip
         LEFT JOIN reservations r ON (r.transaction_id = ip.tx_id OR r.reservation_id = ip.reservation_id)
+        LEFT JOIN renters rn ON (rn.transaction_id = ip.tx_id OR rn.id::text = ip.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ip.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE ip.mobile NOT LIKE '%1800%'
           AND ip.mobile NOT LIKE '%1820%'
           AND NOT (
             UPPER(ip.status) = 'PENDING'
             AND r.id IS NULL
+            AND rn.id IS NULL
           )
 
         UNION ALL
@@ -93,6 +106,7 @@ router.get('/', async (req, res) => {
           pp.created_at
         FROM payu_payments pp
         LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
+        LEFT JOIN renters rn ON (rn.transaction_id = pp.tx_id OR rn.id::text = pp.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(pp.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
@@ -101,6 +115,11 @@ router.get('/', async (req, res) => {
           AND NOT (
             UPPER(pp.status) = 'PENDING'
             AND r.id IS NULL
+            AND rn.id IS NULL
+          )
+          AND NOT (
+            COALESCE(pp.rider_name, '') IN ('Rider', 'Evegah Rider')
+            AND (pp.mobile LIKE '%1800%' OR pp.mobile LIKE '%1820%' OR pp.mobile = '')
           )
           AND NOT EXISTS (
             SELECT 1 FROM payu_payments p_newer 
@@ -554,14 +573,20 @@ router.get('/export', async (req, res) => {
           pp.created_at
         FROM payu_payments pp
         LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
+        LEFT JOIN renters rn ON (rn.transaction_id = pp.tx_id OR rn.id::text = pp.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(pp.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
           AND pp.mobile NOT LIKE '%1800%'
+          AND pp.mobile NOT LIKE '%1820%'
           AND NOT (
             UPPER(pp.status) = 'PENDING'
-            AND pp.rider_name IN ('Rider', 'Evegah Rider')
             AND r.id IS NULL
+            AND rn.id IS NULL
+          )
+          AND NOT (
+            COALESCE(pp.rider_name, '') IN ('Rider', 'Evegah Rider')
+            AND (pp.mobile LIKE '%1800%' OR pp.mobile LIKE '%1820%' OR pp.mobile = '')
           )
           AND NOT EXISTS (
             SELECT 1 FROM payu_payments p_newer 

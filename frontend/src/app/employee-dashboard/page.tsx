@@ -55,6 +55,38 @@ export default function EmployeeDashboard() {
   const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOverdueRide, setSelectedOverdueRide] = useState<ActiveRide | null>(null);
+  const [draftApplications, setDraftApplications] = useState<any[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
+
+  const fetchDrafts = async () => {
+    try {
+      setLoadingDrafts(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${apiUrl}/drafts`);
+      const data = await res.json();
+      if (data && data.status === 'success' && Array.isArray(data.drafts)) {
+        setDraftApplications(data.drafts);
+      }
+    } catch (err) {
+      console.error('Error fetching drafts:', err);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  };
+
+  const handleDeleteDraft = async (draftId: string) => {
+    if (!confirm(`Are you sure you want to discard draft application ${draftId}?`)) return;
+    try {
+      setDeletingDraftId(draftId);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      await fetch(`${apiUrl}/drafts/${draftId}`, { method: 'DELETE' });
+      setDraftApplications(prev => prev.filter(d => d.draft_id !== draftId));
+    } catch (_) {}
+    finally {
+      setDeletingDraftId(null);
+    }
+  };
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Cash' | 'ICICI Link'>('UPI');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
@@ -743,6 +775,254 @@ export default function EmployeeDashboard() {
                 <div style={{ fontSize: '14px', fontWeight: 800, color: '#6366F1', marginTop: '2px' }}>96.4% Operational</div>
               </div>
             </div>
+          </div>
+
+          {/* Section 2.5: Draft Applications (24-Hour Expiration) Table */}
+          <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '18px', padding: '22px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1E1548', margin: 0 }}>
+                    Draft Applications
+                  </h3>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#4F46E5', background: '#EEF2FF', padding: '2px 8px', borderRadius: '12px', border: '1px solid #C7D2FE' }}>
+                    Auto-expires in 24 Hours
+                  </span>
+                </div>
+                <p style={{ fontSize: '12.5px', color: '#64748B', margin: '4px 0 0 0' }}>
+                  Incomplete new ride registrations saved by staff. Resume within 24 hours to finalize vehicle allocation without re-entering details.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={fetchDrafts}
+                  disabled={loadingDrafts}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #E2E8F0',
+                    background: '#F8FAFC',
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: loadingDrafts ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                  title="Refresh draft applications"
+                >
+                  🔄 {loadingDrafts ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <Link
+                  href="/new-rider"
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: '10px',
+                    background: '#2A195C',
+                    color: '#FFFFFF',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  + New Registration
+                </Link>
+              </div>
+            </div>
+
+            {draftApplications.length === 0 ? (
+              <div style={{ padding: '36px 20px', textAlign: 'center', background: '#F8FAFC', borderRadius: '14px', border: '1px dashed #CBD5E1' }}>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
+                <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  No Draft Applications Pending
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#64748B', maxWidth: '420px', margin: '0 auto 16px' }}>
+                  When you save an ongoing rider onboarding from the New Ride registration flow, it will appear here for 24 hours.
+                </div>
+                <Link
+                  href="/new-rider"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 18px',
+                    borderRadius: '10px',
+                    background: '#6366F1',
+                    color: '#FFFFFF',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    textDecoration: 'none'
+                  }}
+                >
+                  Start New Registration &rarr;
+                </Link>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', borderBottom: '1.5px solid #E2E8F0', color: '#64748B', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>
+                      <th style={{ padding: '12px 16px' }}>Draft Ref</th>
+                      <th style={{ padding: '12px 16px' }}>Rider / Customer</th>
+                      <th style={{ padding: '12px 16px' }}>Saved Step &amp; Progress</th>
+                      <th style={{ padding: '12px 16px' }}>Vehicle / Plan</th>
+                      <th style={{ padding: '12px 16px' }}>Saved At</th>
+                      <th style={{ padding: '12px 16px' }}>Time Remaining</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draftApplications.map((draft) => {
+                      const minutesLeft = draft.minutes_remaining ?? Math.max(0, Math.round((new Date(draft.expires_at).getTime() - Date.now()) / 60000));
+                      const hoursLeft = Math.floor(minutesLeft / 60);
+                      const minsLeftRem = minutesLeft % 60;
+                      const timeRemainingStr = hoursLeft > 0 ? `${hoursLeft}h ${minsLeftRem}m left` : `${minsLeftRem}m left`;
+                      const isUrgent = hoursLeft < 3;
+                      const isWarning = hoursLeft < 8;
+
+                      const stepMap: Record<number, string> = {
+                        1: '/new-rider',
+                        2: '/new-rider/rental',
+                        3: '/new-rider/payment',
+                        4: '/new-rider/documents',
+                        5: '/new-rider/review'
+                      };
+                      const resumeUrl = `${stepMap[draft.current_step] || '/new-rider'}?draftId=${draft.draft_id}`;
+
+                      const vehiclePlanStr = draft.form_data?.rental?.model 
+                        ? `${draft.form_data.rental.model} • ${draft.form_data.rental.package_name || draft.form_data.rental.plan_name || 'Pass'}`
+                        : draft.form_data?.rental?.package_name || 'Plan not selected yet';
+
+                      return (
+                        <tr
+                          key={draft.draft_id}
+                          style={{
+                            borderBottom: '1px solid #F1F5F9',
+                            transition: 'background 0.15s'
+                          }}
+                        >
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontFamily: 'monospace', fontWeight: 800, color: '#1E1548', fontSize: '13px' }}>
+                              {draft.draft_id}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                              by {draft.created_by || 'Staff'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontWeight: 700, color: '#0F172A' }}>
+                              {draft.rider_name || 'Draft Rider'}
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: '#64748B' }}>
+                              {draft.mobile ? `+91 ${draft.mobile.replace(/\D/g, '').slice(-10)}` : 'No mobile saved'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                background: '#EDE9FE',
+                                color: '#5B21B6'
+                              }}>
+                                Step {draft.current_step} of 5
+                              </span>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                                {draft.step_name || 'KYC Verification'}
+                              </span>
+                            </div>
+                            <div style={{ width: '120px', height: '4px', background: '#E2E8F0', borderRadius: '4px', marginTop: '6px', overflow: 'hidden' }}>
+                              <div style={{ width: `${(draft.current_step / 5) * 100}%`, height: '100%', background: '#6366F1' }} />
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                              {vehiclePlanStr}
+                            </div>
+                            {draft.form_data?.rental?.zone && (
+                              <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                                Zone: {draft.form_data.rental.zone}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '12px', color: '#64748B' }}>
+                            {new Date(draft.updated_at || draft.created_at).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              background: isUrgent ? '#FEF2F2' : isWarning ? '#FFFBEB' : '#ECFDF5',
+                              color: isUrgent ? '#DC2626' : isWarning ? '#D97706' : '#059669',
+                              border: `1px solid ${isUrgent ? '#FECACA' : isWarning ? '#FDE68A' : '#A7F3D0'}`
+                            }}>
+                              ⏳ {timeRemainingStr}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                              <Link
+                                href={resumeUrl}
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '8px',
+                                  background: '#2A195C',
+                                  color: '#FFFFFF',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  textDecoration: 'none',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                ▶ Resume
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDraft(draft.draft_id)}
+                                disabled={deletingDraftId === draft.draft_id}
+                                style={{
+                                  padding: '6px 10px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #FECACA',
+                                  background: '#FEF2F2',
+                                  color: '#DC2626',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: deletingDraftId === draft.draft_id ? 'wait' : 'pointer'
+                                }}
+                                title="Discard draft"
+                              >
+                                {deletingDraftId === draft.draft_id ? '...' : '🗑 Discard'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Section 3: Overdue Rides & Payment Collection Table */}

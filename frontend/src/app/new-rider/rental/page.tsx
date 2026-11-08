@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { saveDraft, loadDraft } from '@/utils/drafts';
 
 /* ──────────────────────────────────────────────────────────────
    STEP 2 · RENTAL DETAILS — pixel-perfect
@@ -512,6 +513,9 @@ export default function RentalDetailsPage() {
   const [returnDate, setReturnDate] = useState('');
   const [returnTime, setReturnTime] = useState(getCurrentTimeFormatted());
   const [totalDays, setTotalDays] = useState(1);
+  const [activeDraft, setActiveDraft] = useState<any>(null);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState<boolean>(false);
 
   // Handle direct zone switch from on-page dropdown or header
   const handleZoneChange = (zoneName: string) => {
@@ -779,6 +783,37 @@ export default function RentalDetailsPage() {
     setReturnTime(startTime);
   }, [startDate, startTime, selectedPackage]);
 
+  
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    const rentalData = {
+      zone: selectedZone?.name || activeZoneName,
+      zone_id: selectedZone?.id,
+      model: selectedModelName,
+      vehicle_id: selectedVehicleCode,
+      vehicle_name: selectedVehicle?.vehicle_name || selectedVehicleCode,
+      battery_id: selectedBatteryId,
+      package_name: selectedPackage?.name,
+      plan_name: selectedPackage?.name,
+      plan_price: selectedPackage?.price,
+      deposit_amount: selectedPackage?.deposit,
+      start_date: startDate,
+      start_time: startTime,
+      return_date: returnDate,
+      return_time: returnTime,
+      total_days: totalDays
+    };
+    const res = await saveDraft(2, 'Rental Details', { rental: rentalData });
+    setSavingDraft(false);
+    if (res.success && res.draft) {
+      setActiveDraft(res.draft);
+      setSaveSuccessMsg(`Draft saved! (Ref: ${res.draft.draft_id}) Preserved in Employee Dashboard for 24 hours.`);
+      setTimeout(() => setSaveSuccessMsg(null), 6000);
+    } else {
+      alert(res.message || 'Failed to save draft.');
+    }
+  };
+
   const handleNextStep = () => {
     if (!selectedVehicleCode) {
       alert(`No available vehicle in ${selectedZone?.name || 'this zone'} for ${selectedModelName}. Please choose another model or change zone.`);
@@ -839,8 +874,75 @@ export default function RentalDetailsPage() {
                 <h1 className="nr-h1">New Ride Registration</h1>
                 <p className="nr-sub">Register a new ride for assigned zone ({selectedZone?.name || 'Gotri Zone'})</p>
               </div>
-              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={savingDraft}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #6366F1',
+                    background: '#EEF2FF',
+                    color: '#4F46E5',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: savingDraft ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Save draft for 24 hours"
+                >
+                  💾 {savingDraft ? 'Saving...' : 'Save Draft'}
+                </button>
+                <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
+              </div>
             </div>
+
+            {/* Draft & Success Banners */}
+            {activeDraft && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: '14px',
+                color: '#92400E',
+                fontSize: '13px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>📄</span>
+                  <span>
+                    <strong>Resuming Draft Application:</strong> Ref <code>{activeDraft.draft_id}</code> &bull; Rider: <strong>{activeDraft.rider_name || 'Draft'}</strong> &bull; Auto-expires in {activeDraft.hours_remaining ? `${activeDraft.hours_remaining}h` : '24h'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {saveSuccessMsg && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: '14px',
+                color: '#065F46',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span>✓ {saveSuccessMsg}</span>
+                <button type="button" onClick={() => setSaveSuccessMsg(null)} style={{ background: 'none', border: 'none', color: '#065F46', cursor: 'pointer', fontWeight: 800 }}>✕</button>
+              </div>
+            )}
 
             {/* Stepper */}
             <div className="nr-stepper">
@@ -1090,7 +1192,30 @@ export default function RentalDetailsPage() {
 
                 {/* Footer */}
                 <div className="nr-footer-actions">
-                  <Link href="/new-rider" className="nr-prev-btn"><ILeft /> Previous</Link>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Link href="/new-rider" className="nr-prev-btn"><ILeft /> Previous</Link>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft}
+                      style={{
+                        padding: '11px 20px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#334155',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: savingDraft ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Save draft to continue later from Employee Dashboard"
+                    >
+                      💾 {savingDraft ? 'Saving Draft...' : 'Save Draft (24h)'}
+                    </button>
+                  </div>
                   <button
                     className="nr-continue-btn"
                     type="button"

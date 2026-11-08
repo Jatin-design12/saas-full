@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { saveDraft, loadDraft } from '@/utils/drafts';
 import { api } from '@/lib/api';
 
 /* ──────────────────────────────────────────────────────────────
@@ -921,6 +922,9 @@ export default function PaymentPage() {
   // In-page PayU Popup Modal state
   const [showPayuPopup, setShowPayuPopup] = useState(false);
   const [popupCheckoutUrl, setPopupCheckoutUrl] = useState('');
+  const [activeDraft, setActiveDraft] = useState<any>(null);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState<boolean>(false);
 
   // Form data from previous steps (loaded synchronously so first PayU initiate call has actual rider details)
   const [rentalData, setRentalData] = useState<any>(() => {
@@ -1251,6 +1255,36 @@ export default function PaymentPage() {
     return false;
   };
 
+  
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    const paymentData = {
+      pay_method: payMethod,
+      coupon: couponApplied ? coupon : '',
+      discount,
+      deposit,
+      gst: 0,
+      base_rent: baseRent,
+      subtotal: baseRent,
+      total_payable: totalPayable,
+      cash_amount: payMethod === 'split' ? clampedCash : (payMethod === 'cash' ? totalPayable : 0),
+      online_amount: payMethod === 'split' ? onlineAmount : (payMethod === 'payu' ? totalPayable : 0),
+      staff_collector: staffCollector,
+      cash_receipt: cashReceipt,
+      payu_tx_id: payMethod === 'split' ? splitMerchantTranId : payuTxId,
+      payu_verified: payuVerified,
+    };
+    const res = await saveDraft(3, 'Payment & Charges', { payment: paymentData });
+    setSavingDraft(false);
+    if (res.success && res.draft) {
+      setActiveDraft(res.draft);
+      setSaveSuccessMsg(`Draft saved! (Ref: ${res.draft.draft_id}) Preserved in Employee Dashboard for 24 hours.`);
+      setTimeout(() => setSaveSuccessMsg(null), 6000);
+    } else {
+      alert(res.message || 'Failed to save draft.');
+    }
+  };
+
   const handleNextStep = () => {
     if (!canContinue()) return;
     const paymentData = {
@@ -1297,8 +1331,75 @@ export default function PaymentPage() {
                 <h1 className="nr-h1">New Ride Registration</h1>
                 <p className="nr-sub">Register a new ride for the rider</p>
               </div>
-              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={savingDraft}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #6366F1',
+                    background: '#EEF2FF',
+                    color: '#4F46E5',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: savingDraft ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Save draft for 24 hours"
+                >
+                  💾 {savingDraft ? 'Saving...' : 'Save Draft'}
+                </button>
+                <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
+              </div>
             </div>
+
+            {/* Draft & Success Banners */}
+            {activeDraft && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: '14px',
+                color: '#92400E',
+                fontSize: '13px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>📄</span>
+                  <span>
+                    <strong>Resuming Draft Application:</strong> Ref <code>{activeDraft.draft_id}</code> &bull; Rider: <strong>{activeDraft.rider_name || 'Draft'}</strong> &bull; Auto-expires in {activeDraft.hours_remaining ? `${activeDraft.hours_remaining}h` : '24h'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {saveSuccessMsg && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: '14px',
+                color: '#065F46',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span>✓ {saveSuccessMsg}</span>
+                <button type="button" onClick={() => setSaveSuccessMsg(null)} style={{ background: 'none', border: 'none', color: '#065F46', cursor: 'pointer', fontWeight: 800 }}>✕</button>
+              </div>
+            )}
 
             {/* Stepper */}
             <div className="nr-stepper">
@@ -1483,7 +1584,30 @@ export default function PaymentPage() {
 
                 {/* Footer Actions */}
                 <div className="nr-footer-actions">
-                  <Link href="/new-rider/rental" className="nr-prev-btn"><ILeft /> Previous</Link>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Link href="/new-rider/rental" className="nr-prev-btn"><ILeft /> Previous</Link>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft}
+                      style={{
+                        padding: '11px 20px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#334155',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: savingDraft ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Save draft to continue later from Employee Dashboard"
+                    >
+                      💾 {savingDraft ? 'Saving Draft...' : 'Save Draft (24h)'}
+                    </button>
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     {!canContinue() && (payMethod === 'payu' || payMethod === 'split') && (
                       <button

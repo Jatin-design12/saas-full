@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { saveDraft, loadDraft, deleteDraft } from '@/utils/drafts';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -340,6 +341,9 @@ function RightPanel({ rentalData, paymentData }: { rentalData: any; paymentData?
 export default function ReviewPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [activeDraft, setActiveDraft] = useState<any>(null);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState<boolean>(false);
   const [kycData, setKycData] = useState<any>({});
   const [rentalData, setRentalData] = useState<any>({});
   const [paymentData, setPaymentData] = useState<any>({});
@@ -379,6 +383,20 @@ export default function ReviewPage() {
       if (vrt) setVehRight(vrt);
     } catch (e) {}
   }, []);
+
+  
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    const res = await saveDraft(5, 'Review & Confirm');
+    setSavingDraft(false);
+    if (res.success && res.draft) {
+      setActiveDraft(res.draft);
+      setSaveSuccessMsg(`Draft saved! (Ref: ${res.draft.draft_id}) Preserved in Employee Dashboard for 24 hours.`);
+      setTimeout(() => setSaveSuccessMsg(null), 6000);
+    } else {
+      alert(res.message || 'Failed to save draft.');
+    }
+  };
 
   const handleConfirmSubmit = async () => {
     const riderName = (kycData.fullName || kycData.name || '').trim();
@@ -472,6 +490,11 @@ export default function ReviewPage() {
         localStorage.removeItem('evegah_veh_rear');
         localStorage.removeItem('evegah_veh_left');
         localStorage.removeItem('evegah_veh_right');
+        const activeDraftId = localStorage.getItem('evegah_active_draft_id');
+        if (activeDraftId) {
+          deleteDraft(activeDraftId).catch(() => {});
+          localStorage.removeItem('evegah_active_draft_id');
+        }
       } catch (e) {}
 
     } catch (e: any) {
@@ -530,6 +553,50 @@ export default function ReviewPage() {
                 </Link>
               </div>
             </div>
+
+            {/* Draft & Success Banners */}
+            {activeDraft && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: '14px',
+                color: '#92400E',
+                fontSize: '13px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>📄</span>
+                  <span>
+                    <strong>Resuming Draft Application:</strong> Ref <code>{activeDraft.draft_id}</code> &bull; Rider: <strong>{activeDraft.rider_name || 'Draft'}</strong> &bull; Auto-expires in {activeDraft.hours_remaining ? `${activeDraft.hours_remaining}h` : '24h'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {saveSuccessMsg && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: '14px',
+                color: '#065F46',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span>✓ {saveSuccessMsg}</span>
+                <button type="button" onClick={() => setSaveSuccessMsg(null)} style={{ background: 'none', border: 'none', color: '#065F46', cursor: 'pointer', fontWeight: 800 }}>✕</button>
+              </div>
+            )}
 
             {/* Stepper */}
             <div className="nr-stepper">
@@ -780,7 +847,30 @@ export default function ReviewPage() {
 
                 {/* Footer */}
                 <div className="nr-footer-actions">
-                  <Link href="/new-rider/documents" className="nr-prev-btn"><ILeft /> Previous</Link>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Link href="/new-rider/documents" className="nr-prev-btn"><ILeft /> Previous</Link>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft}
+                      style={{
+                        padding: '11px 20px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#334155',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: savingDraft ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Save draft to continue later from Employee Dashboard"
+                    >
+                      💾 {savingDraft ? 'Saving Draft...' : 'Save Draft (24h)'}
+                    </button>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <button
                       className="nr-continue-btn"

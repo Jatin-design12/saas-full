@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import CameraCaptureModal from '@/components/CameraCaptureModal';
+import { saveDraft, loadDraft } from '@/utils/drafts';
 
 /* ──────────────────────────────────────────────────────────────
    STEP 4 · DOCUMENTS — Redesigned Premium Light Theme
@@ -678,6 +680,7 @@ interface DocCardProps {
 }
 function DocCard({ label, sub, defaultImg, storageKey }: DocCardProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -707,49 +710,66 @@ function DocCard({ label, sub, defaultImg, storageKey }: DocCardProps) {
   const hasImage = !!imageSrc;
 
   return (
-    <div className={`doc-card ${hasImage ? 'is-uploaded' : ''}`}>
-      <div className="doc-card-top">
-        <div className="doc-card-icon"><IFile s={16} /></div>
-        <div className="doc-card-icon-text">
-          <div className="doc-card-label">
-            {label}
-            <span style={{ color: 'var(--red)', marginLeft: 3 }}>*</span>
+    <>
+      <div className={`doc-card ${hasImage ? 'is-uploaded' : ''}`}>
+        <div className="doc-card-top">
+          <div className="doc-card-icon"><IFile s={16} /></div>
+          <div className="doc-card-icon-text">
+            <div className="doc-card-label">
+              {label}
+              <span style={{ color: 'var(--red)', marginLeft: 3 }}>*</span>
+            </div>
+            <div className="doc-card-sub">{sub}</div>
           </div>
-          <div className="doc-card-sub">{sub}</div>
+        </div>
+
+        <div className={`doc-preview ${hasImage ? 'has-image' : ''}`}>
+          <img src={imageSrc || defaultImg} alt={label} />
+          {hasImage && (
+            <div className="doc-badge">
+              <ICheck s={9} /> Uploaded
+            </div>
+          )}
+        </div>
+
+        <div className="doc-actions">
+          <label className="doc-btn-upload">
+            <IUpload /> Upload
+            <input type="file" accept="image/*,.pdf" onChange={handleFile} style={{ display: 'none' }} />
+          </label>
+          <button
+            type="button"
+            className="doc-btn-camera"
+            onClick={() => setCameraOpen(true)}
+            style={{ fontFamily: 'inherit', cursor: 'pointer', border: 'none' }}
+          >
+            <ICamera /> Camera
+          </button>
+        </div>
+
+        <div className="doc-footer">
+          <span className={`doc-uploaded ${hasImage ? '' : 'ready'}`}>
+            <ICheck s={11} /> {hasImage ? 'Verified' : 'Awaiting upload'}
+          </span>
+          {hasImage && (
+            <button type="button" onClick={handleClear} className="doc-del">
+              <ITrash s={11} /> Clear
+            </button>
+          )}
         </div>
       </div>
 
-      <div className={`doc-preview ${hasImage ? 'has-image' : ''}`}>
-        <img src={imageSrc || defaultImg} alt={label} />
-        {hasImage && (
-          <div className="doc-badge">
-            <ICheck s={9} /> Uploaded
-          </div>
-        )}
-      </div>
-
-      <div className="doc-actions">
-        <label className="doc-btn-upload">
-          <IUpload /> Upload
-          <input type="file" accept="image/*,.pdf" onChange={handleFile} style={{ display: 'none' }} />
-        </label>
-        <label className="doc-btn-camera">
-          <ICamera /> Camera
-          <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
-        </label>
-      </div>
-
-      <div className="doc-footer">
-        <span className={`doc-uploaded ${hasImage ? '' : 'ready'}`}>
-          <ICheck s={11} /> {hasImage ? 'Verified' : 'Awaiting upload'}
-        </span>
-        {hasImage && (
-          <button type="button" onClick={handleClear} className="doc-del">
-            <ITrash s={11} /> Clear
-          </button>
-        )}
-      </div>
-    </div>
+      <CameraCaptureModal
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        title={`Capture ${label}`}
+        subtitle={sub || 'Align document inside viewfinder and snap photo'}
+        onCapture={(dataUrl) => {
+          setImageSrc(dataUrl);
+          try { localStorage.setItem(storageKey, dataUrl); } catch (e) {}
+        }}
+      />
+    </>
   );
 }
 
@@ -761,6 +781,7 @@ interface VehCardProps {
 }
 function VehCard({ label, defaultImg, storageKey }: VehCardProps) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -790,39 +811,56 @@ function VehCard({ label, defaultImg, storageKey }: VehCardProps) {
   const hasImage = !!imageSrc;
 
   return (
-    <div className={`veh-card ${hasImage ? 'is-uploaded' : ''}`}>
-      <div className="veh-card-label">
-        {label}<span className="veh-card-req">*</span>
-      </div>
-      <div className={`veh-preview ${hasImage ? 'has-image' : ''}`}>
-        <img src={imageSrc || defaultImg} alt={label} />
-        {hasImage && (
-          <div className="doc-badge">
-            <ICheck s={9} /> Uploaded
-          </div>
-        )}
-      </div>
-      <div className="doc-actions">
-        <label className="doc-btn-upload">
-          <IUpload /> Upload
-          <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
-        </label>
-        <label className="doc-btn-camera">
-          <ICamera /> Camera
-          <input type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
-        </label>
-      </div>
-      <div className="veh-footer">
-        <span className={`doc-uploaded ${hasImage ? '' : 'ready'}`}>
-          <ICheck s={11} /> {hasImage ? 'Verified' : 'Awaiting upload'}
-        </span>
-        {hasImage && (
-          <button type="button" onClick={handleClear} className="doc-del">
-            <ITrash s={11} /> Clear
+    <>
+      <div className={`veh-card ${hasImage ? 'is-uploaded' : ''}`}>
+        <div className="veh-card-label">
+          {label}<span className="veh-card-req">*</span>
+        </div>
+        <div className={`veh-preview ${hasImage ? 'has-image' : ''}`}>
+          <img src={imageSrc || defaultImg} alt={label} />
+          {hasImage && (
+            <div className="doc-badge">
+              <ICheck s={9} /> Uploaded
+            </div>
+          )}
+        </div>
+        <div className="doc-actions">
+          <label className="doc-btn-upload">
+            <IUpload /> Upload
+            <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+          </label>
+          <button
+            type="button"
+            className="doc-btn-camera"
+            onClick={() => setCameraOpen(true)}
+            style={{ fontFamily: 'inherit', cursor: 'pointer', border: 'none' }}
+          >
+            <ICamera /> Camera
           </button>
-        )}
+        </div>
+        <div className="veh-footer">
+          <span className={`doc-uploaded ${hasImage ? '' : 'ready'}`}>
+            <ICheck s={11} /> {hasImage ? 'Verified' : 'Awaiting upload'}
+          </span>
+          {hasImage && (
+            <button type="button" onClick={handleClear} className="doc-del">
+              <ITrash s={11} /> Clear
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      <CameraCaptureModal
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        title={`Vehicle Photo (${label})`}
+        subtitle="Align vehicle angle within viewfinder"
+        onCapture={(dataUrl) => {
+          setImageSrc(dataUrl);
+          try { localStorage.setItem(storageKey, dataUrl); } catch (e) {}
+        }}
+      />
+    </>
   );
 }
 
@@ -926,13 +964,37 @@ export default function DocumentsPage() {
   const [agreed, setAgreed] = useState(true);
   const [rentalData, setRentalData] = useState<any>(null);
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [activeDraft, setActiveDraft] = useState<any>(null);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState<boolean>(false);
 
   useEffect(() => {
     try {
       setRentalData(JSON.parse(localStorage.getItem('evegah_new_ride_rental') || '{}'));
       setPaymentData(JSON.parse(localStorage.getItem('evegah_new_ride_payment') || '{}'));
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const draftId = urlParams.get('draftId');
+      if (draftId) {
+        loadDraft(draftId).then((draft) => {
+          if (draft) setActiveDraft(draft);
+        });
+      }
     } catch (e) {}
   }, []);
+
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    const res = await saveDraft(4, 'Documents & Photos');
+    setSavingDraft(false);
+    if (res.success && res.draft) {
+      setActiveDraft(res.draft);
+      setSaveSuccessMsg(`Draft application saved! (Ref: ${res.draft.draft_id}) Preserved in Employee Dashboard for 24 hours.`);
+      setTimeout(() => setSaveSuccessMsg(null), 6000);
+    } else {
+      alert(res.message || 'Failed to save draft application.');
+    }
+  };
 
   return (
     <>
@@ -958,8 +1020,75 @@ export default function DocumentsPage() {
                 <h1 className="nr-h1">New Ride Registration</h1>
                 <p className="nr-sub">Upload documents and complete the final verification</p>
               </div>
-              <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={savingDraft}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #6366F1',
+                    background: '#EEF2FF',
+                    color: '#4F46E5',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: savingDraft ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Save draft for 24 hours"
+                >
+                  💾 {savingDraft ? 'Saving...' : 'Save Draft'}
+                </button>
+                <Link href="/renters" className="nr-back-btn"><ILeft /> Back to Rides</Link>
+              </div>
             </div>
+
+            {/* Draft & Success Banners */}
+            {activeDraft && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: '14px',
+                color: '#92400E',
+                fontSize: '13px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>📄</span>
+                  <span>
+                    <strong>Resuming Draft Application:</strong> Ref <code>{activeDraft.draft_id}</code> &bull; Rider: <strong>{activeDraft.rider_name || 'Draft'}</strong> &bull; Auto-expires in {activeDraft.hours_remaining ? `${activeDraft.hours_remaining}h` : '24h'}
+                  </span>
+                </div>
+              </div>
+            )}
+            {saveSuccessMsg && (
+              <div style={{
+                margin: '0 0 16px',
+                padding: '12px 18px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                borderRadius: '14px',
+                color: '#065F46',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <span>✓ {saveSuccessMsg}</span>
+                <button type="button" onClick={() => setSaveSuccessMsg(null)} style={{ background: 'none', border: 'none', color: '#065F46', cursor: 'pointer', fontWeight: 800 }}>✕</button>
+              </div>
+            )}
 
             {/* Stepper */}
             <div className="nr-stepper">
@@ -1058,7 +1187,30 @@ export default function DocumentsPage() {
 
                 {/* Footer actions */}
                 <div className="nr-footer-actions">
-                  <Link href="/new-rider/payment" className="nr-prev-btn"><ILeft /> Previous</Link>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Link href="/new-rider/payment" className="nr-prev-btn"><ILeft /> Previous</Link>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft}
+                      style={{
+                        padding: '11px 20px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#334155',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: savingDraft ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Save draft to continue later from Employee Dashboard"
+                    >
+                      💾 {savingDraft ? 'Saving Draft...' : 'Save Draft (24h)'}
+                    </button>
+                  </div>
                   {agreed ? (
                     <Link href="/new-rider/review" className="nr-continue-btn">
                       Continue to Review &amp; Confirm <IArr s={12} />

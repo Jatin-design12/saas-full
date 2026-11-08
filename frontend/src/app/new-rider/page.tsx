@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { saveDraft, loadDraft } from '@/utils/drafts';
 
 /* ──────────────────────────────────────────────────────────────
    NEW RIDE REGISTRATION  ·  Premium Redesign
@@ -842,8 +843,7 @@ function ManualForm({
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>Full Name<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.fullName || '').trim().length >= 2 ? 'is-valid' : touched.fullName ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.fullName || '').trim().length >= 2 ? 'is-valid' : touched.fullName ? 'is-invalid' : ''}`}
             placeholder="Enter full name"
             value={formData.fullName || ''}
             onBlur={() => markTouched('fullName')}
@@ -856,8 +856,7 @@ function ManualForm({
         <div className="nr-fld">
           <label>Date of Birth (Minimum 16 Years)<span className="req"> *</span></label>
           <div className="nr-inp-wrap">
-            <input
-              type="date"
+            <input autoComplete="off" type="date"
               className={`nr-inp ${formData.dob && !isUnderage ? 'is-valid' : (touched.dob || isUnderage) ? 'is-invalid' : ''}`}
               value={formData.dob || ''}
               onBlur={() => markTouched('dob')}
@@ -894,8 +893,7 @@ function ManualForm({
           <label>Mobile Number<span className="req"> *</span></label>
           <div className={`nr-ph ${(formData.mobile || '').length === 10 && !mobileRegistered ? 'is-valid' : touched.mobile && (formData.mobile || '').length < 10 ? 'is-invalid' : ''}`}>
             <div className="nr-ph-pre"><span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}</div>
-            <input
-              placeholder="Enter 10-digit mobile number"
+            <input autoComplete="off" placeholder="Enter 10-digit mobile number"
               maxLength={10}
               value={formData.mobile || ''}
               onBlur={() => markTouched('mobile')}
@@ -908,8 +906,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Email Address<span className="opt">(Optional)</span></label>
-          <input
-            className="nr-inp"
+          <input autoComplete="off" className="nr-inp"
             placeholder="Enter email address"
             type="email"
             value={formData.email || ''}
@@ -918,8 +915,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Father / Guardian Name<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.fatherName || '').trim().length >= 2 ? 'is-valid' : touched.fatherName ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.fatherName || '').trim().length >= 2 ? 'is-valid' : touched.fatherName ? 'is-invalid' : ''}`}
             placeholder="Enter father / guardian name"
             value={formData.fatherName || ''}
             onBlur={() => markTouched('fatherName')}
@@ -934,8 +930,7 @@ function ManualForm({
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>Reference Name<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.refName || '').trim().length >= 2 ? 'is-valid' : touched.refName ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.refName || '').trim().length >= 2 ? 'is-valid' : touched.refName ? 'is-invalid' : ''}`}
             placeholder="Enter reference person name"
             value={formData.refName || ''}
             onBlur={() => markTouched('refName')}
@@ -949,8 +944,7 @@ function ManualForm({
           <label>Reference Mobile / Number<span className="req"> *</span></label>
           <div className={`nr-ph ${(formData.refNumber || '').length === 10 ? 'is-valid' : touched.refNumber ? 'is-invalid' : ''}`}>
             <div className="nr-ph-pre"><span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}</div>
-            <input
-              placeholder="Enter 10-digit reference number"
+            <input autoComplete="off" placeholder="Enter 10-digit reference number"
               maxLength={10}
               value={formData.refNumber || ''}
               onBlur={() => markTouched('refNumber')}
@@ -965,8 +959,7 @@ function ManualForm({
           <label>Emergency Contact<span className="req"> *</span></label>
           <div className={`nr-ph ${(formData.altMobile || '').length === 10 ? 'is-valid' : touched.altMobile ? 'is-invalid' : ''}`}>
             <div className="nr-ph-pre"><span style={{ fontSize: 13 }}>🇮🇳</span>+91 {chevSvg}</div>
-            <input
-              placeholder="Enter 10-digit emergency number"
+            <input autoComplete="off" placeholder="Enter 10-digit emergency number"
               maxLength={10}
               value={formData.altMobile || ''}
               onBlur={() => markTouched('altMobile')}
@@ -983,8 +976,7 @@ function ManualForm({
       <div className="nr-row nr-row-2">
         <div className="nr-fld">
           <label>Address Line 1<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.address1 || '').trim().length >= 3 ? 'is-valid' : touched.address1 ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.address1 || '').trim().length >= 3 ? 'is-valid' : touched.address1 ? 'is-invalid' : ''}`}
             placeholder="House / Flat / Building, Street"
             value={formData.address1 || ''}
             onBlur={() => markTouched('address1')}
@@ -996,8 +988,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Address Line 2<span className="opt">(Optional)</span></label>
-          <input
-            className="nr-inp"
+          <input autoComplete="off" className="nr-inp"
             placeholder="Area / Landmark"
             value={formData.address2 || ''}
             onChange={e => handleChange('address2', e.target.value)}
@@ -1007,8 +998,7 @@ function ManualForm({
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>City<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.city || '').trim().length >= 2 ? 'is-valid' : touched.city ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.city || '').trim().length >= 2 ? 'is-valid' : touched.city ? 'is-invalid' : ''}`}
             placeholder="Enter present city"
             value={formData.city || ''}
             onBlur={() => markTouched('city')}
@@ -1031,8 +1021,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Pincode<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.pincode || '').length === 6 ? 'is-valid' : touched.pincode ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.pincode || '').length === 6 ? 'is-valid' : touched.pincode ? 'is-invalid' : ''}`}
             placeholder="Enter 6 digit pincode"
             maxLength={6}
             value={formData.pincode || ''}
@@ -1048,8 +1037,7 @@ function ManualForm({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 }}>
         <div className="nr-sec-hd" style={{ margin: 0, border: 0, paddingBottom: 0 }}>3. Permanent Address Details</div>
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: '#2A195C', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
+          <input autoComplete="off" type="checkbox"
             checked={sameAsPresent}
             onChange={handleSameAsPresentToggle}
             style={{ width: 16, height: 16, accentColor: '#2A195C' }}
@@ -1061,8 +1049,7 @@ function ManualForm({
       <div className="nr-row nr-row-2">
         <div className="nr-fld">
           <label>Address Line 1<span className="req"> *</span></label>
-          <input
-            className="nr-inp"
+          <input autoComplete="off" className="nr-inp"
             placeholder="Permanent House / Flat, Street"
             value={sameAsPresent ? (formData.address1 || '') : (formData.permAddress1 || '')}
             disabled={sameAsPresent}
@@ -1071,8 +1058,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Address Line 2<span className="opt">(Optional)</span></label>
-          <input
-            className="nr-inp"
+          <input autoComplete="off" className="nr-inp"
             placeholder="Permanent Area / Landmark"
             value={sameAsPresent ? (formData.address2 || '') : (formData.permAddress2 || '')}
             disabled={sameAsPresent}
@@ -1083,8 +1069,7 @@ function ManualForm({
       <div className="nr-row nr-row-3">
         <div className="nr-fld">
           <label>City<span className="req"> *</span></label>
-          <input
-            className="nr-inp"
+          <input autoComplete="off" className="nr-inp"
             placeholder="Enter permanent city"
             value={sameAsPresent ? (formData.city || '') : (formData.permCity || '')}
             disabled={sameAsPresent}
@@ -1107,8 +1092,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Pincode<span className="req"> *</span></label>
-          <input
-            className="nr-inp"
+          <input autoComplete="off" className="nr-inp"
             placeholder="Enter 6 digit pincode"
             maxLength={6}
             value={sameAsPresent ? (formData.pincode || '') : (formData.permPincode || '')}
@@ -1135,8 +1119,7 @@ function ManualForm({
         </div>
         <div className="nr-fld">
           <label>Identity Number<span className="req"> *</span></label>
-          <input
-            className={`nr-inp ${(formData.idNumber || '').trim().length >= 4 ? 'is-valid' : touched.idNumber ? 'is-invalid' : ''}`}
+          <input autoComplete="off" className={`nr-inp ${(formData.idNumber || '').trim().length >= 4 ? 'is-valid' : touched.idNumber ? 'is-invalid' : ''}`}
             placeholder={formData.idType === 'Aadhaar Card' ? 'Enter 12-digit Aadhaar number' : 'Enter identity number'}
             value={formData.idNumber || ''}
             onBlur={() => markTouched('idNumber')}
@@ -1281,49 +1264,69 @@ export default function NewRiderPage() {
   const [method, setMethod] = useState<'digi' | 'manual'>('manual');
   const [mobileRegistered, setMobileRegistered] = useState<any>(null);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [formData, setFormData] = useState<any>(() => {
-    const defaults = {
-      fullName: '',
-      dob: '',
-      gender: '',
-      mobile: '',
-      email: '',
-      fatherName: '',
-      refName: '',
-      refNumber: '',
-      altMobile: '',
-      address1: '',
-      address2: '',
-      city: '',
-      state: '',
-      pincode: '',
-      sameAsPresent: true,
-      permAddress1: '',
-      permAddress2: '',
-      permCity: '',
-      permState: '',
-      permPincode: '',
-      idType: 'Aadhaar Card',
-      idNumber: ''
-    };
-    if (typeof window !== 'undefined') {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const shouldResume = urlParams.get('resume') === 'true' || urlParams.get('edit') === 'true';
-        if (shouldResume) {
-          const saved = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
-          if (saved && typeof saved === 'object' && saved.fullName) {
-            const validDob = saved.dob && /^\d{4}-\d{2}-\d{2}$/.test(saved.dob) ? saved.dob : '';
-            return { ...defaults, ...saved, dob: validDob };
+  const initialDefaults = {
+    fullName: '',
+    dob: '',
+    gender: '',
+    mobile: '',
+    email: '',
+    fatherName: '',
+    refName: '',
+    refNumber: '',
+    altMobile: '',
+    address1: '',
+    address2: '',
+    city: '',
+    state: '',
+    pincode: '',
+    sameAsPresent: true,
+    permAddress1: '',
+    permAddress2: '',
+    permCity: '',
+    permState: '',
+    permPincode: '',
+    idType: 'Aadhaar Card',
+    idNumber: ''
+  };
+
+  const [formData, setFormData] = useState<any>(initialDefaults);
+  const [activeDraft, setActiveDraft] = useState<any>(null);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState<boolean>(false);
+
+  // Client-side initialization: load draft if ?draftId=... exists, or resume if ?resume=true, else clean wipe!
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const draftId = urlParams.get('draftId');
+      const shouldResume = urlParams.get('resume') === 'true' || urlParams.get('edit') === 'true';
+
+      if (draftId) {
+        loadDraft(draftId).then((draft) => {
+          if (draft) {
+            setActiveDraft(draft);
+            if (draft.form_data && draft.form_data.kyc) {
+              setFormData((prev: any) => ({ ...prev, ...draft.form_data.kyc }));
+            }
           }
-        } else {
-          // Fresh registration: clear any lingering cached form data
-          localStorage.removeItem('evegah_new_ride_kyc');
+        });
+      } else if (shouldResume) {
+        const saved = JSON.parse(localStorage.getItem('evegah_new_ride_kyc') || '{}');
+        if (saved && typeof saved === 'object' && saved.fullName) {
+          const validDob = saved.dob && /^\d{4}-\d{2}-\d{2}$/.test(saved.dob) ? saved.dob : '';
+          setFormData((prev: any) => ({ ...prev, ...saved, dob: validDob }));
         }
-      } catch (_) {}
-    }
-    return defaults;
-  });
+      } else {
+        // Fresh registration: wipe all previous form storage so no old test data autofills!
+        localStorage.removeItem('evegah_new_ride_kyc');
+        localStorage.removeItem('evegah_new_ride_rental');
+        localStorage.removeItem('evegah_new_ride_payment');
+        localStorage.removeItem('evegah_active_draft_id');
+        setFormData(initialDefaults);
+      }
+    } catch (_) {}
+  }, []);
 
   // Automatically persist KYC form changes to localStorage so downstream steps always have actual rider details
   useEffect(() => {
@@ -1336,6 +1339,20 @@ export default function NewRiderPage() {
   }, [formData, mode]);
 
   const goManual = () => { setMethod('manual'); setMode('manual'); };
+
+  
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    const res = await saveDraft(1, 'KYC Verification', { kyc: formData });
+    setSavingDraft(false);
+    if (res.success && res.draft) {
+      setActiveDraft(res.draft);
+      setSaveSuccessMsg(`Draft application saved! (Ref: ${res.draft.draft_id}) Preserved in Employee Dashboard for 24 hours.`);
+      setTimeout(() => setSaveSuccessMsg(null), 6000);
+    } else {
+      alert(res.message || 'Failed to save draft application.');
+    }
+  };
 
   const handleResetForm = () => {
     if (typeof window !== 'undefined') {
@@ -1509,6 +1526,27 @@ export default function NewRiderPage() {
                     <div className="nr-pow-row">
                       <button
                         type="button"
+                        onClick={handleSaveDraft}
+                        disabled={savingDraft}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1.5px solid #6366F1',
+                          background: '#EEF2FF',
+                          color: '#4F46E5',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: savingDraft ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                        title="Save draft for 24 hours"
+                      >
+                        💾 {savingDraft ? 'Saving...' : 'Save Draft'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={handleResetForm}
                         style={{
                           padding: '6px 12px',
@@ -1628,7 +1666,30 @@ export default function NewRiderPage() {
                 </div>
 
                 <div className="nr-footer-actions">
-                  <button className="nr-cancel" type="button" onClick={() => router.push('/renters')}>Cancel</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <button className="nr-cancel" type="button" onClick={() => router.push('/renters')}>Cancel</button>
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft}
+                      style={{
+                        padding: '11px 20px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#334155',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: savingDraft ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Save draft to continue later from Employee Dashboard"
+                    >
+                      💾 {savingDraft ? 'Saving Draft...' : 'Save Draft (24h)'}
+                    </button>
+                  </div>
                   <button
                     className="nr-save"
                     type="button"

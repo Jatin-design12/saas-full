@@ -215,6 +215,7 @@ app.use('/api/referral', require('./routes/referral'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/rides', require('./routes/rides'));
 app.use('/api/retain-rider', require('./routes/rides'));
+app.use('/api/drafts', require('./routes/drafts'));
 app.use('/api/payments/payu', require('./routes/payu'));
 app.use('/api/payments/phonepe', require('./routes/phonepe'));
 app.use('/api/phonepe', require('./routes/phonepe'));
