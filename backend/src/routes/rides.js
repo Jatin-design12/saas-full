@@ -109,6 +109,8 @@ router.post('/new', async (req, res) => {
       await delByPattern('vehicles:*');
       await delByPattern('batteries:*');
       await delByPattern('renters:*');
+      await delByPattern('reservations:*');
+      await delByPattern('payments:*');
       await delByPattern('coupons:*');
       await delByPattern('stats:*');
     } catch (dbErr) {

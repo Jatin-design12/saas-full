@@ -710,7 +710,7 @@ function MethodDetail({
             value={staffCollector}
             onChange={(e) => setStaffCollector(e.target.value)}
           >
-            <option value="Himanshu (Super Admin)">Himanshu (Super Admin)</option>
+            <option value="Staff Collector (Desk)">Staff Collector (Desk)</option>
             <option value="Speed Force (Zone Admin)">Speed Force (Zone Admin)</option>
             <option value="Rahul Singh (Field Agent)">Rahul Singh (Field Agent)</option>
             <option value="Desk Operator">Desk Operator</option>
@@ -792,7 +792,7 @@ function MethodDetail({
           value={staffCollector}
           onChange={(e) => setStaffCollector(e.target.value)}
         >
-          <option value="Himanshu (Super Admin)">Himanshu (Super Admin)</option>
+          <option value="Staff Collector (Desk)">Staff Collector (Desk)</option>
           <option value="Speed Force (Zone Admin)">Speed Force (Zone Admin)</option>
           <option value="Rahul Singh (Field Agent)">Rahul Singh (Field Agent)</option>
           <option value="Desk Operator">Desk Operator</option>
@@ -903,7 +903,7 @@ export default function PaymentPage() {
 
   // Split and Cash fields
   const [cashAmount, setCashAmount] = useState<number>(0);
-  const [staffCollector, setStaffCollector] = useState('Himanshu (Super Admin)');
+  const [staffCollector, setStaffCollector] = useState('Staff Collector (Desk)');
   const [cashReceipt, setCashReceipt] = useState('');
 
   // PayU (Primary Gateway) fields

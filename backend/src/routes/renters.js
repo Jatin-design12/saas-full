@@ -340,6 +340,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Find or create renter record
     let renter = null;
+    let isNewRider = false;
     const findRes = await db.query(
       "SELECT * FROM renters WHERE REPLACE(mobile, ' ', '') LIKE $1 ORDER BY id DESC LIMIT 1",
       [`%${last10}`]
@@ -347,11 +348,16 @@ router.post('/verify-otp', async (req, res) => {
 
     if (findRes.rows.length > 0) {
       renter = findRes.rows[0];
+      const rName = (renter.rider_name || '').trim();
+      if (!rName || rName.toLowerCase() === 'evegah rider' || rName.toLowerCase() === 'rider') {
+        isNewRider = true;
+      }
     } else {
+      isNewRider = true;
       const defaultEmail = `${last10}@evegah.com`;
       const insertRes = await db.query(
-        `INSERT INTO renters (rider_name, mobile, email, status, kyc_status, booking_source, package_name, rent, deposit, total, created_at)
-         VALUES ($1, $2, $3, 'Pending', 'Pending', 'App_Auth', 'Daily Pass', 0, 0, 0, NOW())
+        `INSERT INTO renters (rider_name, mobile, email, status, kyc_status, booking_source, created_at)
+         VALUES ($1, $2, $3, 'Active', 'Pending', 'App_Auth', NOW())
          RETURNING *`,
         ['Evegah Rider', `+91 ${last10}`, defaultEmail]
       );
@@ -374,11 +380,131 @@ router.post('/verify-otp', async (req, res) => {
       message: 'Authentication successful',
       token,
       renter,
+      is_new_rider: isNewRider,
+      is_profile_completed: !isNewRider && Boolean(renter.address || renter.present_address),
     });
   } catch (err) {
     console.error('Verify OTP error:', err);
     return res.status(500).json({ status: 'error', message: err.message });
   }
+});
+
+// POST /api/renters/profile - Update rider profile from Rider App
+router.post('/profile', async (req, res) => {
+  try {
+    const rawMobile = req.body.mobile || req.body.phone || '';
+    const cleanMobile = rawMobile.replace(/\D/g, '').slice(-10);
+    const {
+      name,
+      rider_name,
+      email,
+      dob,
+      date_of_birth,
+      gender,
+      address,
+      present_address,
+      drivingLicense,
+      dl_number,
+      aadhaar,
+      aadhaar_number,
+      avatar,
+      avatar_url
+    } = req.body;
+
+    const resolvedName = (name || rider_name || '').trim();
+    if (!cleanMobile) {
+      return res.status(400).json({ status: 'error', message: 'Valid mobile number is required' });
+    }
+
+    const resolvedEmail = email ? email.trim() : null;
+    const resolvedDob = dob || date_of_birth || null;
+    const resolvedGender = gender || 'Other';
+    const resolvedAddr = (address || present_address || '').trim() || null;
+    const resolvedDl = (drivingLicense || dl_number || '').trim() || null;
+    const resolvedAadhaar = (aadhaar || aadhaar_number || '').trim() || null;
+    const resolvedAvatar = avatar || avatar_url || null;
+
+    // Check if renter exists
+    const findRes = await db.query(
+      "SELECT id FROM renters WHERE REPLACE(mobile, ' ', '') LIKE $1 ORDER BY id DESC LIMIT 1",
+      [`%${cleanMobile}`]
+    );
+
+    let updatedRenter;
+    if (findRes.rows.length > 0) {
+      const renterId = findRes.rows[0].id;
+      const updateRes = await db.query(
+        `UPDATE renters
+         SET rider_name = COALESCE(NULLIF($1, ''), rider_name),
+             email = COALESCE($2, email),
+             date_of_birth = COALESCE($3, date_of_birth),
+             gender = COALESCE($4, gender),
+             address = COALESCE($5, address),
+             present_address = COALESCE($5, present_address),
+             dl_number = COALESCE($6, dl_number),
+             aadhaar_number = COALESCE($7, aadhaar_number),
+             avatar_url = COALESCE($8, avatar_url),
+             updated_at = NOW()
+         WHERE id = $9
+         RETURNING *`,
+        [
+          resolvedName,
+          resolvedEmail,
+          resolvedDob,
+          resolvedGender,
+          resolvedAddr,
+          resolvedDl,
+          resolvedAadhaar,
+          resolvedAvatar,
+          renterId
+        ]
+      );
+      updatedRenter = updateRes.rows[0];
+    } else {
+      const insertRes = await db.query(
+        `INSERT INTO renters (
+           rider_name, mobile, email, date_of_birth, gender, address, present_address,
+           dl_number, aadhaar_number, avatar_url, status, kyc_status, booking_source, created_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'Active', 'Pending', 'App_Profile', NOW())
+         RETURNING *`,
+        [
+          resolvedName || 'Evegah Rider',
+          `+91 ${cleanMobile}`,
+          resolvedEmail || `${cleanMobile}@evegah.com`,
+          resolvedDob,
+          resolvedGender,
+          resolvedAddr,
+          resolvedDl,
+          resolvedAadhaar,
+          resolvedAvatar
+        ]
+      );
+      updatedRenter = insertRes.rows[0];
+    }
+
+    // Invalidate caches
+    await Promise.all([
+      delByPattern('renters:*'),
+      delByPattern('users:*'),
+    ]);
+
+    return res.json({
+      status: 'success',
+      message: 'Rider profile updated successfully',
+      renter: updatedRenter,
+      is_new_rider: false,
+      is_profile_completed: true
+    });
+  } catch (err) {
+    console.error('Update rider profile error:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+router.put('/profile', async (req, res) => {
+  req.url = '/profile';
+  return router.handle(req, res);
 });
 
 // GET /api/renters/profile - Complete live profile with joining date, KYC status, real performance, current assignment, activities & charts
@@ -1160,11 +1286,14 @@ router.get('/', async (req, res) => {
     // 3. Convert Map to Array of unique riders
     allRiders = Array.from(ridersMap.values())
       .filter(r => {
-        // Exclude dummy placeholder riders with no actual booking/ride
-        const isPhantom = (r.rider_name === 'Evegah Rider' || r.rider_name === 'Rider') &&
+        // Exclude dummy placeholder riders with no actual booking/ride and fake test numbers
+        const isDummyName = (!r.rider_name || r.rider_name === 'Evegah Rider' || r.rider_name === 'Rider');
+        const isTestPhone = String(r.mobile || '').includes('1800') || String(r.mobile || '').includes('1820');
+        if (isTestPhone) return false;
+        const isPhantom = isDummyName &&
           parseFloat(r.total || 0) <= 0 &&
           !r.has_active_ride &&
-          (!r.vehicle_id || r.vehicle_id === '—' || r.vehicle_id === 'EV-DEFAULT');
+          (!r.vehicle_id || r.vehicle_id === '—' || r.vehicle_id === 'EV-DEFAULT' || r.vehicle_id === 'Reserved (Pending)');
         return !isPhantom;
       })
       .map(r => {

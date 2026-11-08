@@ -54,6 +54,12 @@ router.get('/', async (req, res) => {
           ip.created_at
         FROM icici_payments ip
         LEFT JOIN reservations r ON (r.transaction_id = ip.tx_id OR r.reservation_id = ip.reservation_id)
+        WHERE ip.mobile NOT LIKE '%1800%'
+          AND ip.mobile NOT LIKE '%1820%'
+          AND NOT (
+            UPPER(ip.status) = 'PENDING'
+            AND r.id IS NULL
+          )
 
         UNION ALL
 
@@ -91,9 +97,9 @@ router.get('/', async (req, res) => {
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
           AND pp.mobile NOT LIKE '%1800%'
+          AND pp.mobile NOT LIKE '%1820%'
           AND NOT (
             UPPER(pp.status) = 'PENDING'
-            AND pp.rider_name IN ('Rider', 'Evegah Rider')
             AND r.id IS NULL
           )
           AND NOT EXISTS (
