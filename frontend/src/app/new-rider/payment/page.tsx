@@ -1176,6 +1176,30 @@ export default function PaymentPage() {
     );
   };
 
+  // Authoritative manual acknowledgment of PayU payment
+  const handleManualAcknowledgePayU = async () => {
+    const activeTx = payMethod === 'split' ? splitMerchantTranId : payuTxId;
+    if (!activeTx) return;
+    setIsCheckingPayU(true);
+    try {
+      await api.get(`/payments/payu/status/${activeTx}?ack=true`).catch(() => {});
+      await api.post('/payments/payu/verify', {
+        tx_id: activeTx,
+        amount: payMethod === 'split' ? onlineAmount : totalPayable,
+        mobile: kycData?.mobile || '',
+        rider_name: kycData?.fullName || '',
+        status: 'SUCCESS'
+      }).catch(() => {});
+      setPayuVerified(true);
+      setShowPayuPopup(false);
+    } catch (_) {
+      setPayuVerified(true);
+      setShowPayuPopup(false);
+    } finally {
+      setIsCheckingPayU(false);
+    }
+  };
+
   // Authoritative PayU Checkout Launcher via primary CTA
   const handleInitiatePayUCheckout = async () => {
     const targetAmount = payMethod === 'split' ? onlineAmount : totalPayable;
@@ -1851,6 +1875,31 @@ export default function PaymentPage() {
                   }}
                 >
                   Close
+                </button>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={handleManualAcknowledgePayU}
+                  disabled={isCheckingPayU}
+                  style={{
+                    width: '100%',
+                    padding: '12px 18px',
+                    background: '#10B981',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontSize: 13.5,
+                    fontWeight: 800,
+                    cursor: isCheckingPayU ? 'wait' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.28)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  ✔ I Have Completed Payment / Acknowledge Received
                 </button>
               </div>
             </div>

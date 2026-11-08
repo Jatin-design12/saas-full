@@ -5,6 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 
 const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Playfair+Display:wght@700&family=Space+Mono:wght@700&display=swap');
+
 .ev-shell { display: flex; min-height: 100vh; background: #F3F4F9; font-family: 'Inter', sans-serif; }
 .ev-main { margin-left: var(--ev-sidebar-width, 240px); display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - var(--ev-sidebar-width, 240px)); }
 .ev-body { padding: 20px 22px 50px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
@@ -134,6 +136,25 @@ const CSS = `
 .badge-pill { font-size: 9px; padding: 2px 8px; border-radius: 12px; font-weight: 800; text-transform: uppercase; }
 .badge-active { background: #ECFDF5; color: #10B981; }
 .badge-expired { background: #FEE2E2; color: #EF4444; }
+
+
+/* App Slider Studio Enhanced */
+.slider-studio-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.slider-studio-title { display: flex; align-items: center; gap: 8px; }
+.slider-studio-title h2 { font-size: 20px; font-weight: 800; color: #0F172A; margin: 0; }
+.slider-new-badge { font-size: 11px; font-weight: 700; background: #EDE9FE; color: #6366F1; padding: 2px 8px; border-radius: 12px; }
+.slider-subtabs { display: flex; gap: 8px; border-bottom: 1.5px solid #F1F5F9; padding-bottom: 12px; margin-bottom: 16px; }
+.slider-subtab { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: 1.5px solid transparent; font-size: 12.5px; font-weight: 700; color: #64748B; background: transparent; cursor: pointer; transition: all 0.15s; }
+.slider-subtab:hover { background: #F8FAFC; color: #1E293B; }
+.slider-subtab.act { background: #6366F1; color: #FFFFFF; }
+.slider-subtab.act svg { stroke: #FFFFFF; }
+.slider-card-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1.5px solid #E2E8F0; border-radius: 10px; background: #FFFFFF; cursor: pointer; transition: all 0.15s; }
+.slider-card-item:hover { border-color: #CBD5E1; background: #F8FAFC; }
+.slider-card-item.act { border-color: #6366F1; background: #F5F3FF; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12); }
+.quick-style-card { flex: 1; padding: 10px 8px; border: 1.5px solid #E2E8F0; border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.15s; background: #FFFFFF; }
+.quick-style-card:hover { border-color: #6366F1; }
+.quick-style-card.act { border-color: #6366F1; background: #F5F3FF; }
+.quick-style-preview { height: 32px; border-radius: 6px; margin-bottom: 6px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 
 /* App Sliders Manager Styles */
 .slider-mgmt-wrap { display: flex; flex-direction: column; gap: 16px; }
@@ -292,6 +313,7 @@ export default function WhiteLabelManagement() {
 
   // App Sliders state (Home & Rent dynamic banners)
   const [sliderScreen, setSliderScreen] = useState<'rent' | 'home'>('rent');
+  const [editorSubTab, setEditorSubTab] = useState<'content' | 'typography' | 'background' | 'cutout'>('content');
   const [selectedSlideIdx, setSelectedSlideIdx] = useState<number>(0);
   const [homeSliders, setHomeSliders] = useState<any[]>([
     {
@@ -1315,556 +1337,1300 @@ export default function WhiteLabelManagement() {
               </div>
             )}
 
-            {activeTab === 'sliders' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Sliders Top Controller Bar */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1.5px solid #E2E8F0', padding: '14px 20px', borderRadius: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div className="slider-screen-pills">
-                      <button
-                        className={`slider-screen-btn ${sliderScreen === 'rent' ? 'act' : ''}`}
-                        onClick={() => { setSliderScreen('rent'); setSelectedSlideIdx(0); }}
-                      >
-                        RentScreen Sliders <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '10px', background: sliderScreen === 'rent' ? '#EEF2FF' : '#E2E8F0', color: sliderScreen === 'rent' ? '#4F46E5' : '#64748B', fontSize: '10.5px' }}>{rentSliders.length}</span>
-                      </button>
-                      <button
-                        className={`slider-screen-btn ${sliderScreen === 'home' ? 'act' : ''}`}
-                        onClick={() => { setSliderScreen('home'); setSelectedSlideIdx(0); }}
-                      >
-                        HomeScreen Sliders <span style={{ marginLeft: '4px', padding: '1px 6px', borderRadius: '10px', background: sliderScreen === 'home' ? '#EEF2FF' : '#E2E8F0', color: sliderScreen === 'home' ? '#4F46E5' : '#64748B', fontSize: '10.5px' }}>{homeSliders.length}</span>
-                      </button>
+            {activeTab === 'sliders' && (() => {
+  const activeSlide = currentSliderList[selectedSlideIdx] || currentSliderList[0] || {};
+  const currentTag = activeSlide.badgeText || activeSlide.tag || `Slider ${selectedSlideIdx + 1}`;
+  const currentTitle = activeSlide.title || '';
+  const currentSub = activeSlide.subtitle !== undefined ? activeSlide.subtitle : (activeSlide.sub || '');
+  const currentCta = activeSlide.cta || '';
+  
+  const showBadge = activeSlide.showBadge !== false && Boolean(currentTag.trim());
+  const showTitle = activeSlide.showTitle !== false && Boolean(currentTitle.trim());
+  const showSubtitle = activeSlide.showSubtitle !== false && Boolean(currentSub.trim());
+  const showCta = activeSlide.showCta !== false && Boolean(currentCta.trim());
+  const hasTextInPreview = showBadge || showTitle || showSubtitle || showCta;
+
+  const fontStyle = activeSlide.fontStyle || 'signature';
+  let fontFamStyle: React.CSSProperties = { fontFamily: "'Caveat', cursive", fontWeight: 700 };
+  if (fontStyle === 'sans') {
+    fontFamStyle = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700 };
+  } else if (fontStyle === 'bold') {
+    fontFamStyle = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-0.5px' };
+  } else if (fontStyle === 'serif') {
+    fontFamStyle = { fontFamily: "'Playfair Display', serif", fontWeight: 700 };
+  } else if (fontStyle === 'mono') {
+    fontFamStyle = { fontFamily: "'Space Mono', monospace", fontWeight: 700 };
+  }
+
+  const applyQuickStyle = (preset: string) => {
+    if (preset === 'default') {
+      handleUpdateSlide(selectedSlideIdx, 'quickStyle', 'default');
+      handleUpdateSlide(selectedSlideIdx, 'fontStyle', 'signature');
+      handleUpdateSlide(selectedSlideIdx, 'badgeBg', '#6366F1');
+      handleUpdateSlide(selectedSlideIdx, 'badgeTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'ctaBg', '#2A195C');
+      handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayOpacity', 65);
+    } else if (preset === 'festive') {
+      handleUpdateSlide(selectedSlideIdx, 'quickStyle', 'festive');
+      handleUpdateSlide(selectedSlideIdx, 'fontStyle', 'signature');
+      handleUpdateSlide(selectedSlideIdx, 'badgeBg', '#D97706');
+      handleUpdateSlide(selectedSlideIdx, 'badgeTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'ctaBg', '#B45309');
+      handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayColor', '#FFFBEB');
+      handleUpdateSlide(selectedSlideIdx, 'overlayOpacity', 50);
+    } else if (preset === 'minimal') {
+      handleUpdateSlide(selectedSlideIdx, 'quickStyle', 'minimal');
+      handleUpdateSlide(selectedSlideIdx, 'fontStyle', 'sans');
+      handleUpdateSlide(selectedSlideIdx, 'badgeBg', '#F1F5F9');
+      handleUpdateSlide(selectedSlideIdx, 'badgeTextColor', '#334155');
+      handleUpdateSlide(selectedSlideIdx, 'ctaBg', '#0F172A');
+      handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayOpacity', 80);
+    } else if (preset === 'bold') {
+      handleUpdateSlide(selectedSlideIdx, 'quickStyle', 'bold');
+      handleUpdateSlide(selectedSlideIdx, 'fontStyle', 'bold');
+      handleUpdateSlide(selectedSlideIdx, 'badgeBg', '#EF4444');
+      handleUpdateSlide(selectedSlideIdx, 'badgeTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'ctaBg', '#DC2626');
+      handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayColor', '#000000');
+      handleUpdateSlide(selectedSlideIdx, 'overlayOpacity', 40);
+    } else if (preset === 'modern') {
+      handleUpdateSlide(selectedSlideIdx, 'quickStyle', 'modern');
+      handleUpdateSlide(selectedSlideIdx, 'fontStyle', 'sans');
+      handleUpdateSlide(selectedSlideIdx, 'badgeBg', '#3B82F6');
+      handleUpdateSlide(selectedSlideIdx, 'badgeTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'ctaBg', '#2563EB');
+      handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', '#FFFFFF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayColor', '#EFF6FF');
+      handleUpdateSlide(selectedSlideIdx, 'overlayOpacity', 60);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* 1. Header Row */}
+      <div className="slider-studio-hdr">
+        <div>
+          <div className="slider-studio-title">
+            <h2>App Slider Studio</h2>
+            <span className="slider-new-badge">New</span>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748B' }}>
+            Create and manage promotional sliders for Rider App screens with real-time preview.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="wl-btn"
+            onClick={() => alert('Live preview synchronized in right mobile panel!')}
+            style={{ fontSize: '12.5px', fontWeight: 700 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+            <span>Preview in App</span>
+          </button>
+
+          <button
+            type="button"
+            className="wl-btn"
+            onClick={() => {
+              localStorage.setItem('slider_draft_' + sliderScreen, JSON.stringify(currentSliderList));
+              alert('Slider configuration successfully saved as draft locally!');
+            }}
+            style={{ fontSize: '12.5px', fontWeight: 700 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            <span>Save as Draft</span>
+          </button>
+
+          <button
+            type="button"
+            className="wl-btn wl-btn-primary"
+            onClick={handleSaveSliders}
+            disabled={isSavingSliders}
+            style={{ fontSize: '12.5px', fontWeight: 700, background: '#6366F1', borderColor: '#6366F1' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>{isSavingSliders ? 'Publishing...' : 'Save & Publish'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Screen Switcher Capsule */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="slider-screen-pills" style={{ background: '#E2E8F0', padding: '4px', borderRadius: '12px' }}>
+          <button
+            type="button"
+            className={`slider-screen-btn ${sliderScreen === 'rent' ? 'act' : ''}`}
+            onClick={() => { setSliderScreen('rent'); setSelectedSlideIdx(0); }}
+            style={{ fontSize: '13px', fontWeight: 700, padding: '8px 18px', borderRadius: '9px' }}
+          >
+            Rent Screen Sliders <span style={{ marginLeft: '6px', padding: '2px 8px', borderRadius: '12px', background: sliderScreen === 'rent' ? '#EDE9FE' : '#CBD5E1', color: sliderScreen === 'rent' ? '#6366F1' : '#475569', fontSize: '11px', fontWeight: 800 }}>{rentSliders.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`slider-screen-btn ${sliderScreen === 'home' ? 'act' : ''}`}
+            onClick={() => { setSliderScreen('home'); setSelectedSlideIdx(0); }}
+            style={{ fontSize: '13px', fontWeight: 700, padding: '8px 18px', borderRadius: '9px' }}
+          >
+            Home Screen Sliders <span style={{ marginLeft: '6px', padding: '2px 8px', borderRadius: '12px', background: sliderScreen === 'home' ? '#EDE9FE' : '#CBD5E1', color: sliderScreen === 'home' ? '#6366F1' : '#475569', fontSize: '11px', fontWeight: 800 }}>{homeSliders.length}</span>
+          </button>
+        </div>
+      </div>
+
+      {sliderSaveMsg && (
+        <div style={{ background: '#ECFDF5', border: '1.5px solid #A7F3D0', padding: '12px 16px', borderRadius: '10px', color: '#065F46', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>{sliderSaveMsg}</span>
+        </div>
+      )}
+
+      {/* 3. Three Column Studio Layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '270px 1fr 380px', gap: '20px', alignItems: 'start' }}>
+        
+        {/* Column 1: Manage Sliders List */}
+        <div className="wl-panel" style={{ borderRadius: '16px' }}>
+          <div className="wl-panel-hdr" style={{ padding: '14px 16px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>Manage Sliders</span>
+            <button
+              type="button"
+              onClick={handleAddSlide}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: '#6366F1',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              + Add Slide
+            </button>
+          </div>
+
+          <div className="wl-panel-body" style={{ padding: '12px', gap: '10px' }}>
+            {currentSliderList.map((slide: any, idx: number) => {
+              const isSelected = selectedSlideIdx === idx;
+              const isActive = slide.active !== false;
+              const slideThumbBg = slide.bg ? normalizeImageUrl(slide.bg) : '';
+              const slideThumbFront = slide.front ? normalizeImageUrl(slide.front) : '';
+
+              return (
+                <div
+                  key={slide.id || idx}
+                  className={`slider-card-item ${isSelected ? 'act' : ''}`}
+                  onClick={() => setSelectedSlideIdx(idx)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Drag Handle */}
+                    <span style={{ color: '#94A3B8', cursor: 'grab', fontSize: '14px', userSelect: 'none' }}>⋮⋮</span>
+
+                    {/* Thumbnail */}
+                    <div style={{
+                      width: '46px',
+                      height: '34px',
+                      borderRadius: '6px',
+                      border: '1px solid #E2E8F0',
+                      background: slideThumbBg ? `url(${slideThumbBg}) center/cover` : '#F1F5F9',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {slideThumbFront ? (
+                        <img
+                          src={slideThumbFront}
+                          alt="cutout"
+                          style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+                          onError={e => { (e.target as any).style.display = 'none'; }}
+                        />
+                      ) : !slideThumbBg ? (
+                        <span style={{ fontSize: '8px', color: '#94A3B8', fontWeight: 700 }}>EV</span>
+                      ) : null}
                     </div>
-                    <span style={{ fontSize: '12px', color: '#64748B' }}>
-                      Configure promotional banners, background artwork, and vehicle cutouts synchronized with the rider app.
-                    </span>
+
+                    {/* Label & Active Pill */}
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                        Slider {idx + 1}
+                      </div>
+                      <span style={{
+                        fontSize: '9.5px',
+                        fontWeight: 700,
+                        color: isActive ? '#10B981' : '#94A3B8',
+                        background: isActive ? '#ECFDF5' : '#F1F5F9',
+                        padding: '1px 6px',
+                        borderRadius: '6px',
+                        display: 'inline-block',
+                        marginTop: '2px'
+                      }}>
+                        {isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {/* 3-dots action button */}
+                  <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                     <button
-                      className="wl-btn"
-                      onClick={handleAddSlide}
-                      style={{ fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      type="button"
+                      onClick={() => {
+                        const action = confirm(`Slider ${idx + 1}: Click OK to duplicate this slide, or Cancel to delete it.`);
+                        if (action) {
+                          const dup = { ...slide, id: `slide_${sliderScreen}_${Date.now()}`, tag: `${slide.tag || ''} (Copy)` };
+                          setCurrentSliderList((prev: any[]) => [...prev, dup]);
+                        } else {
+                          handleDeleteSlide(idx);
+                        }
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '16px', padding: '4px' }}
+                      title="Slide Options"
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      <span>Add Slide</span>
-                    </button>
-                    <button
-                      className="wl-btn wl-btn-primary"
-                      onClick={handleSaveSliders}
-                      disabled={isSavingSliders}
-                      style={{ fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                        <polyline points="17 21 17 13 7 13 7 21"/>
-                        <polyline points="7 3 7 8 15 8"/>
-                      </svg>
-                      <span>{isSavingSliders ? 'Publishing...' : 'Save & Publish Sliders'}</span>
+                      ⋮
                     </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
 
-                {sliderSaveMsg && (
-                  <div style={{ background: '#ECFDF5', border: '1.5px solid #A7F3D0', padding: '12px 16px', borderRadius: '10px', color: '#065F46', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    <span>{sliderSaveMsg}</span>
+        {/* Column 2: Edit Slide Form */}
+        <div className="wl-panel" style={{ borderRadius: '16px' }}>
+          {/* Header of Edit Slide */}
+          <div className="wl-panel-hdr" style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9' }}>
+            <span style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
+              Edit Slide – Slider {selectedSlideIdx + 1}
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Active</span>
+                <input
+                  type="checkbox"
+                  className="switch-inp"
+                  checked={activeSlide.active !== false}
+                  onChange={e => handleUpdateSlide(selectedSlideIdx, 'active', e.target.checked)}
+                />
+                <span className="switch-slider" />
+              </label>
+
+              <button
+                type="button"
+                className="wl-tag-del"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: '#FEE2E2',
+                  color: '#DC2626',
+                  fontWeight: 700,
+                  fontSize: '12px'
+                }}
+                onClick={() => handleDeleteSlide(selectedSlideIdx)}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="wl-panel-body" style={{ padding: '20px' }}>
+            {/* 4 Sub-Tabs */}
+            <div className="slider-subtabs">
+              <button
+                type="button"
+                className={`slider-subtab ${editorSubTab === 'content' ? 'act' : ''}`}
+                onClick={() => setEditorSubTab('content')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span>Content</span>
+              </button>
+
+              <button
+                type="button"
+                className={`slider-subtab ${editorSubTab === 'typography' ? 'act' : ''}`}
+                onClick={() => setEditorSubTab('typography')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="4 7 4 4 20 4 20 7"/>
+                  <line x1="9" y1="20" x2="15" y2="20"/>
+                  <line x1="12" y1="4" x2="12" y2="20"/>
+                </svg>
+                <span>Typography</span>
+              </button>
+
+              <button
+                type="button"
+                className={`slider-subtab ${editorSubTab === 'background' ? 'act' : ''}`}
+                onClick={() => setEditorSubTab('background')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>Background</span>
+              </button>
+
+              <button
+                type="button"
+                className={`slider-subtab ${editorSubTab === 'cutout' ? 'act' : ''}`}
+                onClick={() => setEditorSubTab('cutout')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                  <polyline points="2 17 12 22 22 17"/>
+                  <polyline points="2 12 12 17 22 12"/>
+                </svg>
+                <span>Cutout & Layout</span>
+              </button>
+            </div>
+
+            {/* TAB 1: CONTENT */}
+            {editorSubTab === 'content' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>Texts & Button</span>
+
+                {/* Show Badge Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '130px', flexShrink: 0, cursor: 'pointer' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E293B' }}>Show Badge</span>
+                    <input
+                      type="checkbox"
+                      className="switch-inp"
+                      checked={activeSlide.showBadge !== false}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'showBadge', e.target.checked)}
+                    />
+                    <span className="switch-slider" />
+                  </label>
+
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="text"
+                      className="wl-inp"
+                      style={{ flex: 1 }}
+                      placeholder="Badge Text (e.g. Festival Rental Offer)"
+                      value={activeSlide.badgeText || activeSlide.tag || ''}
+                      onChange={e => {
+                        handleUpdateSlide(selectedSlideIdx, 'badgeText', e.target.value);
+                        handleUpdateSlide(selectedSlideIdx, 'tag', e.target.value);
+                      }}
+                      disabled={activeSlide.showBadge === false}
+                    />
+
+                    {/* Color Swatches */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Badge Background Color">
+                      <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>BG</span>
+                      <input
+                        type="color"
+                        value={activeSlide.badgeBg || '#6366F1'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'badgeBg', e.target.value)}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                        disabled={activeSlide.showBadge === false}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Badge Text Color">
+                      <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600 }}>Text</span>
+                      <input
+                        type="color"
+                        value={activeSlide.badgeTextColor || '#FFFFFF'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'badgeTextColor', e.target.value)}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                        disabled={activeSlide.showBadge === false}
+                      />
+                    </div>
                   </div>
-                )}
+                </div>
 
-                <div className="wl-layout">
-                  {/* Left Column: Slide Cards Editor */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {currentSliderList.map((slide: any, idx: number) => {
-                      const isSelected = selectedSlideIdx === idx;
-                      const slideLabel = `Slider ${idx + 1}`;
-                      return (
-                        <div
-                          key={slide.id || idx}
-                          className={`slider-card-box ${isSelected ? 'active-card' : ''}`}
-                          onClick={() => setSelectedSlideIdx(idx)}
-                        >
-                          <div className="slider-card-head">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div className="slider-num-badge">{idx + 1}</div>
-                              <div>
-                                <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A' }}>
-                                  {slideLabel}
-                                </span>
-                                <span style={{ fontSize: '11px', color: '#64748B', display: 'block', marginTop: '1px' }}>
-                                  Key ID: {slide.id}
-                                </span>
-                              </div>
-                            </div>
+                {/* Show Title Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '130px', flexShrink: 0, cursor: 'pointer' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E293B' }}>Show Title</span>
+                    <input
+                      type="checkbox"
+                      className="switch-inp"
+                      checked={activeSlide.showTitle !== false}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'showTitle', e.target.checked)}
+                    />
+                    <span className="switch-slider" />
+                  </label>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }} onClick={e => e.stopPropagation()}>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#475569', fontWeight: 600 }}>
-                                <span>Active</span>
-                                <input
-                                  type="checkbox"
-                                  className="switch-inp"
-                                  checked={slide.active !== false}
-                                  onChange={e => handleUpdateSlide(idx, 'active', e.target.checked)}
-                                />
-                                <span className="switch-slider" />
-                              </label>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <input
+                      type="text"
+                      className="wl-inp"
+                      style={{ width: '100%', paddingRight: '56px' }}
+                      placeholder="Title / Headline (e.g. This Diwali Ride Green)"
+                      value={activeSlide.title || ''}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'title', e.target.value)}
+                      disabled={activeSlide.showTitle === false}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '10.5px', color: '#94A3B8', fontWeight: 600 }}>
+                      {(activeSlide.title || '').length} / 40
+                    </span>
+                  </div>
+                </div>
 
-                              <button
-                                className="wl-tag-del"
-                                title="Delete Slide"
-                                style={{ padding: '5px 10px', borderRadius: '6px', background: '#FEE2E2', color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                                onClick={() => handleDeleteSlide(idx)}
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="3 6 5 6 21 6"/>
-                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                </svg>
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
+                {/* Show Subtitle Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '130px', flexShrink: 0, cursor: 'pointer' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E293B' }}>Show Subtitle</span>
+                    <input
+                      type="checkbox"
+                      className="switch-inp"
+                      checked={activeSlide.showSubtitle !== false}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'showSubtitle', e.target.checked)}
+                    />
+                    <span className="switch-slider" />
+                  </label>
 
-                          {/* Inputs */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <div className="wl-form-group">
-                              <label className="wl-lbl">Tag / Category Badge <span>*</span></label>
-                              <input
-                                type="text"
-                                className="wl-inp"
-                                value={slide.tag || ''}
-                                onChange={e => handleUpdateSlide(idx, 'tag', e.target.value)}
-                                placeholder={slideLabel}
-                              />
-                            </div>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <input
+                      type="text"
+                      className="wl-inp"
+                      style={{ width: '100%', paddingRight: '56px' }}
+                      placeholder="Subtitle / Description (e.g. with Evegah)"
+                      value={activeSlide.subtitle !== undefined ? activeSlide.subtitle : (activeSlide.sub || '')}
+                      onChange={e => {
+                        handleUpdateSlide(selectedSlideIdx, 'subtitle', e.target.value);
+                        handleUpdateSlide(selectedSlideIdx, 'sub', e.target.value);
+                      }}
+                      disabled={activeSlide.showSubtitle === false}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '10.5px', color: '#94A3B8', fontWeight: 600 }}>
+                      {(activeSlide.subtitle || activeSlide.sub || '').length} / 60
+                    </span>
+                  </div>
+                </div>
 
-                            <div className="wl-form-group">
-                              <label className="wl-lbl">Call to Action (CTA) Button Text</label>
-                              <input
-                                type="text"
-                                className="wl-inp"
-                                value={slide.cta || ''}
-                                onChange={e => handleUpdateSlide(idx, 'cta', e.target.value)}
-                                placeholder="Book This Zone"
-                              />
-                            </div>
-                          </div>
+                {/* Show CTA Button Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '130px', flexShrink: 0, cursor: 'pointer' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E293B' }}>Show CTA Button</span>
+                    <input
+                      type="checkbox"
+                      className="switch-inp"
+                      checked={activeSlide.showCta !== false}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'showCta', e.target.checked)}
+                    />
+                    <span className="switch-slider" />
+                  </label>
 
-                          <div className="wl-form-group">
-                            <label className="wl-lbl">Title / Headline (Dark &amp; Stylish) <span>*</span></label>
-                            <input
-                              type="text"
-                              className="wl-inp"
-                              value={slide.title || ''}
-                              onChange={e => handleUpdateSlide(idx, 'title', e.target.value)}
-                              placeholder="Rent at L&T Knowledge City"
-                            />
-                          </div>
+                  <div style={{ flex: 1, display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <input
+                        type="text"
+                        className="wl-inp"
+                        style={{ width: '100%', paddingRight: '56px' }}
+                        placeholder="Button Text (e.g. Book Your Ride Today)"
+                        value={activeSlide.cta || ''}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'cta', e.target.value)}
+                        disabled={activeSlide.showCta === false}
+                      />
+                      <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '10.5px', color: '#94A3B8', fontWeight: 600 }}>
+                        {(activeSlide.cta || '').length} / 30
+                      </span>
+                    </div>
 
-                          <div className="wl-form-group">
-                            <label className="wl-lbl">Subtitle / Description</label>
-                            <textarea
-                              className="wl-inp"
-                              style={{ height: '56px', resize: 'vertical' }}
-                              value={slide.subtitle || ''}
-                              onChange={e => handleUpdateSlide(idx, 'subtitle', e.target.value)}
-                              placeholder="Instant unlock at Main Gate hub. Smooth ride to office."
-                            />
-                          </div>
+                    <select
+                      className="wl-inp wl-select"
+                      style={{ width: '150px' }}
+                      value={activeSlide.ctaLink || (sliderScreen === 'home' ? 'Rent Screen' : 'Vehicle Selection')}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaLink', e.target.value)}
+                      disabled={activeSlide.showCta === false}
+                    >
+                      <option value="Rent Screen">Rent Screen</option>
+                      <option value="Home Screen">Home Screen</option>
+                      <option value="Vehicle Map">Vehicle Map</option>
+                      <option value="Battery Swap">Battery Swap</option>
+                      <option value="Wallet">Wallet</option>
+                      <option value="Customer Support">Customer Support</option>
+                    </select>
+                  </div>
+                </div>
 
-                          {/* Image Assets Section: Background & Front Cutout */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '4px' }}>
-                            {/* Background Image */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <label className="wl-lbl">Background Image Asset</label>
-                              <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
-                                {slide.bg ? (
-                                  <img
-                                    src={normalizeImageUrl(slide.bg)}
-                                    alt="Background preview"
-                                    className="slider-asset-thumb"
-                                    onError={(e: any) => { e.target.style.display = 'none'; }}
-                                  />
-                                ) : (
-                                  <div style={{ width: '68px', height: '46px', borderRadius: '6px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>
-                                    Default BG
-                                  </div>
-                                )}
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
-                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                        <polyline points="17 8 12 3 7 8"/>
-                                        <line x1="12" y1="3" x2="12" y2="15"/>
-                                      </svg>
-                                      <span>{uploadingField === `${idx}-bg` ? 'Uploading...' : 'Upload BG Photo'}</span>
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        style={{ display: 'none' }}
-                                        onChange={e => handleUploadSliderFile(idx, 'bg', e)}
-                                      />
-                                    </label>
-                                    {slide.bg ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveSliderFile(idx, 'bg')}
-                                        style={{ fontSize: '10.5px', color: '#EF4444', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px' }}
-                                        title="Clear image and free storage"
-                                      >
-                                        Clear
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                  <input
-                                    type="text"
-                                    className="wl-inp"
-                                    style={{ fontSize: '10.5px', padding: '4px 8px' }}
-                                    placeholder="or paste image URL"
-                                    value={slide.bg || ''}
-                                    onChange={e => handleUpdateSlide(idx, 'bg', e.target.value)}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Front Cutout Asset */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <label className="wl-lbl">Front Asset Cutout (Scooter / Mascot)</label>
-                              <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
-                                {slide.front ? (
-                                  <img
-                                    src={normalizeImageUrl(slide.front)}
-                                    alt="Front preview"
-                                    className="slider-asset-thumb"
-                                    style={{ objectFit: 'contain' }}
-                                    onError={(e: any) => { e.target.style.display = 'none'; }}
-                                  />
-                                ) : (
-                                  <div style={{ width: '68px', height: '46px', borderRadius: '6px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>
-                                    Default EV
-                                  </div>
-                                )}
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, color: '#4F46E5' }}>
-                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                        <polyline points="17 8 12 3 7 8"/>
-                                        <line x1="12" y1="3" x2="12" y2="15"/>
-                                      </svg>
-                                      <span>{uploadingField === `${idx}-front` ? 'Uploading...' : 'Upload Cutout PNG'}</span>
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        style={{ display: 'none' }}
-                                        onChange={e => handleUploadSliderFile(idx, 'front', e)}
-                                      />
-                                    </label>
-                                    {slide.front ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveSliderFile(idx, 'front')}
-                                        style={{ fontSize: '10.5px', color: '#EF4444', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: '1px 4px' }}
-                                        title="Clear cutout and free storage"
-                                      >
-                                        Clear
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                  <input
-                                    type="text"
-                                    className="wl-inp"
-                                    style={{ fontSize: '10.5px', padding: '4px 8px' }}
-                                    placeholder="or paste image URL"
-                                    value={slide.front || ''}
-                                    onChange={e => handleUpdateSlide(idx, 'front', e.target.value)}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                {/* Quick Style Presets */}
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>Quick Style</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                    {[
+                      { key: 'default', label: 'Default', bg: 'linear-gradient(135deg, #E0E7FF 0%, #EDE9FE 100%)' },
+                      { key: 'festive', label: 'Festive', bg: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)' },
+                      { key: 'minimal', label: 'Minimal', bg: 'linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)' },
+                      { key: 'bold', label: 'Bold', bg: 'linear-gradient(135deg, #FEE2E2 0%, #FED7AA 100%)' },
+                      { key: 'modern', label: 'Modern', bg: 'linear-gradient(135deg, #DBEAFE 0%, #EDE9FE 100%)' }
+                    ].map(style => (
+                      <div
+                        key={style.key}
+                        className={`quick-style-card ${(activeSlide.quickStyle || 'default') === style.key ? 'act' : ''}`}
+                        onClick={() => applyQuickStyle(style.key)}
+                      >
+                        <div className="quick-style-preview" style={{ background: style.bg }}>
+                          {(activeSlide.quickStyle || 'default') === style.key && (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          )}
                         </div>
-                      );
-                    })}
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>{style.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                    <button
-                      className="wl-btn"
-                      style={{ borderStyle: 'dashed', padding: '14px', justifyContent: 'center', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
-                      onClick={handleAddSlide}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      <span>Add New Slide to {sliderScreen === 'home' ? 'HomeScreen' : 'RentScreen'}</span>
-                    </button>
+            {/* TAB 2: TYPOGRAPHY */}
+            {editorSubTab === 'typography' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>Typography & Font Style</span>
 
-                    <button
-                      type="button"
-                      className="wl-btn wl-btn-primary"
-                      style={{ padding: '14px 20px', marginTop: '10px', justifyContent: 'center', fontWeight: 800, background: '#4F46E5', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
-                      onClick={handleSaveSliders}
-                      disabled={isSavingSliders}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                        <polyline points="17 21 17 13 7 13 7 21"/>
-                        <polyline points="7 3 7 8 15 8"/>
-                      </svg>
-                      <span>{isSavingSliders ? 'Publishing Changes...' : 'Save & Publish All Sliders'}</span>
-                    </button>
+                {/* Font Selector Cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label className="wl-lbl">Headline Font Style</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {[
+                      { key: 'signature', label: 'Signature Script', preview: 'Signature Script', style: { fontFamily: "'Caveat', cursive", fontSize: '18px' } },
+                      { key: 'sans', label: 'Modern Sans', preview: 'Modern Sans', style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '13px', fontWeight: 700 } },
+                      { key: 'bold', label: 'Bold Display', preview: 'BOLD DISPLAY', style: { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '12.5px', fontWeight: 900 } },
+                      { key: 'serif', label: 'Elegant Serif', preview: 'Elegant Serif', style: { fontFamily: "'Playfair Display', serif", fontSize: '14px', fontWeight: 700 } },
+                      { key: 'mono', label: 'Monospace', preview: 'Monospace', style: { fontFamily: "'Space Mono', monospace", fontSize: '12px' } }
+                    ].map(f => (
+                      <div
+                        key={f.key}
+                        onClick={() => handleUpdateSlide(selectedSlideIdx, 'fontStyle', f.key)}
+                        style={{
+                          padding: '12px 10px',
+                          border: '1.5px solid',
+                          borderColor: (activeSlide.fontStyle || 'signature') === f.key ? '#6366F1' : '#E2E8F0',
+                          borderRadius: '10px',
+                          background: (activeSlide.fontStyle || 'signature') === f.key ? '#F5F3FF' : '#FFFFFF',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}
+                      >
+                        <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 700 }}>{f.label}</span>
+                        <span style={{ ...f.style, color: '#1E293B', lineHeight: 1.2 }}>{f.preview}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Font Sizes & Colors */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Title Font Size</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.titleFontSize || 26}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="16"
+                      max="48"
+                      value={activeSlide.titleFontSize || 26}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'titleFontSize', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
                   </div>
 
-                  {/* Right Column: Exact Mobile Phone Screen Layout Preview */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div className="wl-panel" style={{ position: 'sticky', top: '20px' }}>
-                      <div className="wl-panel-hdr">
-                        <span className="wl-panel-tit">Rider Mobile Screen Preview</span>
-                        <span className="badge-pill badge-active">Live Synchronized</span>
-                      </div>
+                  <div className="wl-form-group">
+                    <label className="wl-lbl">Title Font Color</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        value={activeSlide.titleColor || '#1E1B4B'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'titleColor', e.target.value)}
+                        style={{ width: '34px', height: '34px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                      />
+                      <input
+                        type="text"
+                        className="wl-inp"
+                        style={{ flex: 1, padding: '7px 10px', fontSize: '12px' }}
+                        value={activeSlide.titleColor || '#1E1B4B'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'titleColor', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-                      <div className="wl-panel-body" style={{ alignItems: 'center', background: '#F8FAFC', padding: '20px 16px' }}>
-                        {/* Slide switcher selector pills */}
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                          {currentSliderList.map((_, i: number) => (
-                            <button
-                              key={i}
-                              style={{
-                                padding: '4px 12px',
-                                borderRadius: '16px',
-                                border: '1px solid',
-                                borderColor: selectedSlideIdx === i ? '#1E1B4B' : '#CBD5E1',
-                                background: selectedSlideIdx === i ? '#1E1B4B' : '#fff',
-                                color: selectedSlideIdx === i ? '#fff' : '#475569',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => setSelectedSlideIdx(i)}
-                            >
-                              Slide {i + 1}
-                            </button>
-                          ))}
-                        </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Subtitle Font Size</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.subFontSize || 12}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="24"
+                      value={activeSlide.subFontSize || 12}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'subFontSize', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
 
-                        {/* Real Mobile App Phone Frame */}
-                        {(() => {
-                          const activeSlide = currentSliderList[selectedSlideIdx] || currentSliderList[0] || {};
-                          const currentTag = activeSlide.tag || `Slider ${selectedSlideIdx + 1}`;
-                          return (
-                            <div className="phone-mock-frame">
-                              <div className="phone-mock-notch" />
-                              <div className="phone-mock-screen">
-                                {/* Status bar with real SVG indicators */}
-                                <div style={{ height: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 20px 4px', fontSize: '10px', fontWeight: 800, color: '#0F172A', zIndex: 25 }}>
-                                  <span>9:41</span>
-                                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                                    {/* Cellular */}
-                                    <svg width="12" height="10" viewBox="0 0 16 12" fill="#0F172A">
-                                      <rect x="0" y="8" width="2.5" height="4" rx="0.5"/>
-                                      <rect x="4" y="6" width="2.5" height="6" rx="0.5"/>
-                                      <rect x="8" y="3" width="2.5" height="9" rx="0.5"/>
-                                      <rect x="12" y="0" width="2.5" height="12" rx="0.5"/>
-                                    </svg>
-                                    {/* WiFi */}
-                                    <svg width="12" height="10" viewBox="0 0 16 12" fill="#0F172A">
-                                      <path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
-                                      <path d="M4.5 5.5a5 5 0 017 0" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                                      <path d="M2 3a8.5 8.5 0 0112 0" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-                                    </svg>
-                                    {/* Battery */}
-                                    <svg width="16" height="9" viewBox="0 0 22 12" fill="none" stroke="#0F172A" strokeWidth="1.5">
-                                      <rect x="1" y="1" width="17" height="10" rx="2.5"/>
-                                      <rect x="3" y="3" width="11" height="6" rx="1" fill="#0F172A"/>
-                                      <path d="M19 4v4" strokeLinecap="round"/>
-                                    </svg>
-                                  </div>
-                                </div>
-
-                                {/* Real Screen Header */}
-                                {sliderScreen === 'rent' ? (
-                                  <div style={{ padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <div style={{ width: '28px', height: '28px', borderRadius: '14px', background: 'rgba(255,255,255,0.9)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
-                                        ‹
-                                      </div>
-                                      <div>
-                                        <div style={{ fontSize: '12px', fontWeight: 900, color: '#0F172A' }}>Rent EV</div>
-                                        <div style={{ fontSize: '8px', color: '#64748B' }}>Vadodara Knowledge City</div>
-                                      </div>
-                                    </div>
-                                    <span style={{ fontSize: '8.5px', fontWeight: 800, background: 'rgba(108,56,255,0.08)', color: '#6C38FF', padding: '3px 7px', borderRadius: '10px', border: '1px solid rgba(108,56,255,0.18)' }}>
-                                      ● Active Zone
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div style={{ padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#6C38FF" stroke="#6C38FF" strokeWidth="2">
-                                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                                        <circle cx="12" cy="9" r="2.5" fill="#fff"/>
-                                      </svg>
-                                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A' }}>Gotri Zone, Vadodara ▾</span>
-                                    </div>
-                                    <div style={{ width: '26px', height: '26px', borderRadius: '13px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
-                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                                      </svg>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Dynamic Slider with Real Layout & Styling */}
-                                <div className="phone-hero-slider">
-                                  {/* Background Image */}
-                                  {activeSlide.bg ? (
-                                    <img
-                                      src={normalizeImageUrl(activeSlide.bg)}
-                                      alt="Slide BG"
-                                      className="phone-slide-bg"
-                                    />
-                                  ) : (
-                                    <div
-                                      className="phone-slide-bg"
-                                      style={{
-                                        background: sliderScreen === 'rent'
-                                          ? 'radial-gradient(circle at 80% 20%, #EDE9FE 0%, #E0E7FF 40%, #F1F5F9 100%)'
-                                          : 'radial-gradient(circle at 80% 20%, #CCFBF1 0%, #E0E7FF 40%, #F8FAFC 100%)'
-                                      }}
-                                    />
-                                  )}
-
-                                  {/* Soft luminous gradient overlay for dark typography */}
-                                  <div className="phone-slide-grad" />
-
-                                  {/* Left Copy (Dark Luxury Typography) */}
-                                  <div className="phone-slide-copy">
-                                    <span className="phone-tag-badge">
-                                      {currentTag}
-                                    </span>
-                                    <h3 className="phone-slide-h1">
-                                      {activeSlide.title || 'Rent at L&T Knowledge City'}
-                                    </h3>
-                                    <p className="phone-slide-p">
-                                      {activeSlide.subtitle || 'Instant unlock at Main Gate hub. Smooth ride to office.'}
-                                    </p>
-                                    <button className="phone-slide-cta">
-                                      {activeSlide.cta || 'Book This Zone'} ➔
-                                    </button>
-                                  </div>
-
-                                  {/* Front Asset Cutout */}
-                                  {activeSlide.front ? (
-                                    <img
-                                      src={normalizeImageUrl(activeSlide.front)}
-                                      alt="Slide Front"
-                                      className="phone-slide-front"
-                                    />
-                                  ) : (
-                                    <div className="phone-slide-front" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      <svg width="125" height="125" viewBox="0 0 200 180" fill="none">
-                                        <circle cx="50" cy="140" r="28" fill="#1E1B4B" stroke="#6C38FF" strokeWidth="5"/>
-                                        <circle cx="50" cy="140" r="14" fill="#E2E8F0"/>
-                                        <circle cx="155" cy="140" r="28" fill="#1E1B4B" stroke="#6C38FF" strokeWidth="5"/>
-                                        <circle cx="155" cy="140" r="14" fill="#E2E8F0"/>
-                                        <path d="M45 130 Q70 120 100 125 L145 130" stroke="#0F172A" strokeWidth="11" strokeLinecap="round"/>
-                                        <path d="M75 125 L95 85 L140 100 L145 130 Z" fill="#6C38FF"/>
-                                        <path d="M60 85 Q90 80 115 85" stroke="#1E1B4B" strokeWidth="9" strokeLinecap="round"/>
-                                        <path d="M135 125 L160 50" stroke="#0F172A" strokeWidth="7" strokeLinecap="round"/>
-                                        <path d="M148 48 L170 48" stroke="#1E1B4B" strokeWidth="5" strokeLinecap="round"/>
-                                        <circle cx="168" cy="52" r="5" fill="#00D26A"/>
-                                      </svg>
-                                    </div>
-                                  )}
-
-                                  {/* Pagination Dots */}
-                                  <div className="phone-dots">
-                                    {currentSliderList.map((_, dotIdx: number) => (
-                                      <span
-                                        key={dotIdx}
-                                        className={`phone-dot ${selectedSlideIdx === dotIdx ? 'act' : ''}`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Real Screen Body Content Below Slider */}
-                                {sliderScreen === 'rent' ? (
-                                  <div style={{ flex: 1, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {/* Operational hours notice */}
-                                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '7px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
-                                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#334155' }}>Operational: 06:00 AM – 11:00 PM (Daily)</span>
-                                    </div>
-
-                                    {/* Real Rent Schedule Selector Card */}
-                                    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '9px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                      <span style={{ fontSize: '9px', fontWeight: 800, color: '#0F172A' }}>Select Rental Schedule</span>
-                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                                        <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '6px', border: '1px solid #F1F5F9' }}>
-                                          <div style={{ fontSize: '7px', color: '#64748B', fontWeight: 800 }}>PICKUP</div>
-                                          <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Today, 10:00 AM</div>
-                                        </div>
-                                        <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '6px', border: '1px solid #F1F5F9' }}>
-                                          <div style={{ fontSize: '7px', color: '#64748B', fontWeight: 800 }}>DROPOFF</div>
-                                          <div style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Tomorrow, 10:00 AM</div>
-                                        </div>
-                                      </div>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #E2E8F0' }}>
-                                        <span style={{ fontSize: '8px', color: '#475569' }}>Selected: <strong>Daily Pass (24 hrs)</strong></span>
-                                        <span style={{ fontSize: '9px', fontWeight: 900, color: '#6C38FF' }}>₹149/day</span>
-                                      </div>
-                                    </div>
-
-                                    {/* Action button */}
-                                    <div style={{ background: '#6C38FF', color: '#fff', borderRadius: '10px', padding: '9px', textAlign: 'center', fontSize: '10.5px', fontWeight: 800, marginTop: '2px', boxShadow: '0 4px 10px rgba(108,56,255,0.25)' }}>
-                                      Continue to Vehicle Selection ➔
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div style={{ flex: 1, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {/* Real HomeScreen Booking Sheet */}
-                                    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                      <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#0F172A' }}>Find Zones near to you</span>
-                                      <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '6px 8px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span style={{ fontSize: '9px' }}>📍</span>
-                                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#1E293B' }}>Gotri Zone Central Hub</span>
-                                      </div>
-                                      <div style={{ background: '#6C38FF', color: '#fff', borderRadius: '8px', padding: '8px', textAlign: 'center', fontSize: '9.5px', fontWeight: 800, marginTop: '2px' }}>
-                                        Rent Your EV ➔
-                                      </div>
-                                    </div>
-
-                                    {/* Real Fleet Card */}
-                                    <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <div>
-                                        <div style={{ fontSize: '9px', fontWeight: 800, color: '#0F172A' }}>Evegah City 60V</div>
-                                        <div style={{ fontSize: '7.5px', color: '#10B981', fontWeight: 700 }}>● 8 Vehicles Available Now</div>
-                                      </div>
-                                      <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#6C38FF' }}>From ₹149</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        <p style={{ fontSize: '10.5px', color: '#64748B', textAlign: 'center', marginTop: '14px', maxWidth: '280px', lineHeight: 1.4 }}>
-                          Real-time preview matching the exact layout, aspect ratio, and typography delivered to mobile riders.
-                        </p>
-                      </div>
+                  <div className="wl-form-group">
+                    <label className="wl-lbl">Subtitle Color</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        value={activeSlide.subColor || '#475569'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'subColor', e.target.value)}
+                        style={{ width: '34px', height: '34px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                      />
+                      <input
+                        type="text"
+                        className="wl-inp"
+                        style={{ flex: 1, padding: '7px 10px', fontSize: '12px' }}
+                        value={activeSlide.subColor || '#475569'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'subColor', e.target.value)}
+                      />
                     </div>
                   </div>
                 </div>
               </div>
             )}
+
+            {/* TAB 3: BACKGROUND */}
+            {editorSubTab === 'background' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>Background Artwork & Overlay</span>
+
+                {/* BG Image Asset */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label className="wl-lbl">Background Image Asset</label>
+                  <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
+                    {activeSlide.bg ? (
+                      <img
+                        src={normalizeImageUrl(activeSlide.bg)}
+                        alt="Background preview"
+                        className="slider-asset-thumb"
+                        onError={(e: any) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ width: '68px', height: '46px', borderRadius: '6px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>
+                        Default BG
+                      </div>
+                    )}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700, color: '#4F46E5' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                          <span>{uploadingField === `${selectedSlideIdx}-bg` ? 'Uploading...' : 'Upload BG Photo'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={e => handleUploadSliderFile(selectedSlideIdx, 'bg', e)}
+                          />
+                        </label>
+                        {activeSlide.bg ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSliderFile(selectedSlideIdx, 'bg')}
+                            style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: '1px 6px' }}
+                            title="Clear image"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <input
+                        type="text"
+                        className="wl-inp"
+                        style={{ fontSize: '11.5px', padding: '6px 10px' }}
+                        placeholder="or paste image URL"
+                        value={activeSlide.bg || ''}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'bg', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Overlay Opacity Slider & Color */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '16px', background: '#F8FAFC', padding: '14px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Overlay Opacity Adjust</label>
+                      <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#6366F1' }}>{activeSlide.overlayOpacity !== undefined ? activeSlide.overlayOpacity : 65}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={activeSlide.overlayOpacity !== undefined ? activeSlide.overlayOpacity : 65}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'overlayOpacity', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '10.5px', color: '#64748B' }}>Slide down to 0% for pure clear photo, or up to 100% for solid backdrop.</span>
+                  </div>
+
+                  <div className="wl-form-group">
+                    <label className="wl-lbl">Overlay Tint</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        value={activeSlide.overlayColor || '#FFFFFF'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'overlayColor', e.target.value)}
+                        style={{ width: '34px', height: '34px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                      />
+                      <input
+                        type="text"
+                        className="wl-inp"
+                        style={{ flex: 1, padding: '7px 8px', fontSize: '11px' }}
+                        value={activeSlide.overlayColor || '#FFFFFF'}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'overlayColor', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: CUTOUT & LAYOUT */}
+            {editorSubTab === 'cutout' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>Front Cutout Asset & Dimensions</span>
+
+                {/* Cutout Asset */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label className="wl-lbl">Front Asset Cutout (Scooter / Mascot / Rider PNG)</label>
+                  <div className="slider-asset-drop" onClick={e => e.stopPropagation()}>
+                    {activeSlide.front ? (
+                      <img
+                        src={normalizeImageUrl(activeSlide.front)}
+                        alt="Front cutout preview"
+                        className="slider-asset-thumb"
+                        style={{ objectFit: 'contain' }}
+                        onError={(e: any) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ width: '68px', height: '46px', borderRadius: '6px', background: '#F1F5F9', border: '1px solid #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>
+                        Default EV
+                      </div>
+                    )}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700, color: '#4F46E5' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                          <span>{uploadingField === `${selectedSlideIdx}-front` ? 'Uploading...' : 'Upload Cutout PNG'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={e => handleUploadSliderFile(selectedSlideIdx, 'front', e)}
+                          />
+                        </label>
+                        {activeSlide.front ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSliderFile(selectedSlideIdx, 'front')}
+                            style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: '1px 6px' }}
+                            title="Clear cutout"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <input
+                        type="text"
+                        className="wl-inp"
+                        style={{ fontSize: '11.5px', padding: '6px 10px' }}
+                        placeholder="or paste image URL"
+                        value={activeSlide.front || ''}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'front', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cutout Dimensions (Width, Height, Scale, X/Y) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Cutout Width (Length)</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.cutoutWidth || 270}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="120"
+                      max="380"
+                      value={activeSlide.cutoutWidth || 270}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'cutoutWidth', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Cutout Height</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.cutoutHeight || 240}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="120"
+                      max="360"
+                      value={activeSlide.cutoutHeight || 240}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'cutoutHeight', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Scale</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.cutoutScale || 1.0}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="1.8"
+                      step="0.05"
+                      value={activeSlide.cutoutScale !== undefined ? activeSlide.cutoutScale : 1.0}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'cutoutScale', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Position X (Right)</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.cutoutRight ?? 0}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-40"
+                      max="80"
+                      value={activeSlide.cutoutRight ?? 0}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'cutoutRight', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Position Y (Bottom)</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.cutoutBottom ?? 4}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-20"
+                      max="60"
+                      value={activeSlide.cutoutBottom ?? 4}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'cutoutBottom', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Column 3: 100% Identical Mobile Preview */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="wl-panel" style={{ borderRadius: '16px', position: 'sticky', top: '20px' }}>
+            <div className="wl-panel-hdr" style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>Mobile Preview</span>
+              </div>
+              <span className="badge-pill badge-active" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
+                Live Preview
+              </span>
+            </div>
+
+            <div className="wl-panel-body" style={{ alignItems: 'center', background: '#F8FAFC', padding: '14px 12px' }}>
+              {/* Phone Selector Dropdown Bar */}
+              <div style={{ width: '100%', maxWidth: '320px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <select className="wl-inp" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '8px', background: '#FFFFFF', fontWeight: 600 }}>
+                  <option>iPhone 15 (390 x 844)</option>
+                  <option>Pixel 8 (412 x 892)</option>
+                  <option>Galaxy S24 (384 x 824)</option>
+                </select>
+
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button type="button" style={{ border: '1px solid #CBD5E1', background: '#FFF', borderRadius: '6px', padding: '4px 6px', cursor: 'pointer' }} title="Rotate">
+                    📱
+                  </button>
+                  <button type="button" style={{ border: '1px solid #CBD5E1', background: '#FFF', borderRadius: '6px', padding: '4px 6px', cursor: 'pointer' }} title="Expand">
+                    ⛶
+                  </button>
+                </div>
+              </div>
+
+              {/* Exact Mobile App Phone Frame */}
+              <div className="phone-mock-frame" style={{ width: '315px', height: '610px', borderRadius: '42px', border: '10px solid #1E293B', background: '#FFFFFF' }}>
+                {/* Dynamic Island */}
+                <div style={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '90px',
+                  height: '24px',
+                  borderRadius: '16px',
+                  background: '#000000',
+                  zIndex: 40
+                }} />
+
+                <div className="phone-mock-screen" style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#FAFAFD', position: 'relative', overflowY: 'auto' }}>
+                  {/* Status Bar */}
+                  <div style={{ height: '36px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 20px 4px', fontSize: '10px', fontWeight: 800, color: '#0F172A', zIndex: 30 }}>
+                    <span>9:41</span>
+                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                      <svg width="12" height="10" viewBox="0 0 16 12" fill="#0F172A">
+                        <rect x="0" y="8" width="2.5" height="4" rx="0.5"/>
+                        <rect x="4" y="6" width="2.5" height="6" rx="0.5"/>
+                        <rect x="8" y="3" width="2.5" height="9" rx="0.5"/>
+                        <rect x="12" y="0" width="2.5" height="12" rx="0.5"/>
+                      </svg>
+                      <svg width="12" height="10" viewBox="0 0 16 12" fill="#0F172A">
+                        <path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                        <path d="M4.5 5.5a5 5 0 017 0" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                        <path d="M2 3a8.5 8.5 0 0112 0" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                      </svg>
+                      <svg width="16" height="9" viewBox="0 0 22 12" fill="none" stroke="#0F172A" strokeWidth="1.5">
+                        <rect x="1" y="1" width="17" height="10" rx="2.5"/>
+                        <rect x="3" y="3" width="11" height="6" rx="1" fill="#0F172A"/>
+                        <path d="M19 4v4" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* App Screen Header */}
+                  {sliderScreen === 'rent' ? (
+                    <div style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 25 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '13px', background: 'rgba(255,255,255,0.95)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+                          ‹
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0F172A' }}>Rent EV</div>
+                          <div style={{ fontSize: '8px', color: '#64748B' }}>Vadodara Knowledge City</div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '8px', fontWeight: 800, background: 'rgba(99,102,241,0.08)', color: '#6366F1', padding: '2px 6px', borderRadius: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
+                        ● Active Zone
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 25 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.9)', padding: '3px 8px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#6366F1">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                        </svg>
+                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#0F172A' }}>Gotri, Vadodara ⌄</span>
+                      </div>
+                      <div style={{ width: '24px', height: '24px', borderRadius: '12px', background: 'rgba(255,255,255,0.9)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* HERO SLIDER CONTAINER (Exact Aspect Ratio) */}
+                  <div className="phone-hero-slider" style={{ height: '280px', position: 'relative', overflow: 'hidden' }}>
+                    {/* Background Image */}
+                    {activeSlide.bg ? (
+                      <img
+                        src={normalizeImageUrl(activeSlide.bg)}
+                        alt="Slide BG"
+                        className="phone-slide-bg"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
+                      />
+                    ) : (
+                      <div
+                        className="phone-slide-bg"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          background: sliderScreen === 'rent'
+                            ? 'radial-gradient(circle at 80% 20%, #EDE9FE 0%, #E0E7FF 40%, #F1F5F9 100%)'
+                            : 'radial-gradient(circle at 80% 20%, #CCFBF1 0%, #E0E7FF 40%, #F8FAFC 100%)'
+                        }}
+                      />
+                    )}
+
+                    {/* Dynamic Overlay Gradient with Adjustable Opacity */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: `linear-gradient(to right, ${activeSlide.overlayColor || '#FFFFFF'}, transparent)`,
+                        opacity: (activeSlide.overlayOpacity !== undefined ? Number(activeSlide.overlayOpacity) : 65) / 100,
+                        pointerEvents: 'none',
+                        zIndex: 2
+                      }}
+                    />
+
+                    {/* Front Cutout Asset */}
+                    {activeSlide.front ? (
+                      <img
+                        src={normalizeImageUrl(activeSlide.front)}
+                        alt="Cutout"
+                        style={{
+                          position: 'absolute',
+                          right: `${activeSlide.cutoutRight ?? 0}px`,
+                          bottom: `${activeSlide.cutoutBottom ?? 4}px`,
+                          width: `${(activeSlide.cutoutWidth || 270) * (activeSlide.cutoutScale || 1.0) * 0.7}px`,
+                          height: `${(activeSlide.cutoutHeight || 240) * (activeSlide.cutoutScale || 1.0) * 0.7}px`,
+                          objectFit: 'contain',
+                          zIndex: 3
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: `${activeSlide.cutoutRight ?? 0}px`,
+                          bottom: `${activeSlide.cutoutBottom ?? 4}px`,
+                          width: `${180 * (activeSlide.cutoutScale || 1.0)}px`,
+                          height: `${160 * (activeSlide.cutoutScale || 1.0)}px`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          zIndex: 3
+                        }}
+                      >
+                        <svg width="100%" height="100%" viewBox="0 0 200 180" fill="none">
+                          <circle cx="50" cy="140" r="28" fill="#1E1B4B" stroke="#6C38FF" strokeWidth="5"/>
+                          <circle cx="50" cy="140" r="14" fill="#E2E8F0"/>
+                          <circle cx="155" cy="140" r="28" fill="#1E1B4B" stroke="#6C38FF" strokeWidth="5"/>
+                          <circle cx="155" cy="140" r="14" fill="#E2E8F0"/>
+                          <path d="M45 130 Q70 120 100 125 L145 130" stroke="#0F172A" strokeWidth="11" strokeLinecap="round"/>
+                          <path d="M75 125 L95 85 L140 100 L145 130 Z" fill="#6C38FF"/>
+                          <path d="M60 85 Q90 80 115 85" stroke="#1E1B4B" strokeWidth="9" strokeLinecap="round"/>
+                          <path d="M135 125 L160 50" stroke="#0F172A" strokeWidth="7" strokeLinecap="round"/>
+                          <path d="M148 48 L170 48" stroke="#1E1B4B" strokeWidth="5" strokeLinecap="round"/>
+                          <circle cx="168" cy="52" r="5" fill="#00D26A"/>
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Left Typography & CTA: Rendered ONLY if text/button enabled */}
+                    {hasTextInPreview ? (
+                      <div
+                        style={{
+                          position: 'relative',
+                          zIndex: 4,
+                          padding: '16px 14px',
+                          maxWidth: '65%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}
+                      >
+                        {/* Badge */}
+                        {showBadge && (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: activeSlide.badgeBg || '#6366F1',
+                              color: activeSlide.badgeTextColor || '#FFFFFF',
+                              fontSize: '8.5px',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              width: 'fit-content'
+                            }}
+                          >
+                            {currentTag}
+                          </span>
+                        )}
+
+                        {/* Title */}
+                        {showTitle && (
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: `${Math.round((activeSlide.titleFontSize || 26) * 0.72)}px`,
+                              color: activeSlide.titleColor || '#1E1B4B',
+                              lineHeight: 1.15,
+                              whiteSpace: 'pre-line',
+                              ...fontFamStyle
+                            }}
+                          >
+                            {currentTitle}
+                          </h3>
+                        )}
+
+                        {/* Subtitle */}
+                        {showSubtitle && (
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: `${Math.round((activeSlide.subFontSize || 12) * 0.75)}px`,
+                              color: activeSlide.subColor || '#475569',
+                              lineHeight: 1.3,
+                              fontWeight: 500
+                            }}
+                          >
+                            {currentSub}
+                          </p>
+                        )}
+
+                        {/* CTA Button */}
+                        {showCta && (
+                          <div
+                            style={{
+                              marginTop: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '5px 12px',
+                              borderRadius: '20px',
+                              background: activeSlide.ctaBg || '#2A195C',
+                              color: activeSlide.ctaTextColor || '#FFFFFF',
+                              fontSize: '9.5px',
+                              fontWeight: 800,
+                              width: 'fit-content',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.18)'
+                            }}
+                          >
+                            <span>{currentCta}</span>
+                            <span>➔</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Pagination Dots */}
+                    <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '5px', zIndex: 10 }}>
+                      {currentSliderList.map((_: any, dIdx: number) => (
+                        <span
+                          key={dIdx}
+                          style={{
+                            width: selectedSlideIdx === dIdx ? '16px' : '5px',
+                            height: '5px',
+                            borderRadius: '3px',
+                            background: selectedSlideIdx === dIdx ? '#6366F1' : 'rgba(0,0,0,0.2)',
+                            transition: 'all 0.2s'
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Body Content below slider (Exact Mobile Screen Replica) */}
+                  {sliderScreen === 'rent' ? (
+                    <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {/* Operational hours notice */}
+                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+                        <span style={{ fontSize: '8px', fontWeight: 700, color: '#334155' }}>Operational: 06:00 AM – 11:00 PM (Daily)</span>
+                      </div>
+
+                      {/* Rental Schedule Card */}
+                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Select Rental Schedule</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '5px', border: '1px solid #F1F5F9' }}>
+                            <div style={{ fontSize: '6.5px', color: '#64748B', fontWeight: 800 }}>PICKUP</div>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#0F172A' }}>Today, 10:00 AM</div>
+                          </div>
+                          <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '5px', border: '1px solid #F1F5F9' }}>
+                            <div style={{ fontSize: '6.5px', color: '#64748B', fontWeight: 800 }}>DROPOFF</div>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#0F172A' }}>Tomorrow, 10:00 AM</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action button */}
+                      <div style={{ background: '#6366F1', color: '#FFFFFF', borderRadius: '10px', padding: '9px', textAlign: 'center', fontSize: '10px', fontWeight: 800, marginTop: '2px', boxShadow: '0 3px 8px rgba(99,102,241,0.25)' }}>
+                        Search Available EVs ➔
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {/* HomeScreen Zone Card */}
+                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '9px' }}>📍</span>
+                          <span style={{ fontSize: '9px', fontWeight: 800, color: '#0F172A' }}>Gotri Zone, Vadodara</span>
+                        </div>
+                        <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '5px 8px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', fontSize: '7.5px', color: '#64748B' }}>
+                          <span>Ride Start: Nov 8, 05:04 PM</span>
+                          <span>Ride End: Nov 9, 05:04 PM</span>
+                        </div>
+                        <div style={{ background: '#EDE9FE', color: '#6366F1', borderRadius: '8px', padding: '6px', textAlign: 'center', fontSize: '9px', fontWeight: 800 }}>
+                          Rent Your EV ➔
+                        </div>
+                      </div>
+
+                      {/* Fleet List Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                        <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Choose your <strong>EV Ride</strong></span>
+                        <span style={{ fontSize: '7.5px', color: '#6366F1', fontWeight: 700 }}>View All ›</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+})()}`
+
 
             {activeTab === 'email' && (
               <div className="wl-layout">

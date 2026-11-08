@@ -68,10 +68,10 @@ router.get('/', async (req, res) => {
         LEFT JOIN renters rn ON (rn.transaction_id = ip.tx_id OR rn.id::text = ip.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ip.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE ip.mobile NOT LIKE '%1800%'
           AND ip.mobile NOT LIKE '%1820%'
-          AND NOT (
-            UPPER(ip.status) = 'PENDING'
-            AND r.id IS NULL
-            AND rn.id IS NULL
+          AND (
+            UPPER(ip.status) != 'PENDING'
+            OR r.transaction_id = ip.tx_id
+            OR rn.transaction_id = ip.tx_id
           )
 
         UNION ALL
@@ -112,10 +112,10 @@ router.get('/', async (req, res) => {
           AND pp.tx_id NOT LIKE 'REF-%'
           AND pp.mobile NOT LIKE '%1800%'
           AND pp.mobile NOT LIKE '%1820%'
-          AND NOT (
-            UPPER(pp.status) = 'PENDING'
-            AND r.id IS NULL
-            AND rn.id IS NULL
+          AND (
+            UPPER(pp.status) != 'PENDING'
+            OR r.transaction_id = pp.tx_id
+            OR rn.transaction_id = pp.tx_id
           )
           AND NOT (
             COALESCE(pp.rider_name, '') IN ('Rider', 'Evegah Rider')
@@ -579,10 +579,10 @@ router.get('/export', async (req, res) => {
           AND pp.tx_id NOT LIKE 'REF-%'
           AND pp.mobile NOT LIKE '%1800%'
           AND pp.mobile NOT LIKE '%1820%'
-          AND NOT (
-            UPPER(pp.status) = 'PENDING'
-            AND r.id IS NULL
-            AND rn.id IS NULL
+          AND (
+            UPPER(pp.status) != 'PENDING'
+            OR r.transaction_id = pp.tx_id
+            OR rn.transaction_id = pp.tx_id
           )
           AND NOT (
             COALESCE(pp.rider_name, '') IN ('Rider', 'Evegah Rider')
