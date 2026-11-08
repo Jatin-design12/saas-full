@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { QRCodeSVG } from 'qrcode.react';
+import { api } from '@/lib/api';
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -341,22 +342,16 @@ export default function RetainRiderPaymentPage() {
     setPayuVerified(false);
     setSplitQrString('');
     let isMounted = true;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-    fetch(`${apiUrl}/payments/payu/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: onlineAmount,
-        rider_name: rider?.name || 'Rider',
-        mobile: rider?.phone || rider?.mobile || '',
-        email: rider?.email || '',
-        notes: `Retain Split - ${rental?.vehicle_name || 'EV'}`,
-        purpose: 'retain'
-      })
+    api.post('/payments/payu/initiate', {
+      amount: onlineAmount,
+      rider_name: rider?.name || 'Rider',
+      mobile: rider?.phone || rider?.mobile || '',
+      email: rider?.email || '',
+      notes: `Retain Split - ${rental?.vehicle_name || 'EV'}`,
+      purpose: 'retain'
     })
-      .then(r => r.json())
-      .then(res => {
+      .then((res: any) => {
         if (!isMounted) return;
         const data = res?.data || res;
         const qrStr = data?.qrString || data?.upi_string || '';
@@ -366,7 +361,7 @@ export default function RetainRiderPaymentPage() {
         setSplitTxId(txId);
         setSplitCheckoutUrl(chkUrl);
       })
-      .catch(err => console.error('Split PayU QR error:', err));
+      .catch((err: any) => console.error('Split PayU QR error:', err));
 
     return () => { isMounted = false; };
   }, [payMethod, onlineAmount, rider?.name, rider?.phone, rider?.email, rental?.vehicle_name]);
@@ -377,22 +372,16 @@ export default function RetainRiderPaymentPage() {
     setPayuVerified(false);
     setPayuQrString('');
     let isMounted = true;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-    fetch(`${apiUrl}/payments/payu/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: totalPayable,
-        rider_name: rider?.name || 'Rider',
-        mobile: rider?.phone || rider?.mobile || '',
-        email: rider?.email || '',
-        notes: `Retain Ride Renewal - ${rental?.vehicle_name || 'EV'}`,
-        purpose: 'retain'
-      })
+    api.post('/payments/payu/initiate', {
+      amount: totalPayable,
+      rider_name: rider?.name || 'Rider',
+      mobile: rider?.phone || rider?.mobile || '',
+      email: rider?.email || '',
+      notes: `Retain Ride Renewal - ${rental?.vehicle_name || 'EV'}`,
+      purpose: 'retain'
     })
-      .then(r => r.json())
-      .then(res => {
+      .then((res: any) => {
         if (!isMounted) return;
         const data = res?.data || res;
         const txId = data?.txnid || data?.tx_id || '';
@@ -402,7 +391,7 @@ export default function RetainRiderPaymentPage() {
         setPayuCheckoutUrl(chkUrl);
         if (qrStr) setPayuQrString(qrStr);
       })
-      .catch(err => console.error('PayU retain error:', err));
+      .catch((err: any) => console.error('PayU retain error:', err));
 
     return () => { isMounted = false; };
   }, [payMethod, totalPayable, rider?.name, rider?.phone, rider?.email, rental?.vehicle_name]);
@@ -413,15 +402,26 @@ export default function RetainRiderPaymentPage() {
       if (!event?.data || event.data.type !== 'PAYU_PAYMENT_RESPONSE') return;
       const activeTxId = event.data.txnid || (payMethod === 'split' ? splitTxId : payuTxId);
       if (!activeTxId) return;
+      const isPostMsgSuccess = (event.data.status || '').toUpperCase() === 'SUCCESS';
       try {
         setIsCheckingPayU(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiUrl}/payments/payu/status/${activeTxId}`);
-        const data = await res.json();
-        const rawStatus = (data?.data?.status || data?.status || '').toUpperCase();
-        if (rawStatus === 'SUCCESS') {
+        if (isPostMsgSuccess) {
+          await api.post('/payments/payu/verify', {
+            tx_id: activeTxId,
+            amount: payMethod === 'split' ? onlineAmount : totalPayable,
+            mobile: rider?.phone || rider?.mobile || '',
+            rider_name: rider?.name || '',
+            status: 'SUCCESS'
+          }).catch(() => {});
           setPayuVerified(true);
           setShowPayuPopup(false);
+        } else {
+          const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
+          const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
+          if (rawStatus === 'SUCCESS') {
+            setPayuVerified(true);
+            setShowPayuPopup(false);
+          }
         }
       } catch (_) {
       } finally {
@@ -430,7 +430,7 @@ export default function RetainRiderPaymentPage() {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [payMethod, payuTxId, splitTxId]);
+  }, [payMethod, payuTxId, splitTxId, onlineAmount, totalPayable, rider?.phone, rider?.name]);
 
   // Automated PayU payment status polling (Primary & Split)
   useEffect(() => {
@@ -439,19 +439,25 @@ export default function RetainRiderPaymentPage() {
     if (!isOnlineActive || !activeTxId || payuVerified) return;
 
     let isMounted = true;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
     const checkPayU = async () => {
       if (!isMounted || payuVerified) return;
       try {
         setIsCheckingPayU(true);
-        const res = await fetch(`${apiUrl}/payments/payu/status/${activeTxId}`);
+        const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
         if (!isMounted) return;
-        const data = await res.json();
-        const rawStatus = (data?.data?.status || data?.status || '').toUpperCase();
-        if (rawStatus === 'SUCCESS') {
+        const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
+        const payuStatus = (res?.data?.payment_status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS' || payuStatus === 'SUCCESS') {
           setPayuVerified(true);
           setShowPayuPopup(false);
+          await api.post('/payments/payu/verify', {
+            tx_id: activeTxId,
+            amount: payMethod === 'split' ? onlineAmount : totalPayable,
+            mobile: rider?.phone || rider?.mobile || '',
+            rider_name: rider?.name || '',
+            status: 'SUCCESS'
+          }).catch(() => {});
         }
       } catch (e) {
       } finally {
@@ -459,8 +465,8 @@ export default function RetainRiderPaymentPage() {
       }
     };
 
-    const timeout = setTimeout(checkPayU, 1500);
-    const interval = setInterval(checkPayU, 2500);
+    const timeout = setTimeout(checkPayU, 1200);
+    const interval = setInterval(checkPayU, 2000);
 
     return () => {
       isMounted = false;
@@ -596,9 +602,18 @@ export default function RetainRiderPaymentPage() {
       localStorage.setItem('evegah_retain_payment', JSON.stringify(paymentData));
       localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));
     }
-    // Directly proceed to review (Step 4), skipping KYC & documents
-    router.push('/retain-rider/review');
+    // Proceed to Step 4: Documents
+    router.push('/retain-rider/documents');
   };
+
+  // Auto-advance to Step 4: Documents upon verified PayU payment
+  useEffect(() => {
+    if (!payuVerified) return;
+    const t = setTimeout(() => {
+      handleContinue();
+    }, 1400);
+    return () => clearTimeout(t);
+  }, [payuVerified]);
 
   const riderName = rider?.name || 'Akash Verma';
   const riderPhone = rider?.phone || '+91 98765 43210';

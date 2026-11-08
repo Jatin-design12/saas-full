@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 /* ──────────────────────────────────────────────────────────────
    RETAIN RIDER REGISTRATION  ·  Step 1 — Rider Search
@@ -248,39 +249,8 @@ function formatCleanRiderId(rawId: any, index?: number): string {
   return `EVR-${str.slice(0, 8).toUpperCase()}`;
 }
 
-/* ── rider data ── */
-const RIDERS = [
-  {
-    initials: 'DR', gradient: 'linear-gradient(135deg,#2a195c,#2A195C)',
-    name: 'Devendra Rana', id: 'EVR-16EFE6', phone: '+91 98255 44332',
-    aadhaar: 'XXXX XXXX 4432', lastRide: 'Active Booking', vehicle: 'Evegah E1',
-    avatar: '/rohit_avatar.png',
-  },
-  {
-    initials: 'VP', gradient: 'linear-gradient(135deg,#2A195C,#A855F7)',
-    name: 'Vikram Patel', id: 'EVR-349240', phone: '+91 78945 61230',
-    aadhaar: 'XXXX XXXX 6123', lastRide: 'Active Booking', vehicle: 'Evegah City',
-    avatar: '/rohit_avatar.png',
-  },
-  {
-    initials: 'PS', gradient: 'linear-gradient(135deg,#DB2777,#F472B6)',
-    name: 'Priya Sharma', id: 'EVR-6D0DF4', phone: '+91 98123 45678',
-    aadhaar: 'XXXX XXXX 5678', lastRide: 'Active Booking', vehicle: 'Evegah Pro',
-    avatar: '/priya_avatar.png',
-  },
-  {
-    initials: 'MP', gradient: 'linear-gradient(135deg,#EA580C,#FBBF24)',
-    name: 'Manish Parmar', id: 'EVR-C430C1', phone: '+91 98980 11223',
-    aadhaar: 'XXXX XXXX 1122', lastRide: 'Active Booking', vehicle: 'Evegah E1',
-    avatar: '/rohit_avatar.png',
-  },
-  {
-    initials: 'KT', gradient: 'linear-gradient(135deg,#2563EB,#0EA5E9)',
-    name: 'Kinjal Trivedi', id: 'EVR-AF605E', phone: '+91 97241 87654',
-    aadhaar: 'XXXX XXXX 8765', lastRide: 'Active Booking', vehicle: 'Evegah City',
-    avatar: '/priya_avatar.png',
-  },
-];
+/* ── rider data (loaded dynamically from database) ── */
+const RIDERS: any[] = [];
 
 /* ── Right Panel ── */
 function RightPanel() {
@@ -361,13 +331,18 @@ export default function RetainRiderPage() {
   const fetchRiders = async () => {
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const res = await fetch(`${apiUrl}/renters`);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.data || data.renters || []);
-      if (list.length > 0) {
-        setRiders(list.map((item: any, idx: number) => {
-          const realName = item.rider_name || item.customer_name || item.name || 'Devendra Rana';
+      const res: any = await api.get('/renters?limit=200');
+      const list = Array.isArray(res) ? res : (res?.data || res?.renters || []);
+      // Filter out test placeholder entries
+      const realList = list.filter((item: any) => {
+        const name = (item.rider_name || item.customer_name || item.name || '').trim();
+        const mob = (item.mobile || item.phone || '').trim();
+        return name && name !== 'Rider' && name !== 'Evegah Rider' && !mob.includes('1800') && !mob.includes('1820');
+      });
+
+      if (realList.length > 0) {
+        setRiders(realList.map((item: any, idx: number) => {
+          const realName = item.rider_name || item.customer_name || item.name || 'Rider';
           const riderId = formatCleanRiderId(item.reservation_id || item.renter_id || item.id, idx);
           const dateVal = item.rental_start_date || item.created_at;
           const lastRideFormatted = dateVal
@@ -379,23 +354,23 @@ export default function RetainRiderPage() {
             gradient: isFemale ? 'linear-gradient(135deg,#DB2777,#F472B6)' : 'linear-gradient(135deg,#2a195c,#2A195C)',
             name: realName,
             id: riderId,
-            phone: item.mobile || item.phone || '+91 98765 43210',
-            aadhaar: item.aadhaar || 'XXXX XXXX 1234',
+            phone: item.mobile || item.phone || '—',
+            aadhaar: item.aadhaar_number || item.aadhaar || 'XXXX XXXX 1234',
             lastRide: lastRideFormatted,
             vehicle: item.vehicle_name || item.vehicle_code || item.vehicle_id || 'Evegah E1',
             vehicle_id: item.vehicle_id || item.vehicle_code || 'EVM1024012',
             battery_id: item.battery_id || 'BAT-0098',
             deposit: item.deposit || item.deposit_amount || 500,
             zone: item.zone || 'All',
-            avatar: isFemale ? '/priya_avatar.png' : '/rohit_avatar.png',
+            avatar: item.avatar_url || (isFemale ? '/priya_avatar.png' : '/rohit_avatar.png'),
             raw: item,
           };
         }));
       } else {
-        setRiders(RIDERS);
+        setRiders([]);
       }
     } catch {
-      setRiders(RIDERS);
+      setRiders([]);
     } finally {
       setLoading(false);
     }
@@ -597,8 +572,34 @@ export default function RetainRiderPage() {
                     </div>
 
                     {filteredRiders.length === 0 ? (
-                      <div style={{ padding: '30px 0', textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
-                        No matching registered riders found. Please try a different search term.
+                      <div style={{ padding: '36px 20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>
+                          No Registered Riders Found
+                        </div>
+                        <p style={{ fontSize: 12.5, color: '#64748B', maxWidth: 380, margin: '0 auto 16px', lineHeight: 1.5 }}>
+                          No existing riders found matching your search in the database. To register a first-time rider, click below.
+                        </p>
+                        <Link href="/new-rider" style={{ textDecoration: 'none' }}>
+                          <button
+                            type="button"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '10px 20px',
+                              background: '#2A195C',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 10,
+                              fontSize: 13,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 8px rgba(42,25,92,0.2)'
+                            }}
+                          >
+                            + Register New Rider
+                          </button>
+                        </Link>
                       </div>
                     ) : (
                       filteredRiders.map((r, idx) => (

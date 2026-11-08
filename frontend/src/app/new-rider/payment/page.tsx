@@ -1088,13 +1088,26 @@ export default function PaymentPage() {
       if (!event?.data || event.data.type !== 'PAYU_PAYMENT_RESPONSE') return;
       const activeTxId = event.data.txnid || (payMethod === 'split' ? splitMerchantTranId : payuTxId);
       if (!activeTxId) return;
+      const isPostMsgSuccess = (event.data.status || '').toUpperCase() === 'SUCCESS';
       try {
         setIsCheckingPayU(true);
-        const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
-        const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
-        if (rawStatus === 'SUCCESS') {
+        if (isPostMsgSuccess) {
+          await api.post('/payments/payu/verify', {
+            tx_id: activeTxId,
+            amount: payMethod === 'split' ? onlineAmount : totalPayable,
+            mobile: kycData?.mobile || '',
+            rider_name: kycData?.fullName || '',
+            status: 'SUCCESS'
+          }).catch(() => {});
           setPayuVerified(true);
           setShowPayuPopup(false);
+        } else {
+          const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
+          const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
+          if (rawStatus === 'SUCCESS') {
+            setPayuVerified(true);
+            setShowPayuPopup(false);
+          }
         }
       } catch (_) {
       } finally {
@@ -1119,9 +1132,17 @@ export default function PaymentPage() {
         const res: any = await api.get(`/payments/payu/status/${activeTxId}`);
         if (!isMounted) return;
         const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
-        if (rawStatus === 'SUCCESS') {
+        const payuStatus = (res?.data?.payment_status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS' || payuStatus === 'SUCCESS') {
           setPayuVerified(true);
           setShowPayuPopup(false);
+          await api.post('/payments/payu/verify', {
+            tx_id: activeTxId,
+            amount: payMethod === 'split' ? onlineAmount : totalPayable,
+            mobile: kycData?.mobile || '',
+            rider_name: kycData?.fullName || '',
+            status: 'SUCCESS'
+          }).catch(() => {});
         }
       } catch (e) {
         // Continue quietly
@@ -1306,6 +1327,15 @@ export default function PaymentPage() {
     localStorage.setItem('evegah_new_ride_payment', JSON.stringify(paymentData));
     router.push('/new-rider/documents');
   };
+
+  // Auto-advance to Step 4: Documents upon verified PayU payment
+  useEffect(() => {
+    if (!payuVerified) return;
+    const t = setTimeout(() => {
+      handleNextStep();
+    }, 1400);
+    return () => clearTimeout(t);
+  }, [payuVerified]);
 
   return (
     <>

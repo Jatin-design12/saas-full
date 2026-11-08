@@ -174,6 +174,7 @@ export default function PaymentHistoryPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [kpis, setKpis] = useState<KPIStats>({
     total_credit: 0,
@@ -368,6 +369,30 @@ export default function PaymentHistoryPage() {
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
                   Export CSV
+                </button>
+                <button 
+                  className="ph-btn" 
+                  style={{ background: '#ECFDF5', color: '#047857', borderColor: '#A7F3D0', fontWeight: 700 }}
+                  onClick={async () => {
+                    setIsSyncing(true);
+                    try {
+                      const pendingPayu = records.filter(r => r.status === 'Pending' && (r.payment_method || '').includes('PayU'));
+                      for (const p of pendingPayu) {
+                        await api.get(`/payments/payu/status/${p.tx_id}?ack=true`).catch(() => {});
+                      }
+                      await fetchPaymentHistory();
+                    } catch (_) {}
+                    finally {
+                      setIsSyncing(false);
+                    }
+                  }}
+                  disabled={isSyncing}
+                  title="Query PayU gateway for all pending transactions to verify and confirm them"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {isSyncing ? 'Syncing PayU...' : 'Sync Pending PayU'}
                 </button>
                 <button className="ph-btn ph-btn-primary" onClick={fetchPaymentHistory}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -702,6 +727,24 @@ export default function PaymentHistoryPage() {
                             {/* Action */}
                             <td>
                               <div className="ph-actions-cell">
+                                {isPending && (r.payment_method || '').includes('PayU') && (
+                                  <button
+                                    className="action-copy-btn"
+                                    style={{ background: '#DCFCE7', color: '#15803D', border: '1px solid #86EFAC', fontWeight: 700 }}
+                                    onClick={async () => {
+                                      try {
+                                        await api.get(`/payments/payu/status/${r.tx_id}?ack=true`);
+                                        fetchPaymentHistory();
+                                      } catch (err: any) {
+                                        alert('Verification notice: ' + (err.message || 'Checked'));
+                                        fetchPaymentHistory();
+                                      }
+                                    }}
+                                    title="Verify transaction with PayU"
+                                  >
+                                    Verify
+                                  </button>
+                                )}
                                 <button
                                   className="action-copy-btn"
                                   onClick={() => copyToClipboard(r.reference_id || r.tx_id)}

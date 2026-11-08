@@ -43,6 +43,8 @@ router.post('/new', async (req, res) => {
 
     let insertedId = `RIDE${Date.now()}`;
 
+    const avatarUrl = req.body.avatar_url || req.body.documents?.profile || null;
+
     try {
       const result = await db.query(`
         INSERT INTO renters (
@@ -50,9 +52,9 @@ router.post('/new', async (req, res) => {
           aadhaar_number, emergency_contact_name, emergency_contact_phone,
           vehicle_id, battery_id, package_name,
           rental_start_date, return_date, status, rent, deposit, total,
-          zone, kyc_status, booking_source, created_at
+          zone, kyc_status, booking_source, avatar_url, created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Active Ride', $16, $17, $18, $19, 'Verified', 'Form', NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Active Ride', $16, $17, $18, $19, 'Verified', 'Form', $20, NOW())
         RETURNING id, rider_name, mobile, vehicle_id, status, created_at
       `, [
         rider_name,
@@ -73,7 +75,8 @@ router.post('/new', async (req, res) => {
         rentAmt,
         depAmt,
         totalAmt,
-        resolvedZone
+        resolvedZone,
+        avatarUrl
       ]);
       if (result.rows[0]) insertedId = result.rows[0].id;
 
@@ -146,7 +149,8 @@ router.post('/new', async (req, res) => {
       try {
         await db.query(`
           UPDATE payu_payments
-          SET rider_name = COALESCE(NULLIF($1, ''), rider_name),
+          SET status = 'Success',
+              rider_name = COALESCE(NULLIF($1, ''), rider_name),
               mobile = COALESCE(NULLIF($2, ''), mobile),
               email = COALESCE(NULLIF($3, ''), email),
               reservation_id = COALESCE(reservation_id, $4),
@@ -155,13 +159,53 @@ router.post('/new', async (req, res) => {
         `, [rider_name, mobile, email || null, String(insertedId), req.body.payu_tx_id]);
         await db.query(`
           UPDATE payment_transactions
-          SET customer_name = COALESCE(NULLIF($1, ''), customer_name),
+          SET status = 'SUCCESS',
+              customer_name = COALESCE(NULLIF($1, ''), customer_name),
               mobile = COALESCE(NULLIF($2, ''), mobile),
               updated_at = NOW()
           WHERE transaction_id = $3
         `, [rider_name, mobile, req.body.payu_tx_id]);
       } catch (_) {}
     }
+
+    // Persist all uploaded documents (Identity, Live Selfie, 4-angle vehicle inspection) into PostgreSQL documents table
+    const uploadedDocs = req.body.documents || {};
+    const docEntries = [
+      { kind: 'aadhaar_front', fileName: 'Identity Document / Aadhaar Card', url: uploadedDocs.identity },
+      { kind: 'photo_selfie', fileName: 'Rider Live Selfie Photo', url: avatarUrl },
+      { kind: 'pre_ride_front', fileName: 'Pre-Ride Vehicle Front View', url: uploadedDocs.veh_front },
+      { kind: 'pre_ride_rear', fileName: 'Pre-Ride Vehicle Rear View', url: uploadedDocs.veh_rear },
+      { kind: 'pre_ride_left', fileName: 'Pre-Ride Vehicle Left View', url: uploadedDocs.veh_left },
+      { kind: 'pre_ride_right', fileName: 'Pre-Ride Vehicle Right View', url: uploadedDocs.veh_right },
+    ];
+
+    for (const d of docEntries) {
+      if (d.url && typeof d.url === 'string' && d.url.trim().length > 5) {
+        try {
+          await db.query(`
+            INSERT INTO documents (
+              mobile, kind, file_name, url, status, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, 'Verified', NOW(), NOW())
+          `, [mobile, d.kind, d.fileName, d.url]);
+        } catch (docErr) {
+          try {
+            await db.query(`
+              INSERT INTO documents (
+                mobile, rider_id, kind, file_name, url, status, created_at, updated_at
+              )
+              VALUES ($1, $2, $3, $4, $5, 'Verified', NOW(), NOW())
+            `, [mobile, String(insertedId), d.kind, d.fileName, d.url]);
+          } catch (_) {}
+        }
+      }
+    }
+
+    try {
+      await delByPattern('documents:*');
+      await delByPattern('renters:*');
+      await delByPattern('payments:*');
+    } catch (_) {}
 
     // Send WhatsApp receipt
     sendWhatsAppReceipt({
@@ -294,7 +338,58 @@ const handleRetainRide = async (req, res) => {
           `Retain Ride (${packageName})`
         ]);
       } catch (_) {}
+    } else if (req.body.payu_tx_id) {
+      try {
+        await db.query(`
+          UPDATE payu_payments
+          SET status = 'Success',
+              rider_name = COALESCE(NULLIF($1, ''), rider_name),
+              mobile = COALESCE(NULLIF($2, ''), mobile),
+              reservation_id = COALESCE(reservation_id, $3),
+              updated_at = NOW()
+          WHERE tx_id = $4
+        `, [rName, mobile || cleanMob, String(insertedId), req.body.payu_tx_id]);
+        await db.query(`
+          UPDATE payment_transactions
+          SET status = 'SUCCESS',
+              customer_name = COALESCE(NULLIF($1, ''), customer_name),
+              mobile = COALESCE(NULLIF($2, ''), mobile),
+              updated_at = NOW()
+          WHERE transaction_id = $3
+        `, [rName, mobile || cleanMob, req.body.payu_tx_id]);
+      } catch (_) {}
     }
+
+    // Persist vehicle inspection photos uploaded during retain ride
+    if (req.body.documents && typeof req.body.documents === 'object') {
+      const rDocs = req.body.documents;
+      const retainDocEntries = [
+        { kind: 'pre_ride_front', fileName: 'Retain Ride Vehicle Front View', url: rDocs.veh_front || rDocs['Front Angle'] },
+        { kind: 'pre_ride_rear', fileName: 'Retain Ride Vehicle Rear View', url: rDocs.veh_rear || rDocs['Rear Angle'] },
+        { kind: 'pre_ride_left', fileName: 'Retain Ride Vehicle Left View', url: rDocs.veh_left || rDocs['Left Side'] },
+        { kind: 'pre_ride_right', fileName: 'Retain Ride Vehicle Right View', url: rDocs.veh_right || rDocs['Right Side'] },
+        { kind: 'odometer', fileName: 'Retain Ride Odometer Reading', url: rDocs.odometer || rDocs['Odometer Reading'] },
+        { kind: 'chassis', fileName: 'Retain Ride Chassis Number', url: rDocs.chassis || rDocs['Chassis Number'] },
+      ];
+      for (const d of retainDocEntries) {
+        if (d.url && typeof d.url === 'string' && d.url.trim().length > 5) {
+          try {
+            await db.query(`
+              INSERT INTO documents (
+                mobile, kind, file_name, url, status, created_at, updated_at
+              )
+              VALUES ($1, $2, $3, $4, 'Verified', NOW(), NOW())
+            `, [mobile || cleanMob, d.kind, d.fileName, d.url]);
+          } catch (_) {}
+        }
+      }
+    }
+
+    try {
+      await delByPattern('documents:*');
+      await delByPattern('renters:*');
+      await delByPattern('payments:*');
+    } catch (_) {}
 
     sendWhatsAppReceipt({
       mobile: mobile || cleanMob,
@@ -846,7 +941,7 @@ router.post('/extend', async (req, res) => {
         WHERE (mobile LIKE $4 AND mobile != '') OR vehicle_number = $5
       `, [addAmt, finalTxnId, isCash ? 'Cash' : (payment_method || 'PayU'), `%${cleanMob}%`, resolvedVeh]).catch(() => {});
 
-      // Record in payment_transactions table
+      // Record in payment_transactions table and confirm in payu_payments
       try {
         await db.query(`
           INSERT INTO payment_transactions (
@@ -855,8 +950,17 @@ router.post('/extend', async (req, res) => {
           VALUES ($1, $2, $3, $4, 'SUCCESS', $5, $6, 'extend')
           ON CONFLICT (transaction_id) DO UPDATE SET status = 'SUCCESS', updated_at = NOW()
         `, [finalTxnId, finalTxnId, addAmt, isCash ? 'Cash' : (payment_method || 'PayU'), cleanMob, resolvedName]);
+
+        if (finalTxnId) {
+          await db.query(`
+            UPDATE payu_payments
+            SET status = 'Success', rider_name = COALESCE(NULLIF($1, ''), rider_name), mobile = COALESCE(NULLIF($2, ''), mobile), updated_at = NOW()
+            WHERE tx_id = $3
+          `, [resolvedName, cleanMob, finalTxnId]);
+        }
       } catch (_) {}
 
+      await delByPattern('payments:*');
       await delByPattern('reservations:*');
       await delByPattern('vehicles:*');
       await delByPattern('renters:*');

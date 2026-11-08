@@ -429,6 +429,13 @@ export default function ReviewPage() {
         .filter(Boolean)
         .join(', ');
 
+      const docIdentity = typeof window !== 'undefined' ? localStorage.getItem('evegah_doc_identity') : null;
+      const docProfile = typeof window !== 'undefined' ? localStorage.getItem('evegah_doc_profile') : null;
+      const vehFront = typeof window !== 'undefined' ? localStorage.getItem('evegah_veh_front') : null;
+      const vehRear = typeof window !== 'undefined' ? localStorage.getItem('evegah_veh_rear') : null;
+      const vehLeft = typeof window !== 'undefined' ? localStorage.getItem('evegah_veh_left') : null;
+      const vehRight = typeof window !== 'undefined' ? localStorage.getItem('evegah_veh_right') : null;
+
       const payload = {
         rider_name: riderName,
         name: riderName,
@@ -454,6 +461,15 @@ export default function ReviewPage() {
         payment_mode: paymentData.pay_method === 'cash' ? 'Cash' : 'PayU',
         payu_tx_id: paymentData.payu_tx_id || null,
         cash_receipt: paymentData.cash_receipt || null,
+        avatar_url: docProfile || null,
+        documents: {
+          identity: docIdentity,
+          profile: docProfile,
+          veh_front: vehFront,
+          veh_rear: vehRear,
+          veh_left: vehLeft,
+          veh_right: vehRight,
+        }
       };
 
       const resJson: any = await api.post('/rides/new', payload);

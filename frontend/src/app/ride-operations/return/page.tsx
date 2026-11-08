@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
+import CameraCaptureModal from '@/components/CameraCaptureModal';
 
 /* ═══════════════════════════════════════════════════════════════
    RETURN RIDE & OPERATIONS — Modern SaaS UI
@@ -360,6 +362,8 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
   const [packagesList, setPackagesList] = useState(DEFAULT_EXTENSION_PACKAGES);
 
   // Return Inspection States
+  const [inspectionPhotos, setInspectionPhotos] = useState<Record<string, string>>({});
+  const [activeCameraSlot, setActiveCameraSlot] = useState<{ id: string; title: string } | null>(null);
   const [bodyDmg, setBodyDmg] = useState<'clean' | 'minor' | 'major'>('clean');
   const [tyreCond, setTyreCond] = useState<'good' | 'worn' | 'damaged'>('good');
   const [cleanliness, setCleanliness] = useState<'clean' | 'dusty' | 'dirty'>('clean');
@@ -598,22 +602,16 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
     setPayuVerified(false);
     setPayuQrString('');
     let isMounted = true;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-    fetch(`${apiUrl}/payments/payu/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: payAmount,
-        rider_name: selectedRider?.name || 'Rider',
-        mobile: selectedRider?.mobile || '',
-        notes: payNotes,
-        purpose: payPurpose,
-        reservation_id: selectedRider?.id
-      })
+    api.post('/payments/payu/initiate', {
+      amount: payAmount,
+      rider_name: selectedRider?.name || 'Rider',
+      mobile: selectedRider?.mobile || '',
+      notes: payNotes,
+      purpose: payPurpose,
+      reservation_id: selectedRider?.id
     })
-      .then(r => r.json())
-      .then(res => {
+      .then((res: any) => {
         if (!isMounted) return;
         const data = res?.data || res;
         const txId = data?.txnid || data?.tx_id || '';
@@ -625,7 +623,7 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
           setPayuQrString(qrStr);
         }
       })
-      .catch(err => console.error('PayU QR error:', err));
+      .catch((err: any) => console.error('PayU QR error:', err));
 
     return () => { isMounted = false; };
   }, [mainTab, extendPayMethod, extensionFare, extraDue, selectedRider]);
@@ -637,18 +635,25 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
     if ((!isExtendActive && !isReturnActive) || !payuTxId || payuVerified) return;
 
     let isMounted = true;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
     const checkPayU = async () => {
       if (!isMounted || payuVerified) return;
       try {
         setIsCheckingPayU(true);
-        const res = await fetch(`${apiUrl}/payments/payu/status/${payuTxId}`);
+        const res: any = await api.get(`/payments/payu/status/${payuTxId}`);
         if (!isMounted) return;
-        const data = await res.json();
-        const rawStatus = (data?.data?.status || data?.status || '').toUpperCase();
-        if (rawStatus === 'SUCCESS') {
+        const rawStatus = (res?.data?.status || res?.status || '').toUpperCase();
+        const payuStatus = (res?.data?.payment_status || '').toUpperCase();
+        if (rawStatus === 'SUCCESS' || payuStatus === 'SUCCESS') {
           setPayuVerified(true);
+          await api.post('/payments/payu/verify', {
+            tx_id: payuTxId,
+            amount: isExtendActive ? extensionFare : extraDue,
+            mobile: selectedRider?.mobile || '',
+            rider_name: selectedRider?.name || '',
+            purpose: isExtendActive ? 'extend' : 'return',
+            status: 'SUCCESS'
+          }).catch(() => {});
         }
       } catch (e) {
       } finally {
@@ -685,19 +690,27 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
   const handleCompleteReturn = async () => {
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      await fetch(`${apiUrl}/rides/return`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rider_name: selectedRider?.name,
-          mobile: selectedRider?.mobile,
-          vehicle_id: selectedRider?.vehicle_id,
-          return_condition: bodyDmg,
-          refund_deposit: netRefund,
-          notes: inspectionNotes
-        })
+      await api.post('/rides/return', {
+        rider_name: selectedRider?.name,
+        mobile: selectedRider?.mobile,
+        vehicle_id: selectedRider?.vehicle_id,
+        return_condition: bodyDmg,
+        refund_deposit: netRefund,
+        notes: inspectionNotes,
+        inspection_photos: inspectionPhotos,
+        payu_tx_id: extraDue > 0 ? payuTxId : undefined
       });
+
+      if (extraDue > 0 && payuTxId) {
+        api.post('/payments/payu/verify', {
+          tx_id: payuTxId,
+          amount: extraDue,
+          mobile: selectedRider?.mobile,
+          rider_name: selectedRider?.name,
+          purpose: 'return'
+        }).catch(() => {});
+      }
+
       setActiveStep(4);
       setActionSuccess(`Vehicle ${selectedRider?.vehicle_id} successfully checked in! Deposit ₹${netRefund} refunded.`);
     } catch {
@@ -715,21 +728,28 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
     }
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      await fetch(`${apiUrl}/rides/extend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rider_name: selectedRider?.name,
-          mobile: selectedRider?.mobile,
-          vehicle_id: selectedRider?.vehicle_id,
-          extension_days: extendMode === 'package' ? selectedPackage.days : extendDays,
-          extension_hours: extendMode === 'hourly' ? extendHours : 0,
-          additional_fare: extensionFare,
-          payment_method: extendPayMethod,
-          cash_voucher_no: extendPayMethod === 'cash' ? cashVoucher : undefined
-        })
+      await api.post('/rides/extend', {
+        rider_name: selectedRider?.name,
+        mobile: selectedRider?.mobile,
+        vehicle_id: selectedRider?.vehicle_id,
+        extension_days: extendMode === 'package' ? selectedPackage.days : extendDays,
+        extension_hours: extendMode === 'hourly' ? extendHours : 0,
+        additional_fare: extensionFare,
+        payment_method: extendPayMethod,
+        transaction_id: (extendPayMethod === 'payu' || extendPayMethod === 'split') ? payuTxId : undefined,
+        cash_voucher_no: extendPayMethod === 'cash' ? cashVoucher : undefined
       });
+
+      if ((extendPayMethod === 'payu' || extendPayMethod === 'split') && payuTxId) {
+        api.post('/payments/payu/verify', {
+          tx_id: payuTxId,
+          amount: extensionFare,
+          mobile: selectedRider?.mobile,
+          rider_name: selectedRider?.name,
+          purpose: 'extend'
+        }).catch(() => {});
+      }
+
       setActionSuccess(`Ride extended successfully by ${extendMode === 'package' ? selectedPackage.name : `${extendDays} Days`}! ${extendPayMethod === 'cash' ? `Cash Voucher ${cashVoucher} issued.` : 'WhatsApp receipt sent.'}`);
     } catch {
       setActionSuccess(`Ride extension processed!`);
@@ -741,20 +761,16 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
   const handleExchangeVehicle = async () => {
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      await fetch(`${apiUrl}/rides/exchange`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rider_name: selectedRider?.name,
-          mobile: selectedRider?.mobile,
-          old_vehicle_id: selectedRider?.vehicle_id,
-          new_vehicle_id: exchangeNewVehicle.split(' ')[0],
-          old_battery_id: selectedRider?.battery_id,
-          new_battery_id: exchangeNewBattery.split(' ')[0],
-          reason: exchangeReason,
-          notes: exchangeNotes
-        })
+      await api.post('/rides/exchange', {
+        rider_name: selectedRider?.name,
+        mobile: selectedRider?.mobile,
+        old_vehicle_id: selectedRider?.vehicle_id,
+        new_vehicle_id: exchangeNewVehicle.split(' ')[0],
+        old_battery_id: selectedRider?.battery_id,
+        new_battery_id: exchangeNewBattery.split(' ')[0],
+        reason: exchangeReason,
+        notes: exchangeNotes,
+        inspection_photos: inspectionPhotos
       });
       setActionSuccess(`Vehicle successfully swapped to ${exchangeNewVehicle.split(' ')[0]}! WhatsApp voucher issued.`);
     } catch {
@@ -1075,12 +1091,65 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
                               Vehicle Check-in Inspection Photos (6 Angles)
                             </div>
                             <div className="ro-photo-grid">
-                              {['Front', 'Rear', 'Left Side', 'Right Side', 'Odometer', 'Battery Bay'].map((lbl, idx) => (
-                                <div key={lbl} className="ro-photo-slot-add">
-                                  <span style={{ fontSize: 18 }}>📸</span>
-                                  <span className="ro-photo-lbl">{lbl}</span>
-                                </div>
-                              ))}
+                              {['Front', 'Rear', 'Left Side', 'Right Side', 'Odometer', 'Battery Bay'].map((lbl) => {
+                                const photoUrl = inspectionPhotos[lbl];
+                                return (
+                                  <div
+                                    key={lbl}
+                                    className={`ro-photo-slot ${photoUrl ? 'ro-photo-has' : 'ro-photo-slot-add'}`}
+                                    onClick={() => setActiveCameraSlot({ id: lbl, title: `Vehicle ${lbl} Photo` })}
+                                    style={{
+                                      cursor: 'pointer',
+                                      position: 'relative',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      overflow: 'hidden',
+                                      border: photoUrl ? '2px solid #22C55E' : '1.5px dashed #C7D2FE',
+                                      background: photoUrl ? '#F0FDF4' : '#F5F3FF',
+                                      borderRadius: 10,
+                                      height: 90,
+                                      transition: 'all .2s'
+                                    }}
+                                  >
+                                    {photoUrl ? (
+                                      <>
+                                        <img
+                                          src={photoUrl}
+                                          alt={lbl}
+                                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        />
+                                        <div
+                                          style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            background: 'rgba(15,23,42,0.75)',
+                                            color: '#fff',
+                                            fontSize: 9.5,
+                                            fontWeight: 700,
+                                            textAlign: 'center',
+                                            padding: '2px 4px',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                          }}
+                                        >
+                                          ✓ {lbl}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span style={{ fontSize: 20 }}>📸</span>
+                                        <span className="ro-photo-lbl" style={{ fontWeight: 600 }}>{lbl}</span>
+                                        <span style={{ fontSize: 9.5, color: '#2A195C', fontWeight: 700, marginTop: 2 }}>Tap Camera</span>
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
 
                             {/* Inspection Conditions */}
@@ -1969,6 +2038,20 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
           </div>
         </div>
       </div>
+
+      {/* Real Live Camera & Photo Upload Modal */}
+      {activeCameraSlot && (
+        <CameraCaptureModal
+          isOpen={true}
+          title={activeCameraSlot.title}
+          instruction="Align the vehicle angle inside the frame and snap photo, or upload an existing inspection file."
+          onCapture={(base64) => {
+            setInspectionPhotos(prev => ({ ...prev, [activeCameraSlot.id]: base64 }));
+            setActiveCameraSlot(null);
+          }}
+          onClose={() => setActiveCameraSlot(null)}
+        />
+      )}
     </>
   );
 }

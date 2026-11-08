@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { api } from '@/lib/api';
 
 /* ──────────────────────────────────────────────────────────────
    STEP 4 · RETAIN RIDER - REVIEW & CONFIRM
@@ -245,36 +246,62 @@ export default function RetainRiderReviewPage() {
     if (voucherToUse) setConfirmedVoucherId(voucherToUse);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      // Gather retain ride vehicle inspection documents from storage
+      const vehFront = typeof window !== 'undefined' ? localStorage.getItem('evegah_retain_veh_Front Angle') : null;
+      const vehRear = typeof window !== 'undefined' ? localStorage.getItem('evegah_retain_veh_Rear Angle') : null;
+      const vehLeft = typeof window !== 'undefined' ? localStorage.getItem('evegah_retain_veh_Left Side') : null;
+      const vehRight = typeof window !== 'undefined' ? localStorage.getItem('evegah_retain_veh_Right Side') : null;
+      const vehOdo = typeof window !== 'undefined' ? localStorage.getItem('evegah_retain_veh_Odometer Reading') : null;
+      const vehChassis = typeof window !== 'undefined' ? localStorage.getItem('evegah_retain_veh_Chassis Number') : null;
 
-      // Save Retain Ride directly into renters table (never reservations)
-      const res = await fetch(`${apiUrl}/rides/retain`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rider_name: riderName,
-          name: riderName,
-          mobile: riderPhone,
-          vehicle_id: vehicleCode,
-          battery_id: batteryId,
-          package_name: rental?.plan_type || planType || 'Daily Pass',
-          rent: rentRate,
-          deposit: deposit,
-          total: totalPayable,
-          zone_name: rental?.pickup_zone || 'Gotri Zone',
-          return_date: rental?.return_date || null,
-          payment_method: payMethod === 'cash' ? 'Cash' : 'PayU',
-          cash_voucher_number: voucherToUse
-        })
+      // Save Retain Ride directly into renters table using unified client
+      const resData: any = await api.post('/rides/retain', {
+        rider_name: riderName,
+        name: riderName,
+        mobile: riderPhone,
+        vehicle_id: vehicleCode,
+        battery_id: batteryId,
+        package_name: rental?.plan_type || planType || 'Daily Pass',
+        rent: rentRate,
+        deposit: deposit,
+        total: totalPayable,
+        zone_name: rental?.pickup_zone || 'Gotri Zone',
+        return_date: rental?.return_date || null,
+        payment_method: payMethod === 'cash' ? 'Cash' : 'PayU',
+        cash_voucher_number: voucherToUse,
+        payu_tx_id: payment?.payu_tx_id || null,
+        documents: {
+          veh_front: vehFront,
+          veh_rear: vehRear,
+          veh_left: vehLeft,
+          veh_right: vehRight,
+          odometer: vehOdo,
+          chassis: vehChassis,
+        }
       });
 
-      const resData = await res.json().catch(() => ({}));
+      if (payment?.payu_tx_id) {
+        api.post('/payments/payu/verify', {
+          tx_id: payment.payu_tx_id,
+          amount: totalPayable,
+          mobile: riderPhone,
+          rider_name: riderName
+        }).catch(() => {});
+      }
+
       if (resData?.data?.id) {
         setConfirmedRideId(`RID-${String(resData.data.id).slice(0, 6).toUpperCase()}`);
       }
       if (resData?.data?.cash_voucher_number) {
         setConfirmedVoucherId(resData.data.cash_voucher_number);
       }
+
+      // Clear retain ride documents from localStorage
+      try {
+        ['Front Angle', 'Rear Angle', 'Left Side', 'Right Side', 'Odometer Reading', 'Chassis Number'].forEach(lbl => {
+          localStorage.removeItem(`evegah_retain_veh_${lbl}`);
+        });
+      } catch (_) {}
 
     } catch (err) {
       console.error('Retain rider submission fallback:', err);

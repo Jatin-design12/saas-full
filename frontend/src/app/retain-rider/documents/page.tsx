@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import CameraCaptureModal from '@/components/CameraCaptureModal';
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -111,7 +112,22 @@ const VEHICLE_PHOTOS = [
 const CHECKLIST = ['Aadhaar Card', 'Driving License', 'PAN Card', 'Address Proof', 'Profile Photo', 'Vehicle Images'];
 
 export default function RetainRiderDocumentsPage() {
-  const [photos, setPhotos] = useState(VEHICLE_PHOTOS.map(p => p.uploaded));
+  const [photoMap, setPhotoMap] = useState<Record<string, string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved: Record<string, string> = {};
+        VEHICLE_PHOTOS.forEach(p => {
+          const val = localStorage.getItem(`evegah_retain_veh_${p.label}`);
+          if (val) saved[p.label] = val;
+        });
+        return saved;
+      } catch (_) {}
+    }
+    return {};
+  });
+
+  const [activeCameraSlot, setActiveCameraSlot] = useState<{ id: string; title: string } | null>(null);
+
   const [rider] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -120,11 +136,34 @@ export default function RetainRiderDocumentsPage() {
     }
     return {};
   });
+
   const riderName = rider?.name || rider?.fullName || 'Returning Rider';
   const riderId = rider?.id || rider?.riderId || '—';
   const initials = riderName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || 'RR';
-  const togglePhoto = (i: number) => setPhotos(p => { const a = [...p]; a[i] = !a[i]; return a; });
-  const uploadedCount = photos.filter(Boolean).length;
+
+  const handleCapturePhoto = (base64: string) => {
+    if (!activeCameraSlot) return;
+    const key = activeCameraSlot.id;
+    setPhotoMap(prev => ({ ...prev, [key]: base64 }));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`evegah_retain_veh_${key}`, base64);
+    }
+    setActiveCameraSlot(null);
+  };
+
+  const handleRemovePhoto = (label: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoMap(prev => {
+      const copy = { ...prev };
+      delete copy[label];
+      return copy;
+    });
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`evegah_retain_veh_${label}`);
+    }
+  };
+
+  const uploadedCount = Object.keys(photoMap).length;
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -187,14 +226,75 @@ export default function RetainRiderDocumentsPage() {
                     <div className="rr-sec-hdr"><ICar /> Vehicle Photos</div>
                     <div className="rr-sec-sub">Upload current vehicle images for this ride ({uploadedCount} of 6 uploaded)</div>
                     <div className="rr-photo-grid">
-                      {VEHICLE_PHOTOS.map((p, i) => (
-                        <div key={p.label} className={`rr-photo-box ${photos[i] ? 'uploaded' : ''}`} onClick={() => togglePhoto(i)}>
-                          {photos[i]
-                            ? <><span style={{ color: '#22C55E', display: 'flex' }}><ICheck s={22} /></span><div style={{ fontSize: 11, fontWeight: 700, color: '#22C55E' }}>Uploaded</div><div className="rr-photo-label">{p.label}</div></>
-                            : <><ICamera /><div className="rr-photo-label">{p.label}</div><div style={{ fontSize: 10.5, color: '#9CA3AF' }}>Tap to upload</div></>
-                          }
-                        </div>
-                      ))}
+                      {VEHICLE_PHOTOS.map((p) => {
+                        const imgData = photoMap[p.label];
+                        return (
+                          <div
+                            key={p.label}
+                            className={`rr-photo-box ${imgData ? 'uploaded' : ''}`}
+                            onClick={() => setActiveCameraSlot({ id: p.label, title: `Vehicle ${p.label}` })}
+                            style={{
+                              position: 'relative',
+                              overflow: 'hidden',
+                              border: imgData ? '2px solid #22C55E' : '1.5px dashed #C7D2FE',
+                              background: imgData ? '#F0FDF4' : '#F5F3FF',
+                              padding: 0,
+                            }}
+                          >
+                            {imgData ? (
+                              <>
+                                <img
+                                  src={imgData}
+                                  alt={p.label}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    background: 'rgba(15,23,42,0.8)',
+                                    color: '#fff',
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    textAlign: 'center',
+                                    padding: '3px 4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                  }}
+                                >
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    ✓ {p.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleRemovePhoto(p.label, e)}
+                                    style={{
+                                      background: '#EF4444',
+                                      color: '#fff',
+                                      border: 'none',
+                                      borderRadius: 4,
+                                      padding: '1px 5px',
+                                      fontSize: 9,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <ICamera />
+                                <div className="rr-photo-label">{p.label}</div>
+                                <div style={{ fontSize: 10.5, color: '#2A195C', fontWeight: 700 }}>Tap Camera</div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -240,6 +340,17 @@ export default function RetainRiderDocumentsPage() {
           </div>
         </div>
       </div>
+
+      {/* Live Camera & File Upload Modal */}
+      {activeCameraSlot && (
+        <CameraCaptureModal
+          isOpen={true}
+          title={activeCameraSlot.title}
+          instruction="Position the vehicle angle clearly inside the frame and snap, or pick a photo from files."
+          onCapture={handleCapturePhoto}
+          onClose={() => setActiveCameraSlot(null)}
+        />
+      )}
     </>
   );
 }

@@ -8,6 +8,7 @@ interface CameraCaptureModalProps {
   onCapture: (imageDataUrl: string) => void;
   title?: string;
   subtitle?: string;
+  instruction?: string;
 }
 
 export default function CameraCaptureModal({
@@ -15,8 +16,10 @@ export default function CameraCaptureModal({
   onClose,
   onCapture,
   title = 'Live Camera Capture',
-  subtitle = 'Position the document or vehicle clearly inside the frame'
+  subtitle,
+  instruction
 }: CameraCaptureModalProps) {
+  const resolvedSubtitle = instruction || subtitle || 'Position the document or vehicle clearly inside the frame';
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -274,7 +277,7 @@ export default function CameraCaptureModal({
               {title}
             </div>
             <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '2px' }}>
-              {subtitle}
+              {resolvedSubtitle}
             </div>
           </div>
 
