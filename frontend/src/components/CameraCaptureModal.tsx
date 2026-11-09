@@ -84,9 +84,9 @@ export default function CameraCaptureModal({
         const constraints: MediaStreamConstraints = {
           audio: false,
           video: {
-            facingMode: { ideal: facingMode },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            facingMode: facingMode === 'environment' ? { ideal: 'environment' } : 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           }
         };
 
@@ -282,7 +282,7 @@ export default function CameraCaptureModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {hasMultipleCameras && !capturedImage && (
+            {!capturedImage && !cameraError && (
               <button
                 type="button"
                 onClick={handleToggleFacingMode}
@@ -379,21 +379,6 @@ export default function CameraCaptureModal({
                 />
               </label>
             </div>
-          ) : isInitializing ? (
-            <div style={{ textAlign: 'center', color: '#94A3B8' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  border: '3px solid rgba(255,255,255,0.15)',
-                  borderTopColor: '#6366F1',
-                  borderRadius: '50%',
-                  margin: '0 auto 12px',
-                  animation: 'spin 0.8s linear infinite'
-                }}
-              />
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>Activating camera feed...</div>
-            </div>
           ) : capturedImage ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000000' }}>
               <img
@@ -425,12 +410,51 @@ export default function CameraCaptureModal({
               </div>
             </div>
           ) : (
-            <>
+            <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+              {isInitializing && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 20,
+                    background: '#020617',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#94A3B8'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      border: '3px solid rgba(255,255,255,0.15)',
+                      borderTopColor: '#6366F1',
+                      borderRadius: '50%',
+                      margin: '0 auto 12px',
+                      animation: 'spin 0.8s linear infinite'
+                    }}
+                  />
+                  <div style={{ fontSize: '13px', fontWeight: 600 }}>Activating camera feed...</div>
+                </div>
+              )}
+
               <video
-                ref={videoRef}
+                ref={(el) => {
+                  videoRef.current = el;
+                  if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                    el.srcObject = streamRef.current;
+                    el.play().catch(() => {});
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted
+                onLoadedMetadata={() => {
+                  setIsInitializing(false);
+                  videoRef.current?.play().catch(() => {});
+                }}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -476,7 +500,7 @@ export default function CameraCaptureModal({
                   Align document or subject inside frame
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 
@@ -594,7 +618,28 @@ export default function CameraCaptureModal({
                 </div>
               </button>
 
-              <div style={{ width: '60px' }} />
+              <button
+                type="button"
+                disabled={isInitializing || !!cameraError}
+                onClick={handleToggleFacingMode}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: isInitializing || !!cameraError ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'background 0.15s'
+                }}
+                title="Switch Front/Rear Camera"
+              >
+                🔄 Flip Cam
+              </button>
             </>
           )}
         </div>

@@ -56,12 +56,30 @@ function PricingForm() {
     }));
   }, [dbZones]);
 
-  const VEHICLE_MODELS = useMemo(() => [
+  const [vehicleModels, setVehicleModels] = useState<{ name: string; image: string }[]>([
     { name: 'Evegah MINK', image: '/assets/mink.png' },
     { name: 'Evegah CITY', image: '/assets/city.png' },
     { name: 'Evegah Fly', image: '/Fly.png' },
     { name: 'Evegah Pro', image: '/Evegah Pro.png' }
-  ], []);
+  ]);
+
+  // Fetch dynamic vehicle models from backend API
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(apiUrl + '/vehicles/models')
+      .then(res => res.json())
+      .then(res => {
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        if (list.length > 0) {
+          const dynamicList = list.map((m: any) => ({
+            name: m.name,
+            image: m.main_image ? (m.main_image.startsWith('/') || m.main_image.startsWith('http') ? m.main_image : '/' + m.main_image) : '/assets/city.png'
+          }));
+          setVehicleModels(dynamicList);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Core Page States
   const [selectedZoneName, setSelectedZoneName] = useState('');
@@ -115,7 +133,7 @@ function PricingForm() {
       alert('Please fill out all required fields for the hourly rate.');
       return;
     }
-    const matched = VEHICLE_MODELS.find(m => m.name === newHourlyModel);
+    const matched = vehicleModels.find(m => m.name === newHourlyModel);
     const newRow = {
       id: Date.now(),
       model: newHourlyModel,
@@ -206,7 +224,7 @@ function PricingForm() {
     setHourlyRows(prev => prev.map(row => {
       if (row.id === id) {
         if (field === 'model') {
-          const matched = VEHICLE_MODELS.find(m => m.name === value);
+          const matched = vehicleModels.find(m => m.name === value);
           return { ...row, model: value, imgSrc: matched ? matched.image : '/assets/city.png' };
         }
         return { ...row, [field]: value };
@@ -282,7 +300,7 @@ function PricingForm() {
       alert('Please enter a Rate Per Minute.');
       return;
     }
-    const modelObj = VEHICLE_MODELS.find(m => m.name === newMinuteModel) || VEHICLE_MODELS[0];
+    const modelObj = vehicleModels.find(m => m.name === newMinuteModel) || vehicleModels[0];
     const newRow = {
       id: Date.now(),
       model: newMinuteModel,
@@ -492,7 +510,7 @@ function PricingForm() {
                         value={newHourlyModel}
                         onChange={(e) => setNewHourlyModel(e.target.value)}
                       >
-                        {VEHICLE_MODELS.map((vm, idx) => (
+                        {vehicleModels.map((vm, idx) => (
                           <option key={idx} value={vm.name}>{vm.name}</option>
                         ))}
                       </select>
@@ -591,7 +609,7 @@ function PricingForm() {
                                 onChange={(e) => handleHourlyRowChange(row.id, 'model', e.target.value)}
                                 style={{ fontWeight: 700, width: '130px', padding: '4px' }}
                               >
-                                {VEHICLE_MODELS.map((vm, idx) => (
+                                {vehicleModels.map((vm, idx) => (
                                   <option key={idx} value={vm.name}>{vm.name}</option>
                                 ))}
                               </select>
@@ -722,7 +740,7 @@ function PricingForm() {
                         value={newMinuteModel}
                         onChange={(e) => setNewMinuteModel(e.target.value)}
                       >
-                        {VEHICLE_MODELS.map(m => (
+                        {vehicleModels.map(m => (
                           <option key={m.name} value={m.name}>{m.name}</option>
                         ))}
                       </select>
@@ -931,7 +949,7 @@ function PricingForm() {
                         value={newPkgModel}
                         onChange={(e) => setNewPkgModel(e.target.value)}
                       >
-                        {VEHICLE_MODELS.map((vm, idx) => (
+                        {vehicleModels.map((vm, idx) => (
                           <option key={idx} value={vm.name}>{vm.name}</option>
                         ))}
                       </select>
@@ -1052,7 +1070,7 @@ function PricingForm() {
                               onChange={(e) => handlePackageChange(pkg.id, 'model', e.target.value)}
                               style={{ fontWeight: 700, color: '#2A195C', width: '100%', padding: '6px 8px' }}
                             >
-                              {VEHICLE_MODELS.map((vm, idx) => (
+                              {vehicleModels.map((vm, idx) => (
                                 <option key={idx} value={vm.name}>{vm.name}</option>
                               ))}
                             </select>

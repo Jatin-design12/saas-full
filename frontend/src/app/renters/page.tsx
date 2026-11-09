@@ -875,6 +875,7 @@ const CSS = `
 interface Renter {
   id?: string;
   _id?: string;
+  rider_id?: string;
   rider_name: string;
   mobile: string;
   vehicle_id: string;
@@ -1279,8 +1280,8 @@ export default function RentersPage() {
 
   const fetchRenters = () => {
     setLoading(true);
-    const activeZoneToUse = zoneFilter !== 'All Zones' ? zoneFilter : selectedZone;
-    const isAllZones = !activeZoneToUse || activeZoneToUse === 'All Zones' || activeZoneToUse === 'All Zones (Multi-Zone)';
+    const activeZoneToUse = (zoneFilter && zoneFilter !== 'All Zones') ? zoneFilter : null;
+    const isAllZones = !activeZoneToUse;
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: pageSize.toString(),
@@ -1829,7 +1830,7 @@ export default function RentersPage() {
                                 <RiderAvatar name={displayName} avatarUrl={r.avatar_url} />
                                 <div>
                                   <span className="re-rider-name">{displayName}</span>
-                                  <span className="re-rider-sub">Rider ID #${r.id ? r.id.replace(/-/g, '').slice(0, 8) : `RID-${idx + 100}`}</span>
+                                  <span className="re-rider-sub">{r.rider_id || (r.id && r.id.startsWith("EVR-") ? r.id : `EVR-${idx + 101}`)}</span>
                                 </div>
                               </div>
                             </td>

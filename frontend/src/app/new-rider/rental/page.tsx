@@ -477,6 +477,7 @@ export default function RentalDetailsPage() {
   const [activeZoneName, setActiveZoneName] = useState<string>('Gotri Zone');
 
   // Dynamic available models connected with assigned vehicles in the selected zone
+  const [modelsCatalog, setModelsCatalog] = useState<any[]>([]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [selectedModelName, setSelectedModelName] = useState('Evegah City');
   const [vehiclesList, setVehiclesList] = useState<any[]>([]);
@@ -628,41 +629,13 @@ export default function RentalDetailsPage() {
             .filter(Boolean)
         ));
 
-        let finalModels: string[] = modelsWithVehicles;
-        // If no available vehicles, check all vehicles assigned to this zone
-        if (finalModels.length === 0) {
-          const allAssignedModels: string[] = Array.from(new Set<string>(
-            vData
-              .map((v: any) => normalizeModel(v.evegah_model_name || v.vehicle_model))
-              .filter(Boolean)
-          ));
-          if (allAssignedModels.length > 0) {
-            finalModels = allAssignedModels;
-          }
-        }
-
-        // If still no vehicles, check models configured in zone pricing packages
-        if (finalModels.length === 0 && selectedZone?.pricing) {
-          const zPricing = selectedZone.pricing;
-          const pricingModels = new Set<string>();
-          if (Array.isArray(zPricing.packages)) {
-            zPricing.packages.forEach((p: any) => {
-              if (p.model) pricingModels.add(normalizeModel(p.model));
-            });
-          }
-          if (zPricing.modelPackages && typeof zPricing.modelPackages === 'object') {
-            Object.keys(zPricing.modelPackages).forEach((m: string) => {
-              pricingModels.add(normalizeModel(m));
-            });
-          }
-          if (pricingModels.size > 0) {
-            finalModels = Array.from(pricingModels);
-          }
-        }
-
-        if (finalModels.length === 0) {
-          finalModels = ['Evegah City'];
-        }
+        // Combine all models from backend API modelsCatalog, models with vehicles, and assigned models
+        const catalogNames = modelsCatalog.map((m: any) => m.name);
+        const finalModels = Array.from(new Set<string>([
+          ...catalogNames,
+          ...modelsWithVehicles,
+          'Evegah City'
+        ]));
 
         setAvailableModels(finalModels);
 
@@ -718,6 +691,25 @@ export default function RentalDetailsPage() {
     let pkgs: any[] = [];
     const zPricing = selectedZone.pricing || {};
 
+    // Check hourlyPricing if zone is Hourly Based
+    if (zPricing.pricingModel === 'Hourly Based' && Array.isArray(zPricing.hourlyPricing)) {
+      const activeHourly = zPricing.hourlyPricing.filter((h: any) => h.status !== false);
+      const matchingModelHourly = activeHourly.filter((h: any) => normalizeModel(h.model || '') === selectedModelName);
+      const targetHourly = matchingModelHourly.length > 0 ? matchingModelHourly : activeHourly;
+
+      if (targetHourly.length > 0) {
+        pkgs = targetHourly.map((h: any, idx: number) => ({
+          id: `hourly_${idx + 1}`,
+          name: `${h.model || selectedModelName} (${h.roundingRule || 'Per Hour'})`,
+          duration: 1,
+          duration_hours: 1,
+          price: parseFloat(h.basePrice || 0),
+          deposit: parseFloat(h.deposit !== undefined && h.deposit !== null ? h.deposit : 0),
+          roundingRule: h.roundingRule
+        }));
+      }
+    }
+
     // Check modelPackages[selectedModelName]
     if (zPricing.modelPackages && Array.isArray(zPricing.modelPackages[selectedModelName])) {
       pkgs = zPricing.modelPackages[selectedModelName].filter((p: any) => Number(p.price) > 0);
@@ -736,29 +728,30 @@ export default function RentalDetailsPage() {
       pkgs = zPricing.packages.filter((p: any) => !p.model && Number(p.price) > 0);
     }
 
-    // Default fallbacks if none configured in zone pricing
+    // Fallbacks if none configured in zone pricing (strictly respect zone deposit or 0)
+    const baseDep = parseFloat(zPricing.securityDeposit || 0);
     if (pkgs.length === 0) {
       if (selectedModelName === 'Evegah Mink') {
         pkgs = [
-          { id: 201, name: 'Daily Pass', duration: 1, price: 250, deposit: 500 },
-          { id: 202, name: 'Weekly Pass', duration: 7, price: 1500, deposit: 500 },
-          { id: 203, name: 'Monthly Pass', duration: 30, price: 5500, deposit: 1500 }
+          { id: 201, name: 'Daily Pass', duration: 1, price: 250, deposit: baseDep },
+          { id: 202, name: 'Weekly Pass', duration: 7, price: 1500, deposit: baseDep },
+          { id: 203, name: 'Monthly Pass', duration: 30, price: 5500, deposit: baseDep }
         ];
       } else if (selectedModelName === 'Evegah Fly') {
         pkgs = [
-          { id: 401, name: 'Daily Pass', duration: 1, price: 100, deposit: 0 },
-          { id: 402, name: 'Weekly Pass', duration: 7, price: 650, deposit: 0 }
+          { id: 401, name: 'Daily Pass', duration: 1, price: 100, deposit: baseDep },
+          { id: 402, name: 'Weekly Pass', duration: 7, price: 650, deposit: baseDep }
         ];
       } else if (selectedModelName === 'Evegah Pro') {
         pkgs = [
-          { id: 301, name: 'Daily Pass', duration: 1, price: 200, deposit: 100 },
-          { id: 302, name: 'Weekly Pass', duration: 7, price: 1200, deposit: 100 }
+          { id: 301, name: 'Daily Pass', duration: 1, price: 200, deposit: baseDep },
+          { id: 302, name: 'Weekly Pass', duration: 7, price: 1200, deposit: baseDep }
         ];
       } else {
         pkgs = [
-          { id: 101, name: 'Daily Pass', duration: 1, price: 350, deposit: 500 },
-          { id: 102, name: 'Weekly Pass', duration: 7, price: 1750, deposit: 1000 },
-          { id: 103, name: 'Monthly Pass', duration: 30, price: 6500, deposit: 2500 }
+          { id: 101, name: 'Daily Pass', duration: 1, price: 150, deposit: baseDep },
+          { id: 102, name: 'Weekly Pass', duration: 7, price: 900, deposit: baseDep },
+          { id: 103, name: 'Monthly Pass', duration: 30, price: 3500, deposit: baseDep }
         ];
       }
     }
@@ -780,8 +773,42 @@ export default function RentalDetailsPage() {
         setReturnDate(d.toISOString().split('T')[0]);
       }
     }
-    setReturnTime(startTime);
-  }, [startDate, startTime, selectedPackage]);
+    const isHourly = selectedPackage.duration_hours || selectedPackage.roundingRule || (selectedPackage.name && selectedPackage.name.toLowerCase().includes('hour'));
+    setTotalDays(isHourly ? 1 : duration);
+
+    const baseDate = startDate || new Date().toISOString().split('T')[0];
+    const [y, m, d] = baseDate.split('-').map(Number);
+    const dropDateObj = new Date(y, m - 1, d);
+
+    if (isHourly) {
+      const match = (startTime || '12:00 PM').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (match) {
+        let h = parseInt(match[1], 10);
+        const min = parseInt(match[2], 10);
+        const ampm = match[3] ? match[3].toUpperCase() : 'AM';
+        if (ampm === 'PM' && h !== 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+
+        const dateWithTime = new Date(y, m - 1, d, h, min);
+        dateWithTime.setHours(dateWithTime.getHours() + (Number(selectedPackage.duration_hours) || 1));
+
+        let resH = dateWithTime.getHours();
+        const resM = dateWithTime.getMinutes();
+        const resAmpm = resH >= 12 ? 'PM' : 'AM';
+        resH = resH % 12;
+        resH = resH ? resH : 12;
+        setReturnTime(`${resH}:${resM < 10 ? '0' + resM : resM} ${resAmpm}`);
+        setReturnDate(dateWithTime.toISOString().split('T')[0]);
+      } else {
+        setReturnDate(baseDate);
+        setReturnTime('08:00 PM');
+      }
+    } else {
+      dropDateObj.setDate(dropDateObj.getDate() + duration);
+      setReturnDate(dropDateObj.toISOString().split('T')[0]);
+      setReturnTime(selectedZone?.close_time || '08:00 PM');
+    }
+  }, [startDate, startTime, selectedPackage, selectedZone]);
 
   
   const handleSaveDraft = async () => {
@@ -844,9 +871,13 @@ export default function RentalDetailsPage() {
 
   const getVehicleImage = () => {
     if (selectedVehicle?.vehicle_image) return selectedVehicle.vehicle_image;
-    if (selectedModelName === 'Evegah Mink') return '/Mink-1.png';
-    if (selectedModelName === 'Evegah Pro') return '/pro-1.png';
-    if (selectedModelName === 'Evegah Fly') return '/fly-1.png';
+    const found = modelsCatalog.find(m => m.name.toLowerCase() === selectedModelName.toLowerCase());
+    if (found?.main_image) {
+      return found.main_image.startsWith('/') || found.main_image.startsWith('http') ? found.main_image : `/${found.main_image}`;
+    }
+    if (selectedModelName.toLowerCase().includes('mink')) return '/Mink-1.png';
+    if (selectedModelName.toLowerCase().includes('pro')) return '/pro-1.png';
+    if (selectedModelName.toLowerCase().includes('fly')) return '/fly-1.png';
     return '/City-1.png';
   };
 
@@ -1015,11 +1046,16 @@ export default function RentalDetailsPage() {
                         }}
                       >
                         {filteredVehicles.length > 0 ? (
-                          filteredVehicles.map(v => (
-                            <option key={v.code || v.id} value={v.code || v.id}>
-                              {v.code || v.id} ({v.registration_number ? `${v.registration_number} • ` : ''}Available)
-                            </option>
-                          ))
+                          filteredVehicles.map(v => {
+                            const isUuid = (s: any) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s);
+                            const rawCode = v.code || (v.registration_number && v.registration_number !== '000' ? v.registration_number : '') || v.vehicle_number || v.reg_number;
+                            const cleanCode = (rawCode && !isUuid(rawCode)) ? rawCode : `EVM${String(v.id || '').replace(/\D/g, '').slice(-6) || '102401'}`;
+                            return (
+                              <option key={v.id || cleanCode} value={cleanCode}>
+                                {cleanCode} ({v.registration_number && v.registration_number !== '000' && !isUuid(v.registration_number) ? `${v.registration_number} • ` : ''}Available)
+                              </option>
+                            );
+                          })
                         ) : (
                           <option value="">No available {selectedModelName} in {selectedZone?.name || 'zone'}</option>
                         )}

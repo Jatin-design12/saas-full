@@ -58,13 +58,14 @@ function normalizeMediaUrl(url) {
 let MOCK_RENTERS = [];
 
 // Helper: Auto-generate unique rider email: firstname.lastname@evegah.com or firstname.lastname1@evegah.com
-async function generateUniqueRiderEmail(fullName, mobile) {
+async function generateUniqueRiderEmail(fullName, mobile, currentRenterId = null) {
+  const cleanMob = (mobile || '').replace(/\D/g, '').slice(-10);
   const parts = (fullName || 'Rider')
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s]/g, '')
     .split(/\s+/)
-    .filter(Boolean);
+    .filter(p => p && !['mr', 'mrs', 'ms', 'shri', 'smt', 'dr'].includes(p));
 
   let prefix = 'rider';
   if (parts.length === 1) {
@@ -73,33 +74,31 @@ async function generateUniqueRiderEmail(fullName, mobile) {
     prefix = `${parts[0]}.${parts[parts.length - 1]}`;
   }
 
-  const baseEmail = `${prefix}@evegah.com`;
-  const cleanMob = (mobile || '').replace(/\D/g, '').slice(-10);
+  // Ensure prefix is never purely numeric or default
+  if (/^\d+$/.test(prefix) || prefix === 'evegah.rider') {
+    prefix = cleanMob ? `rider.${cleanMob.slice(-4)}` : 'rider';
+  }
+
+  const baseEmail = `${prefix}@evegah.com`.toLowerCase();
 
   try {
-    // Check if this rider already has a valid name-based email stored
-    if (cleanMob.length >= 5) {
-      const existing = await db.query(
-        "SELECT email FROM renters WHERE (REPLACE(mobile, ' ', '') LIKE $1) AND email IS NOT NULL AND email != '' AND email NOT LIKE '%@evegah.com' OR (email LIKE '%@evegah.com' AND email NOT LIKE $2) LIMIT 1",
-        [`%${cleanMob}%`, `%${cleanMob}%`]
-      );
-      if (existing.rows.length > 0 && existing.rows[0].email && !existing.rows[0].email.includes(cleanMob)) {
-        return existing.rows[0].email.toLowerCase();
-      }
-    }
-
-    // Check for collisions with other riders having the same name
+    // Check conflicts with other renters
     const conflicts = await db.query(
-      "SELECT email, mobile FROM renters WHERE email ILIKE $1",
+      "SELECT id, email, mobile FROM renters WHERE email ILIKE $1",
       [`${prefix}%@evegah.com`]
     );
 
     const otherEmails = new Set();
     for (const row of conflicts.rows) {
+      if (currentRenterId && String(row.id) === String(currentRenterId)) {
+        if (row.email && !/^\d+@/.test(row.email)) {
+          return row.email.toLowerCase();
+        }
+        continue;
+      }
       const rowMob = (row.mobile || '').replace(/\D/g, '').slice(-10);
-      if (rowMob && rowMob === cleanMob) {
-        // Same rider
-        if (row.email && !row.email.includes(cleanMob)) {
+      if (cleanMob && rowMob === cleanMob) {
+        if (row.email && !/^\d+@/.test(row.email)) {
           return row.email.toLowerCase();
         }
       } else if (row.email) {
@@ -107,7 +106,7 @@ async function generateUniqueRiderEmail(fullName, mobile) {
       }
     }
 
-    if (!otherEmails.has(baseEmail.toLowerCase())) {
+    if (!otherEmails.has(baseEmail)) {
       return baseEmail;
     }
 
@@ -115,7 +114,7 @@ async function generateUniqueRiderEmail(fullName, mobile) {
     while (otherEmails.has(`${prefix}${seq}@evegah.com`.toLowerCase())) {
       seq++;
     }
-    return `${prefix}${seq}@evegah.com`;
+    return `${prefix}${seq}@evegah.com`.toLowerCase();
   } catch (err) {
     return baseEmail;
   }
@@ -433,6 +432,12 @@ router.post('/profile', async (req, res) => {
     let updatedRenter;
     if (findRes.rows.length > 0) {
       const renterId = findRes.rows[0].id;
+      const existingEmail = findRes.rows[0].email;
+      let finalEmail = resolvedEmail;
+      if (!finalEmail || /^\d+@/.test(finalEmail) || (existingEmail && /^\d+@/.test(existingEmail))) {
+        finalEmail = await generateUniqueRiderEmail(resolvedName || findRes.rows[0].rider_name, cleanMobile, renterId);
+      }
+
       const updateRes = await db.query(
         `UPDATE renters
          SET rider_name = COALESCE(NULLIF($1, ''), rider_name),
@@ -449,7 +454,7 @@ router.post('/profile', async (req, res) => {
          RETURNING *`,
         [
           resolvedName,
-          resolvedEmail,
+          finalEmail,
           resolvedDob,
           resolvedGender,
           resolvedAddr,
@@ -461,6 +466,7 @@ router.post('/profile', async (req, res) => {
       );
       updatedRenter = updateRes.rows[0];
     } else {
+      const generatedEmail = await generateUniqueRiderEmail(resolvedName || 'Evegah Rider', cleanMobile);
       const insertRes = await db.query(
         `INSERT INTO renters (
            rider_name, mobile, email, date_of_birth, gender, address, present_address,
@@ -471,7 +477,7 @@ router.post('/profile', async (req, res) => {
         [
           resolvedName || 'Evegah Rider',
           `+91 ${cleanMobile}`,
-          resolvedEmail || `${cleanMobile}@evegah.com`,
+          resolvedEmail || generatedEmail,
           resolvedDob,
           resolvedGender,
           resolvedAddr,
@@ -782,7 +788,7 @@ router.get('/profile', async (req, res) => {
     const profilePayload = {
       status: 'success',
       data: {
-        rider_id: renter?.id || riderId || 'RID-2026-001',
+        rider_id: renter?.rider_id || `EVR-${new Date(earliestDate || renter?.created_at || Date.now()).toISOString().slice(0, 10).replace(/-/g, '')}-${(renter?.booking_source || '').toLowerCase().includes('retain') ? 'RR' : 'NR'}-${String(renter?.id || '1').replace(/\D/g, '').slice(-3) || '001'}`,
         rider_name: riderFinalName,
         mobile: effectiveMobile,
         email: finalRiderEmail,
@@ -1000,9 +1006,9 @@ router.get('/', async (req, res) => {
       // 1. Fetch all renters, reservations, document photos, and vehicle zone mapping from database
       const [rentersDb, resvDb, docsDb, vehiclesDb] = await Promise.all([
         db.query(`
-          SELECT id, rider_name, mobile, email, date_of_birth, address, present_address, gender,
+          SELECT id, rider_id, rider_name, mobile, email, date_of_birth, address, present_address, gender,
                  vehicle_id, battery_id, package_name, rental_start_date, return_date,
-                 status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, created_at
+                 status, rent, deposit, total, avatar_url, wallet_balance, zone, kyc_status, booking_source, created_at
           FROM renters
           WHERE NOT (
             (rider_name ILIKE '%evegah rider%' OR rider_name = 'Rider')
@@ -1140,8 +1146,10 @@ router.get('/', async (req, res) => {
       const effectiveZone = vZone || r.zone || Array.from(initialZones)[0] || null;
 
       if (!ridersMap.has(key)) {
+        const computedRiderId = r.rider_id || `EVR-${new Date(r.created_at || Date.now()).toISOString().slice(0, 10).replace(/-/g, '')}-${(r.booking_source || '').toLowerCase().includes('retain') ? 'RR' : 'NR'}-${String(r.id).replace(/\D/g, '').slice(-3) || '001'}`;
         ridersMap.set(key, {
           id: r.id,
+          rider_id: computedRiderId,
           rider_name: r.rider_name || 'Rider',
           mobile: r.mobile,
           email: r.email,
@@ -1158,7 +1166,7 @@ router.get('/', async (req, res) => {
           avatar_url: normalizeMediaUrl(r.avatar_url) || docPhotosByMobile.get(key) || docPhotosByRiderId.get(String(r.id)) || null,
           wallet_balance: r.wallet_balance || 0,
           kyc_status: r.kyc_status || 'Verified',
-          booking_source: r.booking_source || 'Migrated',
+          booking_source: r.booking_source || (r.vehicle_id ? 'Form' : 'App'),
           booked_zones: initialZones,
           latest_zone: effectiveZone,
           has_active_ride: displayStatus === 'Active Ride' || displayStatus === 'Retain Ride' || displayStatus === 'Extend',
@@ -1303,7 +1311,7 @@ router.get('/', async (req, res) => {
       }
 
       let modeStr = (r.booking_source || '').toLowerCase();
-      const finalMode = modeStr === 'form' ? 'Form' : ((modeStr.includes('app') || r.has_updated_from_resv) ? 'App' : 'Form');
+      const finalMode = (modeStr === 'form' || modeStr.includes('form') || modeStr === 'admin') ? 'Form' : ((modeStr.includes('app') || r.has_updated_from_resv) ? 'App' : 'Form');
 
       let riderZone = r.latest_zone;
       if (!riderZone || riderZone === 'Gotri Zone') {
@@ -1719,6 +1727,20 @@ router.post('/kyc', async (req, res) => {
   await delByPattern('renters:*');
 
   try {
+    let riderEmail = null;
+    if (rider_name && rider_name.trim()) {
+      const existingRenter = await db.query(
+        "SELECT id, email FROM renters WHERE mobile LIKE $1 OR id::text = $2 LIMIT 1",
+        [`%${last10}`, req.body.id || req.body.rider_id || '']
+      );
+      if (existingRenter.rows.length > 0) {
+        const curEmail = existingRenter.rows[0].email;
+        if (!curEmail || /^\d+@/.test(curEmail)) {
+          riderEmail = await generateUniqueRiderEmail(rider_name, last10, existingRenter.rows[0].id);
+        }
+      }
+    }
+
     await db.query(`
       UPDATE renters 
       SET rider_name = COALESCE($1, rider_name),
@@ -1730,7 +1752,8 @@ router.post('/kyc', async (req, res) => {
           present_address = COALESCE($7, present_address),
           emergency_contact_name = COALESCE($8, emergency_contact_name),
           emergency_contact_phone = COALESCE($9, emergency_contact_phone),
-          avatar_url = COALESCE($12, avatar_url)
+          avatar_url = COALESCE($12, avatar_url),
+          email = COALESCE($13, email)
       WHERE mobile LIKE $10 OR id::text = $11
     `, [
       rider_name || null, 
@@ -1744,7 +1767,8 @@ router.post('/kyc', async (req, res) => {
       ocr_details?.emergency_contact_phone || req.body.emergency_contact_phone || null,
       `%${last10}`,
       req.body.id || req.body.rider_id || '',
-      live_photo || req.body.avatar || null
+      live_photo || req.body.avatar || null,
+      riderEmail || null
     ]);
 
     if (rider_name && rider_name.trim().length > 0) {

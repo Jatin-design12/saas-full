@@ -169,6 +169,21 @@ export default function VehicleListPage() {
   // Multi-delete row selections
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
 
+  const [modelsList, setModelsList] = useState<any[]>([]);
+
+  const fetchModels = () => {
+    api.get('/vehicles/models').then((res: any) => {
+      const models = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      if (models.length > 0) {
+        setModelsList(models);
+      }
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchModels();
+  }, []);
+
   // Vehicle Models & Media Modal State
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [isSavingModel, setIsSavingModel] = useState(false);
@@ -209,6 +224,7 @@ export default function VehicleListPage() {
         galleryImages: galleryList
       });
       alert(`Model specs & media for "${modelFormData.name}" updated successfully!`);
+      fetchModels();
       setIsModelModalOpen(false);
     } catch (err: any) {
       alert(`Failed to save model specs: ${err.message || err}`);
@@ -373,7 +389,7 @@ export default function VehicleListPage() {
     const matchesZone = !selectedZone || selectedZone === 'All Zones' || v.zone.toLowerCase().trim() === selectedZone.toLowerCase().trim();
     const matchesSearch = v.code.toLowerCase().includes(search.toLowerCase()) || v.renter.toLowerCase().includes(search.toLowerCase()) || v.hub.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'All' || v.status === statusFilter;
-    const matchesType = typeFilter === 'All' || v.type === typeFilter;
+    const matchesType = typeFilter === 'All' || v.type === typeFilter || (v.type && v.type.toLowerCase() === typeFilter.toLowerCase());
     return matchesZone && matchesSearch && matchesStatus && matchesType;
   });
 
@@ -500,10 +516,17 @@ export default function VehicleListPage() {
                   onChange={(e) => setTypeFilter(e.target.value)}
                 >
                   <option value="All">All Models</option>
-                  <option value="Evegah City">Evegah City</option>
-                  <option value="Evegah Mink">Evegah Mink</option>
-                  <option value="Evegah Fly">Evegah Fly</option>
-                  <option value="Evegah Pro">Evegah Pro</option>
+                  {modelsList.map((m: any) => (
+                    <option key={m.id || m.name} value={m.name}>{m.name}</option>
+                  ))}
+                  {modelsList.length === 0 && (
+                    <>
+                      <option value="Evegah City">Evegah City</option>
+                      <option value="Evegah Mink">Evegah Mink</option>
+                      <option value="Evegah Fly">Evegah Fly</option>
+                      <option value="Evegah Pro">Evegah Pro</option>
+                    </>
+                  )}
                 </select>
 
                 <button className="vl-hdr-btn"><IFilter/> Advanced</button>
@@ -683,105 +706,46 @@ export default function VehicleListPage() {
                       value={modelFormData.name}
                       onChange={(e) => {
                         const name = e.target.value;
-                        if (name === 'Evegah City') {
+                        const found = modelsList.find((m: any) => m.name.toLowerCase() === name.toLowerCase());
+                        if (found) {
                           setModelFormData({
-                            name: 'Evegah City',
-                            category: 'E-Vehicle',
-                            tagline: 'Stylish. Powerful. Eco-friendly.',
-                            rating: '4.6',
-                            reviewsCount: '128',
-                            description: 'Evegah City is built for the modern commuter. It combines performance, comfort and style with zero emissions.',
-                            range: '90–110 km',
-                            topSpeed: '60 km/h',
-                            batteryCapacity: '2.3 kWh',
-                            brakes: 'Disc Brakes (Front & Rear)',
-                            motorPower: '2500 W',
-                            batteryType: 'Lithium-ion',
-                            wheelSize: '12 inch',
-                            waterResistance: 'IP67',
-                            chargingTime: '4 – 5 Hours',
-                            loadCapacity: '150 kg',
-                            warranty: '1 Year Warranty',
-                            mainImage: 'assets/City-1.png',
-                            videoUrl: 'assets/ev_video.mp4',
-                            galleryImagesStr: 'assets/City-1.png, assets/ev_baroda.png, assets/mink_banner.png, assets/Pro_Banner.png'
+                            name: found.name,
+                            category: found.category || 'E-Vehicle',
+                            tagline: found.tagline || 'Stylish. Powerful. Eco-friendly.',
+                            rating: String(found.rating || '4.6'),
+                            reviewsCount: String(found.reviews_count || '128'),
+                            description: found.description || '',
+                            range: found.range || '90–110 km',
+                            topSpeed: found.top_speed || '60 km/h',
+                            batteryCapacity: found.battery_capacity || '2.3 kWh',
+                            brakes: found.brakes || 'Disc Brakes (Front & Rear)',
+                            motorPower: found.motor_power || '2500 W',
+                            batteryType: found.battery_type || 'Lithium-ion',
+                            wheelSize: found.wheel_size || '12 inch',
+                            waterResistance: found.water_resistance || 'IP67',
+                            chargingTime: found.charging_time || '4 – 5 Hours',
+                            loadCapacity: found.load_capacity || '150 kg',
+                            warranty: found.warranty || '1 Year Warranty',
+                            mainImage: found.main_image || 'assets/City-1.png',
+                            videoUrl: found.video_url || 'assets/ev_video.mp4',
+                            galleryImagesStr: Array.isArray(found.gallery_images) ? found.gallery_images.join(', ') : (typeof found.gallery_images === 'string' ? found.gallery_images : 'assets/City-1.png')
                           });
-                        } else if (name === 'Evegah Pro') {
-                          setModelFormData({
-                            name: 'Evegah Pro',
-                            category: 'E-Scooter',
-                            tagline: 'High Speed Performance EV Scooter.',
-                            rating: '4.8',
-                            reviewsCount: '215',
-                            description: 'Evegah Pro delivers ultimate power and range for highway and long-distance commuting.',
-                            range: '110–130 km',
-                            topSpeed: '75 km/h',
-                            batteryCapacity: '3.1 kWh',
-                            brakes: 'CBS Brakes (Front & Rear)',
-                            motorPower: '3200 W',
-                            batteryType: 'Advanced LiFePO4',
-                            wheelSize: '12 inch',
-                            waterResistance: 'IP68',
-                            chargingTime: '3 – 4 Hours',
-                            loadCapacity: '180 kg',
-                            warranty: '2 Years Warranty',
-                            mainImage: 'assets/Pro_Banner.png',
-                            videoUrl: 'assets/ev_video.mp4',
-                            galleryImagesStr: 'assets/Pro_Banner.png, assets/fleet_bg_pro.jpg, assets/city.png'
-                          });
-                        } else if (name === 'Evegah Fly') {
-                          setModelFormData({
-                            name: 'Evegah Fly',
-                            category: 'E-Moped',
-                            tagline: 'Lightweight & Agile City Moped.',
-                            rating: '4.5',
-                            reviewsCount: '94',
-                            description: 'Evegah Fly is engineered for effortless maneuverability and instant swappable battery support.',
-                            range: '40–60 km',
-                            topSpeed: '25 km/h',
-                            batteryCapacity: '1.2 kWh',
-                            brakes: 'Front Disc & Rear Drum',
-                            motorPower: '1200 W',
-                            batteryType: 'Swappable Li-ion',
-                            wheelSize: '10 inch',
-                            waterResistance: 'IP65',
-                            chargingTime: '2.5 – 3 Hours',
-                            loadCapacity: '120 kg',
-                            warranty: '1 Year Warranty',
-                            mainImage: 'assets/fly-1.png',
-                            videoUrl: 'assets/ev_video.mp4',
-                            galleryImagesStr: 'assets/fly-1.png, assets/fleet_bg_cycle.jpg, assets/city-white.png'
-                          });
-                        } else if (name === 'Evegah Mink') {
-                          setModelFormData({
-                            name: 'Evegah Mink',
-                            category: 'E-Cargo',
-                            tagline: 'Heavy-Duty Cargo & Delivery EV.',
-                            rating: '4.7',
-                            reviewsCount: '156',
-                            description: 'Evegah Mink is built for commercial delivery and cargo transport with high load capacity.',
-                            range: '70–90 km',
-                            topSpeed: '45 km/h',
-                            batteryCapacity: '2.0 kWh',
-                            brakes: 'Dual Heavy Disc Brakes',
-                            motorPower: '2000 W',
-                            batteryType: 'High-Capacity Li-ion',
-                            wheelSize: '12 inch',
-                            waterResistance: 'IP67',
-                            chargingTime: '4 Hours',
-                            loadCapacity: '220 kg',
-                            warranty: '2 Years Warranty',
-                            mainImage: 'assets/mink.png',
-                            videoUrl: 'assets/ev_video.mp4',
-                            galleryImagesStr: 'assets/mink.png, assets/mink_banner.png, assets/MINK.png'
-                          });
+                        } else {
+                          setModelFormData(prev => ({ ...prev, name }));
                         }
                       }}
                     >
-                      <option value="Evegah City">Evegah City</option>
-                      <option value="Evegah Pro">Evegah Pro</option>
-                      <option value="Evegah Fly">Evegah Fly</option>
-                      <option value="Evegah Mink">Evegah Mink</option>
+                      {modelsList.map((m: any) => (
+                        <option key={m.id || m.name} value={m.name}>{m.name}</option>
+                      ))}
+                      {modelsList.length === 0 && (
+                        <>
+                          <option value="Evegah City">Evegah City</option>
+                          <option value="Evegah Pro">Evegah Pro</option>
+                          <option value="Evegah Fly">Evegah Fly</option>
+                          <option value="Evegah Mink">Evegah Mink</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div>

@@ -349,6 +349,9 @@ export default function RetainRiderPage() {
             ? new Date(dateVal).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
             : 'Active Booking';
           const isFemale = realName.toLowerCase().includes('priya') || realName.toLowerCase().includes('kinjal') || realName.toLowerCase().includes('neha');
+          const st = (item.status || '').toLowerCase();
+          const hasActiveRide = Boolean(item.has_active_ride || ['active ride', 'active', 'ongoing', 'in ride', 'picked up'].includes(st));
+          const avatarUrl = item.avatar_url || item.avatar || null;
           return {
             initials: realName.slice(0, 2).toUpperCase(),
             gradient: isFemale ? 'linear-gradient(135deg,#DB2777,#F472B6)' : 'linear-gradient(135deg,#2a195c,#2A195C)',
@@ -360,9 +363,11 @@ export default function RetainRiderPage() {
             vehicle: item.vehicle_name || item.vehicle_code || item.vehicle_id || 'Evegah E1',
             vehicle_id: item.vehicle_id || item.vehicle_code || 'EVM1024012',
             battery_id: item.battery_id || 'BAT-0098',
-            deposit: item.deposit || item.deposit_amount || 500,
+            deposit: item.deposit !== undefined && item.deposit !== null ? Number(item.deposit) : (item.deposit_amount !== undefined && item.deposit_amount !== null ? Number(item.deposit_amount) : 0),
             zone: item.zone || 'All',
-            avatar: item.avatar_url || (isFemale ? '/priya_avatar.png' : '/rohit_avatar.png'),
+            avatar: avatarUrl,
+            hasActiveRide,
+            status: item.status || 'Completed',
             raw: item,
           };
         }));
@@ -413,6 +418,10 @@ export default function RetainRiderPage() {
   });
 
   const handleSelectRider = (rider: any) => {
+    if (rider.hasActiveRide) {
+      alert(`Cannot Retain Ride: ${rider.name} currently has an ongoing active ride (${rider.vehicle_id || 'Vehicle assigned'}). Retain ride is only permitted after the rider returns the current vehicle.`);
+      return;
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem('evegah_retain_rider', JSON.stringify(rider));
       // also seed retain_ride_kyc for full compatibility
@@ -604,21 +613,30 @@ export default function RetainRiderPage() {
                     ) : (
                       filteredRiders.map((r, idx) => (
                         <div key={r.id || idx} className="rr-rider-row">
-                          <div className="rr-avatar" style={{ position: 'relative', overflow: 'hidden', background: r.gradient || 'linear-gradient(135deg,#2a195c,#2A195C)' }}>
-                            <img
-                              src={r.avatar || '/rohit_avatar.png'}
-                              alt={r.name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                              onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13, zIndex: 0 }}>
-                              {r.initials}
-                            </span>
+                          <div className="rr-avatar" style={{ position: 'relative', overflow: 'hidden', background: r.avatar ? '#F3F4F6' : (r.gradient || 'linear-gradient(135deg,#2a195c,#2A195C)') }}>
+                            {r.avatar ? (
+                              <img
+                                src={r.avatar}
+                                alt={r.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                onError={(e: any) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <span style={{ color: '#fff', fontWeight: 800, fontSize: 13 }}>
+                                {r.initials}
+                              </span>
+                            )}
                           </div>
                           <div className="rr-rider-info">
                             <div className="rr-rider-name-row">
                               <span className="rr-rider-name">{r.name}</span>
-                              <span className="rr-returning-badge">Returning Rider</span>
+                              {r.hasActiveRide ? (
+                                <span style={{ background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '20px', fontSize: '11px', fontWeight: 700, padding: '1px 9px' }}>
+                                  ● Active Ride ({r.vehicle_id})
+                                </span>
+                              ) : (
+                                <span className="rr-returning-badge">✓ Eligible for Retain</span>
+                              )}
                               <span className="rr-kyc-badge">✓ KYC On File</span>
                             </div>
                             <div className="rr-rider-id">{r.id}</div>
@@ -631,9 +649,15 @@ export default function RetainRiderPage() {
                           </div>
                           <button
                             className="rr-select-btn"
+                            style={{
+                              background: r.hasActiveRide ? '#F1F5F9' : '#2A195C',
+                              color: r.hasActiveRide ? '#64748B' : '#fff',
+                              border: r.hasActiveRide ? '1px solid #CBD5E1' : 'none',
+                              cursor: r.hasActiveRide ? 'not-allowed' : 'pointer'
+                            }}
                             onClick={() => handleSelectRider(r)}
                           >
-                            Select Rider &gt;
+                            {r.hasActiveRide ? 'Ongoing Ride Active' : 'Select Rider >'}
                           </button>
                         </div>
                       ))

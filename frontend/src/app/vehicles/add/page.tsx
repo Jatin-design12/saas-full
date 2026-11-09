@@ -141,12 +141,20 @@ export default function AddVehiclePage() {
   const [zonesList, setZonesList] = useState<string[]>([]);
   const [qrGenerated, setQrGenerated] = useState(false);
   const [vehicleImage, setVehicleImage] = useState('/City-1.png');
+  const [modelsList, setModelsList] = useState<any[]>([]);
 
   useEffect(() => {
     api.get('/zones').then((res: any) => {
       if (res && res.data) {
         const names = res.data.map((z: any) => z.name || z.locality).filter(Boolean);
         setZonesList([...new Set<string>(names)]);
+      }
+    }).catch(() => {});
+
+    api.get('/vehicles/models').then((res: any) => {
+      const models = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      if (models.length > 0) {
+        setModelsList(models);
       }
     }).catch(() => {});
   }, []);
@@ -177,10 +185,14 @@ export default function AddVehiclePage() {
     setFormData(prev => {
       const next = { ...prev, [name]: value };
       if (name === 'evegahModelName') {
-        if (value === 'Evegah Mink') setVehicleImage('/Mink-1.png');
-        else if (value === 'Evegah City') setVehicleImage('/City-1.png');
-        else if (value === 'Evegah Fly') setVehicleImage('/fly-1.png');
-        else if (value === 'Evegah Pro') setVehicleImage('/pro-1.png');
+        const found = modelsList.find((m: any) => m.name.toLowerCase() === value.toLowerCase());
+        if (found?.main_image) {
+          const img = found.main_image.startsWith('/') || found.main_image.startsWith('http') ? found.main_image : `/${found.main_image}`;
+          setVehicleImage(img);
+        } else if (value.toLowerCase().includes('mink')) setVehicleImage('/Mink-1.png');
+        else if (value.toLowerCase().includes('city')) setVehicleImage('/City-1.png');
+        else if (value.toLowerCase().includes('fly')) setVehicleImage('/fly-1.png');
+        else if (value.toLowerCase().includes('pro')) setVehicleImage('/pro-1.png');
       }
       return next;
     });
@@ -376,10 +388,17 @@ export default function AddVehiclePage() {
                         value={formData.evegahModelName}
                         onChange={handleInputChange}
                       >
-                        <option value="Evegah City">Evegah City</option>
-                        <option value="Evegah Mink">Evegah Mink</option>
-                        <option value="Evegah Fly">Evegah Fly</option>
-                        <option value="Evegah Pro">Evegah Pro</option>
+                        {modelsList.map((m: any) => (
+                          <option key={m.id || m.name} value={m.name}>{m.name}</option>
+                        ))}
+                        {modelsList.length === 0 && (
+                          <>
+                            <option value="Evegah City">Evegah City</option>
+                            <option value="Evegah Mink">Evegah Mink</option>
+                            <option value="Evegah Fly">Evegah Fly</option>
+                            <option value="Evegah Pro">Evegah Pro</option>
+                          </>
+                        )}
                       </select>
                     </div>
                     <div className="add-veh-field">

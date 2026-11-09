@@ -201,10 +201,15 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/renters', require('./routes/renters'));
 app.use('/api/kyc', require('./routes/kyc'));
 app.use('/api/zones', require('./routes/zones'));
+app.use('/api/packages', require('./routes/packages'));
 app.use('/api/reservations', require('./routes/reservations'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/roles', require('./routes/roles'));
 app.use('/api/vehicles', require('./routes/vehicles'));
+app.use('/api/vehicle-models', (req, res, next) => {
+  req.url = '/models' + req.url;
+  return require('./routes/vehicles')(req, res, next);
+});
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/announcements', require('./routes/announcements'));

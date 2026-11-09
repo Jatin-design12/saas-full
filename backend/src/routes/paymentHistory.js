@@ -12,13 +12,8 @@ const cleanMob = (m) => (m || '').replace(/\D/g, '').slice(-10);
  */
 router.get('/', async (req, res) => {
   try {
-    // Background purge of abandoned pending transactions older than 30 minutes without booking
+    // Only cleanup obvious dummy 1800/1820 mock numbers from old development tests
     db.query(`
-      DELETE FROM payu_payments
-      WHERE UPPER(status) = 'PENDING'
-        AND created_at < NOW() - INTERVAL '30 minutes'
-        AND NOT EXISTS (SELECT 1 FROM reservations r WHERE r.transaction_id = payu_payments.tx_id OR r.reservation_id = payu_payments.reservation_id)
-        AND NOT EXISTS (SELECT 1 FROM renters rn WHERE rn.transaction_id = payu_payments.tx_id OR rn.id::text = payu_payments.reservation_id);
       DELETE FROM payu_payments WHERE mobile LIKE '%1800%' OR mobile LIKE '%1820%';
       DELETE FROM icici_payments WHERE mobile LIKE '%1800%' OR mobile LIKE '%1820%';
     `).catch(() => {});
@@ -65,18 +60,12 @@ router.get('/', async (req, res) => {
           ip.created_at
         FROM icici_payments ip
         LEFT JOIN reservations r ON (r.transaction_id = ip.tx_id OR r.reservation_id = ip.reservation_id)
-        LEFT JOIN renters rn ON (rn.transaction_id = ip.tx_id OR rn.id::text = ip.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ip.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE ip.mobile NOT LIKE '%1800%'
           AND ip.mobile NOT LIKE '%1820%'
-          AND (
-            UPPER(ip.status) != 'PENDING'
-            OR r.transaction_id = ip.tx_id
-            OR rn.transaction_id = ip.tx_id
-          )
 
         UNION ALL
 
-        -- 2. PayU Payments (Collections only - refunds are recorded in Section 4 below)
+        -- 2. PayU Payments
         SELECT 
           'payu_' || pp.id::text AS id,
           pp.tx_id,
@@ -106,33 +95,48 @@ router.get('/', async (req, res) => {
           pp.created_at
         FROM payu_payments pp
         LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
-        LEFT JOIN renters rn ON (rn.transaction_id = pp.tx_id OR rn.id::text = pp.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(pp.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
           AND pp.mobile NOT LIKE '%1800%'
           AND pp.mobile NOT LIKE '%1820%'
-          AND (
-            UPPER(pp.status) != 'PENDING'
-            OR r.transaction_id = pp.tx_id
-            OR rn.transaction_id = pp.tx_id
-          )
           AND NOT (
             COALESCE(pp.rider_name, '') IN ('Rider', 'Evegah Rider')
             AND (pp.mobile LIKE '%1800%' OR pp.mobile LIKE '%1820%' OR pp.mobile = '')
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM payu_payments p_newer 
-            WHERE p_newer.mobile = pp.mobile 
-              AND p_newer.purpose = pp.purpose 
-              AND UPPER(p_newer.status) = 'PENDING' 
-              AND UPPER(pp.status) = 'PENDING' 
-              AND p_newer.created_at > pp.created_at
-          )
 
         UNION ALL
 
-        -- 3. Wallet Transactions (Razorpay / Wallet Top-Up / Ride deductions)
+        -- 3. PhonePe Payments
+        SELECT
+          'phonepe_' || ph.id::text AS id,
+          ph.tx_id,
+          COALESCE(ph.phonepe_tx_id, ph.upi_ref_no, ph.tx_id) AS reference_id,
+          COALESCE(
+            NULLIF(ph.rider_name, 'Rider'),
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ph.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Evegah Rider'
+          ) AS rider_name,
+          COALESCE(NULLIF(ph.mobile, ''), '') AS mobile,
+          ph.amount::numeric AS rent_amount,
+          0.00::numeric AS deposit_amount,
+          ph.amount::numeric AS amount,
+          'Credit' AS type,
+          CASE 
+            WHEN UPPER(ph.status) = 'SUCCESS' THEN 'Successful'
+            WHEN UPPER(ph.status) = 'PENDING' THEN 'Pending'
+            ELSE 'Failed'
+          END AS status,
+          'PhonePe' AS payment_method,
+          COALESCE(ph.purpose, 'Ride Payment') AS purpose,
+          ph.created_at
+        FROM phonepe_payments ph
+        WHERE ph.mobile NOT LIKE '%1800%'
+          AND ph.mobile NOT LIKE '%1820%'
+
+        UNION ALL
+
+        -- 4. Wallet / Refund Transactions
         SELECT 
           'wallet_' || wt.id::text AS id,
           COALESCE(wt.transaction_id, 'TXN-W' || wt.id::text) AS tx_id,
@@ -143,8 +147,14 @@ router.get('/', async (req, res) => {
             'Rider (' || wt.mobile || ')'
           ) AS rider_name,
           COALESCE(wt.mobile, '') AS mobile,
-          wt.amount::numeric AS rent_amount,
-          0.00::numeric AS deposit_amount,
+          CASE 
+            WHEN wt.title ILIKE '%deposit%' OR wt.subtitle ILIKE '%deposit%' THEN 0.00
+            ELSE wt.amount::numeric
+          END AS rent_amount,
+          CASE 
+            WHEN wt.title ILIKE '%deposit%' OR wt.subtitle ILIKE '%deposit%' THEN wt.amount::numeric
+            ELSE 0.00
+          END AS deposit_amount,
           wt.amount::numeric AS amount,
           CASE 
             WHEN LOWER(wt.type) = 'debit' THEN 'Debit'
@@ -159,13 +169,10 @@ router.get('/', async (req, res) => {
           COALESCE(wt.title, wt.subtitle, 'Wallet Transaction') AS purpose,
           wt.created_at
         FROM wallet_transactions wt
-        WHERE wt.title NOT ILIKE '%deposit refund%' 
-          AND wt.subtitle NOT ILIKE '%deposit refund%'
-          AND (wt.transaction_id IS NULL OR (wt.transaction_id NOT LIKE 'DEP-%' AND wt.transaction_id NOT LIKE 'RENT-%' AND wt.transaction_id NOT LIKE 'REF-%'))
 
         UNION ALL
 
-        -- 4. Completed Deposit Refunds from Reservations
+        -- 5. Completed Deposit Refunds from Reservations
         SELECT 
           'refund_' || id::text AS id,
           COALESCE(refund_tx_id, 'REF-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
@@ -182,10 +189,13 @@ router.get('/', async (req, res) => {
           COALESCE(refund_date, returned_at, created_at) AS created_at
         FROM reservations
         WHERE deposit_status = 'Refunded' AND COALESCE(refund_amount, deposit, 0) > 0
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt WHERE wt.transaction_id = reservations.refund_tx_id
+          )
 
         UNION ALL
 
-        -- 5. Direct / Cash / Offline Booking Payments only (avoid double-counting PayU, ICICI, Wallet)
+        -- 6. Direct / Cash / Offline Booking Payments
         SELECT
           'res_' || id::text AS id,
           COALESCE(cash_voucher_number, transaction_id, 'CSH-VCHR-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
@@ -205,7 +215,7 @@ router.get('/', async (req, res) => {
           created_at
         FROM reservations
         WHERE payment_status = 'Paid' AND COALESCE(fare, 0) > 0
-          AND (payment_mode IS NULL OR payment_mode NOT IN ('PayU', 'PayU India', 'ICICI UPI', 'UPI', 'Wallet', 'Evegah Wallet'))
+          AND (payment_mode IS NULL OR payment_mode NOT IN ('PayU', 'PayU India', 'ICICI UPI', 'UPI', 'Wallet', 'Evegah Wallet', 'PhonePe'))
           AND NOT EXISTS (
             SELECT 1 FROM payu_payments pp 
             WHERE pp.tx_id = reservations.transaction_id 
@@ -219,6 +229,12 @@ router.get('/', async (req, res) => {
                OR ip.reservation_id = reservations.reservation_id
           )
           AND NOT EXISTS (
+            SELECT 1 FROM phonepe_payments ph 
+            WHERE ph.tx_id = reservations.transaction_id 
+               OR ph.reservation_id = reservations.id::text 
+               OR ph.reservation_id = reservations.reservation_id
+          )
+          AND NOT EXISTS (
             SELECT 1 FROM wallet_transactions wt 
             WHERE wt.transaction_id = reservations.transaction_id
           )
@@ -228,7 +244,46 @@ router.get('/', async (req, res) => {
 
     // Query all records for accurate KPI metrics
     const allRecordsRes = await db.query(unionQuery);
-    const allRecords = allRecordsRes.rows;
+    const rawAllRecords = allRecordsRes.rows;
+
+    // Deduplicate transactions:
+    // 1. If a transaction/booking is Successful, suppress any Pending attempts for it.
+    // 2. Collapse rapid repeated Pending attempts for the same mobile and amount to 1 single pending record.
+    const successfulKeys = new Set();
+    rawAllRecords.forEach(rec => {
+      if ((rec.status || '').toLowerCase() === 'successful') {
+        if (rec.reference_id && rec.reference_id !== 'ICICI-UPI') successfulKeys.add(rec.reference_id);
+        if (rec.tx_id) successfulKeys.add(rec.tx_id);
+        const cleanMob = (rec.mobile || '').replace(/\D/g, '').slice(-10);
+        if (cleanMob) {
+          const dateDay = new Date(rec.created_at).toISOString().slice(0, 10);
+          successfulKeys.add(`${cleanMob}_${parseFloat(rec.amount)}_${dateDay}`);
+        }
+      }
+    });
+
+    const seenPendingKeys = new Set();
+    const allRecords = [];
+
+    for (const rec of rawAllRecords) {
+      const st = (rec.status || '').toLowerCase();
+      const cleanMob = (rec.mobile || '').replace(/\D/g, '').slice(-10);
+      const dateDay = new Date(rec.created_at).toISOString().slice(0, 10);
+      const mobAmtDayKey = `${cleanMob}_${parseFloat(rec.amount)}_${dateDay}`;
+
+      if (st === 'pending') {
+        // If payment was completed successfully, hide redundant pending records
+        if (successfulKeys.has(rec.reference_id) || successfulKeys.has(rec.tx_id) || successfulKeys.has(mobAmtDayKey)) {
+          continue;
+        }
+        // If multiple pending attempts exist for same mobile and amount within same day, keep only the latest single one
+        if (cleanMob && seenPendingKeys.has(mobAmtDayKey)) {
+          continue;
+        }
+        seenPendingKeys.add(mobAmtDayKey);
+      }
+      allRecords.push(rec);
+    }
 
     // Compute live KPI metrics over all records
     let totalCredit = 0;
@@ -446,6 +501,9 @@ const deleteSingleTransaction = async (compositeId) => {
   } else if (str.startsWith('payu_')) {
     const rawId = str.replace('payu_', '');
     return db.query('DELETE FROM payu_payments WHERE id::text = $1', [rawId]).catch(() => ({ rowCount: 0 }));
+  } else if (str.startsWith('phonepe_')) {
+    const rawId = str.replace('phonepe_', '');
+    return db.query('DELETE FROM phonepe_payments WHERE id::text = $1', [rawId]).catch(() => ({ rowCount: 0 }));
   } else if (str.startsWith('wallet_')) {
     const rawId = str.replace('wallet_', '');
     return db.query('DELETE FROM wallet_transactions WHERE id::text = $1', [rawId]).catch(() => ({ rowCount: 0 }));
@@ -458,6 +516,7 @@ const deleteSingleTransaction = async (compositeId) => {
   } else {
     await db.query('DELETE FROM payu_payments WHERE id::text = $1 OR tx_id = $1', [str]).catch(() => {});
     await db.query('DELETE FROM icici_payments WHERE id::text = $1 OR tx_id = $1', [str]).catch(() => {});
+    await db.query('DELETE FROM phonepe_payments WHERE id::text = $1 OR tx_id = $1', [str]).catch(() => {});
     await db.query('DELETE FROM wallet_transactions WHERE id::text = $1 OR transaction_id = $1', [str]).catch(() => {});
     return { rowCount: 1 };
   }
@@ -544,6 +603,8 @@ router.get('/export', async (req, res) => {
           ip.created_at
         FROM icici_payments ip
         LEFT JOIN reservations r ON (r.transaction_id = ip.tx_id OR r.reservation_id = ip.reservation_id)
+        WHERE ip.mobile NOT LIKE '%1800%'
+          AND ip.mobile NOT LIKE '%1820%'
 
         UNION ALL
 
@@ -573,33 +634,48 @@ router.get('/export', async (req, res) => {
           pp.created_at
         FROM payu_payments pp
         LEFT JOIN reservations r ON (r.transaction_id = pp.tx_id OR r.reservation_id = pp.reservation_id)
-        LEFT JOIN renters rn ON (rn.transaction_id = pp.tx_id OR rn.id::text = pp.reservation_id OR (rn.mobile != '' AND rn.mobile LIKE '%' || RIGHT(REGEXP_REPLACE(pp.mobile, '\\D', '', 'g'), 10) AND rn.status NOT IN ('Pending', 'Cancelled')))
         WHERE pp.status NOT IN ('Refund_Failed', 'Refunded')
           AND pp.purpose NOT ILIKE '%refund%'
           AND pp.tx_id NOT LIKE 'REF-%'
           AND pp.mobile NOT LIKE '%1800%'
           AND pp.mobile NOT LIKE '%1820%'
-          AND (
-            UPPER(pp.status) != 'PENDING'
-            OR r.transaction_id = pp.tx_id
-            OR rn.transaction_id = pp.tx_id
-          )
           AND NOT (
             COALESCE(pp.rider_name, '') IN ('Rider', 'Evegah Rider')
             AND (pp.mobile LIKE '%1800%' OR pp.mobile LIKE '%1820%' OR pp.mobile = '')
           )
-          AND NOT EXISTS (
-            SELECT 1 FROM payu_payments p_newer 
-            WHERE p_newer.mobile = pp.mobile 
-              AND p_newer.purpose = pp.purpose 
-              AND UPPER(p_newer.status) = 'PENDING' 
-              AND UPPER(pp.status) = 'PENDING' 
-              AND p_newer.created_at > pp.created_at
-          )
 
         UNION ALL
 
-        -- 3. Wallet Transactions
+        -- 3. PhonePe Payments
+        SELECT
+          'phonepe_' || ph.id::text AS id,
+          ph.tx_id,
+          COALESCE(ph.phonepe_tx_id, ph.upi_ref_no, ph.tx_id) AS reference_id,
+          COALESCE(
+            NULLIF(ph.rider_name, 'Rider'),
+            (SELECT rider_name FROM renters WHERE mobile LIKE '%' || RIGHT(REGEXP_REPLACE(ph.mobile, '\\D', '', 'g'), 10) LIMIT 1),
+            'Evegah Rider'
+          ) AS rider_name,
+          COALESCE(NULLIF(ph.mobile, ''), '') AS mobile,
+          ph.amount::numeric AS rent_amount,
+          0.00::numeric AS deposit_amount,
+          ph.amount::numeric AS amount,
+          'Credit' AS type,
+          CASE 
+            WHEN UPPER(ph.status) = 'SUCCESS' THEN 'Successful'
+            WHEN UPPER(ph.status) = 'PENDING' THEN 'Pending'
+            ELSE 'Failed'
+          END AS status,
+          'PhonePe' AS payment_method,
+          COALESCE(ph.purpose, 'Ride Payment') AS purpose,
+          ph.created_at
+        FROM phonepe_payments ph
+        WHERE ph.mobile NOT LIKE '%1800%'
+          AND ph.mobile NOT LIKE '%1820%'
+
+        UNION ALL
+
+        -- 4. Wallet / Refund Transactions
         SELECT 
           'wallet_' || wt.id::text AS id,
           COALESCE(wt.transaction_id, 'TXN-W' || wt.id::text) AS tx_id,
@@ -610,8 +686,14 @@ router.get('/export', async (req, res) => {
             'Rider (' || wt.mobile || ')'
           ) AS rider_name,
           COALESCE(wt.mobile, '') AS mobile,
-          wt.amount::numeric AS rent_amount,
-          0.00::numeric AS deposit_amount,
+          CASE 
+            WHEN wt.title ILIKE '%deposit%' OR wt.subtitle ILIKE '%deposit%' THEN 0.00
+            ELSE wt.amount::numeric
+          END AS rent_amount,
+          CASE 
+            WHEN wt.title ILIKE '%deposit%' OR wt.subtitle ILIKE '%deposit%' THEN wt.amount::numeric
+            ELSE 0.00
+          END AS deposit_amount,
           wt.amount::numeric AS amount,
           CASE 
             WHEN LOWER(wt.type) = 'debit' THEN 'Debit'
@@ -626,13 +708,10 @@ router.get('/export', async (req, res) => {
           COALESCE(wt.title, wt.subtitle, 'Wallet Transaction') AS purpose,
           wt.created_at
         FROM wallet_transactions wt
-        WHERE wt.title NOT ILIKE '%deposit refund%' 
-          AND wt.subtitle NOT ILIKE '%deposit refund%'
-          AND (wt.transaction_id IS NULL OR (wt.transaction_id NOT LIKE 'DEP-%' AND wt.transaction_id NOT LIKE 'RENT-%' AND wt.transaction_id NOT LIKE 'REF-%'))
 
         UNION ALL
 
-        -- 4. Completed Deposit Refunds from Reservations
+        -- 5. Completed Deposit Refunds from Reservations
         SELECT 
           'refund_' || id::text AS id,
           COALESCE(refund_tx_id, 'REF-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
@@ -649,10 +728,13 @@ router.get('/export', async (req, res) => {
           COALESCE(refund_date, returned_at, created_at) AS created_at
         FROM reservations
         WHERE deposit_status = 'Refunded' AND COALESCE(refund_amount, deposit, 0) > 0
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt WHERE wt.transaction_id = reservations.refund_tx_id
+          )
 
         UNION ALL
 
-        -- 5. Direct / Cash / Offline Bookings
+        -- 6. Direct / Cash / Offline Booking Payments
         SELECT
           'res_' || id::text AS id,
           COALESCE(cash_voucher_number, transaction_id, 'CSH-VCHR-' || SUBSTRING(id::text, 1, 8)) AS tx_id,
@@ -666,23 +748,35 @@ router.get('/export', async (req, res) => {
           'Successful' AS status,
           CASE 
             WHEN payment_mode ILIKE '%cash%' THEN 'Cash'
-            WHEN payment_mode ILIKE '%upi%' THEN 'UPI'
-            WHEN payment_mode ILIKE '%card%' THEN 'Card'
-            ELSE COALESCE(payment_mode, 'Offline / Counter')
+            ELSE COALESCE(payment_mode, 'Cash')
           END AS payment_method,
-          COALESCE(package_type || ' Booking', 'Counter Booking') AS purpose,
+          'Ride Booking (' || COALESCE(package_type, 'Rental Plan') || ')' AS purpose,
           created_at
         FROM reservations
-        WHERE NOT EXISTS (
-          SELECT 1 FROM payu_payments pp 
-          WHERE pp.tx_id = reservations.transaction_id 
-             OR (pp.reservation_id IS NOT NULL AND pp.reservation_id = reservations.reservation_id)
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM icici_payments ip 
-          WHERE ip.tx_id = reservations.transaction_id 
-             OR (ip.reservation_id IS NOT NULL AND ip.reservation_id = reservations.reservation_id)
-        )
+        WHERE payment_status = 'Paid' AND COALESCE(fare, 0) > 0
+          AND (payment_mode IS NULL OR payment_mode NOT IN ('PayU', 'PayU India', 'ICICI UPI', 'UPI', 'Wallet', 'Evegah Wallet', 'PhonePe'))
+          AND NOT EXISTS (
+            SELECT 1 FROM payu_payments pp 
+            WHERE pp.tx_id = reservations.transaction_id 
+               OR pp.reservation_id = reservations.id::text 
+               OR pp.reservation_id = reservations.reservation_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM icici_payments ip 
+            WHERE ip.tx_id = reservations.transaction_id 
+               OR ip.reservation_id = reservations.id::text 
+               OR ip.reservation_id = reservations.reservation_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM phonepe_payments ph 
+            WHERE ph.tx_id = reservations.transaction_id 
+               OR ph.reservation_id = reservations.id::text 
+               OR ph.reservation_id = reservations.reservation_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM wallet_transactions wt 
+            WHERE wt.transaction_id = reservations.transaction_id
+          )
       )
       SELECT * FROM unified_transactions ORDER BY created_at DESC;
     `;

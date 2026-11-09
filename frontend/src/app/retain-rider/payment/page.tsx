@@ -257,8 +257,8 @@ export default function RetainRiderPaymentPage() {
   const [payMethod, setPayMethod] = useState<'payu' | 'split' | 'cash' | 'wallet'>('payu');
 
   // Amounts
-  const [baseRent, setBaseRent] = useState(600);
-  const [deposit, setDeposit] = useState(500);
+  const [baseRent, setBaseRent] = useState(0);
+  const [deposit, setDeposit] = useState(0);
   const [discount, setDiscount] = useState(0);
 
   // Split and Cash payment
@@ -305,8 +305,8 @@ export default function RetainRiderPaymentPage() {
         if (savedRental) {
           const parsedRental = JSON.parse(savedRental);
           setRental(parsedRental);
-          setBaseRent(Number(parsedRental.plan_rate) || 600);
-          setDeposit(Number(parsedRental.deposit_amount) || 500);
+          setBaseRent(Number(parsedRental.plan_rate) || 0);
+          setDeposit(parsedRental.deposit_amount !== undefined && parsedRental.deposit_amount !== null ? Number(parsedRental.deposit_amount) : 0);
         }
       } catch {}
     }

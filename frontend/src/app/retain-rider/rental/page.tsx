@@ -303,6 +303,7 @@ export default function RetainRiderRentalPage() {
   const [activeZoneName, setActiveZoneName] = useState<string>('Gotri Zone');
 
   // Dynamic available models & vehicles
+  const [modelsCatalog, setModelsCatalog] = useState<any[]>([]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [selectedModelName, setSelectedModelName] = useState('Evegah City');
   const [vehiclesList, setVehiclesList] = useState<any[]>([]);
@@ -334,9 +335,70 @@ export default function RetainRiderRentalPage() {
 
   const [startDate, setStartDate] = useState(todayStr);
   const [startTime, setStartTime] = useState(getCurrentTimeFormatted());
-  const [returnDate, setReturnDate] = useState('');
-  const [returnTime, setReturnTime] = useState(getCurrentTimeFormatted());
+  const [returnDate, setReturnDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [returnTime, setReturnTime] = useState('08:00 PM');
   const [totalDays, setTotalDays] = useState(1);
+
+  const computePlannedDrop = (startDateStr: string, startTimeStr: string, pkg: any) => {
+    const isHourly = pkg?.duration_hours || pkg?.roundingRule || (pkg?.name && pkg?.name.toLowerCase().includes('hour'));
+    const hoursToAdd = isHourly ? (Number(pkg?.duration_hours) || 1) : 0;
+    const daysToAdd = isHourly ? 0 : (Number(pkg?.duration_days || pkg?.duration) || 1);
+
+    const baseDate = startDateStr || new Date().toISOString().split('T')[0];
+    const [y, m, d] = baseDate.split('-').map(Number);
+    const dropDateObj = new Date(y, m - 1, d);
+
+    let calculatedTime = startTimeStr || '12:00 PM';
+    let calculatedDate = baseDate;
+
+    if (isHourly) {
+      const match = (startTimeStr || '12:00 PM').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (match) {
+        let h = parseInt(match[1], 10);
+        const min = parseInt(match[2], 10);
+        const ampm = match[3] ? match[3].toUpperCase() : 'AM';
+        if (ampm === 'PM' && h !== 12) h += 12;
+        if (ampm === 'AM' && h === 12) h = 0;
+
+        const dateWithTime = new Date(y, m - 1, d, h, min);
+        dateWithTime.setHours(dateWithTime.getHours() + hoursToAdd);
+
+        let resH = dateWithTime.getHours();
+        const resM = dateWithTime.getMinutes();
+        const resAmpm = resH >= 12 ? 'PM' : 'AM';
+        resH = resH % 12;
+        resH = resH ? resH : 12;
+        calculatedTime = `${resH}:${resM < 10 ? '0' + resM : resM} ${resAmpm}`;
+        calculatedDate = dateWithTime.toISOString().split('T')[0];
+      }
+    } else {
+      dropDateObj.setDate(dropDateObj.getDate() + daysToAdd);
+      calculatedDate = dropDateObj.toISOString().split('T')[0];
+      calculatedTime = '08:00 PM';
+    }
+
+    return { calculatedDate, calculatedTime };
+  };
+
+    // Dynamic models fetch from API
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${apiUrl}/vehicles/models`)
+      .then(res => res.json())
+      .then(res => {
+        const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+        if (list.length > 0) {
+          setModelsCatalog(list);
+          const names = list.map((m: any) => m.name);
+          setAvailableModels(prev => Array.from(new Set([...names, ...prev])));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load returning rider data
   useEffect(() => {
@@ -431,16 +493,17 @@ export default function RetainRiderRentalPage() {
         setVehiclesList(cleanList);
 
         const modelsFound = Array.from(new Set(cleanList.map((v: any) => normalizeModel(v.model || v.name || 'Evegah City')))) as string[];
-        const validModels = modelsFound.length > 0 ? modelsFound : ['Evegah City', 'Evegah Mink', 'Evegah Pro'];
-        setAvailableModels(validModels);
+        setAvailableModels(prev => Array.from(new Set([...modelsCatalog.map((m: any) => m.name), ...modelsFound, ...prev, 'Evegah City'])));
 
-        const initialModel = validModels[0] || 'Evegah City';
+        const allModels = Array.from(new Set([...modelsCatalog.map((m: any) => m.name), ...modelsFound, 'Evegah City']));
+        const initialModel = allModels[0] || 'Evegah City';
         setSelectedModelName(initialModel);
 
         const matchingVehs = cleanList.filter((v: any) => normalizeModel(v.model || v.name || '') === initialModel);
         setFilteredVehicles(matchingVehs);
         if (matchingVehs.length > 0) {
-          setSelectedVehicleCode(matchingVehs[0].reg_number || matchingVehs[0].vehicle_number || matchingVehs[0].id);
+          const topCode = matchingVehs[0].code || (matchingVehs[0].registration_number && matchingVehs[0].registration_number !== '000' ? matchingVehs[0].registration_number : '') || matchingVehs[0].vehicle_number || matchingVehs[0].id;
+          setSelectedVehicleCode(topCode);
           setSelectedVehicle(matchingVehs[0]);
         } else {
           setSelectedVehicleCode('');
@@ -478,15 +541,23 @@ export default function RetainRiderRentalPage() {
     fetch(`${apiUrl}/zones/pricing?zone=${encodeURIComponent(activeZoneName)}`)
       .then(r => r.json())
       .then(res => {
-        const pkgs = (res && res.data && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : []);
+        let pkgs = [];
+        if (res && res.data && Array.isArray(res.data.packages)) {
+          pkgs = res.data.packages;
+        } else if (res && res.data && Array.isArray(res.data)) {
+          pkgs = res.data;
+        } else if (Array.isArray(res)) {
+          pkgs = res;
+        }
+
         if (pkgs.length > 0) {
           setPackagesList(pkgs);
           setSelectedPackage(pkgs[0]);
         } else {
           const fallbackPkgs = [
-            { id: 'p1', name: 'Daily Pass', duration_days: 1, base_fare: 600, deposit_amount: 500 },
-            { id: 'p2', name: 'Weekly Commuter', duration_days: 7, base_fare: 2800, deposit_amount: 1000 },
-            { id: 'p3', name: 'Monthly Pro', duration_days: 30, base_fare: 7500, deposit_amount: 2000 },
+            { id: 'p1', name: 'Daily Pass', duration_days: 1, base_fare: 150, deposit_amount: 0 },
+            { id: 'p2', name: 'Weekly Commuter', duration_days: 7, base_fare: 900, deposit_amount: 0 },
+            { id: 'p3', name: 'Monthly Pro', duration_days: 30, base_fare: 3500, deposit_amount: 0 },
           ];
           setPackagesList(fallbackPkgs);
           setSelectedPackage(fallbackPkgs[0]);
@@ -495,16 +566,16 @@ export default function RetainRiderRentalPage() {
       .catch(() => {});
   }, [activeZoneName]);
 
-  // Update return date when package changes
+  // Update return date and planned drop time when package or pickup changes
   useEffect(() => {
     if (selectedPackage && startDate) {
-      const days = Number(selectedPackage.duration_days) || 1;
+      const days = Number(selectedPackage.duration_days || selectedPackage.duration) || 1;
       setTotalDays(days);
-      const start = new Date(startDate);
-      start.setDate(start.getDate() + days);
-      setReturnDate(start.toISOString().split('T')[0]);
+      const { calculatedDate, calculatedTime } = computePlannedDrop(startDate, startTime, selectedPackage);
+      setReturnDate(calculatedDate);
+      setReturnTime(calculatedTime);
     }
-  }, [selectedPackage, startDate]);
+  }, [selectedPackage, startDate, startTime]);
 
   // Model selection handler
   const handleModelSelect = (modelName: string) => {
@@ -512,7 +583,8 @@ export default function RetainRiderRentalPage() {
     const matching = vehiclesList.filter((v: any) => normalizeModel(v.model || v.name || '') === modelName);
     setFilteredVehicles(matching);
     if (matching.length > 0) {
-      setSelectedVehicleCode(matching[0].reg_number || matching[0].vehicle_number || matching[0].id);
+      const topCode = matching[0].code || (matching[0].registration_number && matching[0].registration_number !== '000' ? matching[0].registration_number : '') || matching[0].vehicle_number || matching[0].id;
+      setSelectedVehicleCode(topCode);
       setSelectedVehicle(matching[0]);
     } else {
       setSelectedVehicleCode('');
@@ -523,14 +595,31 @@ export default function RetainRiderRentalPage() {
   // Selected vehicle code handler
   const handleVehicleChange = (vCode: string) => {
     setSelectedVehicleCode(vCode);
-    const found = filteredVehicles.find(v => (v.reg_number || v.vehicle_number || v.id) === vCode);
+    const found = filteredVehicles.find(v => {
+      const code = v.code || (v.registration_number && v.registration_number !== '000' ? v.registration_number : '') || v.vehicle_number || v.id;
+      return code === vCode || v.id === vCode;
+    });
     setSelectedVehicle(found || null);
   };
 
   const currentModelMeta = useMemo(() => {
+    const found = modelsCatalog.find(m => m.name.toLowerCase() === selectedModelName.toLowerCase());
+    if (found) {
+      let img = found.main_image || '/City-1.png';
+      if (!img.startsWith('/') && !img.startsWith('http')) img = `/${img}`;
+      return {
+        name: found.name,
+        type: found.category || 'Electric Vehicle',
+        image: img,
+        specs: [
+          { l: 'Top Speed', v: found.top_speed || '45 km/h' },
+          { l: 'Range', v: found.range || '80 km/charge' },
+        ]
+      };
+    }
     const key = Object.keys(VEHICLE_MODELS).find(k => VEHICLE_MODELS[k].name === selectedModelName) || 'city';
     return VEHICLE_MODELS[key];
-  }, [selectedModelName]);
+  }, [selectedModelName, modelsCatalog]);
 
   const selectedBattery = useMemo(() => {
     return batteriesList.find(b => (b.battery_code || b.battery_id || b.id) === selectedBatteryId) || null;
@@ -707,8 +796,12 @@ export default function RetainRiderRentalPage() {
                             <option value="">No idle unit in this zone</option>
                           ) : (
                             filteredVehicles.map(v => {
-                              const code = v.reg_number || v.vehicle_number || v.id;
-                              return <option key={code} value={code}>{code} (Battery: {v.battery_soc || 95}%)</option>;
+                              const isUuid = (s: any) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s);
+                              const rawCode = v.code || (v.registration_number && v.registration_number !== '000' ? v.registration_number : '') || v.vehicle_number || v.reg_number;
+                              const code = (rawCode && !isUuid(rawCode)) ? rawCode : `EVM${String(v.id || '').replace(/\D/g, '').slice(-6) || '102401'}`;
+                              const vModel = v.evegah_model_name || v.model || selectedModelName;
+                              const soc = v.battery_pct ?? v.battery_soc ?? 100;
+                              return <option key={v.id || code} value={code}>{code} - {vModel} (Battery: {soc}%)</option>;
                             })
                           )}
                         </select>

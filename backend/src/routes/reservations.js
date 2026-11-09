@@ -230,6 +230,22 @@ router.get('/deposits', async (req, res) => {
       WHERE deposit > 0
     `).catch(() => ({ rows: [] }));
 
+    const refundIdemRes = await db.query(`
+      SELECT 
+        ri.id,
+        ri.reservation_key,
+        ri.refund_amount,
+        ri.result,
+        ri.created_at,
+        COALESCE(r.customer_name, (SELECT rider_name FROM renters WHERE id::text = ri.reservation_key LIMIT 1), 'Evegah Rider') as customer_name,
+        COALESCE(r.mobile, (SELECT mobile FROM renters WHERE id::text = ri.reservation_key LIMIT 1), '') as mobile,
+        COALESCE(r.vehicle_number, (SELECT vehicle_id FROM renters WHERE id::text = ri.reservation_key LIMIT 1), '') as vehicle_number,
+        COALESCE(r.deposit, 0) as deposit
+      FROM refund_idempotency ri
+      LEFT JOIN reservations r ON (r.id::text = ri.reservation_key OR r.reservation_id = ri.reservation_key)
+      ORDER BY ri.created_at DESC
+    `).catch(() => ({ rows: [] }));
+
     const resRows = resResult.rows;
     const renterRows = rentersResult.rows;
 
@@ -355,6 +371,39 @@ router.get('/deposits', async (req, res) => {
       }
     });
 
+    const processedTxIds = new Set(completedList.map(c => c.txId));
+    refundIdemRes.rows.forEach(ri => {
+      const resObj = (typeof ri.result === 'string' ? JSON.parse(ri.result) : ri.result) || {};
+      const txId = resObj.tx_id || `REF-${ri.id}`;
+      if (!processedTxIds.has(txId)) {
+        processedTxIds.add(txId);
+        const refAmt = parseFloat(ri.refund_amount || resObj.refund_amount || 0);
+        const ded = parseFloat(resObj.deductions || 0);
+        completedList.push({
+          id: ri.id,
+          reservation_id: ri.reservation_key,
+          rider: {
+            name: ri.customer_name || 'Evegah Rider',
+            code: `REF-${String(ri.id).padStart(4, '0')}`,
+            avatar: ''
+          },
+          mobile: ri.mobile || '',
+          vehicle: ri.vehicle_number || '',
+          refundDate: resObj.refund_date || ri.created_at,
+          txId: txId,
+          deposit: parseFloat(ri.deposit || (refAmt + ded)),
+          deductions: ded,
+          refundAmount: refAmt,
+          method: resObj.refund_mode || 'PayU',
+          status: 'Successful',
+          returnCondition: 'Clean',
+          notes: 'Processed Refund'
+        });
+        totalRefunded += refAmt;
+        totalDeductions += ded;
+      }
+    });
+
     res.json({
       status: 'success',
       kpis: {
@@ -406,12 +455,7 @@ router.delete('/deposits', async (req, res) => {
     await delByPattern('reservations:*');
     await delByPattern('renters:*');
 
-    if (txnIdToSave) {
-      await db.query(
-        "UPDATE payu_payments SET reservation_id = $1, status = 'Success', updated_at = NOW() WHERE tx_id = $2 OR payu_id = $2",
-        [reservation_id, txnIdToSave]
-      ).catch(() => {});
-    }
+
     await delByPattern('stats:*');
 
     res.json({
@@ -630,7 +674,26 @@ router.post('/', async (req, res) => {
   const cleanMobile = (mobile || '').replace(/\D/g, '');
 
   const reqStartRaw = req.body.pickup_datetime || req.body.start_datetime || `${reservation_date || ''} ${reservation_time || ''}`.trim();
-  const reqEndRaw = req.body.drop_datetime || req.body.end_datetime || reqStartRaw;
+  let reqEndRaw = req.body.drop_datetime || req.body.end_datetime;
+  if (!reqEndRaw || reqEndRaw === reqStartRaw) {
+    const pkgLower = String(package_type || '').toLowerCase();
+    let daysToAdd = 1;
+    if (pkgLower.includes('week') || pkgLower.includes('7 day')) daysToAdd = 7;
+    else if (pkgLower.includes('month') || pkgLower.includes('30 day')) daysToAdd = 30;
+    else if (pkgLower.match(/(\d+)\s*day/)) daysToAdd = parseInt(pkgLower.match(/(\d+)\s*day/)[1], 10);
+    else if (pkgLower.includes('hour')) daysToAdd = 0;
+
+    if (daysToAdd > 0) {
+      const startDt = new Date(reqStartRaw && !isNaN(new Date(reqStartRaw).getTime()) ? reqStartRaw : Date.now());
+      startDt.setDate(startDt.getDate() + daysToAdd);
+      startDt.setHours(20, 0, 0, 0);
+      reqEndRaw = startDt.toISOString();
+    } else {
+      const startDt = new Date(reqStartRaw && !isNaN(new Date(reqStartRaw).getTime()) ? reqStartRaw : Date.now());
+      startDt.setHours(startDt.getHours() + 1);
+      reqEndRaw = startDt.toISOString();
+    }
+  }
 
   // 🚨 Conflict detection — block new reservation if its date/time slot overlaps an active ride
   if (cleanMobile.length > 0) {
@@ -710,10 +773,13 @@ router.post('/', async (req, res) => {
     }
   }
 
-  // Generate unique reservation ID
-  const randomSuffix = String(Math.floor(100 + Math.random() * 900));
-  const year = new Date().getFullYear();
-  const reservation_id = `RID-${year}-${randomSuffix}${String(Date.now()).slice(-3)}`;
+  // Generate formatted Rider / Reservation ID: EVR-{YYYYMMDD}-{NR/RR}-{seq}
+  const todayDateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const isRetain = Boolean(req.body.is_retain_ride || (req.body.booking_source || '').toLowerCase().includes('retain'));
+  const typeCode = isRetain ? 'RR' : 'NR';
+  const seqRes = await db.query("SELECT COUNT(*) FROM reservations WHERE DATE(created_at) = CURRENT_DATE").catch(() => ({ rows: [{ count: 0 }] }));
+  const seqNum = String(parseInt(seqRes.rows[0]?.count || 0, 10) + 1).padStart(3, '0');
+  const reservation_id = `EVR-${todayDateStr}-${typeCode}-${seqNum}`;
 
   const isCash = String(payment_mode || '').trim().toLowerCase() === 'cash' || Boolean(req.body.is_cash);
   let cashVoucherNumber = req.body.cash_voucher_number || req.body.voucher_number || null;

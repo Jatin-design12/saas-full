@@ -1188,10 +1188,23 @@ router.get('/', async (req, res) => {
       params
     );
 
+    const normalizedRows = result.rows.map(v => {
+      const cleanCode = v.code || (v.registration_number && v.registration_number !== '000' ? v.registration_number : '') || v.id;
+      return {
+        ...v,
+        code: cleanCode,
+        vehicle_number: cleanCode,
+        reg_number: cleanCode,
+        vehicle_code: cleanCode,
+        model: v.evegah_model_name || v.vehicle_model || v.model || 'Evegah City',
+        battery_soc: v.battery_pct ?? v.battery_soc ?? 100
+      };
+    });
+
     const payload = {
       status: 'success',
-      data: result.rows,
-      count: result.rows.length
+      data: normalizedRows,
+      count: normalizedRows.length
     };
     await setCache(cacheKey, payload, 60);
     return res.json(payload);

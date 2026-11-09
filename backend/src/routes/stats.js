@@ -552,7 +552,7 @@ router.get('/employee', async (req, res) => {
       vehicle: r.vehicle_number || 'EVM1024001',
       plan: r.package_type || 'Daily Package',
       rent: `₹${parseFloat(r.fare || 0).toLocaleString('en-IN')}`,
-      deposit: `₹${parseFloat(r.deposit || 1000).toLocaleString('en-IN')}`,
+      deposit: `₹${parseFloat(r.deposit !== null && r.deposit !== undefined ? r.deposit : 0).toLocaleString('en-IN')}`,
       status: r.status || 'Confirmed'
     }));
 

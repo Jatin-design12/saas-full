@@ -234,6 +234,7 @@ export default function PaymentHistoryPage() {
       const pm = (r.payment_method || '').toLowerCase();
       if (methodFilter === 'icici') return pm.includes('icici');
       if (methodFilter === 'payu') return pm.includes('payu');
+      if (methodFilter === 'phonepe') return pm.includes('phonepe');
       if (methodFilter === 'wallet') return pm.includes('wallet');
       if (methodFilter === 'razorpay') return pm.includes('razorpay');
       return true;
@@ -547,7 +548,8 @@ export default function PaymentHistoryPage() {
                   >
                     <option value="all">All Gateways &amp; Methods</option>
                     <option value="icici">ICICI Bank UPI</option>
-                    <option value="payu">PayU </option>
+                    <option value="payu">PayU</option>
+                    <option value="phonepe">PhonePe</option>
                     <option value="wallet">Wallet Transactions</option>
                     <option value="razorpay">Razorpay</option>
                   </select>
@@ -682,6 +684,7 @@ export default function PaymentHistoryPage() {
                               <span className="ph-pm-badge" title={r.payment_method}>
                                 {r.payment_method.includes('ICICI') ? '🟠 ICICI UPI' :
                                  r.payment_method.includes('PayU') ? 'PayU' :
+                                 r.payment_method.includes('PhonePe') ? '🟣 PhonePe' :
                                  r.payment_method.includes('Razorpay') ? '🔵 Razorpay' : r.payment_method}
                               </span>
                             </td>
