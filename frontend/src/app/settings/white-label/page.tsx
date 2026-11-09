@@ -765,10 +765,12 @@ export default function WhiteLabelManagement() {
                 <h2 className="wl-title-h1">White Label Settings</h2>
                 <p className="wl-title-sub">Configure platform logos, SMTP receipts and client portals settings.</p>
               </div>
-              <div className="wl-hdr-actions">
-                <button className="wl-btn" onClick={() => alert('Opening live site preview...')}>Preview Live Site ↗</button>
-                <button className="wl-btn wl-btn-primary" onClick={handleSave}>Save & Publish</button>
-              </div>
+              {activeTab !== 'sliders' && (
+                <div className="wl-hdr-actions">
+                  <button className="wl-btn" onClick={() => alert('Opening live site preview...')}>Preview Live Site ↗</button>
+                  <button className="wl-btn wl-btn-primary" onClick={handleSave}>Save & Publish</button>
+                </div>
+              )}
             </div>
 
             {/* Render active tab content */}
@@ -1882,6 +1884,227 @@ export default function WhiteLabelManagement() {
                   </div>
                 </div>
 
+                {/* CTA Button Styling & Adjustments */}
+                {activeSlide.showCta !== false && (
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#0F172A' }}>Button Appearance & Styling Adjustments</span>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                      <div className="wl-form-group">
+                        <label className="wl-lbl">Button Background</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="color"
+                            value={activeSlide.ctaBg || '#2A195C'}
+                            onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaBg', e.target.value)}
+                            style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                          />
+                          <input
+                            type="text"
+                            className="wl-inp"
+                            style={{ flex: 1, padding: '5px 8px', fontSize: '11px' }}
+                            value={activeSlide.ctaBg || '#2A195C'}
+                            onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaBg', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="wl-form-group">
+                        <label className="wl-lbl">Button Text Color</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="color"
+                            value={activeSlide.ctaTextColor || '#FFFFFF'}
+                            onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', e.target.value)}
+                            style={{ width: '32px', height: '32px', borderRadius: '6px', border: '1px solid #CBD5E1', cursor: 'pointer', padding: 0 }}
+                          />
+                          <input
+                            type="text"
+                            className="wl-inp"
+                            style={{ flex: 1, padding: '5px 8px', fontSize: '11px' }}
+                            value={activeSlide.ctaTextColor || '#FFFFFF'}
+                            onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaTextColor', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="wl-form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="wl-lbl">Button Font Size</label>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.ctaFontSize || 12}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="9"
+                          max="20"
+                          value={activeSlide.ctaFontSize || 12}
+                          onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaFontSize', Number(e.target.value))}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      <div className="wl-form-group">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label className="wl-lbl">Corner Radius</label>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.ctaRadius !== undefined ? activeSlide.ctaRadius : 20}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="30"
+                          value={activeSlide.ctaRadius !== undefined ? activeSlide.ctaRadius : 20}
+                          onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaRadius', Number(e.target.value))}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      {/* Button Only Position (X & Y Offsets) */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', paddingTop: '10px', borderTop: '1px dashed #E2E8F0' }}>
+                        <div className="wl-form-group">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label className="wl-lbl">Button Offset X (Left/Right)</label>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.ctaOffsetX ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-60"
+                            max="120"
+                            value={activeSlide.ctaOffsetX ?? 0}
+                            onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaOffsetX', Number(e.target.value))}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </div>
+
+                        <div className="wl-form-group">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label className="wl-lbl">Button Offset Y (Up/Down)</label>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.ctaOffsetY ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-60"
+                            max="80"
+                            value={activeSlide.ctaOffsetY ?? 0}
+                            onChange={e => handleUpdateSlide(selectedSlideIdx, 'ctaOffsetY', Number(e.target.value))}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content Block Position & Depth Effect in Tab 1 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '14px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A' }}>Content Block Position (Text & Button Together)</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>Move entire block</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div className="wl-form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="wl-lbl">Horizontal Offset (X)</label>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.textOffsetX !== undefined ? activeSlide.textOffsetX : 14}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-40"
+                        max="100"
+                        value={activeSlide.textOffsetX !== undefined ? activeSlide.textOffsetX : 14}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'textOffsetX', Number(e.target.value))}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div className="wl-form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="wl-lbl">Vertical Offset (Y)</label>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.textOffsetY !== undefined ? activeSlide.textOffsetY : 18}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-30"
+                        max="140"
+                        value={activeSlide.textOffsetY !== undefined ? activeSlide.textOffsetY : 18}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'textOffsetY', Number(e.target.value))}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Full-Line Title Width Stretch</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.textWidthPercent || 94}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="50"
+                      max="100"
+                      value={activeSlide.textWidthPercent || 94}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'textWidthPercent', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                </div>
+
+                {/* iPhone Depth Effect Toggle Card */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  background: activeSlide.depthEffect ? '#EEF2FF' : '#FFFFFF',
+                  border: `1.5px solid ${activeSlide.depthEffect ? '#6366F1' : '#E2E8F0'}`,
+                  borderRadius: '12px',
+                  boxShadow: activeSlide.depthEffect ? '0 2px 8px rgba(99, 102, 241, 0.12)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: activeSlide.depthEffect ? '#6366F1' : '#F1F5F9',
+                      color: activeSlide.depthEffect ? '#FFFFFF' : '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '15px'
+                    }}>
+                      📱
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A' }}>
+                        iPhone Depth Effect (Text Behind Cutout)
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748B' }}>
+                        Places vehicle cutout in front of the headline text like the iOS lock screen
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateSlide(selectedSlideIdx, 'depthEffect', !activeSlide.depthEffect)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      background: activeSlide.depthEffect ? '#6366F1' : '#CBD5E1',
+                      color: '#FFFFFF',
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {activeSlide.depthEffect ? 'Active ✓' : 'Disabled'}
+                  </button>
+                </div>
+
                 {/* Quick Style Presets */}
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>Quick Style</span>
@@ -2021,6 +2244,58 @@ export default function WhiteLabelManagement() {
                         onChange={e => handleUpdateSlide(selectedSlideIdx, 'subColor', e.target.value)}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Text Position & Offsets */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A' }}>Text Position & Offsets</span>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="wl-form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="wl-lbl">Top Position Offset (Y)</label>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.textOffsetY !== undefined ? activeSlide.textOffsetY : 18}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="80"
+                        value={activeSlide.textOffsetY !== undefined ? activeSlide.textOffsetY : 18}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'textOffsetY', Number(e.target.value))}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+
+                    <div className="wl-form-group">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="wl-lbl">Left Position Offset (X)</label>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.textOffsetX !== undefined ? activeSlide.textOffsetX : 14}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="60"
+                        value={activeSlide.textOffsetX !== undefined ? activeSlide.textOffsetX : 14}
+                        onChange={e => handleUpdateSlide(selectedSlideIdx, 'textOffsetX', Number(e.target.value))}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="wl-form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="wl-lbl">Full-Line Title Width Stretch</label>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>{activeSlide.textWidthPercent || 94}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="50"
+                      max="100"
+                      value={activeSlide.textWidthPercent || 94}
+                      onChange={e => handleUpdateSlide(selectedSlideIdx, 'textWidthPercent', Number(e.target.value))}
+                      style={{ cursor: 'pointer' }}
+                    />
                   </div>
                 </div>
               </div>
@@ -2267,6 +2542,58 @@ export default function WhiteLabelManagement() {
                     />
                   </div>
                 </div>
+
+                {/* iPhone Depth Effect Toggle in Tab 4 */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  background: activeSlide.depthEffect ? '#EEF2FF' : '#F8FAFC',
+                  border: `1.5px solid ${activeSlide.depthEffect ? '#6366F1' : '#E2E8F0'}`,
+                  borderRadius: '12px',
+                  transition: 'all 0.15s ease'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: activeSlide.depthEffect ? '#6366F1' : '#E2E8F0',
+                      color: activeSlide.depthEffect ? '#FFFFFF' : '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '15px'
+                    }}>
+                      📱
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A' }}>
+                        iPhone Depth Effect (Text Behind Cutout)
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748B' }}>
+                        Vehicle cutout renders in front of headline text
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateSlide(selectedSlideIdx, 'depthEffect', !activeSlide.depthEffect)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      background: activeSlide.depthEffect ? '#6366F1' : '#CBD5E1',
+                      color: '#FFFFFF',
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {activeSlide.depthEffect ? 'Active ✓' : 'Disabled'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2286,24 +2613,6 @@ export default function WhiteLabelManagement() {
             </div>
 
             <div className="wl-panel-body" style={{ alignItems: 'center', background: '#F8FAFC', padding: '14px 12px' }}>
-              {/* Phone Selector Dropdown Bar */}
-              <div style={{ width: '100%', maxWidth: '320px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <select className="wl-inp" style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '8px', background: '#FFFFFF', fontWeight: 600 }}>
-                  <option>iPhone 15 (390 x 844)</option>
-                  <option>Pixel 8 (412 x 892)</option>
-                  <option>Galaxy S24 (384 x 824)</option>
-                </select>
-
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button type="button" style={{ border: '1px solid #CBD5E1', background: '#FFF', borderRadius: '6px', padding: '4px 6px', cursor: 'pointer' }} title="Rotate">
-                    📱
-                  </button>
-                  <button type="button" style={{ border: '1px solid #CBD5E1', background: '#FFF', borderRadius: '6px', padding: '4px 6px', cursor: 'pointer' }} title="Expand">
-                    ⛶
-                  </button>
-                </div>
-              </div>
-
               {/* Exact Mobile App Phone Frame */}
               <div className="phone-mock-frame" style={{ width: '315px', height: '610px', borderRadius: '42px', border: '10px solid #1E293B', background: '#FFFFFF' }}>
                 {/* Dynamic Island */}
@@ -2343,32 +2652,23 @@ export default function WhiteLabelManagement() {
                     </div>
                   </div>
 
-                  {/* App Screen Header */}
+                  {/* App Screen Overlaid Controls */}
                   {sliderScreen === 'rent' ? (
-                    <div style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 25 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '26px', height: '26px', borderRadius: '13px', background: 'rgba(255,255,255,0.95)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
-                          ‹
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', fontWeight: 900, color: '#0F172A' }}>Rent EV</div>
-                          <div style={{ fontSize: '8px', color: '#64748B' }}>Vadodara Knowledge City</div>
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '8px', fontWeight: 800, background: 'rgba(99,102,241,0.08)', color: '#6366F1', padding: '2px 6px', borderRadius: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
-                        ● Active Zone
-                      </span>
+                    /* Floating Back Button as in real app */
+                    <div style={{ position: 'absolute', top: '44px', left: '14px', width: '28px', height: '28px', borderRadius: '14px', background: 'rgba(255,255,255,0.95)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 800, color: '#0F172A', zIndex: 30, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+                      ‹
                     </div>
                   ) : (
-                    <div style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 25 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.9)', padding: '3px 8px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#6366F1">
+                    /* Floating Location Pill & Bell as in real home screen */
+                    <div style={{ position: 'absolute', top: '44px', left: '14px', right: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 30 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.92)', padding: '5px 10px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#6366F1">
                           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
                         </svg>
-                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#0F172A' }}>Gotri, Vadodara ⌄</span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A' }}>Gotri, Vadodara ⌄</span>
                       </div>
-                      <div style={{ width: '24px', height: '24px', borderRadius: '12px', background: 'rgba(255,255,255,0.9)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
+                      <div style={{ width: '28px', height: '28px', borderRadius: '14px', background: 'rgba(255,255,255,0.92)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
                           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
@@ -2376,7 +2676,7 @@ export default function WhiteLabelManagement() {
                     </div>
                   )}
 
-                  {/* HERO SLIDER CONTAINER (Exact Aspect Ratio) */}
+                  {/* HERO SLIDER CONTAINER (Full Aspect Ratio matching real mobile screen) */}
                   <div className="phone-hero-slider" style={{ height: '280px', position: 'relative', overflow: 'hidden' }}>
                     {/* Background Image */}
                     {activeSlide.bg ? (
@@ -2429,7 +2729,7 @@ export default function WhiteLabelManagement() {
                           width: `${(activeSlide.cutoutWidth || 270) * (activeSlide.cutoutScale || 1.0) * 0.7}px`,
                           height: `${(activeSlide.cutoutHeight || 240) * (activeSlide.cutoutScale || 1.0) * 0.7}px`,
                           objectFit: 'contain',
-                          zIndex: 3
+                          zIndex: activeSlide.depthEffect ? 6 : 3
                         }}
                       />
                     ) : (
@@ -2443,7 +2743,7 @@ export default function WhiteLabelManagement() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          zIndex: 3
+                          zIndex: activeSlide.depthEffect ? 6 : 3
                         }}
                       >
                         <svg width="100%" height="100%" viewBox="0 0 200 180" fill="none">
@@ -2466,9 +2766,13 @@ export default function WhiteLabelManagement() {
                       <div
                         style={{
                           position: 'relative',
-                          zIndex: 4,
-                          padding: '16px 14px',
-                          maxWidth: '65%',
+                          zIndex: activeSlide.depthEffect ? 3 : 6,
+                          paddingTop: `${activeSlide.textOffsetY !== undefined ? activeSlide.textOffsetY : 18}px`,
+                          paddingLeft: `${activeSlide.textOffsetX !== undefined ? activeSlide.textOffsetX : 14}px`,
+                          paddingRight: '14px',
+                          paddingBottom: '10px',
+                          width: `${activeSlide.textWidthPercent || 94}%`,
+                          maxWidth: `${activeSlide.textWidthPercent || 94}%`,
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '6px'
@@ -2534,13 +2838,15 @@ export default function WhiteLabelManagement() {
                               alignItems: 'center',
                               gap: '4px',
                               padding: '5px 12px',
-                              borderRadius: '20px',
+                              borderRadius: `${activeSlide.ctaRadius !== undefined ? activeSlide.ctaRadius : 20}px`,
                               background: activeSlide.ctaBg || '#2A195C',
                               color: activeSlide.ctaTextColor || '#FFFFFF',
-                              fontSize: '9.5px',
+                              fontSize: `${Math.round((activeSlide.ctaFontSize || 12) * 0.75)}px`,
                               fontWeight: 800,
                               width: 'fit-content',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.18)'
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+                              transform: `translate(${activeSlide.ctaOffsetX || 0}px, ${activeSlide.ctaOffsetY || 0}px)`,
+                              zIndex: 10
                             }}
                           >
                             <span>{currentCta}</span>
@@ -2567,33 +2873,84 @@ export default function WhiteLabelManagement() {
                     </div>
                   </div>
 
-                  {/* Body Content below slider (Exact Mobile Screen Replica) */}
+                  {/* Body Content below slider (Exact Mobile Screen Replica matching live app) */}
                   {sliderScreen === 'rent' ? (
-                    <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {/* Operational hours notice */}
-                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '5px 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
-                        <span style={{ fontSize: '8px', fontWeight: 700, color: '#334155' }}>Operational: 06:00 AM – 11:00 PM (Daily)</span>
+                    <div style={{ flex: 1, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px', background: '#FAFAFD' }}>
+                      {/* 1. Station & Zone Card */}
+                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '14px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                          <div style={{ width: '24px', height: '24px', borderRadius: '12px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px', flexShrink: 0 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="#6366F1">
+                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '11px', fontWeight: 900, color: '#0F172A' }}>Station & Zone</div>
+                            <div style={{ fontSize: '8px', color: '#64748B' }}>Choose your EV pickup & Drop Zone</div>
+                          </div>
+                        </div>
+
+                        {/* Pickup Zone Box */}
+                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '7px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#6366F1', flexShrink: 0 }} />
+                            <div>
+                              <div style={{ fontSize: '6.5px', fontWeight: 800, color: '#6366F1', letterSpacing: '0.4px' }}>PICKUP ZONE</div>
+                              <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#0F172A' }}>Gotri Zone</div>
+                              <div style={{ fontSize: '7.5px', color: '#64748B' }}>Office 10, Royal Nandish, New Al...</div>
+                            </div>
+                          </div>
+                          <div style={{ background: '#F5F3FF', color: '#6366F1', padding: '3px 8px', borderRadius: '8px', fontSize: '8.5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span>Select</span>
+                            <span>›</span>
+                          </div>
+                        </div>
+
+                        {/* Same pickup station checkbox */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '2px' }}>
+                          <div style={{ width: '13px', height: '13px', borderRadius: '4px', background: '#6366F1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', fontSize: '9px', fontWeight: 900 }}>✓</div>
+                          <span style={{ fontSize: '8px', fontWeight: 700, color: '#334155' }}>Return scooter to same pickup station</span>
+                        </div>
                       </div>
 
-                      {/* Rental Schedule Card */}
-                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#0F172A' }}>Select Rental Schedule</span>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                          <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '5px', border: '1px solid #F1F5F9' }}>
-                            <div style={{ fontSize: '6.5px', color: '#64748B', fontWeight: 800 }}>PICKUP</div>
-                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#0F172A' }}>Today, 10:00 AM</div>
+                      {/* 2. Trip Schedule Card */}
+                      <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '14px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '7px', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                          <div style={{ width: '24px', height: '24px', borderRadius: '12px', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px', flexShrink: 0 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2">
+                              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                              <line x1="16" y1="2" x2="16" y2="6"/>
+                              <line x1="8" y1="2" x2="8" y2="6"/>
+                              <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
                           </div>
-                          <div style={{ background: '#F8FAFC', borderRadius: '6px', padding: '5px', border: '1px solid #F1F5F9' }}>
-                            <div style={{ fontSize: '6.5px', color: '#64748B', fontWeight: 800 }}>DROPOFF</div>
-                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#0F172A' }}>Tomorrow, 10:00 AM</div>
+                          <div>
+                            <div style={{ fontSize: '11px', fontWeight: 900, color: '#0F172A' }}>Trip Schedule</div>
+                            <div style={{ fontSize: '8px', color: '#64748B' }}>Choose pickup date, start hour & return window</div>
+                          </div>
+                        </div>
+
+                        <div style={{ background: '#F5F3FF', border: '1px solid #E0E7FF', borderRadius: '8px', padding: '4px 8px', width: 'fit-content', fontSize: '8px', fontWeight: 800, color: '#6366F1' }}>
+                          📦 Daily Package (1 day)
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '6px 8px', border: '1px solid #E2E8F0' }}>
+                            <div style={{ fontSize: '6px', color: '#64748B', fontWeight: 800 }}>PICKUP DATE</div>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#0F172A' }}>Nov 8, 2026</div>
+                          </div>
+                          <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '6px 8px', border: '1px solid #E2E8F0' }}>
+                            <div style={{ fontSize: '6px', color: '#64748B', fontWeight: 800 }}>TIME</div>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#0F172A' }}>05:04 PM</div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Action button */}
-                      <div style={{ background: '#6366F1', color: '#FFFFFF', borderRadius: '10px', padding: '9px', textAlign: 'center', fontSize: '10px', fontWeight: 800, marginTop: '2px', boxShadow: '0 3px 8px rgba(99,102,241,0.25)' }}>
-                        Search Available EVs ➔
+                      {/* 3. Action Button */}
+                      <div style={{ background: '#5B21B6', color: '#FFFFFF', borderRadius: '12px', padding: '10px', textAlign: 'center', fontSize: '10.5px', fontWeight: 800, marginTop: '2px', boxShadow: '0 4px 12px rgba(91,33,182,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        <span>⚡</span>
+                        <span>Search Available EVs</span>
+                        <span>➔</span>
                       </div>
                     </div>
                   ) : (
