@@ -431,6 +431,13 @@ export default function AddMaintenancePage() {
   const [reminderDays, setReminderDays] = useState("7 Days Before");
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  const [isRiderDamage, setIsRiderDamage] = useState(false);
+  const [riderName, setRiderName] = useState('');
+  const [riderMobile, setRiderMobile] = useState('');
+  const [reservationId, setReservationId] = useState('');
+  const [liability, setLiability] = useState('Rider Liable');
+  const [riderChargeAmount, setRiderChargeAmount] = useState(0);
+  const [riderPaymentStatus, setRiderPaymentStatus] = useState('Pending Recovery');
 
   // Fetch live vehicles, zones, and technicians from Backend DB
   useEffect(() => {
@@ -703,6 +710,87 @@ export default function AddMaintenancePage() {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              
+              {/* Section 1.5: Rider Damage & Rental Liability */}
+              <div className="ma-section" style={{ border: isRiderDamage ? '1.5px solid #FECACA' : undefined, background: isRiderDamage ? '#FFFDFD' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                  <h2 className="ma-section-title" style={{ margin: 0 }}>Rider Damage &amp; Expense Recovery</h2>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', color: '#0F172A' }}>
+                    <input
+                      type="checkbox"
+                      checked={isRiderDamage}
+                      onChange={(e) => setIsRiderDamage(e.target.checked)}
+                      style={{ width: '18px', height: '18px', accentColor: '#2A195C' }}
+                    />
+                    <span>Vehicle Damaged by Rider (Billable to Rider)</span>
+                  </label>
+                </div>
+
+                {isRiderDamage && (
+                  <div className="ma-form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    <div className="ma-field">
+                      <span className="ma-field-label">Rider Full Name *</span>
+                      <input
+                        type="text"
+                        className="ma-input"
+                        placeholder="e.g. GANAVA SANDIPBHAI RASULBHAI"
+                        value={riderName}
+                        onChange={(e) => setRiderName(e.target.value)}
+                      />
+                    </div>
+                    <div className="ma-field">
+                      <span className="ma-field-label">Rider Phone Number</span>
+                      <input
+                        type="text"
+                        className="ma-input"
+                        placeholder="+91 9XXXXXXXXX"
+                        value={riderMobile}
+                        onChange={(e) => setRiderMobile(e.target.value)}
+                      />
+                    </div>
+                    <div className="ma-field">
+                      <span className="ma-field-label">Ride / Reservation ID</span>
+                      <input
+                        type="text"
+                        className="ma-input"
+                        placeholder="e.g. EVR-2C1CF7"
+                        value={reservationId}
+                        onChange={(e) => setReservationId(e.target.value)}
+                      />
+                    </div>
+                    <div className="ma-field">
+                      <span className="ma-field-label">Damage Liability</span>
+                      <select className="ma-select-field" value={liability} onChange={(e) => setLiability(e.target.value)}>
+                        <option value="Rider Liable">Rider Liable (100% Recovery)</option>
+                        <option value="Shared 50-50">Shared 50-50</option>
+                        <option value="Insurance Claim">Insurance Claim</option>
+                        <option value="Company / Fleet">Company / Fleet Absorbed</option>
+                      </select>
+                    </div>
+                    <div className="ma-field">
+                      <span className="ma-field-label">Amount to Collect from Rider (₹)</span>
+                      <input
+                        type="number"
+                        className="ma-input"
+                        placeholder="e.g. 1250"
+                        value={riderChargeAmount || ''}
+                        onChange={(e) => setRiderChargeAmount(Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="ma-field">
+                      <span className="ma-field-label">Rider Payment Status</span>
+                      <select className="ma-select-field" value={riderPaymentStatus} onChange={(e) => setRiderPaymentStatus(e.target.value)}>
+                        <option value="Deducted from Deposit">Deducted from Deposit</option>
+                        <option value="Paid via UPI">Paid via UPI / PayU</option>
+                        <option value="Paid via Cash">Paid via Cash</option>
+                        <option value="Pending Recovery">Pending Recovery</option>
+                        <option value="Waived">Waived / Forgiven</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Section 2: Service Details */}

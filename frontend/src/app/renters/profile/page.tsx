@@ -1063,6 +1063,7 @@ function RiderProfileContent() {
 
   const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCS);
   const [folderData, setFolderData] = useState<any[]>([]);
+  const [selectedRideFilter, setSelectedRideFilter] = useState<string>('all');
   const [kycStatus, setKycStatus] = useState<string>('Under Review');
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [riderRides, setRiderRides] = useState<any[]>([]);
@@ -1604,6 +1605,58 @@ function RiderProfileContent() {
       setMessageInput('');
     }
   };
+
+
+  const handleDeleteDoc = async (doc: any, folderName?: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${doc.doc_name || 'this document'}"?`)) {
+      return;
+    }
+    try {
+      await api.delete('/renters/documents', {
+        data: {
+          id: doc.id,
+          file_path: doc.file_path,
+          mobile: riderMobile
+        }
+      });
+      triggerToast('Document deleted successfully ✓');
+      setFolderData(prev => {
+        return prev.map(f => {
+          if (folderName && f.folder_name !== folderName) return f;
+          return {
+            ...f,
+            documents: (f.documents || []).filter((d: any) => {
+              if (doc.id && d.id) return String(d.id) !== String(doc.id);
+              if (doc.file_path && d.file_path) return d.file_path !== doc.file_path;
+              return d.doc_name !== doc.doc_name;
+            })
+          };
+        }).filter(f => (f.documents || []).length > 0);
+      });
+    } catch (err: any) {
+      console.error('Failed to delete doc:', err);
+      triggerToast('Failed to delete document');
+    }
+  };
+
+  const filteredFolderData = useMemo(() => {
+    return folderData
+      .filter((folder: any) => folder.folder_name !== 'Driving License & Agreements')
+      .map((folder: any) => {
+        let docs = folder.documents || [];
+        if (selectedRideFilter === 'kyc_only') {
+          docs = docs.filter((d: any) => !d.rental_id);
+        } else if (selectedRideFilter !== 'all') {
+          docs = docs.filter((d: any) => {
+            if (d.rental_id && String(d.rental_id) === String(selectedRideFilter)) return true;
+            if (d.doc_name && d.doc_name.includes(String(selectedRideFilter))) return true;
+            return false;
+          });
+        }
+        return { ...folder, documents: docs };
+      })
+      .filter((folder: any) => (folder.documents || []).length > 0);
+  }, [folderData, selectedRideFilter]);
 
   const handleAddVehicle = () => {
     if (!newVehicleName || !newVehiclePlate || !newVehicleBattery) {
@@ -2502,13 +2555,53 @@ function RiderProfileContent() {
                   </div>
                 </div>
 
+                
+                {/* ── Ride Selector Filter ── */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', background: '#F8FAFC', padding: '14px 18px', borderRadius: '14px', border: '1px solid var(--line-soft)', flexWrap: 'wrap', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand)', fontWeight: 800, fontSize: '13px' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>Filter Documents By Ride:</span>
+                    </div>
+                    <select
+                      className="rp-select"
+                      style={{ minWidth: '280px', fontWeight: 700, fontSize: '13px', background: '#fff', borderColor: 'var(--brand-200)', borderRadius: '10px', padding: '8px 12px' }}
+                      value={selectedRideFilter}
+                      onChange={(e) => setSelectedRideFilter(e.target.value)}
+                    >
+                      <option value="all">📁 All Documents &amp; All Rides ({riderRides.length} Total Rides)</option>
+                      <option value="kyc_only">👤 Rider KYC &amp; Verification Documents Only</option>
+                      {riderRides.map((r: any, rIdx: number) => {
+                        const rideId = r.reservation_id || r.id;
+                        const vNum = r.vehicle_number || r.vehicle_id || 'EV';
+                        const zName = r.pickup_zone || r.dropoff_zone || '';
+                        const dateStr = formatCleanDateTime(r.pickup_datetime || r.created_at);
+                        return (
+                          <option key={rIdx} value={String(rideId)}>
+                            Ride #{rideId} — {vNum} ({zName || 'Assigned Zone'}) • {dateStr}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--ink-lo)', fontWeight: 600 }}>
+                    {selectedRideFilter === 'all'
+                      ? 'Displaying all verified documents across all rider activities'
+                      : selectedRideFilter === 'kyc_only'
+                      ? 'Displaying rider identity & biometric records'
+                      : `Displaying records & media specific to Ride #${selectedRideFilter}`}
+                  </div>
+                </div>
+
                 {loadingDocs ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: 'var(--ink-lo)', fontWeight: 600 }}>Loading folder documents...</div>
-                ) : folderData.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--ink-lo)', fontWeight: 600 }}>No documents uploaded yet.</div>
+                ) : filteredFolderData.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--ink-lo)', fontWeight: 600 }}>
+                    {selectedRideFilter !== 'all' ? 'No documents or inspection photos found for the selected ride filter.' : 'No documents uploaded yet.'}
+                  </div>
                 ) : (
                   <div className="folder-container">
-                    {folderData.map((folder: any, fIdx: number) => (
+                    {filteredFolderData.map((folder: any, fIdx: number) => (
                       <div key={fIdx} className="folder-card">
                         <div className="folder-hdr">
                           <div className="folder-hdr-left">
@@ -2545,9 +2638,19 @@ function RiderProfileContent() {
                                 <span className={`status-tag ${doc.status === 'Verified' ? 'verified' : 'pending'}`}>
                                   {doc.status || 'Verified'}
                                 </span>
-                                <button className="rp-pg-btn" style={{ width: 'auto', padding: '0 8px', fontSize: '10.5px', height: '24px' }} onClick={() => setPreviewDoc({ ...doc, folder_name: folder.folder_name })}>
-                                  View
-                                </button>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button className="rp-pg-btn" style={{ width: 'auto', padding: '0 8px', fontSize: '10.5px', height: '24px' }} onClick={() => setPreviewDoc({ ...doc, folder_name: folder.folder_name })}>
+                                    View
+                                  </button>
+                                  <button
+                                    className="rp-pg-btn"
+                                    style={{ width: 'auto', padding: '0 8px', fontSize: '10.5px', height: '24px', color: '#EF4444', borderColor: 'rgba(239,68,68,0.25)', background: '#FEF2F2' }}
+                                    onClick={() => handleDeleteDoc(doc, folder.folder_name)}
+                                    title="Delete document"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -2786,7 +2889,7 @@ function RiderProfileContent() {
                 <select className="rp-select" style={{ width: '100%' }} value={uploadTargetFolder} onChange={(e) => setUploadTargetFolder(e.target.value)}>
                   <option value="KYC Identity Documents">KYC Identity Documents</option>
                   <option value="Live Selfie & Biometric Verification">Live Selfie &amp; Biometric</option>
-                  <option value="Driving License & Agreements">Driving License &amp; Agreements</option>
+                  
                   <option value="Pre-Ride Inspection Photos">Pre-Ride Inspection</option>
                   <option value="Post-Ride Return Inspection">Post-Ride Return Inspection</option>
                 </select>
@@ -2800,8 +2903,8 @@ function RiderProfileContent() {
                 <select className="rp-select" style={{ width: '100%' }} value={docCatInput} onChange={(e) => setDocCatInput(e.target.value)}>
                   <option value="Identity Proof">Identity Proof</option>
                   <option value="Live Photo">Live Photo</option>
-                  <option value="Driving License">Driving License</option>
-                  <option value="Contract">Rental Agreement</option>
+                  
+                  
                   <option value="Vehicle Inspection">Vehicle Inspection</option>
                 </select>
               </div>

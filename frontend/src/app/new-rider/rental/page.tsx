@@ -639,8 +639,12 @@ export default function RentalDetailsPage() {
 
         setAvailableModels(finalModels);
 
-        // Auto-select first available model if current model is not present in this zone
-        setSelectedModelName(prev => (finalModels.includes(prev) ? prev : finalModels[0]));
+        // Auto-select first model that has available units in this zone
+        if (modelsWithVehicles.length > 0 && !modelsWithVehicles.includes(selectedModelName)) {
+          setSelectedModelName(modelsWithVehicles[0]);
+        } else if (!finalModels.includes(selectedModelName)) {
+          setSelectedModelName(finalModels[0]);
+        }
         setLoadingVehicles(false);
       })
       .catch(() => {
@@ -728,32 +732,9 @@ export default function RentalDetailsPage() {
       pkgs = zPricing.packages.filter((p: any) => !p.model && Number(p.price) > 0);
     }
 
-    // Fallbacks if none configured in zone pricing (strictly respect zone deposit or 0)
-    const baseDep = parseFloat(zPricing.securityDeposit || 0);
-    if (pkgs.length === 0) {
-      if (selectedModelName === 'Evegah Mink') {
-        pkgs = [
-          { id: 201, name: 'Daily Pass', duration: 1, price: 250, deposit: baseDep },
-          { id: 202, name: 'Weekly Pass', duration: 7, price: 1500, deposit: baseDep },
-          { id: 203, name: 'Monthly Pass', duration: 30, price: 5500, deposit: baseDep }
-        ];
-      } else if (selectedModelName === 'Evegah Fly') {
-        pkgs = [
-          { id: 401, name: 'Daily Pass', duration: 1, price: 100, deposit: baseDep },
-          { id: 402, name: 'Weekly Pass', duration: 7, price: 650, deposit: baseDep }
-        ];
-      } else if (selectedModelName === 'Evegah Pro') {
-        pkgs = [
-          { id: 301, name: 'Daily Pass', duration: 1, price: 200, deposit: baseDep },
-          { id: 302, name: 'Weekly Pass', duration: 7, price: 1200, deposit: baseDep }
-        ];
-      } else {
-        pkgs = [
-          { id: 101, name: 'Daily Pass', duration: 1, price: 150, deposit: baseDep },
-          { id: 102, name: 'Weekly Pass', duration: 7, price: 900, deposit: baseDep },
-          { id: 103, name: 'Monthly Pass', duration: 30, price: 3500, deposit: baseDep }
-        ];
-      }
+    // If no specific model packages, check all packages configured for this zone
+    if (pkgs.length === 0 && Array.isArray(zPricing.packages) && zPricing.packages.length > 0) {
+      pkgs = zPricing.packages;
     }
 
     setPackagesList(pkgs);
@@ -870,15 +851,16 @@ export default function RentalDetailsPage() {
   };
 
   const getVehicleImage = () => {
-    if (selectedVehicle?.vehicle_image) return selectedVehicle.vehicle_image;
+    if (selectedVehicle?.vehicle_image && !selectedVehicle.vehicle_image.startsWith('blob:')) return selectedVehicle.vehicle_image;
     const found = modelsCatalog.find(m => m.name.toLowerCase() === selectedModelName.toLowerCase());
     if (found?.main_image) {
-      return found.main_image.startsWith('/') || found.main_image.startsWith('http') ? found.main_image : `/${found.main_image}`;
+      if (found.main_image.startsWith('blob:')) return '/assets/city.png';
+      return found.main_image.startsWith('/') || found.main_image.startsWith('http') || found.main_image.startsWith('data:') ? found.main_image : `/${found.main_image}`;
     }
-    if (selectedModelName.toLowerCase().includes('mink')) return '/Mink-1.png';
-    if (selectedModelName.toLowerCase().includes('pro')) return '/pro-1.png';
-    if (selectedModelName.toLowerCase().includes('fly')) return '/fly-1.png';
-    return '/City-1.png';
+    if (selectedModelName.toLowerCase().includes('mink')) return '/assets/mink.png';
+    if (selectedModelName.toLowerCase().includes('pro')) return '/assets/Pro_Banner.png';
+    if (selectedModelName.toLowerCase().includes('fly')) return '/assets/fly-1.png';
+    return '/assets/city.png';
   };
 
   return (

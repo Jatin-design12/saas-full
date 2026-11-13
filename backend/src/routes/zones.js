@@ -276,32 +276,58 @@ router.get('/pricing', async (req, res) => {
     let pricingObj = typeof z.pricing === 'string' ? JSON.parse(z.pricing) : (z.pricing || {});
 
     let packages = [];
-    if (pricingObj.pricingModel === 'Hourly Based' && Array.isArray(pricingObj.hourlyPricing)) {
-      packages = pricingObj.hourlyPricing.map((h, idx) => ({
-        id: 'hourly_' + (idx + 1),
-        name: (h.model || 'Standard') + ' (' + (h.roundingRule || 'Per Hour') + ')',
-        duration: 1,
-        duration_days: 1,
-        duration_hours: 1,
-        price: parseFloat(h.basePrice || 0),
-        base_fare: parseFloat(h.basePrice || 0),
-        deposit: parseFloat(h.deposit !== undefined && h.deposit !== null ? h.deposit : 0),
-        deposit_amount: parseFloat(h.deposit !== undefined && h.deposit !== null ? h.deposit : 0),
-        model: h.model,
-        roundingRule: h.roundingRule
-      }));
-    } else if (Array.isArray(pricingObj.packages)) {
-      packages = pricingObj.packages.map((p, idx) => ({
-        id: p.id || 'pkg_' + (idx + 1),
-        name: p.name || p.title || 'Standard Plan',
-        duration: parseInt(p.duration || p.duration_days || 1, 10),
-        duration_days: parseInt(p.duration || p.duration_days || 1, 10),
-        duration_hours: parseInt(p.duration || p.duration_days || 1, 10) * 24,
-        price: parseFloat(p.price || p.base_fare || 0),
-        base_fare: parseFloat(p.price || p.base_fare || 0),
-        deposit: parseFloat(p.deposit !== undefined && p.deposit !== null ? p.deposit : (pricingObj.securityDeposit || 0)),
-        deposit_amount: parseFloat(p.deposit !== undefined && p.deposit !== null ? p.deposit : (pricingObj.securityDeposit || 0))
-      }));
+
+    // 1. Map hourly pricing options
+    if (Array.isArray(pricingObj.hourlyPricing) && pricingObj.hourlyPricing.length > 0) {
+      pricingObj.hourlyPricing.forEach((h, idx) => {
+        packages.push({
+          id: h.id ? `hourly_${h.id}` : `hourly_${idx + 1}`,
+          name: `${h.model || 'Standard EV'} Hourly (${h.roundingRule || 'Per Hour'})`,
+          pricing_type: 'Hourly',
+          duration: 1,
+          duration_days: 1,
+          duration_hours: 1,
+          price: parseFloat(h.basePrice || 0),
+          base_fare: parseFloat(h.basePrice || 0),
+          extra_price: parseFloat(h.extraPrice || 0),
+          deposit: parseFloat(h.deposit !== undefined && h.deposit !== null ? h.deposit : 0),
+          deposit_amount: parseFloat(h.deposit !== undefined && h.deposit !== null ? h.deposit : 0),
+          model: h.model,
+          roundingRule: h.roundingRule
+        });
+      });
+    }
+
+    // 2. Map multi-day / package pricing options
+    if (Array.isArray(pricingObj.packages) && pricingObj.packages.length > 0) {
+      pricingObj.packages.forEach((p, idx) => {
+        const days = parseInt(p.duration || p.duration_days || 1, 10);
+        packages.push({
+          id: p.id || `pkg_${idx + 1}`,
+          name: p.name || p.title || `${days} Day Pass`,
+          pricing_type: 'Package',
+          duration: days,
+          duration_days: days,
+          duration_hours: days * 24,
+          price: parseFloat(p.price || p.base_fare || 0),
+          base_fare: parseFloat(p.price || p.base_fare || 0),
+          deposit: parseFloat(p.deposit !== undefined && p.deposit !== null ? p.deposit : (pricingObj.securityDeposit || 0)),
+          deposit_amount: parseFloat(p.deposit !== undefined && p.deposit !== null ? p.deposit : (pricingObj.securityDeposit || 0)),
+          model: p.model || 'All Models'
+        });
+      });
+    }
+
+    // 3. Fallback to standard packages if zone pricing packages are empty
+    if (packages.length === 0) {
+      const isDaman = (z.name || '').toLowerCase().includes('daman');
+      const standardList = [
+        { id: 'pkg_1d', name: isDaman ? 'Coastal Day Pass (1 Day)' : 'Daily Pass (1 Day)', pricing_type: 'Package', duration: 1, duration_days: 1, duration_hours: 24, price: isDaman ? 450 : 350, base_fare: isDaman ? 450 : 350, deposit: isDaman ? 0 : 500, deposit_amount: isDaman ? 0 : 500, model: 'All Models' },
+        { id: 'pkg_3d', name: isDaman ? '3 Days Beach Pass' : '3 Days City Pass', pricing_type: 'Package', duration: 3, duration_days: 3, duration_hours: 72, price: isDaman ? 1199 : 900, base_fare: isDaman ? 1199 : 900, deposit: isDaman ? 0 : 1000, deposit_amount: isDaman ? 0 : 1000, model: 'All Models' },
+        { id: 'pkg_7d', name: isDaman ? '7 Days Coastal Pass' : '7 Days Weekly Pass', pricing_type: 'Package', duration: 7, duration_days: 7, duration_hours: 168, price: isDaman ? 2499 : 1800, base_fare: isDaman ? 2499 : 1800, deposit: isDaman ? 0 : 1500, deposit_amount: isDaman ? 0 : 1500, model: 'All Models' },
+        { id: 'pkg_30d', name: 'Monthly Pro Pass (30 Days)', pricing_type: 'Package', duration: 30, duration_days: 30, duration_hours: 720, price: 6500, base_fare: 6500, deposit: isDaman ? 0 : 2000, deposit_amount: isDaman ? 0 : 2000, model: 'All Models' }
+      ];
+      packages = standardList;
     }
 
     const defaultDeposit = packages.length > 0 ? packages[0].deposit_amount : parseFloat(pricingObj.securityDeposit || 0);
@@ -311,7 +337,8 @@ router.get('/pricing', async (req, res) => {
       data: {
         zone_id: z.id,
         zone_name: z.name,
-        pricing_model: pricingObj.pricingModel,
+        pricing_model: pricingObj.pricingModel || (pricingObj.pricingModels ? pricingObj.pricingModels.join(' & ') : 'Package & Hourly Based'),
+        pricing_models: pricingObj.pricingModels || (pricingObj.pricingModel ? [pricingObj.pricingModel] : ['Package Based', 'Hourly Based']),
         hourlyPricing: pricingObj.hourlyPricing || [],
         packages: packages,
         security_deposit: defaultDeposit

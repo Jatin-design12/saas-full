@@ -1297,25 +1297,51 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
     } catch (_) {}
   };
 
+  const [zoneRates, setZoneRates] = useState<{ perDayRate: number; perHourRate: number }>({ perDayRate: 350, perHourRate: 45 });
+
   // Fetch Zone Pricing & Real Packages dynamically from Backend API
   const fetchZonePricing = async (hubName?: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
       const targetZone = hubName || selectedZone || 'Gotri Zone';
-      const res = await fetch(`${apiUrl}/packages?zone=${encodeURIComponent(targetZone)}`);
+      const res = await fetch(`${apiUrl}/zones/pricing?zone=${encodeURIComponent(targetZone)}`);
       const json = await res.json();
-      const list = Array.isArray(json) ? json : (json.data || []);
+      const zData = json?.data;
+      if (zData && Array.isArray(zData.packages) && zData.packages.length > 0) {
+        const mappedPkgs = zData.packages.map((p: any) => ({
+          id: String(p.id || p.name),
+          name: p.name || 'Rental Package',
+          days: Number(p.duration_days || p.duration) || 1,
+          fare: Number(p.base_fare || p.price || p.fare) || 350,
+          badge: p.pricing_type || (Number(p.duration_days || p.duration) <= 3 ? 'Popular' : 'Zone Plan')
+        }));
+        setPackagesList(mappedPkgs);
+        setSelectedPackage(mappedPkgs[0]);
+
+        if (Array.isArray(zData.hourlyPricing) && zData.hourlyPricing.length > 0) {
+          const firstHourly = zData.hourlyPricing[0];
+          setZoneRates({
+            perDayRate: mappedPkgs[0]?.fare || 350,
+            perHourRate: Number(firstHourly.basePrice) || 45
+          });
+        }
+        return;
+      }
+
+      // Fallback to /packages endpoint
+      const pkgRes = await fetch(`${apiUrl}/packages?zone=${encodeURIComponent(targetZone)}`);
+      const pkgJson = await pkgRes.json();
+      const list = Array.isArray(pkgJson) ? pkgJson : (pkgJson.data || []);
       if (list && list.length > 0) {
-        const mappedPkgs = list.map((p: any) => ({
+        const mapped = list.map((p: any) => ({
           id: String(p.id || p.name),
           name: p.name || 'Rental Package',
           days: Number(p.duration) || 1,
           fare: Number(p.price || p.fare) || 350,
-          badge: p.badge || (p.duration <= 3 ? 'Popular' : 'Zone Plan')
+          badge: p.badge || (Number(p.duration) <= 3 ? 'Popular' : 'Zone Plan')
         }));
-        setPackagesList(mappedPkgs);
-        setSelectedPackage(mappedPkgs[0]);
-        return;
+        setPackagesList(mapped);
+        setSelectedPackage(mapped[0]);
       }
     } catch (_) {}
   };
@@ -1352,9 +1378,9 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
             battery_id: r.battery_id || 'BAT-0098',
             plan: r.package_type || 'Daily Lite',
             start_date: r.pickup_datetime || r.created_at ? new Date(r.pickup_datetime || r.created_at).toLocaleDateString('en-IN') : 'Today',
-            deposit_amount: Number(r.deposit) || 1000,
+            deposit_amount: (r.deposit !== undefined && r.deposit !== null) ? Number(r.deposit) : 0,
             zone: r.drop_zone || r.pickup_zone || 'Gotri Hub',
-            avatar: '/rohit_avatar.png',
+            avatar: r.avatar_url || r.avatar || r.profile_picture || null,
             raw: r
           });
         }
@@ -1372,9 +1398,9 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
             battery_id: r.battery_id || 'BAT-0098',
             plan: r.package_name || 'Daily Package',
             start_date: r.rental_start_date ? new Date(r.rental_start_date).toLocaleDateString('en-IN') : 'Today',
-            deposit_amount: Number(r.deposit) || 1000,
+            deposit_amount: (r.deposit !== undefined && r.deposit !== null) ? Number(r.deposit) : 0,
             zone: r.zone || 'Gotri Hub',
-            avatar: '/rohit_avatar.png',
+            avatar: r.avatar_url || r.avatar || r.profile_picture || null,
             raw: r
           });
         }
@@ -1445,7 +1471,7 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
   if (!chargerReturned) deductions += 200;
   if (!helmetReturned) deductions += 300;
 
-  const currentDeposit = Number(selectedRider?.deposit_amount) || 1000;
+  const currentDeposit = (selectedRider?.deposit_amount !== undefined && selectedRider?.deposit_amount !== null) ? Number(selectedRider.deposit_amount) : Number(selectedRider?.deposit ?? 0);
   const netRefund = Math.max(0, currentDeposit - deductions);
   const extraDue = Math.max(0, deductions - currentDeposit);
 
@@ -1459,13 +1485,15 @@ export default function ReturnVehiclePage({ initialTab }: ReturnVehiclePageProps
     setChargerReturned(true);
   };
 
-  // Calculate extension fare
+  // Calculate extension fare based on live zone pricing
   const getExtensionFare = () => {
     if (extendMode === 'package') {
-      return selectedPackage.fare;
+      return selectedPackage?.fare || 350;
     }
-    if (extendDays > 0) return extendDays * 350 + (extendHours > 0 ? extendHours * 45 : 0);
-    return extendHours * 45;
+    const dayRate = zoneRates.perDayRate || 350;
+    const hourRate = zoneRates.perHourRate || 45;
+    if (extendDays > 0) return extendDays * dayRate + (extendHours > 0 ? extendHours * hourRate : 0);
+    return extendHours * hourRate;
   };
   const extensionFare = getExtensionFare();
 

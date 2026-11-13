@@ -486,20 +486,20 @@ export default function RetainRiderRentalPage() {
       .then(res => {
         const list = (res && res.data && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : []);
         const cleanList = list.filter((v: any) => {
-          const st = (v.status || '').toLowerCase();
+          const st = (v.vehicle_status || v.status || '').toLowerCase();
           return st === 'available' || st === 'ready' || st === 'idle';
         });
 
         setVehiclesList(cleanList);
 
-        const modelsFound = Array.from(new Set(cleanList.map((v: any) => normalizeModel(v.model || v.name || 'Evegah City')))) as string[];
-        setAvailableModels(prev => Array.from(new Set([...modelsCatalog.map((m: any) => m.name), ...modelsFound, ...prev, 'Evegah City'])));
+        const modelsFound = Array.from(new Set(cleanList.map((v: any) => normalizeModel(v.evegah_model_name || v.vehicle_model || v.model || v.name || 'Evegah City')))) as string[];
+        const allModels = Array.from(new Set([...modelsFound, ...modelsCatalog.map((m: any) => m.name), 'Evegah City']));
+        setAvailableModels(allModels);
 
-        const allModels = Array.from(new Set([...modelsCatalog.map((m: any) => m.name), ...modelsFound, 'Evegah City']));
-        const initialModel = allModels[0] || 'Evegah City';
+        const initialModel = (modelsFound.length > 0 ? modelsFound[0] : allModels[0]) || 'Evegah City';
         setSelectedModelName(initialModel);
 
-        const matchingVehs = cleanList.filter((v: any) => normalizeModel(v.model || v.name || '') === initialModel);
+        const matchingVehs = cleanList.filter((v: any) => normalizeModel(v.evegah_model_name || v.vehicle_model || v.model || v.name || '') === initialModel);
         setFilteredVehicles(matchingVehs);
         if (matchingVehs.length > 0) {
           const topCode = matchingVehs[0].code || (matchingVehs[0].registration_number && matchingVehs[0].registration_number !== '000' ? matchingVehs[0].registration_number : '') || matchingVehs[0].vehicle_number || matchingVehs[0].id;
@@ -554,13 +554,8 @@ export default function RetainRiderRentalPage() {
           setPackagesList(pkgs);
           setSelectedPackage(pkgs[0]);
         } else {
-          const fallbackPkgs = [
-            { id: 'p1', name: 'Daily Pass', duration_days: 1, base_fare: 150, deposit_amount: 0 },
-            { id: 'p2', name: 'Weekly Commuter', duration_days: 7, base_fare: 900, deposit_amount: 0 },
-            { id: 'p3', name: 'Monthly Pro', duration_days: 30, base_fare: 3500, deposit_amount: 0 },
-          ];
-          setPackagesList(fallbackPkgs);
-          setSelectedPackage(fallbackPkgs[0]);
+          setPackagesList([]);
+          setSelectedPackage(null);
         }
       })
       .catch(() => {});
@@ -580,7 +575,7 @@ export default function RetainRiderRentalPage() {
   // Model selection handler
   const handleModelSelect = (modelName: string) => {
     setSelectedModelName(modelName);
-    const matching = vehiclesList.filter((v: any) => normalizeModel(v.model || v.name || '') === modelName);
+    const matching = vehiclesList.filter((v: any) => normalizeModel(v.evegah_model_name || v.vehicle_model || v.model || v.name || '') === modelName);
     setFilteredVehicles(matching);
     if (matching.length > 0) {
       const topCode = matching[0].code || (matching[0].registration_number && matching[0].registration_number !== '000' ? matching[0].registration_number : '') || matching[0].vehicle_number || matching[0].id;
@@ -605,8 +600,12 @@ export default function RetainRiderRentalPage() {
   const currentModelMeta = useMemo(() => {
     const found = modelsCatalog.find(m => m.name.toLowerCase() === selectedModelName.toLowerCase());
     if (found) {
-      let img = found.main_image || '/City-1.png';
-      if (!img.startsWith('/') && !img.startsWith('http')) img = `/${img}`;
+      let img = found.main_image || '/assets/city.png';
+      if (img.startsWith('blob:') || !img) {
+        img = '/assets/city.png';
+      } else if (!img.startsWith('/') && !img.startsWith('http') && !img.startsWith('data:')) {
+        img = `/${img}`;
+      }
       return {
         name: found.name,
         type: found.category || 'Electric Vehicle',
@@ -756,7 +755,7 @@ export default function RetainRiderRentalPage() {
 
                       <div className="rd-img-wrap">
                         <img
-                          src={currentModelMeta.image}
+                          src={currentModelMeta.image || '/assets/city.png'} onError={(e) => { e.currentTarget.src = '/assets/city.png'; }}
                           alt={selectedModelName}
                           style={{ maxHeight: 110, maxWidth: '100%', objectFit: 'contain' }}
                         />

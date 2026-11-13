@@ -24,19 +24,36 @@ function PricingForm() {
             if (zone) {
               setSelectedZoneName(zone.name);
               setStatus(zone.status === 'active' ? 'Active' : 'Inactive');
-              if (zone.pricing && zone.pricing.pricingModel) {
-                setPricingModel(zone.pricing.pricingModel);
-                setNotes(zone.pricing.notes || '');
-                if (zone.pricing.pricingModel === 'Hourly Based') {
-                  setHourlyRows(zone.pricing.hourlyPricing || []);
-                } else if (zone.pricing.pricingModel === 'Minute Based') {
-                  setMinuteRate(String(zone.pricing.ratePerMinute || zone.pricing.basePrice || '1.50'));
-                  setMinuteMinTime(String(zone.pricing.minMinutes || '10'));
-                  setMinuteUnlockFee(String(zone.pricing.unlockFee || '10.00'));
-                  setMinuteGracePeriod(String(zone.pricing.gracePeriod || '3'));
-                  setMinuteDeposit(String(zone.pricing.deposit || '200'));
-                } else {
-                  setPackages(zone.pricing.packages || []);
+              if (zone.pricing) {
+                const p = zone.pricing;
+                const loaded: string[] = [];
+                if (Array.isArray(p.pricingModels)) {
+                  loaded.push(...p.pricingModels);
+                } else if (p.pricingModel) {
+                  if (p.pricingModel.includes('&')) {
+                    p.pricingModel.split('&').forEach((m: string) => loaded.push(m.trim()));
+                  } else {
+                    loaded.push(p.pricingModel);
+                  }
+                }
+                if (Array.isArray(p.hourlyPricing) && p.hourlyPricing.length > 0 && !loaded.includes('Hourly Based')) {
+                  loaded.push('Hourly Based');
+                }
+                if (Array.isArray(p.packages) && p.packages.length > 0 && !loaded.includes('Package Based')) {
+                  loaded.push('Package Based');
+                }
+                if (loaded.length === 0) loaded.push('Package Based', 'Hourly Based');
+                setEnabledPricingModels(loaded);
+                setPricingModel(loaded.join(' & '));
+                setNotes(p.notes || '');
+                if (Array.isArray(p.hourlyPricing)) setHourlyRows(p.hourlyPricing);
+                if (Array.isArray(p.packages)) setPackages(p.packages);
+                if (p.ratePerMinute) {
+                  setMinuteRate(String(p.ratePerMinute || '1.50'));
+                  setMinuteMinTime(String(p.minMinutes || '10'));
+                  setMinuteUnlockFee(String(p.unlockFee || '10.00'));
+                  setMinuteGracePeriod(String(p.gracePeriod || '3'));
+                  setMinuteDeposit(String(p.deposit || '200'));
                 }
               }
             }
@@ -84,7 +101,21 @@ function PricingForm() {
   // Core Page States
   const [selectedZoneName, setSelectedZoneName] = useState('');
   const [status, setStatus] = useState('Active');
-  const [pricingModel, setPricingModel] = useState<'Hourly Based' | 'Package Based' | 'Minute Based'>('Hourly Based');
+  const [pricingModel, setPricingModel] = useState<string>('Package & Hourly Based');
+  const [enabledPricingModels, setEnabledPricingModels] = useState<string[]>(['Package Based', 'Hourly Based']);
+
+  const togglePricingModel = (model: string) => {
+    setEnabledPricingModels(prev => {
+      if (prev.includes(model)) {
+        if (prev.length <= 1) {
+          alert('At least one pricing model must remain enabled for the zone.');
+          return prev;
+        }
+        return prev.filter(m => m !== model);
+      }
+      return [...prev, model];
+    });
+  };
   const [notes, setNotes] = useState('');
 
   // Minute-Based Pricing States
@@ -170,33 +201,29 @@ function PricingForm() {
     }
 
     const pricingObj: any = {
-      pricingModel,
-      notes
+      pricingModels: enabledPricingModels,
+      pricingModel: enabledPricingModels.join(' & '),
+      notes,
+      hourlyPricing: enabledPricingModels.includes('Hourly Based') ? hourlyRows : [],
+      packages: enabledPricingModels.includes('Package Based') ? packages : [],
+      packageDetails: [
+        ...(enabledPricingModels.includes('Hourly Based') ? hourlyRows.map(h => `${h.model || 'Hourly'}: ₹${h.basePrice}/hr`) : []),
+        ...(enabledPricingModels.includes('Package Based') ? packages.map(p => `${p.model}: ${p.duration} Days - ₹${p.price}`) : [])
+      ]
     };
 
-    if (pricingModel === 'Hourly Based') {
-      pricingObj.basePrice = parseFloat(hourlyRows[0]?.basePrice) || 0;
-      pricingObj.extraPrice = parseFloat(hourlyRows[0]?.extraPrice) || 0;
-      pricingObj.packageDetails = [];
-      pricingObj.hourlyPricing = hourlyRows;
-      pricingObj.packages = [];
-    } else if (pricingModel === 'Minute Based') {
-      pricingObj.basePrice = parseFloat(minuteRate) || 1.5;
-      pricingObj.extraPrice = parseFloat(minuteUnlockFee) || 10;
+    if (enabledPricingModels.includes('Minute Based')) {
+      pricingObj.minutePricing = minuteRows;
       pricingObj.ratePerMinute = parseFloat(minuteRate) || 1.5;
       pricingObj.unlockFee = parseFloat(minuteUnlockFee) || 10;
       pricingObj.minMinutes = parseInt(minuteMinTime) || 10;
       pricingObj.gracePeriod = parseInt(minuteGracePeriod) || 3;
       pricingObj.deposit = parseFloat(minuteDeposit) || 200;
-      pricingObj.packageDetails = [`₹${minuteRate}/min (Min ${minuteMinTime}m, Unlock: ₹${minuteUnlockFee})`];
-      pricingObj.hourlyPricing = [];
-      pricingObj.packages = [];
-    } else {
-      pricingObj.basePrice = null;
-      pricingObj.extraPrice = null;
-      pricingObj.packageDetails = packages.map(p => `${p.model}: ${p.duration} Days - ₹${p.price}${p.deposit ? ` (Deposit: ₹${p.deposit})` : ''}`);
-      pricingObj.hourlyPricing = [];
-      pricingObj.packages = packages;
+    }
+
+    if (enabledPricingModels.includes('Hourly Based') && hourlyRows.length > 0) {
+      pricingObj.basePrice = parseFloat(hourlyRows[0]?.basePrice) || 0;
+      pricingObj.extraPrice = parseFloat(hourlyRows[0]?.extraPrice) || 0;
     }
 
     const payload = {
@@ -416,10 +443,31 @@ function PricingForm() {
               <p className="zp-card-subtitle">Choose how you want to price this zone.</p>
               
               <div className="zp-radio-cards-grid">
-                {/* Radio Card 1: Hourly Based */}
+                {/* Radio Card 1: Package Based */}
                 <div 
-                  className={`zp-radio-card ${pricingModel === 'Hourly Based' ? 'active' : ''}`}
-                  onClick={() => setPricingModel('Hourly Based')}
+                  className={`zp-radio-card ${enabledPricingModels.includes('Package Based') ? 'active' : ''}`}
+                  onClick={() => togglePricingModel('Package Based')}
+                >
+                  <div className="zp-radio-header">
+                    <span className="zp-radio-circle"></span>
+                    <span className="zp-radio-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                      </svg>
+                    </span>
+                    <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 800, color: enabledPricingModels.includes('Package Based') ? '#4F46E5' : '#94A3B8' }}>
+                      {enabledPricingModels.includes('Package Based') ? '✓ Active' : '+ Click to Enable'}
+                    </span>
+                  </div>
+                  <h3 className="zp-radio-title">Package Based (Passes)</h3>
+                  <p className="zp-radio-desc">Daily, 3-Day, Weekly, Monthly passes with flat rental pricing.</p>
+                </div>
+
+                {/* Radio Card 2: Hourly Based */}
+                <div 
+                  className={`zp-radio-card ${enabledPricingModels.includes('Hourly Based') ? 'active' : ''}`}
+                  onClick={() => togglePricingModel('Hourly Based')}
                 >
                   <div className="zp-radio-header">
                     <span className="zp-radio-circle"></span>
@@ -429,15 +477,18 @@ function PricingForm() {
                         <polyline points="12 6 12 12 16 14" />
                       </svg>
                     </span>
+                    <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 800, color: enabledPricingModels.includes('Hourly Based') ? '#4F46E5' : '#94A3B8' }}>
+                      {enabledPricingModels.includes('Hourly Based') ? '✓ Active' : '+ Click to Enable'}
+                    </span>
                   </div>
                   <h3 className="zp-radio-title">Hourly Based</h3>
-                  <p className="zp-radio-desc">Customers will be charged based on hourly usage with extra time charges.</p>
+                  <p className="zp-radio-desc">Hourly rates with base fee and overtime rates.</p>
                 </div>
 
-                {/* Radio Card 2: Minute Based */}
+                {/* Radio Card 3: Minute Based */}
                 <div 
-                  className={`zp-radio-card ${pricingModel === 'Minute Based' ? 'active' : ''}`}
-                  onClick={() => setPricingModel('Minute Based')}
+                  className={`zp-radio-card ${enabledPricingModels.includes('Minute Based') ? 'active' : ''}`}
+                  onClick={() => togglePricingModel('Minute Based')}
                 >
                   <div className="zp-radio-header">
                     <span className="zp-radio-circle"></span>
@@ -447,36 +498,20 @@ function PricingForm() {
                         <polyline points="12 6 12 12 15 15" />
                       </svg>
                     </span>
-                  </div>
-                  <h3 className="zp-radio-title">Minute Based</h3>
-                  <p className="zp-radio-desc">Customers pay per minute with optional base unlock fare and minimum time.</p>
-                </div>
-
-                {/* Radio Card 3: Package Based */}
-                <div 
-                  className={`zp-radio-card ${pricingModel === 'Package Based' ? 'active' : ''}`}
-                  onClick={() => setPricingModel('Package Based')}
-                >
-                  <div className="zp-radio-header">
-                    <span className="zp-radio-circle"></span>
-                    <span className="zp-radio-icon">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                        <line x1="12" y1="22.08" x2="12" y2="12" />
-                      </svg>
+                    <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 800, color: enabledPricingModels.includes('Minute Based') ? '#4F46E5' : '#94A3B8' }}>
+                      {enabledPricingModels.includes('Minute Based') ? '✓ Active' : '+ Click to Enable'}
                     </span>
                   </div>
-                  <h3 className="zp-radio-title">Package Based</h3>
-                  <p className="zp-radio-desc">Customers will be charged based on selected rental packages.</p>
+                  <h3 className="zp-radio-title">Minute Based</h3>
+                  <p className="zp-radio-desc">Per-minute billing with optional base unlock fare.</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Row 2: Dynamic Pricing Card depending on Selected Model */}
-        {pricingModel === 'Hourly Based' ? (
+        {/* Enabled Pricing Sections */}
+        {enabledPricingModels.includes('Hourly Based') && (
           /* Card 3: Hourly Pricing Card */
           <div className="zp-card" style={{ marginTop: '24px' }}>
             <div className="zp-card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -700,7 +735,9 @@ function PricingForm() {
               </div>
             </div>
           </div>
-        ) : pricingModel === 'Minute Based' ? (
+        )}
+
+        {enabledPricingModels.includes('Minute Based') && (
           /* Card 3B: Model-Based Minute Pricing Card */
           <div className="zp-card" style={{ marginTop: '24px' }}>
             <div className="zp-card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -909,7 +946,9 @@ function PricingForm() {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+
+        {enabledPricingModels.includes('Package Based') && (
           /* Card 4: Package Pricing Card */
           <div className="zp-card" style={{ marginTop: '24px' }}>
             <div className="zp-card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -1959,6 +1959,50 @@ router.post('/documents', (req, res) => {
   });
 });
 
+// DELETE /api/renters/documents - Delete document for rider
+router.delete('/documents', async (req, res) => {
+  try {
+    const { id, file_path, mobile } = req.body || {};
+    let deletedCount = 0;
+
+    if (id) {
+      const delRes = await db.query('DELETE FROM documents WHERE id::text = $1', [String(id)]).catch(() => ({ rowCount: 0 }));
+      deletedCount += (delRes.rowCount || 0);
+    }
+    if (file_path) {
+      const cleanPath = String(file_path).replace(/^https?:\/\/[^\/]+/, '');
+      const delRes = await db.query('DELETE FROM documents WHERE url LIKE $1 OR url LIKE $2', [`%${cleanPath}%`, `%${file_path}%`]).catch(() => ({ rowCount: 0 }));
+      deletedCount += (delRes.rowCount || 0);
+    }
+
+    const cleanMobile = (mobile || '').replace(/\D/g, '');
+    const last10 = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : '';
+    if (last10 && RIDER_DOCUMENTS_STORE[last10]) {
+      const store = RIDER_DOCUMENTS_STORE[last10];
+      if (Array.isArray(store.folders)) {
+        store.folders.forEach(f => {
+          if (Array.isArray(f.documents)) {
+            f.documents = f.documents.filter(d => (id ? String(d.id) !== String(id) : true) && (file_path ? d.file_path !== file_path : true));
+          }
+        });
+      }
+    }
+
+    try {
+      await delByPattern('renters:docs:*');
+    } catch (_) {}
+
+    res.json({
+      status: 'success',
+      message: 'Document deleted successfully',
+      deletedCount
+    });
+  } catch (err) {
+    console.error('Error deleting document:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 // GET /api/renters/documents - Fetch date-wise folder documents for rider profile page
 router.get('/documents', async (req, res) => {
   const mobile = req.query.mobile || req.query.search || '';
@@ -2094,6 +2138,8 @@ router.get('/documents', async (req, res) => {
     }
 
     const item = {
+      id: doc.id,
+      rental_id: doc.rental_id,
       doc_name: docName,
       status: doc.status || 'Verified',
       date: docDate,
@@ -2106,8 +2152,6 @@ router.get('/documents', async (req, res) => {
       selfieDocs.push(item);
     } else if (kind.includes('aadhaar') || kind.includes('government') || kind.includes('id_') || kind.includes('pan') || kind.includes('voter')) {
       kycDocs.push(item);
-    } else if (kind.includes('license') || kind.includes('dl') || kind.includes('agreement') || kind.includes('contract')) {
-      licenseDocs.push(item);
     } else if (kind.includes('inspection') || kind.includes('pre_ride') || kind.includes('return')) {
       inspectionDocs.push(item);
     } else {
@@ -2118,6 +2162,7 @@ router.get('/documents', async (req, res) => {
   // If renter has avatar_url and not yet in selfieDocs, prepend it
   if (renter?.avatar_url && !selfieDocs.some(d => d.file_path === renter.avatar_url)) {
     selfieDocs.unshift({
+      id: `avatar_${renter.id || 'rider'}`,
       doc_name: 'Rider Profile Photo',
       status: 'Verified',
       date: renter.created_at ? new Date(renter.created_at).toISOString().split('T')[0] : today,
@@ -2132,6 +2177,8 @@ router.get('/documents', async (req, res) => {
 
     if (resv.id_card_url && !kycDocs.some(d => d.file_path === resv.id_card_url)) {
       kycDocs.push({
+        id: `id_card_${resv.reservation_id}`,
+        rental_id: resv.reservation_id,
         doc_name: `Reservation ID Card (#${resv.reservation_id})`,
         status: 'Verified',
         date: resvDate,
@@ -2143,103 +2190,35 @@ router.get('/documents', async (req, res) => {
 
     if (resv.inspection_media_url && !inspectionDocs.some(d => d.file_path === resv.inspection_media_url)) {
       inspectionDocs.push({
+        id: `insp_${resv.reservation_id}`,
+        rental_id: resv.reservation_id,
         doc_name: `Pre-Ride Inspection (${resv.vehicle_number || resv.reservation_id})`,
         status: 'Verified',
         date: resvDate,
         type: 'Inspection Photo',
         file_path: normalizeMediaUrl(resv.inspection_media_url)
       });
-    } else {
-      // Add official ride inspection certificate record
-      inspectionDocs.push({
-        doc_name: `Vehicle ${resv.vehicle_number || 'E-Scooter'} Inspection Record (#${resv.reservation_id})`,
-        status: resv.status === 'Completed' ? 'Verified' : 'Active',
-        date: resvDate,
-        type: 'Inspection Record',
-        file_path: ''
-      });
-    }
-
-    if (resv.status === 'Completed') {
-      inspectionDocs.push({
-        doc_name: `Return Inspection Clearance (${resv.vehicle_number || resv.reservation_id})`,
-        status: 'Verified',
-        date: resv.drop_datetime ? new Date(resv.drop_datetime).toISOString().split('T')[0] : resvDate,
-        type: 'Return Clearance',
-        file_path: ''
-      });
     }
   }
 
-  // Fallbacks if no specific docs in category
-  if (kycDocs.length === 0) {
-    kycDocs.push(
-      {
-        doc_name: "Aadhaar Card (Front)",
-        status: "Verified",
-        date: today,
-        type: "Identity Proof",
-        file_path: "/aadhaar_sample_front.png",
-        ocr_number: aadhaarDisplay
-      },
-      {
-        doc_name: "Aadhaar Card (Back)",
-        status: "Verified",
-        date: today,
-        type: "Address Proof",
-        file_path: "/aadhaar_sample_back.png",
-        ocr_number: aadhaarDisplay
-      }
-    );
-  }
+  // Build folders strictly with real documents (no dummy/fake documents)
+  const folders = [];
 
-  if (selfieDocs.length === 0) {
-    selfieDocs.push({
-      doc_name: "Rider Live Selfie Photo",
-      status: "Verified",
-      date: today,
-      type: "Live Photo",
-      file_path: renter?.avatar_url || "/rohit_avatar.png"
-    });
-  }
-
-  if (licenseDocs.length === 0) {
-    licenseDocs.push(
-      {
-        doc_name: "Driving License (Smart Card)",
-        status: "Verified",
-        date: today,
-        type: "Driving License",
-        file_path: "/sample_dl.png",
-        ocr_number: "GJ-06-2022-0049281"
-      },
-      {
-        doc_name: "Evegah Rental Terms & Agreement",
-        status: "Verified",
-        date: today,
-        type: "Contract",
-        file_path: ""
-      }
-    );
-  }
-
-  const folders = [
-    {
+  if (kycDocs.length > 0) {
+    folders.push({
       folder_name: "KYC Identity Documents",
       date: today,
       documents: kycDocs
-    },
-    {
+    });
+  }
+
+  if (selfieDocs.length > 0) {
+    folders.push({
       folder_name: "Live Selfie & Biometric Verification",
       date: today,
       documents: selfieDocs
-    },
-    {
-      folder_name: "Driving License & Agreements",
-      date: today,
-      documents: licenseDocs
-    }
-  ];
+    });
+  }
 
   if (inspectionDocs.length > 0) {
     folders.push({
