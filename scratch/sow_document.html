@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Evegah EV Mobility SaaS Platform - Full Scope of Work</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 20mm 16mm;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    font-size: 9.8pt;
+    line-height: 1.58;
+    margin: 0;
+    padding: 0;
+  }
+
+  .cover-page {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 85vh;
+    padding: 40px 20px;
+    border-bottom: 3px solid #10b981;
+  }
+
+  .cover-badge {
+    display: inline-block;
+    align-self: flex-start;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .cover-title {
+    font-size: 32pt;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    margin: 0 0 12px 0;
+    letter-spacing: -0.02em;
+  }
+
+  .cover-subtitle {
+    font-size: 16pt;
+    font-weight: 500;
+    color: #475569;
+    margin: 0 0 36px 0;
+    line-height: 1.35;
+  }
+
+  .cover-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 20px;
+  }
+
+  .cover-meta-item {
+    font-size: 9pt;
+  }
+
+  .cover-meta-label {
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    font-size: 7.5pt;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  .cover-meta-value {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 9.5pt;
+  }
+
+  .doc-content {
+    padding-top: 10px;
+  }
+
+  h1 {
+    font-size: 18pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    page-break-after: avoid;
+    letter-spacing: -0.01em;
+  }
+
+  h2 {
+    font-size: 13.5pt;
+    font-weight: 700;
+    color: #0f766e;
+    margin-top: 28px;
+    margin-bottom: 12px;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+
+  p {
+    margin-top: 0;
+    margin-bottom: 12px;
+    text-align: justify;
+  }
+
+  ul, ol {
+    margin-top: 0;
+    margin-bottom: 14px;
+    padding-left: 22px;
+  }
+
+  li {
+    margin-bottom: 5px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 8.8pt;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #0f172a;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #1e293b;
+  }
+
+  td {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 8pt;
+    line-height: 1.45;
+    overflow-x: auto;
+    margin: 14px 0;
+    page-break-inside: avoid;
+    border: 1px solid #334155;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    color: #0f766e;
+    padding: 1.5px 4.5px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border: none;
+    font-size: 8pt;
+  }
+
+  blockquote {
+    margin: 14px 0;
+    padding: 10px 16px;
+    border-left: 4px solid #10b981;
+    background: #f0fdf4;
+    color: #166534;
+    font-style: normal;
+    border-radius: 0 6px 6px 0;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 28px 0;
+  }
+
+  .header-tag {
+    color: #059669;
+    font-weight: 700;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .footer-notice {
+    font-size: 8pt;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 40px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+  <div class="cover-badge">Official Architecture & Engineering SOW</div>
+  <h1 class="cover-title">Evegah EV Mobility SaaS Platform</h1>
+  <div class="cover-subtitle">Complete Technical Scope of Work & Deliverables Specification</div>
+  
+  <p style="color: #64748b; font-size: 10.5pt; margin-bottom: 24px;">
+    An end-to-end blueprint detailing the Super Admin Operations Web Portal, Consumer Rider Mobile Application, and On-Ground Employee/Technician Application with Smart BMS Telemetry & Battery Swapping.
+  </p>
+
+  <div class="cover-meta-grid">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Document Version</div>
+      <div class="cover-meta-value">2.0 (Full SaaS & Telematics Edition)</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Date & Status</div>
+      <div class="cover-meta-value">November 2026 | Approved Specification</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Primary Stakeholders</div>
+      <div class="cover-meta-value">Engineering, Product, Operations, QA, Management</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Core Tech Stack</div>
+      <div class="cover-meta-value">Node.js / Next.js 14 / React Native / Flutter / PostgreSQL / BLE</div>
+    </div>
+  </div>
+</div>
+
+<div class="doc-content">
+  <h1>Evegah EV Mobility SaaS Platform</h1>
+<h2>Comprehensive Scope of Work (SOW) &amp; Technical Specification</h2>
+<p><strong>Document Version:</strong> 2.0<br><strong>Target Audience:</strong> Engineering Leads, Product Managers, Frontend/Backend/Mobile Developers, QA Engineers, and Executive Stakeholders<br><strong>Platform Architecture:</strong> Microservices-ready Monolith (Node.js/Express) + Next.js 14 Admin Portal + React Native/Expo Rider App + Flutter Technician/Employee App + PostgreSQL + Redis + IoT/BLE Telemetry  </p>
+<hr>
+<h2>Table of Contents</h2>
+<ol>
+<li><a href="#1-executive-summary--system-architecture">Executive Summary &amp; System Architecture</a></li>
+<li><a href="#2-technology-stack--system-topology">Technology Stack &amp; System Topology</a></li>
+<li><a href="#3-module-1-super-admin--operations-dashboard">Module 1: Super Admin &amp; Operations Dashboard</a></li>
+<li><a href="#4-module-2-rider-mobile-application-ios--android">Module 2: Rider Mobile Application (iOS &amp; Android)</a></li>
+<li><a href="#5-module-3-employee--technician-app-registration-maintenance--bms">Module 3: Employee &amp; Technician App (Registration, Maintenance &amp; BMS)</a></li>
+<li><a href="#6-hardware-iot--bluetooth-low-energy-ble-integration">Hardware, IoT &amp; Bluetooth Low Energy (BLE) Integration</a></li>
+<li><a href="#7-database-schema--core-entities">Database Schema &amp; Core Entities</a></li>
+<li><a href="#8-api-architecture--service-contracts">API Architecture &amp; Service Contracts</a></li>
+<li><a href="#9-payment-gateways--financial-settlement-engine">Payment Gateways &amp; Financial Settlement Engine</a></li>
+<li><a href="#10-security-geofencing--compliance">Security, Geofencing &amp; Compliance</a></li>
+<li><a href="#11-project-phases-milestones--acceptance-criteria">Project Phases, Milestones &amp; Acceptance Criteria</a></li>
+</ol>
+<hr>
+<h2>1. Executive Summary &amp; System Architecture</h2>
+<h3>1.1 Platform Mission</h3>
+<p>The <strong>Evegah EV Mobility SaaS Platform</strong> is an enterprise-grade smart electric vehicle rental, fleet management, and battery-swapping ecosystem. The system unifies real-time IoT vehicle telemetry, customer self-service mobile booking, on-ground staff fleet operations, battery lifecycle analytics, and centralized administrative controls into a coordinated multi-application suite.</p>
+<pre><code>                                  +-------------------------------------------------+
+                                  |            Evegah Cloud Infrastructure          |
+                                  |        Node.js / Express API (Port 5000)        |
+                                  |     PostgreSQL (Port 5433) + Redis Cache        |
+                                  +--------+-------------------+--------------------+
+                                           |                   |
+                     +---------------------+                   +--------------------+
+                     |                                                              |
+      +--------------v---------------+                               +--------------v---------------+
+      |   Next.js 14 Admin Portal    |                               |    IoT Telemetry &amp; SMS Gateways|
+      |   Super Admin &amp; Operations   |                               |    GPS / 4G Telematics Box   |
+      |   (Port 3000 Web App)        |                               |    ICICI / WhatsApp / Razorpay |
+      +------------------------------+                               +------------------------------+
+                     ^                                                              ^
+                     |                                                              |
+      +--------------+---------------+                               +--------------+---------------+
+      |    Rider Mobile Application  |                               |   Employee &amp; Technician App  |
+      |   (React Native / Expo)      |                               |   (Flutter Engine)           |
+      |   Consumer iOS &amp; Android     |                               |   Staff Registration,        |
+      |   Booking, Payments, BLE     |                               |   Maintenance &amp; Smart BMS    |
+      +------------------------------+                               +------------------------------+
+</code></pre>
+<h3>1.2 Multi-Application Ecosystem</h3>
+<ol>
+<li><strong>Next.js 14 Web Portal</strong>: Enterprise control plane for Super Admins, Zone Managers, Franchise Partners, and Finance Controllers.</li>
+<li><strong>Rider Mobile App</strong>: Consumer-facing React Native application enabling on-demand hourly and monthly package EV rentals, dynamic hero content, QR unlocking, in-app wallet, and live trip navigation.</li>
+<li><strong>Employee App (<code>evegah-bms</code>)</strong>: Flutter cross-platform mobile app for station booking agents, field technicians, and hub mechanics for rider KYC onboarding, maintenance inspections, and BLE smart battery swapping.</li>
+</ol>
+<hr>
+<h2>2. Technology Stack &amp; System Topology</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Component</th>
+<th align="left">Technology</th>
+<th align="left">Version / Framework</th>
+<th align="left">Core Responsibilities</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Backend API</strong></td>
+<td align="left">Node.js / Express</td>
+<td align="left">Node v20 LTS, Express v4.19</td>
+<td align="left">REST API endpoints, business logic, auth, cron schedulers</td>
+</tr>
+<tr>
+<td align="left"><strong>Primary Database</strong></td>
+<td align="left">PostgreSQL</td>
+<td align="left">PostgreSQL 16.x (Port 5433)</td>
+<td align="left">Relational store for users, rentals, fleets, telemetry logs</td>
+</tr>
+<tr>
+<td align="left"><strong>Cache &amp; Queue</strong></td>
+<td align="left">Redis</td>
+<td align="left">Redis 7.x</td>
+<td align="left">Token caching, lock states, live GPS cache</td>
+</tr>
+<tr>
+<td align="left"><strong>Admin Dashboard</strong></td>
+<td align="left">Next.js</td>
+<td align="left">Next.js 14 (App Router), TailwindCSS</td>
+<td align="left">Fleet dashboard, KYC approval, geofencing, finance, CMS</td>
+</tr>
+<tr>
+<td align="left"><strong>Rider Mobile App</strong></td>
+<td align="left">React Native</td>
+<td align="left">Expo SDK 51, React Native 0.74</td>
+<td align="left">Customer onboarding, Bluetooth vehicle control, wallet, map</td>
+</tr>
+<tr>
+<td align="left"><strong>Employee App</strong></td>
+<td align="left">Flutter</td>
+<td align="left">Flutter 3.22 / Dart 3.4</td>
+<td align="left">BLE BMS telemetry, walk-in KYC, physical inspection, swap flow</td>
+</tr>
+<tr>
+<td align="left"><strong>IoT Connectivity</strong></td>
+<td align="left">MQTT / TCP / HTTP</td>
+<td align="left">Custom binary parser &amp; JSON</td>
+<td align="left">Real-time GPS, speed, battery voltage, ignition control</td>
+</tr>
+<tr>
+<td align="left"><strong>Payment Gateways</strong></td>
+<td align="left">ICICI Bank, Razorpay, PhonePe, PayU</td>
+<td align="left">REST &amp; Webhook APIs</td>
+<td align="left">UPI intent, dynamic QR, card payments, instant refunds</td>
+</tr>
+<tr>
+<td align="left"><strong>Communications</strong></td>
+<td align="left">WhatsApp Business API, MSG91</td>
+<td align="left">REST API</td>
+<td align="left">Transactional OTP, rental agreements, payment reminders</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>3. Module 1: Super Admin &amp; Operations Dashboard</h2>
+<p>The Admin Dashboard provides full visibility and role-based authority over the entire platform. Built on Next.js 14 App Router, it is organized into three operational tiers: <strong>Global Super Admin</strong>, <strong>Zone Operations</strong>, and <strong>Franchise Partner</strong>.</p>
+<h3>3.1 Super Admin Executive Overview (<code>/super-admin</code>)</h3>
+<ul>
+<li><strong>Fleet KPI Metrics</strong>: Total active vehicles, vehicles rented, vehicles in maintenance, offline vehicles, low battery warnings (&lt;20%).</li>
+<li><strong>Financial Run-Rate</strong>: Real-time revenue counter (today, MTD, YTD), rental revenue vs. deposit collections, gross margins by zone.</li>
+<li><strong>Rider Metrics</strong>: Total registered riders, active ongoing rentals, overdue returns, pending KYC verification queue.</li>
+<li><strong>CO2 Savings Engine (<code>/co2-saving</code>)</strong>: Real-time calculation of metric tonnes of carbon emissions avoided based on cumulative EV kilometers ridden; exportable sustainability reports for ESG compliance.</li>
+</ul>
+<h3>3.2 Rider Lifecycle &amp; KYC Management</h3>
+<ul>
+<li><strong>New Rider Registration &amp; Approval (<code>/new-rider</code>, <code>/registrations</code>)</strong>:<ul>
+<li>Live queue of newly submitted rider profiles awaiting KYC verification.</li>
+<li>Side-by-side verification view: Aadhaar front/back, Driving License, live selfie photograph with facial match indicator.</li>
+<li>One-click Actions: Approve, Reject with Reason (SMS/WhatsApp notification dispatched), Request Re-upload.</li>
+<li>Duplicate detection based on Aadhaar number, phone number, and facial recognition hash.</li>
+</ul>
+</li>
+<li><strong>Master Renters Ledger (<code>/renters</code>)</strong>:<ul>
+<li>Searchable, filterable directory of all historical and active riders.</li>
+<li>Zone-specific filtering (e.g., Gotri Zone, Manjalpur Zone, L&amp;T Knowledge City Zone).</li>
+<li>Columnar view: Rider ID, Full Name, Contact, Assigned Vehicle Code, Plan Name, Deposit Paid, Rental Start Date, Next Due Date, Overdue Penalty, Status (Active, Overdue, Terminated).</li>
+<li>CSV/Excel export engine with custom date range filtering.</li>
+</ul>
+</li>
+<li><strong>Retain &amp; Renewal Engine (<code>/retain-rider</code>)</strong>:<ul>
+<li>Module dedicated to extending ongoing monthly/weekly contracts.</li>
+<li>Automatic calculation of renewal charges, grace period allowances, and promotional coupon discounts.</li>
+<li>Payment collection tracking: Cash, UPI QR, or Debit from Rider Wallet.</li>
+</ul>
+</li>
+<li><strong>Return &amp; Offboarding Settlement (<code>/return-ride</code>)</strong>:<ul>
+<li>Processing vehicle check-in when a rider completes their rental period.</li>
+<li>Multi-point damage check comparison between check-in and check-out photos.</li>
+<li>Automated security deposit reconciliation: Deduct late fees, damage penalties, unpaid electricity/traffic fines, and initiate instant refund of net balance to rider bank account via ICICI Payout API.</li>
+</ul>
+</li>
+</ul>
+<h3>3.3 Fleet &amp; Asset Management (<code>/vehicles</code>)</h3>
+<ul>
+<li><strong>Vehicle Directory &amp; Telemetry</strong>:<ul>
+<li>Search by Plate Number, Chassis Number, IoT IMEI, or Assigned Zone.</li>
+<li>Live status indicators: <code>Available</code>, <code>Rented</code>, <code>Under Maintenance</code>, <code>Impounded</code>, <code>Offline</code>.</li>
+<li>Vehicle specifications management: Make, Model (e.g., Evegah City, Evegah Cargo), Motor Wattage, Max Speed limit, Battery chemistry (LFP/NMC).</li>
+<li>Total operational odometer reading (synced continuously from IoT GPS tracker).</li>
+</ul>
+</li>
+<li><strong>Remote Commands</strong>:<ul>
+<li>Super Admin remote ignition disable (<code>Immobilize Vehicle</code>) in case of non-payment or geofence breach.</li>
+<li>Remote horn/light chirp for locating lost or impounded vehicles.</li>
+<li>Over-The-Air (OTA) firmware upgrade trigger for vehicle IoT modules.</li>
+</ul>
+</li>
+</ul>
+<h3>3.4 Zone Geofencing &amp; Dynamic Pricing Models (<code>/zones</code>)</h3>
+<ul>
+<li><strong>Interactive Geofence Editor</strong>:<ul>
+<li>Leaflet / Mapbox interactive polygon drawing tool to define zone perimeters (e.g., Gotri, Manjalpur, Akota).</li>
+<li>Define Hub Locations (charging/swapping stations) within zones with GPS coordinates and parking capacity.</li>
+<li>Maximum speed caps and restricted &quot;No-Ride&quot; or &quot;Red Zones&quot; with automated vehicle throttling alerts.</li>
+</ul>
+</li>
+<li><strong>Dynamic Pricing Engine</strong>:<ul>
+<li>Configurable pricing matrices per zone and vehicle model:<ul>
+<li><strong>Hourly Rental</strong>: Base unlock fee + per-minute or per-hour charge.</li>
+<li><strong>Daily / Weekly Packages</strong>: Flat day rates (e.g., ₹250/day) with daily kilometer allowances.</li>
+<li><strong>Monthly Delivery Packages</strong>: Subscription pricing for gig-workers (Zomato, Swiggy, Blinkit) with included battery swaps.</li>
+</ul>
+</li>
+<li>Security deposit configuration per vehicle tier (e.g., ₹1,500 for low-speed; ₹3,000 for high-speed).</li>
+</ul>
+</li>
+</ul>
+<h3>3.5 Battery Inventory &amp; Swap Hub Monitor (<code>/battery</code>, <code>/battery-swap</code>)</h3>
+<ul>
+<li><strong>Live Battery Ledger</strong>:<ul>
+<li>Unique Battery Serial Number (BSN), Chemistry, Capacity (kWh), Cycle Count, SOH (State of Health).</li>
+<li>Current location: Inside Vehicle ID, In Charging Hub Slot ID, or In Transit.</li>
+</ul>
+</li>
+<li><strong>Swap Analytics</strong>:<ul>
+<li>Swaps executed per day per hub, average turnaround time, peak swapping hours.</li>
+<li>Grid load management: Charging status of batteries in racks (0-80% fast-charge, 80-100% trickle balance).</li>
+</ul>
+</li>
+</ul>
+<h3>3.6 Maintenance &amp; Repair Work Orders (<code>/maintenance</code>)</h3>
+<ul>
+<li><strong>Service Work Orders</strong>:<ul>
+<li>Automated ticket generation based on odometer intervals (e.g., every 2,500 km) or battery degradation alerts.</li>
+<li>Manual ticket creation for road breakdowns, tire punctures, brake failures, or chassis damage.</li>
+<li>Technician assignment, job status (<code>Pending</code>, <code>In Progress</code>, <code>Awaiting Spares</code>, <code>Resolved</code>).</li>
+</ul>
+</li>
+<li><strong>Spare Parts Inventory</strong>:<ul>
+<li>Stock levels for brake pads, tires, controllers, throttle assemblies, headlights, and wiring harnesses.</li>
+<li>Auto-deduction of inventory when a work order is closed.</li>
+</ul>
+</li>
+</ul>
+<h3>3.7 IoT Device &amp; Telematics Tracking (<code>/iot-devices</code>, <code>/ride-operations</code>)</h3>
+<ul>
+<li><strong>Device Health Monitor</strong>:<ul>
+<li>Tracking 4G GSM signal strength (CSQ), satellite lock count, internal backup battery voltage.</li>
+<li>Heartbeat status: Online (ping within 30s), Stale (ping within 5 min), Dead/Offline.</li>
+</ul>
+</li>
+<li><strong>Live Map Fleet Radar (<code>/ride-operations</code>)</strong>:<ul>
+<li>Real-time live map showing all moving and stationary vehicles color-coded by operational status.</li>
+<li>Breadcrumb historical trail player: Replay any trip with speed graph, heading, and battery drop curves.</li>
+</ul>
+</li>
+</ul>
+<h3>3.8 Franchise Management (<code>/franchise</code>, <code>/franchise-users</code>)</h3>
+<ul>
+<li><strong>Franchise Hierarchy</strong>:<ul>
+<li>Multi-tenant partitioning allowing independent business partners to operate Evegah sub-fleets.</li>
+<li>Franchise profile: Assigned vehicles, dedicated hubs, territory boundaries.</li>
+</ul>
+</li>
+<li><strong>Revenue Sharing &amp; Financial Split</strong>:<ul>
+<li>Configurable commission models (e.g., 70% Franchisee / 30% Evegah Platform).</li>
+<li>P&amp;L ledger: Automated calculation of gross collections, charging electricity expenses, platform royalty fees, and net payout.</li>
+</ul>
+</li>
+</ul>
+<h3>3.9 Financial Ledger, Invoicing &amp; Refunds (<code>/payment</code>)</h3>
+<ul>
+<li><strong>Transaction Audit Log</strong>:<ul>
+<li>Real-time stream of all gateway payments (ICICI, Razorpay, PhonePe, PayU).</li>
+<li>Reconciliation matching PG reference IDs with Evegah ride IDs and wallet top-ups.</li>
+</ul>
+</li>
+<li><strong>Automated Tax Invoicing</strong>:<ul>
+<li>GST-compliant invoice generation (CGST + SGST or IGST) with downloadable PDF format.</li>
+</ul>
+</li>
+<li><strong>Deposit Refund Approvals</strong>:<ul>
+<li>Two-stage approval workflow for security deposit refunds: Zone Manager request -&gt; Super Admin approval -&gt; Automated bank disbursement.</li>
+</ul>
+</li>
+</ul>
+<h3>3.10 System Alerts &amp; Broadcast Announcements (<code>/alerts</code>, <code>/announcements</code>)</h3>
+<ul>
+<li><strong>System Alert Trigger Engine</strong>:<ul>
+<li>Automated alarms for Geofence Breaches, Low Battery in Field, IoT Disconnection, Tamper / Tow Alerts.</li>
+</ul>
+</li>
+<li><strong>Push &amp; WhatsApp Broadcasts</strong>:<ul>
+<li>Send targeted notifications to all riders in a specific zone or segment (e.g., &quot;Monsoon safety tips&quot;, &quot;Scheduled hub maintenance&quot;).</li>
+</ul>
+</li>
+</ul>
+<h3>3.11 White-Label Settings &amp; App Slider CMS (<code>/settings/white-label</code>, <code>/settings</code>)</h3>
+<ul>
+<li><strong>Brand Identity Controls</strong>:<ul>
+<li>Dynamic company logo, favicon, portal primary/secondary color schemes, brand typography, and terms/privacy links.</li>
+</ul>
+</li>
+<li><strong>App Slider Management (HomeScreen &amp; RentScreen)</strong>:<ul>
+<li>Dual-layer slider authoring tool:<ul>
+<li>Layer 1: Background banner photography / gradient.</li>
+<li>Layer 2: Transparent vehicle cutout or mascot PNG.</li>
+<li>Title, Subtitle, Category Tag / Badge, and Call-to-Action (CTA) target deep-link.</li>
+</ul>
+</li>
+<li>Instant publishing via REST API with cache-invalidation to mobile clients.</li>
+<li>Upload sanitizer preventing double extensions (e.g., <code>.png.png</code>) and automatic synchronization with production cloud storage.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>4. Module 2: Rider Mobile Application (iOS &amp; Android)</h2>
+<p>Built with <strong>React Native and Expo</strong>, the Rider Mobile App delivers a high-performance consumer experience with low latency, offline-tolerant Bluetooth device control, and animated UI transitions.</p>
+<h3>4.1 Onboarding, Authentication &amp; KYC</h3>
+<ul>
+<li><strong>Splash &amp; Onboarding Carousel (<code>SplashScreen.js</code>, <code>OnboardingScreen.js</code>)</strong>:<ul>
+<li>Visual walk-through highlighting zero-emission travel, instant battery swapping, and flexible subscription plans.</li>
+</ul>
+</li>
+<li><strong>Mobile OTP Authentication (<code>LoginScreen.js</code>, <code>OtpScreen.js</code>)</strong>:<ul>
+<li>Frictionless phone number entry with auto-read SMS OTP on Android and keyboard suggestion on iOS.</li>
+<li>JWT session generation with refresh token rotation stored in encrypted device storage (<code>expo-secure-store</code>).</li>
+</ul>
+</li>
+<li><strong>Digital KYC Engine (<code>KycScreen.js</code>)</strong>:<ul>
+<li>In-app camera module with custom guideline overlays for capturing:<ol>
+<li>Aadhaar Card (Front and Back) with OCR text extraction.</li>
+<li>Driving License with validity verification.</li>
+<li>Live Selfie with anti-spoofing detection.</li>
+</ol>
+</li>
+<li>Real-time application status tracker (<code>Pending Review</code>, <code>Verified</code>, <code>Action Required</code>).</li>
+</ul>
+</li>
+</ul>
+<h3>4.2 Dynamic Home Screen &amp; Discovery (<code>HomeScreen.js</code>, <code>RentScreen.js</code>)</h3>
+<ul>
+<li><strong>Dynamic Multi-Layer Hero Slider</strong>:<ul>
+<li>Multi-layer parallax carousel driven by Admin CMS.</li>
+<li>Synchronous asset loading with high-resolution image caching (<code>expo-image</code>).</li>
+<li>Active deep links routing riders directly to specific zone packages, promo offers, or vehicle categories.</li>
+</ul>
+</li>
+<li><strong>Interactive Map &amp; Hub Discovery (<code>LocationScreen.js</code>)</strong>:<ul>
+<li>Real-time map powered by React Native Maps / Mapbox.</li>
+<li>Clustered station markers displaying available vehicles, battery swap inventory count, and walking distance.</li>
+<li>Turn-by-turn routing to the nearest Evegah hub.</li>
+</ul>
+</li>
+</ul>
+<h3>4.3 Fleet Catalog &amp; Rental Booking Flow</h3>
+<ul>
+<li><strong>Vehicle Catalog &amp; Zone Normalization (<code>VehicleListScreen.js</code>)</strong>:<ul>
+<li>Browse scooters filtered by Zone (Gotri, Manjalpur, etc.) and model tier (Evegah City, Evegah Cargo).</li>
+<li>Dynamic package selector: Hourly, Daily (₹250/day), Weekly, or Monthly.</li>
+<li>Fallback package synthesizer ensuring smooth booking even during temporary pricing updates.</li>
+</ul>
+</li>
+<li><strong>Vehicle Details &amp; Story Modal (<code>VehicleDetailsScreen.js</code>)</strong>:<ul>
+<li>Interactive 360-degree vehicle showcase with technical specs: Top speed (45 km/h), Range per swap (75 km), Motor power, Max load capacity.</li>
+<li>Rental date and time selector with automated calculation of rental charges and security deposit.</li>
+<li>Digital rental agreement review with rider sign-off.</li>
+</ul>
+</li>
+<li><strong>Booking Confirmation (<code>BookingConfirmedScreen.js</code>)</strong>:<ul>
+<li>Booking receipt with unique Booking Code, assigned hub address, pickup deadline countdown, and directions.</li>
+</ul>
+</li>
+</ul>
+<h3>4.4 Vehicle Unlocking &amp; Bluetooth Control</h3>
+<ul>
+<li><strong>Dual Unlock Mechanism (<code>ScanScreen.js</code>, <code>UnlockingScreen.js</code>, <code>BluetoothScreen.js</code>)</strong>:<ul>
+<li><strong>Method 1: Cloud IoT Unlock</strong>: Rider scans vehicle QR code; mobile app dispatches unlock command to Node.js backend -&gt; MQTT broker -&gt; Vehicle IoT controller.</li>
+<li><strong>Method 2: Offline Bluetooth Low Energy (BLE) Unlock</strong>: Direct encrypted BLE handshake between phone and vehicle telematics box for underground parking garages or low-cellular areas.</li>
+</ul>
+</li>
+<li><strong>Audio &amp; Visual Feedback</strong>:<ul>
+<li>Vehicle headlights flash and speaker chirps confirmation upon successful unlock.</li>
+</ul>
+</li>
+</ul>
+<h3>4.5 Active Ride Telemetry &amp; Dashboard (<code>RideScreen.js</code>)</h3>
+<ul>
+<li><strong>Digital Instrument Cluster</strong>:<ul>
+<li>Real-time speedometer (km/h) sourced from IoT CAN-bus.</li>
+<li>Battery State of Charge (SoC %) with visual battery health gauge.</li>
+<li>Estimated remaining distance range (km).</li>
+<li>Current trip duration and accrued charges timer.</li>
+</ul>
+</li>
+<li><strong>Vehicle Controls</strong>:<ul>
+<li><strong>Lock / Unlock</strong>: Pause rental while parking outside stores without ending the trip.</li>
+<li><strong>Horn / Flash</strong>: Locate vehicle in crowded parking lots.</li>
+<li><strong>BMS Telemetry View (<code>BmsScreen.js</code>)</strong>: Detailed view of battery health, temperature, and nearest swap stations.</li>
+<li><strong>Emergency SOS (<code>HelpScreen.js</code>)</strong>: Instant panic button alerting Evegah 24/7 command center with exact live GPS coordinates.</li>
+</ul>
+</li>
+</ul>
+<h3>4.6 Trip Completion &amp; Geofenced Return (<code>EndRideScreen.js</code>)</h3>
+<ul>
+<li><strong>Return Station Validation</strong>:<ul>
+<li>GPS geofencing checks to ensure vehicle is returned inside an authorized Evegah Hub.</li>
+<li>If returned outside designated zones, app warns rider of penalty fees or blocks trip completion.</li>
+</ul>
+</li>
+<li><strong>Return Checklist &amp; Photo Proof</strong>:<ul>
+<li>Rider captures a mandatory photograph of the parked scooter to prove safe return without physical damage.</li>
+</ul>
+</li>
+<li><strong>Trip Summary &amp; Rating</strong>:<ul>
+<li>Distance traveled, trip duration, carbon offset (kg CO2 saved), itemized billing breakdown.</li>
+</ul>
+</li>
+</ul>
+<h3>4.7 In-App Wallet, Payments &amp; Loyalty</h3>
+<ul>
+<li><strong>Multi-Gateway Payment Integration (<code>PayScreen.js</code>, <code>WalletScreen.js</code>, <code>TransactionScreen.js</code>)</strong>:<ul>
+<li>Native checkout supporting ICICI Bank Direct UPI Intent, Razorpay, PhonePe, and PayU.</li>
+<li>Evegah In-App Wallet: One-click fast checkout, auto-reload, and instant refund credit.</li>
+</ul>
+</li>
+<li><strong>Offers, Referral &amp; Gift Cards (<code>OffersScreen.js</code>, <code>ReferScreen.js</code>, <code>GiftCardScreen.js</code>, <code>RedeemGiftCardScreen.js</code>)</strong>:<ul>
+<li>Referral code sharing: Earn rental credits for every referred friend who completes their first ride.</li>
+<li>Gift card purchase, sharing, and instant redemption into wallet balance.</li>
+</ul>
+</li>
+<li><strong>Ride History &amp; Tax Invoices (<code>MyRidesScreen.js</code>, <code>RideDetailScreen.js</code>)</strong>:<ul>
+<li>Historical log of all trips with interactive route replay map and downloadable PDF tax invoices.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>5. Module 3: Employee &amp; Technician App (Registration, Maintenance &amp; BMS)</h2>
+<p>The Employee Mobile App (<code>evegah-bms</code>), built with <strong>Flutter</strong>, is an on-ground field operations tool serving three distinct staff profiles: <strong>Booking Agents</strong>, <strong>Field Technicians</strong>, and <strong>Battery Hub Managers</strong>.</p>
+<pre><code>                           +-------------------------------------------------------+
+                           |           Evegah Employee &amp; Operations App            |
+                           |                   (Flutter Engine)                    |
+                           +---------------------------+---------------------------+
+                                                       |
+        +----------------------------------------------+----------------------------------------------+
+        |                                              |                                              |
++-------v----------------------+             +---------v--------------------+              +----------v-------------------+
+|  1. Field Registration &amp; KYC |             |  2. Maintenance &amp; Inspection |              |  3. Smart BMS &amp; Battery Swap |
++------------------------------+             +------------------------------+              +------------------------------+
+| * Walk-in Rider Onboarding   |             | * 12-Point Return Inspection |              | * BLE Cell-Level Diagnostics |
+| * Fast Camera Document Capture|            | * Damage Photo Logging       |              | * Depleted-to-Fresh Swap Flow|
+| * Plan &amp; Security Deposit    |             | * Breakdown Work Orders      |              | * Charging Rack Slot Monitor |
+| * Vehicle &amp; Battery Pairing  |             | * Spare Parts Inventory Deduct|             | * Offline Telemetry Cache    |
++------------------------------+             +------------------------------+              +------------------------------+
+</code></pre>
+<h3>5.1 Field Registration &amp; Walk-In Onboarding Module</h3>
+<p>Designed for station booking agents to onboard riders who visit hubs in person without prior app reservation.</p>
+<ul>
+<li><strong>Fast Rider KYC Onboarding (<code>new_ride_rider_details_screen.dart</code>)</strong>:<ul>
+<li>Capture rider full name, phone number, alternate emergency contact, and permanent address.</li>
+<li>High-speed camera capture with auto-cropping: Aadhaar front/back, Driving License, and live customer portrait.</li>
+<li>Immediate duplicate check against backend blacklist and active ledger.</li>
+</ul>
+</li>
+<li><strong>Plan Selection &amp; Pricing Configurator (<code>new_ride_plan_pricing_screen.dart</code>)</strong>:<ul>
+<li>Select vehicle category and rental plan (Daily, Weekly, Monthly Gig Delivery Package).</li>
+<li>Apply station agent promotional codes or seasonal discounts.</li>
+</ul>
+</li>
+<li><strong>Vehicle &amp; Battery Assignment (<code>new_ride_vehicle_details_screen.dart</code>)</strong>:<ul>
+<li>Station agent scans vehicle QR code / barcode using camera scanner.</li>
+<li>Agent scans Battery Serial Number (BSN) QR code.</li>
+<li>System executes atomic database binding linking Rider + Vehicle + Battery in the master ledger.</li>
+</ul>
+</li>
+<li><strong>Payment Collection &amp; Deposit Management (<code>new_ride_payment_screen.dart</code>)</strong>:<ul>
+<li>Accept Cash payment at hub (logs agent cash-in-hand liability ledger).</li>
+<li>Generate dynamic UPI QR on employee phone screen for customer to scan and pay via GooglePay/PhonePe/Paytm.</li>
+<li>Security deposit ledger entry recorded with refundable flag.</li>
+</ul>
+</li>
+<li><strong>Rental Agreement &amp; Digital Signature (<code>new_ride_review_screen.dart</code>)</strong>:<ul>
+<li>Complete contract summary displayed on screen.</li>
+<li>Customer provides digital signature on device screen.</li>
+<li>System dispatches automated WhatsApp message to rider containing signed PDF agreement and vehicle unlock instructions.</li>
+</ul>
+</li>
+</ul>
+<h3>5.2 Rider Retention &amp; Renewal Module</h3>
+<p>Handles walk-in or phone renewals for ongoing riders wanting to extend their vehicle usage.</p>
+<ul>
+<li><strong>Rider Lookup (<code>retain_rider_search_screen.dart</code>)</strong>:<ul>
+<li>Search rider by phone number, vehicle plate number, or chassis number.</li>
+<li>View current contract status, expiry date, accrued penalties, and payment history.</li>
+</ul>
+</li>
+<li><strong>Vehicle &amp; Battery Condition Check (<code>retain_rider_vehicle_battery_screen.dart</code>, <code>retain_rider_pre_inspection_screen.dart</code>)</strong>:<ul>
+<li>Physical inspection of scooter condition prior to authorizing extension.</li>
+<li>Check odometer reading and compare with IoT reported distance.</li>
+</ul>
+</li>
+<li><strong>Renewal Extension &amp; Payment (<code>retain_rider_plan_screen.dart</code>, <code>retain_rider_payment_screen.dart</code>, <code>retain_rider_review_screen.dart</code>)</strong>:<ul>
+<li>Select extension duration (e.g., additional 30 days).</li>
+<li>Collect renewal payment via Cash or UPI QR.</li>
+<li>Extend contract end date in database and update IoT auto-lock schedulers.</li>
+</ul>
+</li>
+</ul>
+<h3>5.3 Return Inspection &amp; Settlement Module</h3>
+<p>Processes vehicle return when a rider surrenders a vehicle at the conclusion of their contract.</p>
+<ul>
+<li><strong>Return Vehicle Lookup (<code>return_ride_search_screen.dart</code>)</strong>:<ul>
+<li>Agent scans vehicle QR code to pull up the active rental contract and initial checkout inspection photos.</li>
+</ul>
+</li>
+<li><strong>12-Point Physical Inspection (<code>return_ride_inspection_screen.dart</code>)</strong>:<ul>
+<li>Interactive multi-point inspection checklist:<ol>
+<li>Front &amp; rear tire tread wear and pressure.</li>
+<li>Front disc / rear drum brake functionality.</li>
+<li>Headlight, taillight, indicators, and horn operation.</li>
+<li>Throttle response and smooth motor drive.</li>
+<li>Handlebar alignment and front fork suspension.</li>
+<li>Body fairings, paint scratches, mirror integrity.</li>
+<li>Under-seat storage lock and charging port flap.</li>
+<li>Battery casing inspection (zero dents or swelling).</li>
+</ol>
+</li>
+</ul>
+</li>
+<li><strong>Damage Documentation &amp; Penalty Assessment</strong>:<ul>
+<li>Mandatory photo capture for any identified damage.</li>
+<li>Preset standardized damage penalty calculator (e.g., broken mirror = ₹350; scratched panel = ₹700).</li>
+</ul>
+</li>
+<li><strong>Final Settlement &amp; Deposit Refund (<code>return_ride_settlement_screen.dart</code>, <code>return_ride_review_screen.dart</code>)</strong>:<ul>
+<li>Automated reconciliation ledger:
+$$\text{Refund Amount} = \text{Security Deposit} - (\text{Late Return Penalty} + \text{Damage Penalty} + \text{Unpaid Tolls})$$</li>
+<li>Cash payout receipt or trigger instant bank UPI refund via ICICI Payout API.</li>
+<li>Vehicle status automatically transitions to <code>Under Inspection</code> or <code>Available</code>.</li>
+</ul>
+</li>
+</ul>
+<h3>5.4 Battery Management System (BMS) &amp; Smart Swapping Module</h3>
+<p>The core operational innovation of the Evegah platform, giving field operators deep hardware diagnostics into lithium-ion battery packs.</p>
+<ul>
+<li><strong>Bluetooth Low Energy (BLE) Scanner &amp; Protocol Decoder (<code>ble_decoder.dart</code>, <code>bluetooth_scan_dialog.dart</code>)</strong>:<ul>
+<li>Mobile device connects directly to battery smart BMS via Bluetooth 5.0.</li>
+<li>Proprietary binary protocol parser decodes byte streams in real time.</li>
+</ul>
+</li>
+<li><strong>Live Battery Telemetry Dashboard (<code>battery_live_tab.dart</code>, <code>battery_monitoring_tab.dart</code>, <code>battery_management_screen.dart</code>)</strong>:<ul>
+<li><strong>Pack Voltages</strong>: Total pack voltage (e.g., 67.2V for 60V nominal LFP pack).</li>
+<li><strong>Cell-by-Cell Voltage Balance</strong>: Live bar-graph visualization of all 16 to 20 individual series cells (e.g., Cell 1: 3.32V, Cell 2: 3.31V... Cell 16: 3.32V). Flags cell imbalance if differential exceeds 30mV.</li>
+<li><strong>Thermal Monitoring</strong>: Temperature sensors (T1, T2, MOS switch temp, ambient temp) with high-temperature cut-off indicators (&gt;55°C).</li>
+<li><strong>Current &amp; Load</strong>: Instantaneous charging/discharging current (Amperes) and power output (Watts).</li>
+<li><strong>Health Metrics</strong>: Total lifetime charge cycles completed, calculated State of Health (SOH %), and actual available ampere-hour capacity vs. design capacity.</li>
+</ul>
+</li>
+<li><strong>Guided 4-Step Battery Swap Workflow</strong>:<pre><code>+--------------------+      +--------------------+      +--------------------+      +--------------------+
+| 1. Scan Depleted   | ---&gt; | 2. Scan Fresh      | ---&gt; | 3. Verify Payment  | ---&gt; | 4. Confirm &amp;       |
+| Battery on Vehicle |      | Battery from Rack  |      | / Swap Fee         |      | Hand Over to Rider |
++--------------------+      +--------------------+      +--------------------+      +--------------------+
+</code></pre>
+<ol>
+<li><strong>Step 1 - Scan Depleted Battery (<code>battery_swap_search_screen.dart</code>)</strong>: Agent scans QR of battery removed from vehicle. App records drop-off SoC (e.g., 12%) and checks for fault codes.</li>
+<li><strong>Step 2 - Scan Fresh Battery (<code>battery_swap_pairing_screen.dart</code>)</strong>: Agent scans QR of fully charged battery from charging rack. App verifies SoC is above 95% and cell balance is healthy.</li>
+<li><strong>Step 3 - Fee Calculation &amp; Payment (<code>battery_swap_payment_screen.dart</code>)</strong>: If rider has a subscription with unlimited swaps, fee is ₹0. Otherwise, app calculates swap fee and collects via Cash or UPI.</li>
+<li><strong>Step 4 - Atomic Confirmation (<code>battery_swap_confirm_screen.dart</code>)</strong>: System updates database, assigns new battery to vehicle, sets depleted battery status to <code>Charging</code>, and dispatches SMS confirmation to rider.</li>
+</ol>
+</li>
+<li><strong>Offline Telemetry Queue</strong>:<ul>
+<li>If technician operates in an underground parking hub with zero cellular connectivity, all BMS telemetry logs and swap records are cached locally in SQLite and automatically synchronized once internet access is restored.</li>
+</ul>
+</li>
+</ul>
+<h3>5.5 Fleet Maintenance &amp; Field Ticketing</h3>
+<ul>
+<li><strong>Preventative &amp; Corrective Work Orders</strong>:<ul>
+<li>Log scheduled periodic maintenance (brake fluid check, motor bearing greasing).</li>
+<li>Report unexpected roadside breakdown and dispatch mobile rescue technician with spare battery/scooter.</li>
+</ul>
+</li>
+<li><strong>Spare Part Consumption Tracking</strong>:<ul>
+<li>Scan barcode of replacement brake pads, tires, or controllers to log installation against specific vehicle chassis.</li>
+</ul>
+</li>
+</ul>
+<h3>5.6 Staff Operations &amp; Hub Attendance</h3>
+<ul>
+<li><strong>Geofenced Staff Attendance</strong>:<ul>
+<li>Clock-in and clock-out with GPS geofence verification ensuring staff is physically located at their assigned hub.</li>
+<li>Facial recognition selfie check to eliminate buddy punching.</li>
+</ul>
+</li>
+<li><strong>End-of-Shift Hub Inventory Audit</strong>:<ul>
+<li>Reconcile physical inventory at shift handover: Total scooters parked, total fully charged batteries, total batteries in charging rack, and total cash collected.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>6. Hardware, IoT &amp; Bluetooth Low Energy (BLE) Integration</h2>
+<h3>6.1 IoT Telematics Box Specifications</h3>
+<ul>
+<li><strong>Connectivity</strong>: 4G LTE Cat-1 with 2G GSM fallback; integrated eSIM with roaming network support.</li>
+<li><strong>Positioning</strong>: Multi-GNSS engine (GPS, GLONASS, BeiDou) with assisted GPS (A-GPS) for sub-2.5m accuracy.</li>
+<li><strong>Vehicle Bus Interface</strong>: CAN 2.0B / RS485 communication with motor controller and electronic instrument cluster.</li>
+<li><strong>Internal Backup Battery</strong>: 450mAh Li-ion battery providing up to 72 hours of heartbeat tracking if main vehicle battery is disconnected.</li>
+<li><strong>Sensors</strong>: 6-axis accelerometer and gyroscope for tilt detection, crash notification, and unauthorized towing alerts.</li>
+</ul>
+<h3>6.2 Communication Protocols &amp; Telemetry Frequency</h3>
+<ul>
+<li><strong>Moving State</strong>: Telemetry packet sent every 10 seconds (Latitude, Longitude, Speed, Heading, Odometer, SoC, Motor RPM).</li>
+<li><strong>Parked / Idle State</strong>: Heartbeat packet sent every 300 seconds to conserve battery.</li>
+<li><strong>Emergency Trigger</strong>: Instantaneous packet transmission upon Tamper, Crash, or Geofence Breach.</li>
+</ul>
+<h3>6.3 Bluetooth Low Energy (BLE) Custom Handshake</h3>
+<ul>
+<li><strong>BLE Service UUID</strong>: Proprietary 128-bit custom service for Evegah smart hardware.</li>
+<li><strong>Security Authentication</strong>: AES-128 dynamic challenge-response encryption; rolling session keys generated by backend prevent replay attacks.</li>
+<li><strong>Commands Supported</strong>: Unlock Ignition, Lock Ignition, Pop Seat Catch, Query BMS Status.</li>
+</ul>
+<hr>
+<h2>7. Database Schema &amp; Core Entities</h2>
+<p>The platform utilizes <strong>PostgreSQL 16</strong> with indexed relational tables ensuring data integrity and query performance.</p>
+<pre><code>                          +-------------------+
+                          |      zones        |
+                          +---------+---------+
+                                    |
+          +-------------------------+-------------------------+
+          |                                                   |
++---------v---------+                               +---------v---------+
+|     vehicles      |                               |  pricing_plans    |
++---------+---------+                               +---------+---------+
+          |                                                   |
+          +-------------------------+-------------------------+
+                                    |
++---------+---------+     +---------v---------+     +---------+---------+
+|      users        +----&gt;|     rentals       |&lt;----+   batteries       |
+| (Riders/Employees)|     +---------+---------+     +---------+---------+
++-------------------+               |
+                                    |
+                          +---------v---------+
+                          |   transactions    |
+                          +-------------------+
+</code></pre>
+<h3>7.1 Primary Database Tables</h3>
+<ol>
+<li><strong><code>users</code></strong>: User ID, Phone, Email, Password Hash, Role (<code>super_admin</code>, <code>zone_manager</code>, <code>technician</code>, <code>rider</code>), KYC Status (<code>pending</code>, <code>verified</code>, <code>rejected</code>), Profile Data.</li>
+<li><strong><code>zones</code></strong>: Zone ID, Name, Boundary Polygon (GeoJSON), Active Status, City, Assigned Manager ID.</li>
+<li><strong><code>vehicles</code></strong>: Vehicle ID, Plate Number, Chassis Number, IoT IMEI, Model Name, Zone ID, Status (<code>available</code>, <code>rented</code>, <code>maintenance</code>, <code>impounded</code>), Current Odometer, Battery SoC.</li>
+<li><strong><code>batteries</code></strong>: Battery ID, Serial Number, Chemistry, Capacity kWh, Current Voltage, SOH %, Cycle Count, Assigned Vehicle ID, Hub Slot ID, Status (<code>in_vehicle</code>, <code>charging</code>, <code>ready</code>, <code>maintenance</code>).</li>
+<li><strong><code>rentals</code></strong>: Rental ID, Rider ID, Vehicle ID, Initial Battery ID, Start Time, Expected End Time, Actual Return Time, Rental Type (<code>hourly</code>, <code>daily</code>, <code>monthly</code>), Zone ID, Total Amount, Security Deposit, Status (<code>active</code>, <code>completed</code>, <code>overdue</code>, <code>cancelled</code>).</li>
+<li><strong><code>battery_swaps</code></strong>: Swap ID, Rental ID, Technician ID, Depleted Battery ID, Depleted SoC, Fresh Battery ID, Fresh SoC, Timestamp, Hub ID, Fee Charged.</li>
+<li><strong><code>vehicle_inspections</code></strong>: Inspection ID, Vehicle ID, Inspector ID, Type (<code>checkout</code>, <code>checkin</code>, <code>routine</code>), 12-Point Checklist JSON, Damage Photos Array, Penalty Calculated.</li>
+<li><strong><code>transactions</code></strong>: Transaction ID, Rental ID, User ID, Amount, Gateway (<code>icici</code>, <code>razorpay</code>, <code>phonepe</code>, <code>payu</code>, <code>cash</code>), Gateway Ref ID, Type (<code>rental_fee</code>, <code>deposit</code>, <code>swap_fee</code>, <code>refund</code>), Status (<code>success</code>, <code>failed</code>, <code>pending</code>).</li>
+<li><strong><code>app_sliders</code></strong>: Slide ID, Section (<code>home_screen</code>, <code>rent_screen</code>), Title, Subtitle, Tag Badge, Background Image URL, Cutout Image URL, CTA Deep Link, Display Order, Is Active.</li>
+</ol>
+<hr>
+<h2>8. API Architecture &amp; Service Contracts</h2>
+<p>The REST API operates on Node.js/Express with standardized JSON responses and Bearer JWT authentication headers.</p>
+<h3>8.1 API Grouping &amp; Endpoints</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Resource Group</th>
+<th align="left">Method</th>
+<th align="left">Endpoint</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Auth</strong></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/auth/send-otp</code></td>
+<td align="left">Request SMS OTP for login</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/auth/verify-otp</code></td>
+<td align="left">Verify OTP and return JWT access token</td>
+</tr>
+<tr>
+<td align="left"><strong>KYC</strong></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/kyc/upload</code></td>
+<td align="left">Upload KYC documents (Aadhaar, DL, Selfie)</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>PUT</code></td>
+<td align="left"><code>/api/kyc/review/:id</code></td>
+<td align="left">Admin approve or reject KYC submission</td>
+</tr>
+<tr>
+<td align="left"><strong>Renters</strong></td>
+<td align="left"><code>GET</code></td>
+<td align="left"><code>/api/renters</code></td>
+<td align="left">Master renter ledger with zone &amp; model filters</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/renters/new</code></td>
+<td align="left">Field agent new walk-in rider creation</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/renters/renew</code></td>
+<td align="left">Retain/Renew existing rider contract</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/renters/return</code></td>
+<td align="left">Check-in vehicle return, inspect &amp; settle</td>
+</tr>
+<tr>
+<td align="left"><strong>Vehicles</strong></td>
+<td align="left"><code>GET</code></td>
+<td align="left"><code>/api/vehicles</code></td>
+<td align="left">List vehicles filtered by status and zone</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/vehicles/:id/command</code></td>
+<td align="left">Dispatch remote command (lock, unlock, immobilize)</td>
+</tr>
+<tr>
+<td align="left"><strong>Zones</strong></td>
+<td align="left"><code>GET</code></td>
+<td align="left"><code>/api/zones</code></td>
+<td align="left">Retrieve all zones with geofences and pricing models</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/zones</code></td>
+<td align="left">Create or update zone boundary polygon and rates</td>
+</tr>
+<tr>
+<td align="left"><strong>BMS &amp; Swaps</strong></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/bms/telemetry</code></td>
+<td align="left">Ingest live cell-level battery telemetry packet</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/bms/swap</code></td>
+<td align="left">Execute atomic battery swap workflow</td>
+</tr>
+<tr>
+<td align="left"><strong>Payments</strong></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/payments/create-order</code></td>
+<td align="left">Initialize PG transaction (ICICI/Razorpay)</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/payments/webhook</code></td>
+<td align="left">Process payment status notifications</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/payments/refund</code></td>
+<td align="left">Trigger instant security deposit payout</td>
+</tr>
+<tr>
+<td align="left"><strong>Settings &amp; CMS</strong></td>
+<td align="left"><code>GET</code></td>
+<td align="left"><code>/api/settings/app-sliders</code></td>
+<td align="left">Fetch published mobile hero sliders</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/settings/app-sliders</code></td>
+<td align="left">Admin create, update, reorder slider banners</td>
+</tr>
+<tr>
+<td align="left"></td>
+<td align="left"><code>POST</code></td>
+<td align="left"><code>/api/settings/upload-asset</code></td>
+<td align="left">Upload and sanitize CMS assets</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>9. Payment Gateways &amp; Financial Settlement Engine</h2>
+<h3>9.1 Multi-Gateway Redundancy</h3>
+<p>The platform incorporates smart routing across multiple payment processors:</p>
+<ul>
+<li><strong>Primary UPI Provider</strong>: ICICI Bank Direct UPI Intent / Dynamic QR API for lowest transaction fees.</li>
+<li><strong>Secondary Card &amp; NetBanking</strong>: Razorpay and PayU for credit cards, debit cards, and net-banking.</li>
+<li><strong>Alternate UPI Fallback</strong>: PhonePe PG integration automatically engaged if primary gateway latency exceeds 2,500ms.</li>
+</ul>
+<h3>9.2 Security Deposit Holding &amp; Instant Refund Workflow</h3>
+<ol>
+<li>Rider deposits security amount (e.g., ₹2,500) during checkout.</li>
+<li>Funds are credited to Evegah Escrow Pool account; marked as <code>HELD</code> in the internal ledger.</li>
+<li>Upon return inspection, if zero damage and zero overdue fines exist, system invokes ICICI Payout API via IMPS/UPI for instant refund within 60 seconds.</li>
+</ol>
+<hr>
+<h2>10. Security, Geofencing &amp; Compliance</h2>
+<h3>10.1 Access Control Matrix (RBAC)</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Feature / Module</th>
+<th align="center">Super Admin</th>
+<th align="center">Zone Manager</th>
+<th align="center">Booking Agent</th>
+<th align="center">Technician</th>
+<th align="center">Rider</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Executive Dashboard &amp; P&amp;L</strong></td>
+<td align="center">Full Access</td>
+<td align="center">View Only</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>Approve / Reject KYC</strong></td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>Field Walk-in Onboarding</strong></td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>Vehicle Immobilization</strong></td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+<td align="center">Emergency Only</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>Return Inspection &amp; Settlement</strong></td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>BMS Bluetooth Diagnostics</strong></td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+<td align="center">Full Access</td>
+<td align="center">Read Only</td>
+</tr>
+<tr>
+<td align="left"><strong>Execute Battery Swap</strong></td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>White-Label CMS &amp; Sliders</strong></td>
+<td align="center">Full Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+<td align="center">No Access</td>
+</tr>
+<tr>
+<td align="left"><strong>Unlock Rented Scooter</strong></td>
+<td align="center">Remote Only</td>
+<td align="center">Remote Only</td>
+<td align="center">Station Only</td>
+<td align="center">Test Mode</td>
+<td align="center">Active Ride Only</td>
+</tr>
+</tbody></table>
+<h3>10.2 Geofence Enforcement &amp; Anti-Theft</h3>
+<ul>
+<li>Vehicles crossing zone boundaries trigger automated warning notifications to the rider.</li>
+<li>If vehicle moves more than 2 km beyond authorized boundary without authorization:<ol>
+<li>System sounds audible siren on vehicle.</li>
+<li>Motor speed is progressively capped to 15 km/h, then disabled once the vehicle comes to a complete halt.</li>
+<li>Geofence violation event logged on Admin radar screen with automated dispatch to field recovery team.</li>
+</ol>
+</li>
+</ul>
+<hr>
+<h2>11. Project Phases, Milestones &amp; Acceptance Criteria</h2>
+<h3>Milestone Roadmap</h3>
+<pre><code>+-------------------------------------------------------------------------------------------------------+
+| Phase 1: Core Foundation &amp; APIs                                                                       |
+| [Database Schema, Node.js REST Endpoints, Multi-Tenant Auth, Redis Cache]                             |
++---------------------------------------------------+---------------------------------------------------+
+                                                    |
++---------------------------------------------------v---------------------------------------------------+
+| Phase 2: Super Admin &amp; Operations Portal                                                              |
+| [Next.js Dashboard, Renters Ledger, Zone Geofences, Pricing Config, White-Label CMS]                   |
++---------------------------------------------------+---------------------------------------------------+
+                                                    |
++---------------------------------------------------v---------------------------------------------------+
+| Phase 3: Rider Mobile Application                                                                     |
+| [React Native / Expo App, OTP Auth, KYC, Dynamic Sliders, Map Discovery, QR/BLE Unlock, Checkout]      |
++---------------------------------------------------+---------------------------------------------------+
+                                                    |
++---------------------------------------------------v---------------------------------------------------+
+| Phase 4: Employee &amp; BMS Operations App                                                                |
+| [Flutter BMS App, Walk-in Onboarding, 12-Pt Return Inspection, BLE Battery Telemetry, Swap Flow]     |
++---------------------------------------------------+---------------------------------------------------+
+                                                    |
++---------------------------------------------------v---------------------------------------------------+
+| Phase 5: Hardware Integration, Field Testing &amp; Launch                                                 |
+| [IoT CAN-bus Calibration, ICICI Payout Testing, Pilot Run, Security Audit &amp; Production Deployment]    |
++-------------------------------------------------------------------------------------------------------+
+</code></pre>
+<h3>Team Deliverables &amp; Acceptance Criteria</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Workstream</th>
+<th align="left">Team Deliverables</th>
+<th align="left">Acceptance Criteria</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Backend &amp; Database</strong></td>
+<td align="left">Node.js REST API, PostgreSQL migrations, Redis session cache, IoT ingestion engine</td>
+<td align="left">&lt;100ms API response time, zero data loss under simulated 10,000 concurrent socket connections.</td>
+</tr>
+<tr>
+<td align="left"><strong>Admin Dashboard</strong></td>
+<td align="left">Next.js 14 Web Portal, KYC approval queue, live radar map, CMS slider editor</td>
+<td align="left">Zero console errors, responsive desktop/tablet UI, real-time sync with mobile app sliders.</td>
+</tr>
+<tr>
+<td align="left"><strong>Rider Mobile App</strong></td>
+<td align="left">React Native Expo application (Android APK &amp; iOS TestFlight build)</td>
+<td align="left">Instant OTP login, smooth 60fps parallax slider rendering, reliable QR and BLE vehicle unlock.</td>
+</tr>
+<tr>
+<td align="left"><strong>Employee App</strong></td>
+<td align="left">Flutter mobile application for technicians and booking agents</td>
+<td align="left">Real-time BLE cell voltage readouts, complete 4-step battery swap workflow in &lt;90 seconds.</td>
+</tr>
+<tr>
+<td align="left"><strong>Hardware &amp; IoT</strong></td>
+<td align="left">IoT CAN-bus firmware integration, BLE encryption protocol</td>
+<td align="left">Accurate GPS positioning, remote immobilize command executed within 3 seconds of admin click.</td>
+</tr>
+<tr>
+<td align="left"><strong>Fintech &amp; Billing</strong></td>
+<td align="left">ICICI Bank, Razorpay, PhonePe, PayU integrations, GST invoices</td>
+<td align="left">100% automated payment-to-ledger reconciliation, instant deposit refund processing within 60s.</td>
+</tr>
+</tbody></table>
+<hr>
+<p><em>End of Evegah EV Mobility Platform Scope of Work (SOW) Specification.</em></p>
+
+</div>
+
+<div class="footer-notice">
+  CONFIDENTIAL & PROPRIETARY &bull; &copy; 2026 Evegah Mobility Pvt. Ltd. All Rights Reserved.
+</div>
+
+</body>
+</html>
